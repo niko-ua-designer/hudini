@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css">
+<link rel="stylesheet" href="core.css?v=3">
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
-<script src="core.js"></script>
+<script src="core.js?v=3"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -131,6 +131,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <header>
   <h1>🎛 Пульт оверлея</h1>
   <span id="status" class="pill">подключение…</span>
+  <span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span>
   <span class="hint">Ссылка для OBS:</span>
   <input id="link" type="text" readonly>
   <button id="copyLink">📋 Копировать</button>
@@ -480,6 +481,23 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
+// Виджеты (OBS), которые сейчас подключены к комнате
+const WIDGET_VER=3, widgets=new Map();
+function renderObs(){
+  const now=Date.now(), pill=$('obsStatus');
+  for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
+  const list=[...widgets.values()];
+  if(!list.length){
+    setPill(pill, 'bad', 'OBS: не видно');
+    pill.title='Виджет стримера не подключён к этой комнате.\n• Проверь, что у стримера ссылка именно этой комнаты (кнопка «Копировать»).\n• Источник «Браузер» должен быть включён (глазик) и в текущей сцене.\n• Если ссылка верная: в свойствах источника «Обновить кэш текущей страницы».';
+    return;
+  }
+  const h=list[0], old=list.some(x=>(x.ver||0)<WIDGET_VER), err=list.find(x=>x.err)?.err;
+  setPill(pill, err||old ? 'warn' : 'ok', `OBS: ${list.length>1?list.length+' шт, ':''}${h.w}×${h.h}${err?' ⚠ ошибка':''}${old?' ⚠ старая версия':''}`);
+  pill.title = (err ? 'Ошибка в виджете: '+err+'\n' : '') + (old ? 'У стримера старая версия виджета: свойства источника → «Обновить кэш текущей страницы».\n' : '') +
+    `Окно источника ${h.w}×${h.h}, элементов на экране: ${h.n}.` + (h.w/h.h<1.7||h.w/h.h>1.8 ? '\n⚠ Окно не 16:9: поставь в источнике 1920×1080.' : '');
+}
+setInterval(renderObs, 3000);
 const oneOff=new Set();   // разовые загрузки файлов из других комнат (для библиотеки)
 function connect(){
   if(typeof mqtt==='undefined'){
@@ -493,7 +511,7 @@ function connect(){
   client.on('connect', ()=>{
     setPill($('status'), 'ok', 'онлайн');
     if(pendingOffline){ pendingOffline=false; publishNow(1); }   // сначала свои изменения, сделанные без сети
-    client.subscribe(topics(room).state, { qos:1 });
+    client.subscribe([topics(room).state, topics(room).base+'/hb'], { qos:1 });
     Assets.resubscribe();
     renderAll();
   });
@@ -503,6 +521,7 @@ function connect(){
   client.on('message', (topic, payload, packet)=>{
     for(const h of oneOff) if(h(topic, payload)) return;
     if(Assets.handle(topic, payload)) return;
+    if(topic===topics(room).base+'/hb'){ try{ const h=JSON.parse(payload.toString()); h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); }catch{} return; }
     if(topic!==topics(room).state) return;
     let msg=null; const txt=payload.toString();
     if(txt){ try{ msg=JSON.parse(txt); }catch{ return; } }
@@ -519,7 +538,7 @@ let sendTimer=null, lastSend=0;
 function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
-  const msg={ v:2, from:clientId, t:Date.now(), visible:state.visible, els:state.els };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:state.visible, els:state.els };
   client.publish(topics(room).state, JSON.stringify(msg), { qos, retain:true });
 }
 function scheduleSend(){
@@ -533,10 +552,11 @@ function sendFx(fx, quiet){
 }
 function switchRoom(code){
   if(code===room) return;
-  if(client?.connected) client.unsubscribe(topics(room).state);
+  if(client?.connected) client.unsubscribe([topics(room).state, topics(room).base+'/hb']);
+  widgets.clear(); renderObs();
   room=code; saveRooms();
   state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear();
-  if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe(topics(room).state, { qos:1 }); }
+  if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe([topics(room).state, topics(room).base+'/hb'], { qos:1 }); }
   history.replaceState(null, '', '?room='+room+(brokerUrl!==BROKER_URL?'&broker='+encodeURIComponent(brokerUrl):''));
   renderRooms(); updateLink(); renderAll();
 }
@@ -953,7 +973,7 @@ $('undoBtn').onclick=undo;
 
 function widgetLink(){
   const base=WIDGET_BASE_URL || new URL('widget.html', location.href).href;
-  const u=new URL(base); u.searchParams.set('room', room);
+  const u=new URL(base); u.searchParams.set('room', room); u.searchParams.set('v', String(WIDGET_VER));
   if(brokerUrl!==BROKER_URL) u.searchParams.set('broker', brokerUrl);
   return u.href;
 }
