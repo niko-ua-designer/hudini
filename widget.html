@@ -88,6 +88,7 @@ function applyState(s){
     paintNode(node, el, i+1);
     tickNode(node, el, now);
     const show=!el.hidden;
+    node._vis = show ? 1 : 0; node._z=i+1;
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
       const v=node.querySelector('video');
@@ -114,6 +115,16 @@ function applyState(s){
     setTimeout(()=>node.remove(), 400);
   }
 }
+// Анимации движения: 60 кадров в секунду, считаются по общему времени с пультом
+function animLoop(){
+  const now=nowMs();
+  for(const node of nodes.values()){
+    const el=node._el; if(!el) continue;
+    if(animApply(node, el, now)==='reset'){ paintNode(node, el, node._z); node.style.opacity = node._vis ? el.op : 0; }
+  }
+  requestAnimationFrame(animLoop);
+}
+requestAnimationFrame(animLoop);
 // Таймеры и счётчики тикают сами, без сети
 setInterval(()=>{
   const now=nowMs();

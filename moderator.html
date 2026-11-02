@@ -111,6 +111,14 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .cnt{display:flex;gap:6px;align-items:center}
 .cnt button{font-size:20px;font-weight:700;width:52px;padding:4px}
 .cnt input{text-align:center;font-size:18px;font-weight:700}
+.kf{display:flex;gap:4px;align-items:center;margin:4px 0;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);font-size:12px}
+.kf .n{width:18px;text-align:center;color:var(--muted);cursor:pointer}
+.kf input{width:54px!important;padding:2px 4px!important}
+.kf select{width:auto!important;padding:2px!important;font-size:12px}
+.kf button{padding:2px 5px;font-size:12px}
+.lib{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0;cursor:pointer}
+.lib .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.lib button{padding:2px 6px;font-size:12px}
 kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px}
 .keys{font-size:12px;color:var(--muted);line-height:1.9}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;transition:transform .25s;z-index:100000;pointer-events:none;max-width:80vw}
@@ -145,7 +153,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <button id="roomImport">⬆ Загрузить</button>
   </div>
   <input type="file" id="roomFile" accept=".json,application/json" hidden>
-  <div class="hint" style="margin-top:4px">У каждого стримера своя комната и своя ссылка. Список хранится в браузере. «Сохранить» скачивает его файлом, чтобы не потерять.</div>
+  <div class="hint" style="margin-top:4px">У каждого стримера своя комната и своя ссылка. «Сохранить» скачивает файл с комнатами, библиотекой и анимациями, чтобы ничего не потерять.</div>
 
   <h2>Текст</h2>
   <textarea id="newText" placeholder="Текст на экран… (Ctrl+Enter — добавить)"></textarea>
@@ -158,6 +166,10 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
   <div class="hint">Файлы можно перетащить на холст или вставить картинку из буфера (Ctrl+V).</div>
   <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
+
+  <h2>📚 Библиотека</h2>
+  <div id="libList"></div>
+  <div class="hint">Сохраняй готовые элементы (с анимацией) кнопкой «📚» в инспекторе, а потом добавляй в один клик в любую комнату.</div>
 
   <h2>Вебка</h2>
   <div class="row"><button id="addCam" class="grow">📷 Вывести мою вебку</button></div>
@@ -199,6 +211,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <kbd>Стрелки</kbd> сдвиг (<kbd>Shift</kbd> сильнее) · <kbd>H</kbd> скрыть/показать<br>
     <kbd>F</kbd> показать на N сек · <kbd>Ctrl+D</kbd> копия · <kbd>Del</kbd> удалить<br>
     <kbd>Пробел</kbd> старт/пауза таймера · <kbd>+</kbd>/<kbd>−</kbd> счётчик<br>
+    <kbd>P</kbd> проиграть / остановить анимацию<br>
     <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение
   </div>
 </aside>
@@ -365,6 +378,21 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       </div>
     </div>
 
+
+    <!-- анимация движения -->
+    <div class="box" id="kfBox">
+      <div class="t">🎬 Движение (ключевые кадры)</div>
+      <div class="row"><select id="kfPreset" class="grow"></select><button id="kfApply">Применить</button><button id="kfDelSaved" title="Удалить сохранённую анимацию" hidden>🗑</button></div>
+      <div id="kfList"></div>
+      <div class="row"><button id="kfAdd" class="grow" title="Запомнить текущее положение, поворот, прозрачность элемента">＋ Кадр отсюда</button><button id="kfClear" title="Удалить все кадры">🗑</button></div>
+      <div id="kfOpts">
+        <div class="row"><select id="kfMode" class="grow"><option value="loop">🔁 По кругу</option><option value="once">1️⃣ Один раз</option><option value="pingpong">↔ Туда-обратно</option></select>
+          <select id="kfEnd" class="grow"><option value="stay">в конце остаться</option><option value="hide">в конце исчезнуть</option><option value="back">в конце вернуться</option></select></div>
+        <div class="row"><button id="kfPlay" class="go grow">▶ Проиграть (P)</button><button id="kfStop">⏹ Стоп</button></div>
+        <div class="row"><button id="kfSave" class="grow">💾 Сохранить анимацию</button></div>
+      </div>
+      <div class="hint">Свои кадры: поставь элемент → «＋ Кадр отсюда», передвинь/поверни → ещё кадр… Клик по кадру ставит элемент в его положение.</div>
+    </div>
     <div class="lbl"><span>Размер</span><span id="vSize"></span></div>
     <input type="range" id="iSize">
     <div class="lbl"><span>Поворот</span><span id="vRot"></span></div>
@@ -390,6 +418,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <button id="bDup">⧉ Копия</button>
       <button id="bDel" class="danger">✕ Удалить</button>
     </div>
+    <div class="row"><button id="bLib" class="grow">📚 Сохранить в библиотеку</button></div>
   </div>
 </aside>
 
@@ -451,6 +480,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
+const oneOff=new Set();   // разовые загрузки файлов из других комнат (для библиотеки)
 function connect(){
   if(typeof mqtt==='undefined'){
     $('fatal').style.display='flex';
@@ -471,6 +501,7 @@ function connect(){
   client.on('offline',   ()=>setPill($('status'), 'bad', 'нет связи'));
   client.on('error', e=>{ console.warn(e); setPill($('status'), 'bad', 'ошибка связи'); });
   client.on('message', (topic, payload, packet)=>{
+    for(const h of oneOff) if(h(topic, payload)) return;
     if(Assets.handle(topic, payload)) return;
     if(topic!==topics(room).state) return;
     let msg=null; const txt=payload.toString();
@@ -640,6 +671,7 @@ setInterval(()=>{
   if(!client?.connected) return;
   const used=new Set(state.els.map(e=>assetId(e.src)).filter(Boolean));
   const s=assetId($('soundUrl').value); if(s) used.add(s);
+  for(const it of library) if(it.room===room){ const a=assetId(it.el.src); if(a) used.add(a); }
   for(const [id, m] of Assets.meta){
     if(used.has(id)){ unrefSince.delete(id); continue; }
     if(!unrefSince.has(id)){ unrefSince.set(id, Date.now()); continue; }
@@ -719,6 +751,7 @@ function renderLayers(){
     const btn=(act, txt, title)=>{ const b=document.createElement('button'); b.dataset.act=act; b.textContent=txt; b.title=title; row.appendChild(b); };
     if(el.type==='timer' && (el.mode==='countdown'||el.mode==='stopwatch')) btn('ttoggle', el.running?'⏸':'▶', 'Старт / пауза (Пробел)');
     if(el.type==='counter'){ btn('cminus','−','−шаг'); btn('cplus','+','+шаг'); }
+    if(el.kf) btn('kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
     btn('eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H)');
     btn('flash', '⚡', 'Показать на N секунд (F)');
     box.appendChild(row);
@@ -780,6 +813,7 @@ function renderInspector(){
     setField(I('iAr'), el.ar); setField(I('iShape'), el.shape); setField(I('iBc'), el.bc); setField(I('iBw'), String(el.bw));
     setField(I('iZoom'), String(el.zoom)); $('vZoom').textContent=Math.round(el.zoom*100)+'%';
   }
+  renderKf(el);
   setField(I('iRot'), String(Math.round(normRot(el.rot)))); $('vRot').textContent=Math.round(normRot(el.rot))+'°';
   setField(I('iOp'), String(el.op)); $('vOp').textContent=Math.round(el.op*100)+'%';
   setField(I('iAnim'), el.anim);
@@ -965,8 +999,8 @@ $('roomDel').onclick=()=>{
   rooms=rooms.filter(x=>x.code!==room); saveRooms(); switchRoom(rooms[0].code); renderRooms();
 };
 $('roomExport').onclick=()=>{
-  const blob=new Blob([JSON.stringify({ overlayRooms:rooms }, null, 2)], { type:'application/json' });
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-rooms.json'; a.click();
+  const blob=new Blob([JSON.stringify({ overlayRooms:rooms, library, anims:myAnims }, null, 2)], { type:'application/json' });
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-backup.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
 };
 $('roomImport').onclick=()=>$('roomFile').click();
@@ -975,8 +1009,12 @@ $('roomFile').onchange=async e=>{
   try{
     const data=JSON.parse(await f.text()); let added=0;
     for(const r of (data.overlayRooms||[])) if(validCode(r?.code) && !rooms.some(x=>x.code===r.code)){ rooms.push({ code:r.code, name:String(r.name||'Комната').slice(0,40) }); added++; }
-    saveRooms(); renderRooms(); toast(`Добавлено комнат: ${added}`);
-  }catch{ toast('Это не файл со списком комнат'); }
+    let libAdded=0, animAdded=0;
+    for(const it of (data.library||[])){ const el=sanitizeEl({ ...it?.el, id:'x' }); if(el && validCode(it.room) && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push({ name:String(it.name||'Элемент').slice(0,60), room:it.room, el:it.el }); libAdded++; } }
+    for(const a of (data.anims||[])){ const f=sanitizeFrames(a?.f); if(f.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f }); animAdded++; } }
+    saveRooms(); saveLib(); saveAnims(); renderRooms(); renderLib(); renderKfPresets();
+    toast(`Добавлено: комнат ${added}, элементов ${libAdded}, анимаций ${animAdded}`);
+  }catch{ toast('Это не файл бэкапа оверлея'); }
 };
 
 // --- фон превью ---
@@ -1044,7 +1082,7 @@ function onChat(user, text){
 // ================== СЛОИ ==================
 function flashSecs(){ return num($('flashSecs').value, 5, 1, 600); }
 function toggleHidden(el){ beginChange(); el.hidden=!el.hidden; delete el.ttl; commit(); }
-function flash(el){ beginChange(); el.hidden=false; el.ttl=Date.now()+flashSecs()*1000; if(el.type==='video'||el.type==='web') el.restart=Date.now(); commit(); }
+function flash(el){ beginChange(); el.hidden=false; el.ttl=Date.now()+flashSecs()*1000; if(el.type==='video'||el.type==='web') el.restart=Date.now(); if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); } commit(); }
 $('flashSecs').addEventListener('input', renderInspector);
 $('layers').addEventListener('click', e=>{
   const row=e.target.closest('.layer'); if(!row) return;
@@ -1053,6 +1091,7 @@ $('layers').addEventListener('click', e=>{
   if(act==='eye') toggleHidden(el);
   else if(act==='flash') flash(el);
   else if(act==='ttoggle') act1(el, timerToggle);
+  else if(act==='kfplay') act1(el, kfToggle);
   else if(act==='cplus') act1(el, e=>e.value+=e.step);
   else if(act==='cminus') act1(el, e=>e.value-=e.step);
   else select(el.id);
@@ -1175,6 +1214,7 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); remove(); return; }
   if(e.code==='KeyH' && !ctrl){ toggleHidden(el); return; }
   if(e.code==='KeyF' && !ctrl){ flash(el); return; }
+  if(e.code==='KeyP' && !ctrl){ if(el.kf) act1(el, kfToggle); else toast('У элемента нет анимации движения'); return; }
   if(e.code==='Space' && el.type==='timer'){ e.preventDefault(); act1(el, timerToggle); return; }
   if(el.type==='counter' && (e.code==='Equal'||e.code==='NumpadAdd')){ e.preventDefault(); act1(el, x=>x.value+=x.step); return; }
   if(el.type==='counter' && (e.code==='Minus'||e.code==='NumpadSubtract')){ e.preventDefault(); act1(el, x=>x.value-=x.step); return; }
@@ -1210,9 +1250,186 @@ setInterval(()=>{
 // сверка часов с виджетом
 setInterval(()=>sendFx({ type:'sync' }, true), 5000);
 
+
+// ================== АНИМАЦИИ ДВИЖЕНИЯ ==================
+let myAnims=lsGet('overlay.anims', []); if(!Array.isArray(myAnims)) myAnims=[];
+function saveAnims(){ lsSet('overlay.anims', myAnims); }
+const EASE_NAME={ linear:'ровно', inout:'плавно', in:'разгон', out:'торможение', back:'пружина', bounce:'отскок' };
+function renderKfPresets(){
+  const sel=$('kfPreset'), v=sel.value; sel.replaceChildren();
+  const add=(val, txt)=>{ const o=document.createElement('option'); o.value=val; o.textContent=txt; sel.appendChild(o); };
+  add('', '— готовые анимации —');
+  for(const [k,name] of Object.entries(KF_PRESETS)) add('p:'+k, name);
+  myAnims.forEach((a,i)=>add('u:'+i, '★ '+a.name));
+  sel.value=[...sel.options].some(o=>o.value===v) ? v : '';
+  $('kfDelSaved').hidden=!sel.value.startsWith('u:');
+}
+$('kfPreset').onchange=()=>{ $('kfDelSaved').hidden=!$('kfPreset').value.startsWith('u:'); };
+function frameFrom(el){ return { x:el.x, y:el.y, r:el.rot, s:1, o:1, d:1000, e:'inout' }; }
+function kfToggle(el){
+  if(!el.kf) return;
+  if(el.kf.playing){ el.kf.playing=false; }
+  else { el.kf.playing=true; el.kf.start=Date.now(); el.hidden=false; delete el.ttl; }
+}
+function renderKf(el){
+  const has=!!el.kf, list=$('kfList');
+  $('kfOpts').hidden=!has;
+  if(document.activeElement && list.contains(document.activeElement)) return;  // не мешаем вводу
+  list.replaceChildren();
+  if(!has) return;
+  setField(I('kfMode'), el.kf.mode); setField(I('kfEnd'), el.kf.end);
+  $('kfEnd').hidden = el.kf.mode!=='once';
+  $('kfPlay').textContent = el.kf.playing ? '↻ Сначала (P)' : '▶ Проиграть (P)';
+  const last = el.kf.mode==='loop' ? -1 : el.kf.f.length-1;
+  el.kf.f.forEach((f,i)=>{
+    const row=document.createElement('div'); row.className='kf'; row.dataset.i=i;
+    const n=document.createElement('span'); n.className='n'; n.textContent=i+1; n.title='Поставить элемент в положение этого кадра';
+    row.appendChild(n);
+    if(i!==last){
+      const d=document.createElement('input'); d.type='number'; d.min='0'; d.step='0.1'; d.value=+(f.d/1000).toFixed(2); d.dataset.k='d'; d.title='Секунд до следующего кадра';
+      const e=document.createElement('select'); e.dataset.k='e';
+      for(const [k,t] of Object.entries(EASE_NAME)){ const o=document.createElement('option'); o.value=k; o.textContent=t; e.appendChild(o); }
+      e.value=f.e;
+      row.append(d, document.createTextNode('с'), e);
+    } else { const t=document.createElement('span'); t.className='hint'; t.textContent='последний'; t.style.flex='1'; row.appendChild(t); }
+    const sc=document.createElement('input'); sc.type='number'; sc.min='0'; sc.step='10'; sc.value=Math.round(f.s*100); sc.dataset.k='s'; sc.title='Масштаб, %';
+    const up=document.createElement('button'); up.textContent='📍'; up.dataset.a='set'; up.title='Записать сюда текущее положение элемента';
+    const del=document.createElement('button'); del.textContent='✕'; del.dataset.a='del'; del.title='Удалить кадр';
+    row.append(sc, document.createTextNode('%'), up, del);
+    list.appendChild(row);
+  });
+}
+$('kfList').addEventListener('change', e=>{
+  const el=byId(selectedId), row=e.target.closest('.kf'); if(!el?.kf || !row) return;
+  const f=el.kf.f[+row.dataset.i], k=e.target.dataset.k;
+  beginChange();
+  if(k==='d') f.d=num(e.target.value,1,0,600)*1000;
+  if(k==='e') f.e=e.target.value;
+  if(k==='s') f.s=num(e.target.value,100,0,2000)/100;
+  e.target.blur(); commit();
+});
+$('kfList').addEventListener('click', e=>{
+  const el=byId(selectedId), row=e.target.closest('.kf'); if(!el?.kf || !row) return;
+  const i=+row.dataset.i, f=el.kf.f[i];
+  if(e.target.classList.contains('n')){ act1(el, x=>{ x.kf.playing=false; x.x=num(f.x,50,0,100); x.y=num(f.y,50,0,100); x.rot=f.r; }); return; }
+  const a=e.target.dataset.a;
+  if(a==='set') act1(el, x=>Object.assign(x.kf.f[i], { x:x.x, y:x.y, r:x.rot }));
+  if(a==='del') act1(el, x=>{ x.kf.f.splice(i,1); if(!x.kf.f.length) delete x.kf; });
+});
+$('kfAdd').onclick=()=>act(el=>{
+  if(!el.kf) el.kf={ f:[], mode:'once', end:'stay', start:0, playing:false };
+  el.kf.playing=false;
+  if(el.kf.f.length>=40) return toast('Максимум 40 кадров');
+  el.kf.f.push(frameFrom(el));
+  toast(el.kf.f.length===1 ? 'Кадр 1 есть. Передвинь элемент и добавь следующий' : `Кадр ${el.kf.f.length} добавлен`);
+});
+$('kfClear').onclick=()=>act(el=>{ delete el.kf; });
+$('kfApply').onclick=()=>{
+  const v=$('kfPreset').value, el=byId(selectedId); if(!v || !el) return toast('Выбери анимацию в списке');
+  let kf;
+  if(v.startsWith('p:')) kf=kfPreset(v.slice(2), el);
+  else { const a=myAnims[+v.slice(2)]; if(!a) return;
+    kf={ mode:a.mode, end:a.end, f:a.f.map(f=>({ ...f, x:el.x+f.x, y:el.y+f.y, r:el.rot+f.r })) }; }
+  act1(el, x=>{ x.kf=sanitizeKf({ ...kf, playing:true, start:Date.now() }); x.hidden=false; delete x.ttl; });
+};
+$('kfDelSaved').onclick=()=>{
+  const v=$('kfPreset').value; if(!v.startsWith('u:')) return;
+  const a=myAnims[+v.slice(2)]; if(!a || !confirm(`Удалить анимацию «${a.name}»?`)) return;
+  myAnims.splice(+v.slice(2),1); saveAnims(); $('kfPreset').value=''; renderKfPresets();
+};
+$('kfMode').onchange=e=>act(el=>{ if(el.kf){ el.kf.mode=e.target.value; el.kf.start=Date.now(); } });
+$('kfEnd').onchange=e=>act(el=>{ if(el.kf) el.kf.end=e.target.value; });
+$('kfPlay').onclick=()=>act(el=>{ if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); el.hidden=false; delete el.ttl; } });
+$('kfStop').onclick=()=>act(el=>{ if(el.kf) el.kf.playing=false; });
+$('kfSave').onclick=()=>{
+  const el=byId(selectedId); if(!el?.kf) return;
+  const name=prompt('Название анимации:', 'Моя анимация '+(myAnims.length+1)); if(!name) return;
+  myAnims.push({ name:name.trim().slice(0,40), mode:el.kf.mode, end:el.kf.end,
+    f:el.kf.f.map(f=>({ ...f, x:f.x-el.x, y:f.y-el.y, r:f.r-el.rot })) });   // относительно элемента: подойдёт любому
+  saveAnims(); renderKfPresets(); toast('Сохранено в «★ '+name+'»');
+};
+// Отрисовка анимаций 60 раз в секунду
+function animLoop(){
+  const now=Date.now();
+  state.els.forEach((el,i)=>{
+    const n=nodes.get(el.id); if(!n) return;
+    if(drag && drag.id===el.id){ if(n._animOn){ n._animOn=false; n.classList.remove('animating'); paintNode(n, el, i+1); n.style.opacity=el.op; } return; }
+    if(animApply(n, el, now)==='reset'){ paintNode(n, el, i+1); n.style.opacity=el.op; }
+  });
+  requestAnimationFrame(animLoop);
+}
+requestAnimationFrame(animLoop);
+// Конец анимации «один раз»: исчезнуть / вернуться
+setInterval(()=>{
+  const now=Date.now(); let any=false;
+  for(const el of state.els){
+    const k=el.kf; if(!k?.playing || k.mode!=='once' || now-k.start < kfDuration(k)) continue;
+    if(k.end==='hide'){ el.hidden=true; k.playing=false; any=true; }
+    else if(k.end==='back'){ k.playing=false; any=true; }
+  }
+  if(any){ renderAll(); publishNow(1); }
+}, 150);
+
+// ================== БИБЛИОТЕКА ЭЛЕМЕНТОВ ==================
+let library=lsGet('overlay.lib', []); if(!Array.isArray(library)) library=[];
+function saveLib(){ lsSet('overlay.lib', library); }
+function renderLib(){
+  const box=$('libList'); box.replaceChildren();
+  if(!library.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пусто'; box.appendChild(d); return; }
+  library.forEach((it,i)=>{
+    const row=document.createElement('div'); row.className='lib'; row.dataset.i=i; row.title='Добавить на экран';
+    const ico=document.createElement('span'); ico.textContent=elIcon(it.el)+(it.el.kf?'🎬':'');
+    const name=document.createElement('span'); name.className='name'; name.textContent=it.name;
+    const del=document.createElement('button'); del.textContent='✕'; del.dataset.a='del'; del.title='Удалить из библиотеки';
+    row.append(ico, name, del); box.appendChild(row);
+  });
+}
+$('bLib').onclick=()=>{
+  const el=byId(selectedId); if(!el) return;
+  const name=prompt('Название в библиотеке:', elName(el).slice(0,40)); if(!name) return;
+  const copy=JSON.parse(JSON.stringify(el)); delete copy.ttl; delete copy.id;
+  if(copy.kf && copy.kf.mode==='once') copy.kf.playing=false;
+  library.push({ name:name.trim().slice(0,60), room, el:copy }); saveLib(); renderLib();
+  toast('Сохранено в библиотеку 📚');
+};
+$('libList').addEventListener('click', async e=>{
+  const row=e.target.closest('.lib'); if(!row) return;
+  const it=library[+row.dataset.i]; if(!it) return;
+  if(e.target.dataset.a==='del'){ if(confirm(`Удалить «${it.name}» из библиотеки?`)){ library.splice(+row.dataset.i,1); saveLib(); renderLib(); } return; }
+  const el=JSON.parse(JSON.stringify(it.el)); delete el.hidden;
+  const aid=assetId(el.src);
+  if(aid && it.room!==room){
+    try{ showUpload('Копирую файл в эту комнату…', 0.3); el.src=await uploadBlob(await getAssetBlob(it.room, aid), it.name); }
+    catch(err){ hideUpload(); return toast('Файл не нашёлся: '+(err.message||err)); }
+    hideUpload();
+  }
+  if(el.kf){ el.kf.start=Date.now(); if(el.kf.mode==='once') el.kf.playing=true; }
+  addEl(el);
+});
+// Достать файл из другой комнаты (для библиотеки)
+async function getAssetBlob(fromRoom, id){
+  const u=Assets.urls.get(id); if(u) return await (await fetch(u)).blob();
+  if(!client?.connected) throw new Error('нет связи');
+  return new Promise((res, rej)=>{
+    const base=`${topics(fromRoom).base}/asset/${id}`, parts=[]; let meta=null;
+    const t=setTimeout(()=>{ done(); rej(new Error('нет ответа от сервера')); }, 15000);
+    const h=(topic, payload)=>{
+      if(!topic.startsWith(base+'/')) return false;
+      const [kind, idx]=topic.slice(base.length+1).split('/');
+      if(payload.length){ if(kind==='m'){ try{ meta=JSON.parse(payload.toString()); }catch{} } else parts[+idx]=new Uint8Array(payload); }
+      if(meta && Array.from({ length:meta.n }, (_,i)=>parts[i]).every(Boolean)){ done(); res(new Blob(parts.slice(0,meta.n), { type:meta.mime })); }
+      return true;
+    };
+    function done(){ clearTimeout(t); oneOff.delete(h); client.unsubscribe(base+'/#'); }
+    oneOff.add(h); client.subscribe(base+'/#', { qos:1 });
+  });
+}
+
 // ================== СТАРТ ==================
 history.replaceState(null, '', '?room='+room+(brokerUrl!==BROKER_URL?'&broker='+encodeURIComponent(brokerUrl):''));
 renderRooms();
+renderKfPresets();
+renderLib();
 updateLink();
 applyBg($('bgInput').value);
 renderAll();
