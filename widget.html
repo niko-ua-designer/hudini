@@ -6,9 +6,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=3">
-<script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
-<script src="core.js?v=3"></script>
+<link rel="stylesheet" href="core.css?v=4">
+<script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
+<script src="core.js?v=4"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -48,17 +48,20 @@ body{display:flex;align-items:center;justify-content:center}
 // Должны совпадать с moderator.html
 const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt';
 const TOPIC_PREFIX = 'stream-overlay/v1';
-// Если OBS не передаёт ?room=… (режим «Локальный файл»), впиши код комнаты сюда:
-const ROOM = '';
+// Режим «Локальный файл» в OBS: вставь сюда ЦЕЛИКОМ ссылку для OBS из пульта
+const LINK = '';
 // ===============================================
 
-const WIDGET_VER=3;
+const WIDGET_VER=4;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
 const stage=document.getElementById('stage');
 const qs=new URLSearchParams(location.search);
-const room=qs.get('room') || location.hash.slice(1) || ROOM;
+// Ключи стоят после # : эта часть ссылки не уходит ни на сайт, ни на сервер
+let linkHash=location.hash.slice(1), room=qs.get('room');
+if(LINK){ try{ const u=new URL(LINK); room=room||u.searchParams.get('room'); linkHash=linkHash||u.hash.slice(1); }catch{} }
+const hp=new URLSearchParams(linkHash);
 const brokerUrl=qs.get('broker') || BROKER_URL;
 const DEBUG=qs.has('debug');
 const dbg=document.getElementById('debug');
@@ -211,41 +214,62 @@ function clockSample(t){
 }
 
 // ================== СВЯЗЬ ==================
-if(!room){
-  status('Нет кода комнаты: добавь ?room=… к ссылке (скопируй её в пульте модератора)', true);
-} else if(typeof mqtt==='undefined'){
-  status('Не загрузилась библиотека mqtt.js: проверь интернет', true);
-} else {
-  const T={ state:`${TOPIC_PREFIX}/${room}/state`, fx:`${TOPIC_PREFIX}/${room}/fx` };
+// Принимаем только сообщения, подписанные ключом модератора. Остальное (подделки, мусор) молча выкидываем.
+let KEYS=null, lastStateT=0;
+const seenFx=new Map();
+async function start(){
+  if(!room){ status('Нет кода комнаты: скопируй ссылку для OBS в пульте модератора', true); return; }
+  if(!hp.get('k') || !hp.get('p')){ status('Старая или обрезанная ссылка: попроси у модератора новую ссылку для OBS', true); return; }
+  if(typeof mqtt==='undefined'){ status('Не загрузилась библиотека mqtt.js: проверь интернет', true); return; }
+  try{ KEYS=await importRoomKeys({ k:hp.get('k'), p:hp.get('p') }); }
+  catch{ status('Ключ в ссылке повреждён: попроси у модератора новую ссылку', true); return; }
+  const base=`${TOPIC_PREFIX}/${room}`;
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
-  Assets.setRoom(client, `${TOPIC_PREFIX}/${room}`);
+  Assets.setRoom(client, base);
   Assets.onReady=id=>{
     applyState(lastState);   // файл догрузился: дорисовать картинку/видео
     if(pendingSounds.has(id)){ const v=pendingSounds.get(id); pendingSounds.delete(id); playSound('asset:'+id, v); }
   };
-  // Сообщаем пульту, что виджет жив: размер окна, сколько элементов, ошибки
+  // Сообщаем пульту, что виджет жив (зашифровано ключом комнаты)
   const wid=Math.random().toString(36).slice(2,8);
-  setInterval(()=>{ if(client.connected) client.publish(`${TOPIC_PREFIX}/${room}/hb`, JSON.stringify({ id:wid, ver:WIDGET_VER,
-    w:innerWidth, h:innerHeight, n:nodes.size, vis:visible, err:lastError, t:Date.now() }), { qos:0 }); }, 3000);
+  setInterval(async()=>{ if(!client.connected) return;
+    client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
+  }, 3000);
   client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx], { qos:1 }); Assets.resubscribe(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
-  client.on('message', (topic, payload, packet)=>{
-    if(Assets.handle(topic, payload)) return;
-    const txt=payload.toString();
-    let msg=null; if(txt){ try{ msg=JSON.parse(txt); }catch{ return; } }
-    if(msg && !packet.retain) clockSample(Number(msg.t));
+  let queue=Promise.resolve();   // по очереди, чтобы порядок сообщений не перепутался
+  client.on('message', (topic, payload, packet)=>{ queue=queue.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e)); });
+  async function onMessage(topic, payload, packet){
+    if(!payload.length) return;                      // пустые «удаления» не принимаем: так нельзя стереть экран
+    const plain=await unseal(KEYS, payload, true);
+    if(!plain){ console.warn('[overlay] отброшено неподписанное сообщение', topic); return; }
+    if(Assets.handle(topic, plain)) return;
+    let msg; try{ msg=JSON.parse(TD.decode(plain)); }catch{ return; }
+    if(!msg || typeof msg!=='object') return;
+    if(!packet.retain) clockSample(Number(msg.t));
     // Пульт новее виджета: перезагрузиться в обход кэша OBS (один раз на версию)
-    if(msg && Number(msg.wv)>WIDGET_VER && Number(qs.get('upd')||0)<Number(msg.wv)){
+    if(Number(msg.wv)>WIDGET_VER && Number(qs.get('upd')||0)<Number(msg.wv)){
       const u=new URL(location.href); u.searchParams.set('upd', String(Number(msg.wv))); u.searchParams.set('v', String(Date.now()));
       location.replace(u.href); return;
     }
-    if(topic===T.state) applyState(sanitizeState(msg || { els:[] }));
-    else if(topic===T.fx) onFx(msg);
-  });
+    if(topic===T.state){
+      const t=Number(msg.t)||0;
+      if(t<lastStateT) return;                       // повтор старого сообщения
+      lastStateT=t; applyState(sanitizeState(msg));
+    } else if(topic===T.fx){
+      // эффекты: только свежие и каждый один раз (против повторной отправки перехваченных)
+      const t=Number(msg.t)||0, key=t+':'+msg.n;
+      if(Math.abs(nowMs()-t)>20000 || seenFx.has(key)) return;
+      seenFx.set(key, Date.now()); for(const [k,v] of seenFx) if(Date.now()-v>60000) seenFx.delete(k);
+      onFx(msg);
+    }
+  }
 }
+start();
 </script>
 </body>
 </html>

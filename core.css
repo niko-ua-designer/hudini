@@ -27,7 +27,7 @@
 @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
 
 /* ---------- таймеры и счётчики ---------- */
-.tw{display:flex;flex-direction:column;align-items:center;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tw{width:max-content;display:flex;flex-direction:column;align-items:center;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
 .tw .cap{font-size:.32em;margin-bottom:.3em;letter-spacing:.03em;text-align:center}
 .tw .disp{display:flex;align-items:center;gap:.06em}
 .tw .bar{width:100%;min-width:3em;height:.16em;margin-top:.25em;border-radius:.08em;background:#0008;overflow:hidden;box-shadow:0 0 0 .025em #fff3 inset}
@@ -68,3 +68,16 @@
 .web .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:1em;color:#ccc;font:600 calc(var(--u) * 2) system-ui,sans-serif;background:#111}
 .web .ph[hidden],.tw [hidden]{display:none}
 .el.animating,.el.animating .txt,.el.animating .tw{transition:none!important}
+
+/* ---------- голосование ---------- */
+.poll{width:max-content;background:var(--card);border-radius:.6em;padding:.8em 1em;min-width:15em;box-shadow:0 .2em .8em #0009;line-height:1.2}
+.poll .ptitle{font-size:1.25em;margin-bottom:.6em;text-align:center}
+.poll .pr{display:grid;grid-template-columns:minmax(5em,auto) 1fr auto;gap:.6em;align-items:center;margin:.4em 0}
+.poll .pl{white-space:nowrap}
+.poll .pl b{display:inline-flex;align-items:center;justify-content:center;width:1.4em;height:1.4em;border-radius:.3em;background:var(--c);color:#fff;font-size:.85em}
+.poll .pb{height:.9em;min-width:6em;background:#ffffff1f;border-radius:.45em;overflow:hidden}
+.poll .pf{height:100%;width:0;background:var(--c);border-radius:.45em;transition:width .5s ease}
+.poll .pv{min-width:4.8em;text-align:right;font-variant-numeric:tabular-nums;opacity:.85;font-size:.9em}
+.poll .pr.win .pl,.poll .pr.win .pv{color:var(--c);opacity:1}
+.poll .pr.win .pb{box-shadow:0 0 .5em var(--c)}
+.poll .pfoot{font-size:.75em;opacity:.7;text-align:center;margin-top:.6em}
