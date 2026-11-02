@@ -6,7 +6,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
+<link rel="stylesheet" href="core.css">
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+<script src="core.js"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -17,39 +19,28 @@ body{display:flex;align-items:center;justify-content:center}
 #confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:100000}
 
 /* Плавность: смягчает задержку сети между обновлениями */
-.el{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  transition:left .1s linear,top .1s linear,width .1s linear,transform .1s linear,opacity .35s ease}
-.el .txt{transition:font-size .1s linear}
-.el.instant,.el.instant .txt{transition:none!important}
-.el .content{display:block}
-.el img.content,.el video.content{width:100%;height:auto}
-.el .txt{white-space:pre;line-height:1.1;text-align:center}
-.el .txt.plate{padding:.12em .4em;border-radius:.2em}
-.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
-@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.el{transition:left .1s linear,top .1s linear,width .1s linear,transform .1s linear,opacity .35s ease}
+.el .txt,.el .tw{transition:font-size .1s linear}
+.el.instant,.el.instant .txt,.el.instant .tw{transition:none!important}
 
-/* анимации (такие же в пульте) */
-.fx{transform-origin:50% 50%}
-.a-pulse{animation:a-pulse 1s ease-in-out infinite}
-@keyframes a-pulse{50%{transform:scale(1.12)}}
-.a-wobble{animation:a-wobble 1.2s ease-in-out infinite}
-@keyframes a-wobble{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
-.a-float{animation:a-float 2s ease-in-out infinite}
-@keyframes a-float{50%{transform:translateY(-12%)}}
-.a-spin{animation:a-spin 3s linear infinite}
-@keyframes a-spin{to{transform:rotate(360deg)}}
-.a-shake{animation:a-shake .25s linear infinite}
-@keyframes a-shake{25%{transform:translate(-3%,2%)}50%{transform:translate(3%,-2%)}75%{transform:translate(-2%,-3%)}}
-.a-rainbow img,.a-rainbow video{animation:a-hue 2s linear infinite}
-@keyframes a-hue{to{filter:hue-rotate(360deg)}}
-.a-rainbow .txt{animation:a-rbtxt 2s linear infinite}
-@keyframes a-rbtxt{0%,100%{color:#ff4d4d}17%{color:#ffb84d}33%{color:#fff94d}50%{color:#4dff88}67%{color:#4dc3ff}83%{color:#b44dff}}
+/* Проверочная рамка: должна совпасть с краями экрана стрима */
+#calib{position:absolute;inset:0;z-index:100001;pointer-events:none;display:none;border:.6vmin solid #ff2e88;box-sizing:border-box;font:700 2.2vmin system-ui,sans-serif;color:#fff}
+#calib.show{display:block}
+#calib i{position:absolute;width:6vmin;height:6vmin;border:.6vmin solid #00e5ff}
+#calib i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}
+#calib i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+#calib i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}
+#calib i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+#calib div{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000c;padding:1.5vmin 3vmin;border-radius:1vmin;text-align:center;line-height:1.5}
 
-#debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100001;display:none}
+#debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
 </style>
 </head>
 <body>
-<div id="stage"><canvas id="confetti"></canvas></div>
+<div id="stage">
+  <canvas id="confetti"></canvas>
+  <div id="calib"><i></i><i></i><i></i><i></i><div id="calibText"></div></div>
+</div>
 <div id="debug"></div>
 
 <script>
@@ -61,85 +52,6 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const ROOM = '';
 // ===============================================
 
-// ---------- общий код (такой же в moderator.html) ----------
-const FONTS = {
-  montserrat:"'Montserrat',sans-serif", russo:"'Russo One',sans-serif",
-  impact:"Impact,'Anton','Arial Black',sans-serif", pixel:"'Press Start 2P',monospace",
-  comfortaa:"'Comfortaa',sans-serif", caveat:"'Caveat',cursive"
-};
-const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
-const MAX_ELS = 200;
-
-function num(v, d, min, max){ v = Number(v); if(!Number.isFinite(v)) v = d; return Math.min(max, Math.max(min, v)); }
-function hex(v, d){ return /^#[0-9a-f]{6}$/i.test(v) ? v : d; }
-function safeUrl(u){ try{ const p = new URL(String(u).trim()); return (p.protocol==='https:'||p.protocol==='http:') ? p.href : null; }catch{ return null; } }
-function isVideoUrl(u){ try{ return /\.(mp4|webm|mov|m4v)$/i.test(new URL(u).pathname); }catch{ return false; } }
-function rgba(h, a){ const n = parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
-function outline(color, wEm){
-  if(!wEm) return 'none';
-  const s = [];
-  for(let i=0;i<16;i++){ const a=i*Math.PI/8; s.push(`${(Math.cos(a)*wEm).toFixed(3)}em ${(Math.sin(a)*wEm).toFixed(3)}em 0 ${color}`); }
-  return s.join(',');
-}
-function sanitizeEl(e){
-  if(!e || typeof e!=='object') return null;
-  const type = ['text','image','video'].includes(e.type) ? e.type : null;
-  const id = String(e.id ?? '').slice(0,40);
-  if(!type || !id) return null;
-  const o = { id, type, x:num(e.x,50,0,100), y:num(e.y,50,0,100), rot:num(e.rot,0,-36000,36000),
-    op:num(e.op,1,0,1), anim:ANIMS.includes(e.anim)?e.anim:'none', hidden:!!e.hidden };
-  if(type==='text'){
-    o.text=String(e.text ?? '').slice(0,500); o.fs=num(e.fs,8,0.5,100);
-    o.font=FONTS[e.font]?e.font:'montserrat'; o.color=hex(e.color,'#ffffff');
-    o.stroke=hex(e.stroke,'#000000'); o.sw=num(e.sw,6,0,10);
-    o.bg=!!e.bg; o.bgColor=hex(e.bgColor,'#000000'); o.bgA=num(e.bgA,0.6,0,1);
-  } else {
-    o.src=safeUrl(e.src); if(!o.src) return null;
-    o.w=num(e.w,25,1,200);
-    if(type==='video'){ o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15); }
-  }
-  if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
-  return o;
-}
-function sanitizeState(m){
-  const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
-  return { visible: m?.visible !== false, els };
-}
-function buildNode(el){
-  const node=document.createElement('div'); node.className='el'; node.dataset.id=el.id; node.dataset.type=el.type;
-  const fx=document.createElement('div'); fx.className='fx';
-  const body=document.createElement('div'); body.className='body';
-  let c;
-  if(el.type==='text'){ c=document.createElement('div'); c.className='txt'; }
-  else if(el.type==='video'){
-    c=document.createElement('video'); c.autoplay=true; c.loop=true; c.muted=true; c.playsInline=true;
-    c.setAttribute('playsinline',''); c.setAttribute('muted','');
-  } else { c=document.createElement('img'); c.alt=''; c.draggable=false; }
-  c.classList.add('content');
-  body.appendChild(c); fx.appendChild(body); node.appendChild(fx);
-  return node;
-}
-function paintNode(node, el, z){
-  node.style.left=el.x+'%'; node.style.top=el.y+'%'; node.style.zIndex=z;
-  node.style.transform=`translate(-50%,-50%) rotate(${el.rot}deg)`;
-  const fx=node.firstChild, c=node.querySelector('.content');
-  const cls='fx'+(el.anim!=='none'?' a-'+el.anim:''); if(fx.className!==cls) fx.className=cls;
-  if(el.type==='text'){
-    node.style.width='';
-    if(c.textContent!==el.text) c.textContent=el.text;
-    c.style.fontSize=`calc(var(--u) * ${el.fs})`;
-    c.style.fontFamily=FONTS[el.font];
-    c.style.color=el.color;
-    c.style.textShadow=outline(el.stroke, el.sw*0.01);
-    c.style.background=el.bg ? rgba(el.bgColor, el.bgA) : 'transparent';
-    c.classList.toggle('plate', el.bg);
-  } else {
-    node.style.width=el.w+'%';
-    if(c.getAttribute('src')!==el.src) c.setAttribute('src', el.src);
-  }
-}
-// ---------- конец общего кода ----------
-
 const stage=document.getElementById('stage');
 const qs=new URLSearchParams(location.search);
 const room=qs.get('room') || location.hash.slice(1) || ROOM;
@@ -148,7 +60,7 @@ const DEBUG=qs.has('debug');
 const dbg=document.getElementById('debug');
 function status(t, force){ console.log('[overlay]', t); if(DEBUG||force){ dbg.style.display='block'; dbg.textContent=t; } }
 
-// 16:9 сцена, вписанная в окно (в OBS ставь 1920×1080)
+// 16:9 сцена, вписанная в окно источника
 function fit(){
   const W=innerWidth, H=innerHeight;
   let w=W, h=w*9/16; if(h>H){ h=H; w=h*16/9; }
@@ -158,19 +70,23 @@ function fit(){
 }
 addEventListener('resize', fit); fit();
 
-// ================== ОТРИСОВКА СОСТОЯНИЯ ==================
+// ================== ОТРИСОВКА ==================
 const nodes=new Map();
+let visible=true, lastState={ visible:true, els:[] };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
+  lastState=s; visible=s.visible;
   stage.classList.toggle('all-hidden', !s.visible);
-  const seen=new Set();
+  const seen=new Set(), now=nowMs();
   s.els.forEach((el,i)=>{
     seen.add(el.id);
     let node=nodes.get(el.id);
     if(node && node.dataset.type!==el.type){ node.remove(); nodes.delete(el.id); node=null; }
     const isNew=!node;
-    if(isNew){ node=buildNode(el); node.classList.add('instant'); node._shown=false; stage.appendChild(node); nodes.set(el.id,node); }
+    if(isNew){ node=buildNode(el); node.classList.add('instant'); node._shown=false; node._noPh=true; stage.appendChild(node); nodes.set(el.id,node); }
+    node._el=el;
     paintNode(node, el, i+1);
+    tickNode(node, el, now);
     const show=!el.hidden;
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
@@ -183,6 +99,11 @@ function applyState(s){
         if(v.paused) v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });
       } else if(!v.paused) v.pause();
     }
+    if(el.type==='web'){
+      // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
+      const src = show ? embedSrc(el, location.hostname, false) : null;
+      setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null);
+    }
     if(show && !node._shown) pop(node);
     node._shown=show;
     if(isNew){ void node.offsetWidth; requestAnimationFrame(()=>node.classList.remove('instant')); }
@@ -193,15 +114,33 @@ function applyState(s){
     setTimeout(()=>node.remove(), 400);
   }
 }
+// Таймеры и счётчики тикают сами, без сети
+setInterval(()=>{
+  const now=nowMs();
+  for(const node of nodes.values()){
+    const el=node._el; if(!el) continue;
+    const s=tickNode(node, el, now);
+    if(el.type==='timer' && s){
+      if(node._ended===false && s.ended && !el.hidden && visible){
+        if(el.endSound) playSound(el.endSound, 0.8);
+        if(el.endConfetti) confetti();
+      }
+      node._ended=s.ended;
+    }
+  }
+}, 100);
 
 // ================== ЭФФЕКТЫ ==================
 const sounds=new Set();
+const pendingSounds=new Map();
 function playSound(src, vol){
+  const id=assetId(src);
+  if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, vol); return; } src=u; }
   const a=new Audio(src); a.volume=num(vol,0.7,0,1);
   sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
   a.play().catch(e=>status('Звук не проигрался: '+e.message));
 }
-function stopSounds(){ for(const a of sounds){ a.pause(); } sounds.clear(); }
+function stopSounds(){ for(const a of sounds) a.pause(); sounds.clear(); }
 
 let parts=[], confettiRunning=false, lastT=0;
 function confetti(){
@@ -228,13 +167,32 @@ function tick(t){
   if(parts.length) requestAnimationFrame(tick); else { confettiRunning=false; ctx.clearRect(0,0,cv.width,cv.height); }
 }
 function shake(){ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
+let calibT=null;
+function calib(){
+  const c=document.getElementById('calib');
+  document.getElementById('calibText').innerHTML=
+    `Окно источника: <b>${innerWidth}×${innerHeight}</b><br>`+
+    `Розовая рамка должна идти ровно по краям экрана стрима.<br>`+
+    `Если она меньше экрана: в OBS выдели источник → <b>Ctrl+F</b> (Растянуть на экран)`;
+  c.classList.add('show'); clearTimeout(calibT); calibT=setTimeout(()=>c.classList.remove('show'), 10000);
+}
 
 function onFx(f){
   if(!f || typeof f!=='object') return;
-  if(f.type==='sound'){ const src=safeUrl(f.src); if(src) playSound(src, f.vol); }
+  if(f.type==='sound'){ const src=safeSrc(f.src); if(src) playSound(src, f.vol); }
   else if(f.type==='stopsounds') stopSounds();
   else if(f.type==='confetti') confetti();
   else if(f.type==='shake') shake();
+  else if(f.type==='calib') calib();
+}
+
+// ================== СИНХРОНИЗАЦИЯ ЧАСОВ ==================
+// Пульт присылает своё время; берём самое «быстрое» из последних измерений (меньше всего задержки сети)
+const offs=[];
+function clockSample(t){
+  if(!Number.isFinite(t)) return;
+  offs.push(t-Date.now()); if(offs.length>12) offs.shift();
+  CLOCK_OFFSET=Math.max(...offs);
 }
 
 // ================== СВЯЗЬ ==================
@@ -246,13 +204,20 @@ if(!room){
   const T={ state:`${TOPIC_PREFIX}/${room}/state`, fx:`${TOPIC_PREFIX}/${room}/fx` };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx], { qos:1 }); });
+  Assets.setRoom(client, `${TOPIC_PREFIX}/${room}`);
+  Assets.onReady=id=>{
+    applyState(lastState);   // файл догрузился: дорисовать картинку/видео
+    if(pendingSounds.has(id)){ const v=pendingSounds.get(id); pendingSounds.delete(id); playSound('asset:'+id, v); }
+  };
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx], { qos:1 }); Assets.resubscribe(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
-  client.on('message', (topic, payload)=>{
+  client.on('message', (topic, payload, packet)=>{
+    if(Assets.handle(topic, payload)) return;
     const txt=payload.toString();
     let msg=null; if(txt){ try{ msg=JSON.parse(txt); }catch{ return; } }
+    if(msg && !packet.retain) clockSample(Number(msg.t));
     if(topic===T.state) applyState(sanitizeState(msg || { els:[] }));
     else if(topic===T.fx) onFx(msg);
   });

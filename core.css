@@ -1,0 +1,69 @@
+/* Общие стили элементов: одинаковые в пульте и в виджете */
+.el{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.el .content{display:block}
+.el img.content,.el video.content{width:100%;height:auto}
+.el .txt{white-space:pre;line-height:1.1;text-align:center}
+.el .txt.plate{padding:.12em .4em;border-radius:.2em}
+.body{position:relative}
+
+/* ---------- анимации ---------- */
+.fx{transform-origin:50% 50%}
+.a-pulse{animation:a-pulse 1s ease-in-out infinite}
+@keyframes a-pulse{50%{transform:scale(1.12)}}
+.a-wobble{animation:a-wobble 1.2s ease-in-out infinite}
+@keyframes a-wobble{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.a-float{animation:a-float 2s ease-in-out infinite}
+@keyframes a-float{50%{transform:translateY(-12%)}}
+.a-spin{animation:a-spin 3s linear infinite}
+@keyframes a-spin{to{transform:rotate(360deg)}}
+.a-shake{animation:a-shake .25s linear infinite}
+@keyframes a-shake{25%{transform:translate(-3%,2%)}50%{transform:translate(3%,-2%)}75%{transform:translate(-2%,-3%)}}
+.a-rainbow img,.a-rainbow video{animation:a-hue 2s linear infinite}
+@keyframes a-hue{to{filter:hue-rotate(360deg)}}
+.a-rainbow .txt,.a-rainbow .tw{animation:a-rbtxt 2s linear infinite}
+.a-rainbow .tw{--c:currentColor}
+@keyframes a-rbtxt{0%,100%{color:#ff4d4d}17%{color:#ffb84d}33%{color:#fff94d}50%{color:#4dff88}67%{color:#4dc3ff}83%{color:#b44dff}}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* ---------- таймеры и счётчики ---------- */
+.tw{display:flex;flex-direction:column;align-items:center;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tw .cap{font-size:.32em;margin-bottom:.3em;letter-spacing:.03em;text-align:center}
+.tw .disp{display:flex;align-items:center;gap:.06em}
+.tw .bar{width:100%;min-width:3em;height:.16em;margin-top:.25em;border-radius:.08em;background:#0008;overflow:hidden;box-shadow:0 0 0 .025em #fff3 inset}
+.tw .bar .fill{height:100%;width:0;background:var(--c);border-radius:.08em;transition:width .35s ease}
+.tw .disp.bump{animation:bump .35s ease-out}
+@keyframes bump{40%{transform:scale(1.25)}}
+.tw.blink .disp{animation:blink 1s steps(2,start) infinite}
+@keyframes blink{50%{opacity:.2}}
+
+/* флип */
+.tw[data-st="flip"] .cap{background:var(--card);padding:.18em .5em;border-radius:.2em;box-shadow:0 .05em .15em #0008}
+.tw[data-st="flip"] .fc{position:relative;display:inline-block;width:.72em;height:1.12em;perspective:3em;border-radius:.1em;box-shadow:0 .05em .15em #0009}
+.tw[data-st="flip"] .fc::after{content:"";position:absolute;left:0;right:0;top:50%;height:.025em;margin-top:-.0125em;background:#0009;z-index:3}
+.tw[data-st="flip"] .fh{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:var(--card);backface-visibility:hidden}
+.tw[data-st="flip"] .fh b{position:absolute;left:0;right:0;height:200%;display:flex;align-items:center;justify-content:center;font-weight:inherit}
+.tw[data-st="flip"] .t,.tw[data-st="flip"] .ft{top:0;border-radius:.1em .1em 0 0;background-image:linear-gradient(#fff1,#0000)}
+.tw[data-st="flip"] .b,.tw[data-st="flip"] .fb{bottom:0;border-radius:0 0 .1em .1em;background-image:linear-gradient(#0000,#0003)}
+.tw[data-st="flip"] .t b,.tw[data-st="flip"] .ft b{top:0}
+.tw[data-st="flip"] .b b,.tw[data-st="flip"] .fb b{bottom:0}
+.tw[data-st="flip"] .ft,.tw[data-st="flip"] .fb{display:none;z-index:2}
+.tw[data-st="flip"] .fc.flip .ft,.tw[data-st="flip"] .fc.flip .fb{display:block}
+.tw[data-st="flip"] .ft{transform-origin:50% 100%;animation:fc-top .3s ease-in forwards}
+.tw[data-st="flip"] .fb{transform-origin:50% 0;animation:fc-bot .3s ease-out .3s both}
+@keyframes fc-top{from{transform:rotateX(0)}to{transform:rotateX(-90deg)}}
+@keyframes fc-bot{from{transform:rotateX(90deg)}to{transform:rotateX(0)}}
+.tw[data-st="flip"] .sep{padding:0 .03em;text-shadow:0 .04em .1em #000a}
+.tw[data-st="flip"] .disp{gap:.05em}
+
+/* неон */
+.tw[data-st="neon"] .disp,.tw[data-st="neon"] .cap{color:#fff;text-shadow:0 0 .04em #fff,0 0 .12em var(--c),0 0 .3em var(--c),0 0 .6em var(--c)}
+.tw[data-st="neon"] .bar{box-shadow:0 0 .2em var(--c)}
+
+/* ---------- сайты / YouTube / Twitch / вебка ---------- */
+.web{position:relative;overflow:hidden;background:#000}
+.web iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:transparent}
+.web[data-shape="round"]{border-radius:calc(var(--u) * 3)}
+.web[data-shape="circle"]{border-radius:50%}
+.web .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:1em;color:#ccc;font:600 calc(var(--u) * 2) system-ui,sans-serif;background:#111}
+.web .ph[hidden],.tw [hidden]{display:none}
