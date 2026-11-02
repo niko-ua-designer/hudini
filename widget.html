@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Оверлей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
+<script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+body{display:flex;align-items:center;justify-content:center}
+#stage{position:relative;flex:none;overflow:hidden;transition:opacity .35s}
+#stage.all-hidden{opacity:0}
+#stage.shake{animation:stage-shake .6s linear}
+@keyframes stage-shake{10%,50%,90%{transform:translate(-1.2%,.8%)}30%,70%{transform:translate(1.2%,-.8%)}20%,60%{transform:translate(.6%,1%)}40%,80%{transform:translate(-.6%,-1%)}}
+#confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:100000}
+
+/* Плавность: смягчает задержку сети между обновлениями */
+.el{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  transition:left .1s linear,top .1s linear,width .1s linear,transform .1s linear,opacity .35s ease}
+.el .txt{transition:font-size .1s linear}
+.el.instant,.el.instant .txt{transition:none!important}
+.el .content{display:block}
+.el img.content,.el video.content{width:100%;height:auto}
+.el .txt{white-space:pre;line-height:1.1;text-align:center}
+.el .txt.plate{padding:.12em .4em;border-radius:.2em}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* анимации (такие же в пульте) */
+.fx{transform-origin:50% 50%}
+.a-pulse{animation:a-pulse 1s ease-in-out infinite}
+@keyframes a-pulse{50%{transform:scale(1.12)}}
+.a-wobble{animation:a-wobble 1.2s ease-in-out infinite}
+@keyframes a-wobble{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.a-float{animation:a-float 2s ease-in-out infinite}
+@keyframes a-float{50%{transform:translateY(-12%)}}
+.a-spin{animation:a-spin 3s linear infinite}
+@keyframes a-spin{to{transform:rotate(360deg)}}
+.a-shake{animation:a-shake .25s linear infinite}
+@keyframes a-shake{25%{transform:translate(-3%,2%)}50%{transform:translate(3%,-2%)}75%{transform:translate(-2%,-3%)}}
+.a-rainbow img,.a-rainbow video{animation:a-hue 2s linear infinite}
+@keyframes a-hue{to{filter:hue-rotate(360deg)}}
+.a-rainbow .txt{animation:a-rbtxt 2s linear infinite}
+@keyframes a-rbtxt{0%,100%{color:#ff4d4d}17%{color:#ffb84d}33%{color:#fff94d}50%{color:#4dff88}67%{color:#4dc3ff}83%{color:#b44dff}}
+
+#debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100001;display:none}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="confetti"></canvas></div>
+<div id="debug"></div>
+
+<script>
+// ================== НАСТРОЙКИ ==================
+// Должны совпадать с moderator.html
+const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt';
+const TOPIC_PREFIX = 'stream-overlay/v1';
+// Если OBS не передаёт ?room=… (режим «Локальный файл»), впиши код комнаты сюда:
+const ROOM = '';
+// ===============================================
+
+// ---------- общий код (такой же в moderator.html) ----------
+const FONTS = {
+  montserrat:"'Montserrat',sans-serif", russo:"'Russo One',sans-serif",
+  impact:"Impact,'Anton','Arial Black',sans-serif", pixel:"'Press Start 2P',monospace",
+  comfortaa:"'Comfortaa',sans-serif", caveat:"'Caveat',cursive"
+};
+const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
+const MAX_ELS = 200;
+
+function num(v, d, min, max){ v = Number(v); if(!Number.isFinite(v)) v = d; return Math.min(max, Math.max(min, v)); }
+function hex(v, d){ return /^#[0-9a-f]{6}$/i.test(v) ? v : d; }
+function safeUrl(u){ try{ const p = new URL(String(u).trim()); return (p.protocol==='https:'||p.protocol==='http:') ? p.href : null; }catch{ return null; } }
+function isVideoUrl(u){ try{ return /\.(mp4|webm|mov|m4v)$/i.test(new URL(u).pathname); }catch{ return false; } }
+function rgba(h, a){ const n = parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+function outline(color, wEm){
+  if(!wEm) return 'none';
+  const s = [];
+  for(let i=0;i<16;i++){ const a=i*Math.PI/8; s.push(`${(Math.cos(a)*wEm).toFixed(3)}em ${(Math.sin(a)*wEm).toFixed(3)}em 0 ${color}`); }
+  return s.join(',');
+}
+function sanitizeEl(e){
+  if(!e || typeof e!=='object') return null;
+  const type = ['text','image','video'].includes(e.type) ? e.type : null;
+  const id = String(e.id ?? '').slice(0,40);
+  if(!type || !id) return null;
+  const o = { id, type, x:num(e.x,50,0,100), y:num(e.y,50,0,100), rot:num(e.rot,0,-36000,36000),
+    op:num(e.op,1,0,1), anim:ANIMS.includes(e.anim)?e.anim:'none', hidden:!!e.hidden };
+  if(type==='text'){
+    o.text=String(e.text ?? '').slice(0,500); o.fs=num(e.fs,8,0.5,100);
+    o.font=FONTS[e.font]?e.font:'montserrat'; o.color=hex(e.color,'#ffffff');
+    o.stroke=hex(e.stroke,'#000000'); o.sw=num(e.sw,6,0,10);
+    o.bg=!!e.bg; o.bgColor=hex(e.bgColor,'#000000'); o.bgA=num(e.bgA,0.6,0,1);
+  } else {
+    o.src=safeUrl(e.src); if(!o.src) return null;
+    o.w=num(e.w,25,1,200);
+    if(type==='video'){ o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15); }
+  }
+  if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
+  return o;
+}
+function sanitizeState(m){
+  const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
+  return { visible: m?.visible !== false, els };
+}
+function buildNode(el){
+  const node=document.createElement('div'); node.className='el'; node.dataset.id=el.id; node.dataset.type=el.type;
+  const fx=document.createElement('div'); fx.className='fx';
+  const body=document.createElement('div'); body.className='body';
+  let c;
+  if(el.type==='text'){ c=document.createElement('div'); c.className='txt'; }
+  else if(el.type==='video'){
+    c=document.createElement('video'); c.autoplay=true; c.loop=true; c.muted=true; c.playsInline=true;
+    c.setAttribute('playsinline',''); c.setAttribute('muted','');
+  } else { c=document.createElement('img'); c.alt=''; c.draggable=false; }
+  c.classList.add('content');
+  body.appendChild(c); fx.appendChild(body); node.appendChild(fx);
+  return node;
+}
+function paintNode(node, el, z){
+  node.style.left=el.x+'%'; node.style.top=el.y+'%'; node.style.zIndex=z;
+  node.style.transform=`translate(-50%,-50%) rotate(${el.rot}deg)`;
+  const fx=node.firstChild, c=node.querySelector('.content');
+  const cls='fx'+(el.anim!=='none'?' a-'+el.anim:''); if(fx.className!==cls) fx.className=cls;
+  if(el.type==='text'){
+    node.style.width='';
+    if(c.textContent!==el.text) c.textContent=el.text;
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`;
+    c.style.fontFamily=FONTS[el.font];
+    c.style.color=el.color;
+    c.style.textShadow=outline(el.stroke, el.sw*0.01);
+    c.style.background=el.bg ? rgba(el.bgColor, el.bgA) : 'transparent';
+    c.classList.toggle('plate', el.bg);
+  } else {
+    node.style.width=el.w+'%';
+    if(c.getAttribute('src')!==el.src) c.setAttribute('src', el.src);
+  }
+}
+// ---------- конец общего кода ----------
+
+const stage=document.getElementById('stage');
+const qs=new URLSearchParams(location.search);
+const room=qs.get('room') || location.hash.slice(1) || ROOM;
+const brokerUrl=qs.get('broker') || BROKER_URL;
+const DEBUG=qs.has('debug');
+const dbg=document.getElementById('debug');
+function status(t, force){ console.log('[overlay]', t); if(DEBUG||force){ dbg.style.display='block'; dbg.textContent=t; } }
+
+// 16:9 сцена, вписанная в окно (в OBS ставь 1920×1080)
+function fit(){
+  const W=innerWidth, H=innerHeight;
+  let w=W, h=w*9/16; if(h>H){ h=H; w=h*16/9; }
+  stage.style.width=w+'px'; stage.style.height=h+'px';
+  stage.style.setProperty('--u', (h/100)+'px');
+  const cv=document.getElementById('confetti'); cv.width=w; cv.height=h;
+}
+addEventListener('resize', fit); fit();
+
+// ================== ОТРИСОВКА СОСТОЯНИЯ ==================
+const nodes=new Map();
+function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+function applyState(s){
+  stage.classList.toggle('all-hidden', !s.visible);
+  const seen=new Set();
+  s.els.forEach((el,i)=>{
+    seen.add(el.id);
+    let node=nodes.get(el.id);
+    if(node && node.dataset.type!==el.type){ node.remove(); nodes.delete(el.id); node=null; }
+    const isNew=!node;
+    if(isNew){ node=buildNode(el); node.classList.add('instant'); node._shown=false; stage.appendChild(node); nodes.set(el.id,node); }
+    paintNode(node, el, i+1);
+    const show=!el.hidden;
+    node.style.opacity = show ? el.op : 0;
+    if(el.type==='video'){
+      const v=node.querySelector('video');
+      v.muted=!el.sound;
+      const restart = el.restart && el.restart!==node._restart;
+      node._restart=el.restart;
+      if(show){
+        if((!node._shown && !isNew) || restart) v.currentTime=0;
+        if(v.paused) v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });
+      } else if(!v.paused) v.pause();
+    }
+    if(show && !node._shown) pop(node);
+    node._shown=show;
+    if(isNew){ void node.offsetWidth; requestAnimationFrame(()=>node.classList.remove('instant')); }
+  });
+  for(const [id,node] of nodes) if(!seen.has(id)){
+    nodes.delete(id); node.style.opacity=0;
+    node.querySelector('video')?.pause();
+    setTimeout(()=>node.remove(), 400);
+  }
+}
+
+// ================== ЭФФЕКТЫ ==================
+const sounds=new Set();
+function playSound(src, vol){
+  const a=new Audio(src); a.volume=num(vol,0.7,0,1);
+  sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
+  a.play().catch(e=>status('Звук не проигрался: '+e.message));
+}
+function stopSounds(){ for(const a of sounds){ a.pause(); } sounds.clear(); }
+
+let parts=[], confettiRunning=false, lastT=0;
+function confetti(){
+  const cv=document.getElementById('confetti'), W=cv.width, H=cv.height;
+  const colors=['#ff4d5e','#ffd23f','#3ddc97','#4cc9f0','#7c5cff','#ff8fab','#ffffff'];
+  for(const side of [0,1]) for(let i=0;i<110;i++){
+    const dir=side?-1:1;
+    parts.push({ x:side?W:0, y:H*0.95, vx:dir*(W*0.006+Math.random()*W*0.012), vy:-(H*0.018+Math.random()*H*0.022),
+      s:H*(0.008+Math.random()*0.008), r:Math.random()*6, vr:(Math.random()-0.5)*0.35,
+      c:colors[Math.random()*colors.length|0], g:H*0.00055, life:0 });
+  }
+  if(!confettiRunning){ confettiRunning=true; lastT=performance.now(); requestAnimationFrame(tick); }
+}
+function tick(t){
+  const cv=document.getElementById('confetti'), ctx=cv.getContext('2d');
+  const dt=Math.min(3,(t-lastT)/16.67); lastT=t;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  parts=parts.filter(p=>p.y<cv.height+50 && p.life<400);
+  for(const p of parts){
+    p.vy+=p.g*dt; p.vx*=Math.pow(0.985,dt); p.x+=p.vx*dt; p.y+=p.vy*dt; p.r+=p.vr*dt; p.life+=dt;
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.fillStyle=p.c;
+    ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2*Math.abs(Math.cos(p.r*2))+1); ctx.restore();
+  }
+  if(parts.length) requestAnimationFrame(tick); else { confettiRunning=false; ctx.clearRect(0,0,cv.width,cv.height); }
+}
+function shake(){ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
+
+function onFx(f){
+  if(!f || typeof f!=='object') return;
+  if(f.type==='sound'){ const src=safeUrl(f.src); if(src) playSound(src, f.vol); }
+  else if(f.type==='stopsounds') stopSounds();
+  else if(f.type==='confetti') confetti();
+  else if(f.type==='shake') shake();
+}
+
+// ================== СВЯЗЬ ==================
+if(!room){
+  status('Нет кода комнаты: добавь ?room=… к ссылке (скопируй её в пульте модератора)', true);
+} else if(typeof mqtt==='undefined'){
+  status('Не загрузилась библиотека mqtt.js: проверь интернет', true);
+} else {
+  const T={ state:`${TOPIC_PREFIX}/${room}/state`, fx:`${TOPIC_PREFIX}/${room}/fx` };
+  const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
+    clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx], { qos:1 }); });
+  client.on('reconnect', ()=>status('переподключение…'));
+  client.on('offline', ()=>status('нет связи'));
+  client.on('error', e=>status('ошибка: '+e.message));
+  client.on('message', (topic, payload)=>{
+    const txt=payload.toString();
+    let msg=null; if(txt){ try{ msg=JSON.parse(txt); }catch{ return; } }
+    if(topic===T.state) applyState(sanitizeState(msg || { els:[] }));
+    else if(topic===T.fx) onFx(msg);
+  });
+}
+</script>
+</body>
+</html>
