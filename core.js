@@ -81,8 +81,100 @@ function sanitizeEl(e){
     }
   }
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
+  const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
   return o;
 }
+// ---------- анимация движения по ключевым кадрам ----------
+const EASES = ['linear','inout','in','out','back','bounce'];
+const KF_MODES = ['loop','once','pingpong'];
+const KF_ENDS = ['stay','hide','back'];
+function sanitizeFrames(arr){
+  return Array.isArray(arr) ? arr.slice(0,40).map(x=>({ x:num(x?.x,50,-80,180), y:num(x?.y,50,-80,180),
+    r:num(x?.r,0,-36000,36000), s:num(x?.s,1,0,20), o:num(x?.o,1,0,1), d:num(x?.d,800,0,600000),
+    e:EASES.includes(x?.e)?x.e:'inout' })) : [];
+}
+function sanitizeKf(k){
+  if(!k || typeof k!=='object') return null;
+  const f=sanitizeFrames(k.f); if(!f.length) return null;
+  return { f, mode:KF_MODES.includes(k.mode)?k.mode:'loop', end:KF_ENDS.includes(k.end)?k.end:'stay',
+    start:num(k.start,0,0,1e15), playing:!!k.playing };
+}
+const EASE_FN = {
+  linear:t=>t,
+  inout:t=>t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2,
+  in:t=>t*t*t,
+  out:t=>1-Math.pow(1-t,3),
+  back:t=>{ const c=1.70158, c3=c+1; return 1+c3*Math.pow(t-1,3)+c*Math.pow(t-1,2); },
+  bounce:t=>{ const n=7.5625, d=2.75;
+    if(t<1/d) return n*t*t; if(t<2/d) return n*(t-=1.5/d)*t+.75;
+    if(t<2.5/d) return n*(t-=2.25/d)*t+.9375; return n*(t-=2.625/d)*t+.984375; },
+};
+function kfSegments(kf){
+  const f=kf.f, segs=[];
+  for(let i=0;i<f.length-1;i++) segs.push([f[i], f[i+1], f[i].d, f[i].e]);
+  if(kf.mode==='loop' && f.length>1) segs.push([f[f.length-1], f[0], f[f.length-1].d, f[f.length-1].e]);
+  return segs;
+}
+function kfDuration(kf){ return kfSegments(kf).reduce((a,s)=>a+s[2],0); }
+// Состояние анимации в момент t (мс от старта)
+function kfAt(kf, t){
+  const f=kf.f; if(f.length===1) return { ...f[0], done: kf.mode==='once' };
+  const segs=kfSegments(kf), T=segs.reduce((a,s)=>a+s[2],0);
+  if(T<=0) return { ...f[f.length-1], done:true };
+  if(kf.mode==='once'){ if(t>=T) return { ...f[f.length-1], done:true }; }
+  else if(kf.mode==='loop') t%=T;
+  else { t%=2*T; if(t>T) t=2*T-t; }
+  for(const [a,b,d,e] of segs){
+    if(t<=d || d===0 && t<=0){
+      const k = d>0 ? EASE_FN[e](Math.min(1,t/d)) : 1;
+      const L=(p,q)=>p+(q-p)*k;
+      return { x:L(a.x,b.x), y:L(a.y,b.y), r:L(a.r,b.r), s:L(a.s,b.s), o:L(a.o,b.o), done:false };
+    }
+    t-=d;
+  }
+  return { ...f[f.length-1], done:kf.mode==='once' };
+}
+// Применить анимацию к элементу. true = анимация рисует элемент, 'reset' = надо вернуть обычный вид.
+function animApply(node, el, now){
+  const kf=el.kf;
+  let st = kf && kf.playing ? kfAt(kf, Math.max(0, now-kf.start)) : null;
+  if(st && st.done && kf.end==='back') st=null;
+  if(!st){ if(node._animOn){ node._animOn=false; node.classList.remove('animating'); return 'reset'; } return false; }
+  node._animOn=true; node.classList.add('animating');
+  node.style.left=st.x+'%'; node.style.top=st.y+'%';
+  node.style.transform=`translate(-50%,-50%) rotate(${st.r}deg) scale(${st.s})`;
+  node.style.opacity = (node._vis ?? 1) * el.op * (st.done && kf.end==='hide' ? 0 : st.o);
+  return true;
+}
+// Готовые анимации. Строятся от текущего положения элемента.
+const SPEED = 0.025; // % экрана за мс для «пролётов»
+function kfPreset(name, el){
+  const x=el.x, y=el.y, r=el.rot, F=(o)=>({ x, y, r, s:1, o:1, d:800, e:'inout', ...o });
+  const dist=(a,b)=>Math.hypot(b.x-a.x, (b.y-a.y)*9/16);
+  switch(name){
+    case 'flyLR': return { mode:'once', end:'hide', f:[F({ x:-30, d:4500, e:'linear' }), F({ x:130 })] };
+    case 'flyRL': return { mode:'once', end:'hide', f:[F({ x:130, d:4500, e:'linear' }), F({ x:-30 })] };
+    case 'flyUp': return { mode:'once', end:'hide', f:[F({ y:130, d:6000, e:'linear' }), F({ y:-30 })] };
+    case 'slideIn': return { mode:'once', end:'hide', f:[F({ x:-30, d:700, e:'out' }), F({ d:3000, e:'linear' }), F({ d:600, e:'in' }), F({ x:130 })] };
+    case 'drop': return { mode:'once', end:'stay', f:[F({ y:-30, d:1100, e:'bounce' }), F({})] };
+    case 'zoom': return { mode:'once', end:'hide', f:[F({ s:0, d:450, e:'back' }), F({ d:2500, e:'linear' }), F({ d:300, e:'in' }), F({ s:0 })] };
+    case 'spinIn': return { mode:'once', end:'stay', f:[F({ s:0, r:r-360, o:0, d:900, e:'out' }), F({})] };
+    case 'orbit': return { mode:'loop', end:'stay', f:Array.from({ length:12 }, (_,i)=>{ const a=i/12*Math.PI*2; return F({ x:x+Math.cos(a)*6, y:y+Math.sin(a)*6*16/9, d:250, e:'linear' }); }) };
+    case 'zigzag': return { mode:'pingpong', end:'stay', f:[-2,-1,0,1,2].map(i=>F({ x:x+i*8, y:y-(i%2?7:0), d:450, e:'inout' })) };
+    case 'swing': return { mode:'pingpong', end:'stay', f:[F({ r:r-15, d:900 }), F({ r:r+15 })] };
+    case 'heart': return { mode:'loop', end:'stay', f:[F({ d:500, e:'out' }), F({ s:1.25, d:200, e:'in' }), F({ d:300, e:'out' }), F({ s:1.15, d:150, e:'in' })] };
+    case 'dvd': {
+      const pts=[[8,12],[70,88],[92,40],[30,10],[8,55],[50,88],[92,70],[60,12]].map(([px,py])=>F({ x:px, y:py, e:'linear' }));
+      pts.forEach((p,i)=>p.d=dist(p, pts[(i+1)%pts.length])/SPEED*1.6);
+      return { mode:'loop', end:'stay', f:pts };
+    }
+  }
+  return null;
+}
+const KF_PRESETS = { flyLR:'➡ Пролёт слева направо', flyRL:'⬅ Пролёт справа налево', flyUp:'⬆ Титры снизу вверх',
+  slideIn:'↔ Въехал, постоял, уехал', drop:'⬇ Падение с отскоком', zoom:'💥 Зум-удар', spinIn:'🌀 Влёт с вращением',
+  orbit:'⭕ По кругу', zigzag:'〰 Зигзаг', swing:'🎐 Маятник', heart:'💓 Сердцебиение', dvd:'📀 DVD-заставка' };
+
 function sanitizeState(m){
   const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
   return { visible: m?.visible !== false, els };
