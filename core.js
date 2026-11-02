@@ -9,7 +9,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web'];
+const TYPES = ['text','image','video','timer','counter','web','poll'];
 const ASPECTS = { '16:9':'16 / 9', '4:3':'4 / 3', '1:1':'1 / 1', '9:16':'9 / 16', '21:9':'21 / 9' };
 const SHAPES = ['rect','round','circle'];
 const MAX_ELS = 200;
@@ -62,6 +62,14 @@ function sanitizeEl(e){
     o.w=num(e.w,40,1,200); o.ar=ASPECTS[e.ar]?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
     o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15);
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
+  } else if(type==='poll'){
+    o.fs=num(e.fs,3.2,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
+    o.title=str(e.title,100);
+    o.opts=(Array.isArray(e.opts)?e.opts:[]).slice(0,6).map(x=>str(x,40));
+    if(o.opts.length<2) o.opts=['Да','Нет'];
+    o.votes=o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));
+    o.running=!!e.running;
   } else {
     o.fs=num(e.fs,10,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24');
@@ -268,6 +276,10 @@ function buildNode(el){
     c=document.createElement('video'); c.autoplay=true; c.loop=true; c.muted=true; c.playsInline=true;
     c.setAttribute('playsinline',''); c.setAttribute('muted','');
   } else if(el.type==='image'){ c=document.createElement('img'); c.alt=''; c.draggable=false; }
+  else if(el.type==='poll'){
+    c=document.createElement('div'); c.className='poll';
+    for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
+  }
   else if(el.type==='web'){
     c=document.createElement('div'); c.className='web';
     const f=document.createElement('iframe');
@@ -312,6 +324,32 @@ function paintNode(node, el, z){
     const url=resolveSrc(el.src);
     if(url && c.getAttribute('src')!==url) c.setAttribute('src', url);
     node.classList.toggle('loading', !url);
+  } else if(el.type==='poll'){
+    node.style.width='';
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
+    const [title, rows, foot]=c.children;
+    if(title.textContent!==el.title) title.textContent=el.title; title.hidden=!el.title;
+    const sig=el.opts.join('\n');
+    if(rows._sig!==sig){
+      rows.replaceChildren(); rows._sig=sig;
+      el.opts.forEach((t,i)=>{
+        const r=document.createElement('div'); r.className='pr';
+        const l=document.createElement('div'); l.className='pl';
+        const n=document.createElement('b'); n.textContent=i+1; l.append(n, document.createTextNode(' '+t));
+        const bar=document.createElement('div'); bar.className='pb'; const f=document.createElement('div'); f.className='pf'; bar.appendChild(f);
+        const v=document.createElement('div'); v.className='pv';
+        r.append(l, bar, v); rows.appendChild(r);
+      });
+    }
+    const total=el.votes.reduce((a,b)=>a+b,0), max=Math.max(...el.votes);
+    [...rows.children].forEach((r,i)=>{
+      const v=el.votes[i]||0, pct=total?Math.round(v/total*100):0;
+      r.querySelector('.pf').style.width=pct+'%';
+      r.querySelector('.pv').textContent=`${pct}% · ${v}`;
+      r.classList.toggle('win', !el.running && total>0 && v===max);
+    });
+    foot.textContent = el.running ? `Пиши в чат цифру 1–${el.opts.length} · голосов: ${total}` : (total ? `Голосование закрыто · голосов: ${total}` : 'Голосование скоро начнётся');
   } else if(el.type==='web'){
     node.style.width=el.w+'%';
     c.style.aspectRatio = el.shape==='circle' ? '1 / 1' : ASPECTS[el.ar];
@@ -424,13 +462,15 @@ const Assets = {
     const u = this.urls.get(id); if(!u) this.want(id);
     return u || '';
   },
-  handle(topic, payload){
+  isAsset(topic){ return topic.startsWith(this.base+'/asset/'); },
+  // plain: уже проверенные и расшифрованные байты
+  handle(topic, plain){
     const pre = this.base+'/asset/';
     if(!topic.startsWith(pre)) return false;
     const [id, kind, idx] = topic.slice(pre.length).split('/');
-    if(!payload.length || this.urls.has(id)) return true;
-    if(kind==='m'){ try{ const m = JSON.parse(payload.toString()); if(/^(image|video|audio)\/[\w.+-]+$/.test(m.mime) && m.n>0 && m.n<2000) this.meta.set(id, m); }catch{} }
-    else if(kind==='c'){ let a = this.parts.get(id); if(!a){ a=[]; this.parts.set(id,a); } a[+idx] = new Uint8Array(payload); }
+    if(!plain || !plain.length || this.urls.has(id)) return true;
+    if(kind==='m'){ try{ const m = JSON.parse(TD.decode(plain)); if(/^(image|video|audio)\/[\w.+-]+$/.test(m.mime) && m.n>0 && m.n<2000 && m.id===id) this.meta.set(id, m); }catch{} }
+    else if(kind==='c' && /^\d{1,4}$/.test(idx)){ let a = this.parts.get(id); if(!a){ a=[]; this.parts.set(id,a); } a[+idx] = plain; }
     const m = this.meta.get(id), a = this.parts.get(id);
     if(m && a){
       for(let i=0;i<m.n;i++) if(!a[i]) return true;
@@ -444,3 +484,66 @@ const Assets = {
   addLocal(id, blob){ this.urls.set(id, URL.createObjectURL(blob)); this.meta.set(id, { mime:blob.type, n:Math.ceil(blob.size/CHUNK), size:blob.size }); },
 };
 function resolveSrc(src){ return Assets.resolve(src); }
+
+// ---------- защита: подпись + шифрование ----------
+// Каждое сообщение: [1 версия][1 флаги][12 iv][64 подпись, если есть][шифротекст AES-GCM].
+// Шифрует общий ключ комнаты (есть у виджета), подписывает закрытый ключ (есть только у модераторов).
+const b64u = {
+  enc(buf){ let s=''; const b=new Uint8Array(buf); for(let i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); },
+  dec(str){ const s=atob(String(str).replace(/-/g,'+').replace(/_/g,'/')); const b=new Uint8Array(s.length); for(let i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; },
+};
+const ECDSA = { name:'ECDSA', namedCurve:'P-256' }, SIG = { name:'ECDSA', hash:'SHA-256' };
+async function newRoomKeys(){
+  const aes = crypto.getRandomValues(new Uint8Array(32));
+  const pair = await crypto.subtle.generateKey(ECDSA, true, ['sign','verify']);
+  return { k: b64u.enc(aes), p: b64u.enc(await crypto.subtle.exportKey('raw', pair.publicKey)), s: await crypto.subtle.exportKey('jwk', pair.privateKey) };
+}
+async function importRoomKeys(r){
+  const out = { aes: await crypto.subtle.importKey('raw', b64u.dec(r.k), 'AES-GCM', false, ['encrypt','decrypt']) };
+  out.pub = await crypto.subtle.importKey('raw', b64u.dec(r.p), ECDSA, false, ['verify']);
+  if(r.s) out.priv = await crypto.subtle.importKey('jwk', r.s, ECDSA, false, ['sign']);
+  return out;
+}
+async function seal(keys, data, sign=true){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, keys.aes, data));
+  const signed = sign && keys.priv;
+  const head = new Uint8Array(14+(signed?64:0)); head[0]=1; head[1]=signed?1:0; head.set(iv, 2);
+  if(signed){
+    const msg = new Uint8Array(12+ct.length); msg.set(iv); msg.set(ct, 12);
+    head.set(new Uint8Array(await crypto.subtle.sign(SIG, keys.priv, msg)), 14);
+  }
+  const out = new Uint8Array(head.length+ct.length); out.set(head); out.set(ct, head.length);
+  return out;
+}
+// null = подделка, мусор или чужой ключ
+async function unseal(keys, buf, requireSig=true){
+  try{
+    const b = new Uint8Array(buf);
+    if(b.length<30 || b[0]!==1) return null;
+    const signed = b[1]===1; if(requireSig && !signed) return null;
+    const iv = b.subarray(2,14), ct = b.subarray(signed?78:14);
+    if(signed){
+      const msg = new Uint8Array(12+ct.length); msg.set(iv); msg.set(ct, 12);
+      if(!await crypto.subtle.verify(SIG, keys.pub, b.subarray(14,78), msg)) return null;
+    }
+    return new Uint8Array(await crypto.subtle.decrypt({ name:'AES-GCM', iv }, keys.aes, ct));
+  }catch{ return null; }
+}
+const TE = new TextEncoder(), TD = new TextDecoder();
+const sealJSON = (keys, obj, sign=true) => seal(keys, TE.encode(JSON.stringify(obj)), sign);
+async function unsealJSON(keys, buf, requireSig=true){ const d = await unseal(keys, buf, requireSig); if(!d) return null; try{ return JSON.parse(TD.decode(d)); }catch{ return null; } }
+// Пароль → ключ (для хранилища в браузере и файла бэкапа)
+async function passKey(pass, salt){
+  const base = await crypto.subtle.importKey('raw', TE.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+}
+async function lockJSON(pass, obj){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, await passKey(pass, salt), TE.encode(JSON.stringify(obj)));
+  return { v:1, salt:b64u.enc(salt), iv:b64u.enc(iv), ct:b64u.enc(ct) };
+}
+async function unlockJSON(pass, box){
+  try{ const d = await crypto.subtle.decrypt({ name:'AES-GCM', iv:b64u.dec(box.iv) }, await passKey(pass, b64u.dec(box.salt)), b64u.dec(box.ct)); return JSON.parse(TD.decode(d)); }
+  catch{ return null; }
+}

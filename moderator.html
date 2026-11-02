@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=3">
-<script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
-<script src="core.js?v=3"></script>
+<link rel="stylesheet" href="core.css?v=4">
+<script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
+<script src="core.js?v=4"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -123,6 +123,14 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 .keys{font-size:12px;color:var(--muted);line-height:1.9}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;transition:transform .25s;z-index:100000;pointer-events:none;max-width:80vw}
 #toast.show{transform:translateX(-50%) translateY(0)}
+#lock{position:fixed;inset:0;background:#0b0d11f2;z-index:100002;display:flex;align-items:center;justify-content:center}
+#lock[hidden]{display:none!important}
+.lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
+.lockbox h3{margin:0 0 6px}
+.layer .num{font-size:11px;color:var(--muted);width:12px;text-align:center}
+.scene{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0;cursor:pointer}
+.scene .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.scene button{padding:2px 6px;font-size:12px}
 #fatal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100001;padding:30px;text-align:center;font-size:16px}
 </style>
 </head>
@@ -137,6 +145,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <button id="copyLink">📋 Копировать</button>
   <button id="calibBtn" title="Показать у стримера рамку по краям экрана на 10 секунд">📐 Рамка</button>
   <span class="spacer"></span>
+  <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Поставить пароль</button>
+  <button id="lockBtn" title="Закрыть пульт до ввода пароля" hidden>🔐 Заблокировать</button>
   <button id="undoBtn" title="Ctrl+Z">↶ Отменить</button>
   <button id="globalEye">🙈 Скрыть всё</button>
   <button id="clearAll" class="danger">🗑 Очистить всё</button>
@@ -147,14 +157,21 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <select id="roomSel"></select>
   <div class="grid2">
     <button id="roomNew">＋ Новая</button>
-    <button id="roomJoin">🔑 По коду</button>
     <button id="roomRename">✎ Название</button>
+    <button id="roomInvite" title="Ссылка для второго модератора">👥 Пригласить</button>
+    <button id="roomJoin" title="Вставить приглашение от другого модератора">🔑 Приглашение</button>
+    <button id="roomRekey" title="Если ссылка для OBS утекла">♻ Сменить ключи</button>
     <button id="roomDel">🗑 Из списка</button>
-    <button id="roomExport">⬇ Сохранить</button>
-    <button id="roomImport">⬆ Загрузить</button>
+    <button id="roomExport">⬇ Бэкап</button>
+    <button id="roomImport">⬆ Из бэкапа</button>
   </div>
   <input type="file" id="roomFile" accept=".json,application/json" hidden>
-  <div class="hint" style="margin-top:4px">У каждого стримера своя комната и своя ссылка. «Сохранить» скачивает файл с комнатами, библиотекой и анимациями, чтобы ничего не потерять.</div>
+  <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта: без него управлять нельзя. «Бэкап» сохраняет всё в файл под паролем.</div>
+
+  <h2>🎞 Сцены</h2>
+  <div id="sceneList"></div>
+  <div class="row"><button id="sceneSave" class="grow">＋ Запомнить экран как сцену</button></div>
+  <div class="hint">Клик по сцене заменяет весь экран, Shift+клик добавляет поверх. Например: «Начало», «Перерыв», «Итоги».</div>
 
   <h2>Текст</h2>
   <textarea id="newText" placeholder="Текст на экран… (Ctrl+Enter — добавить)"></textarea>
@@ -184,6 +201,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <button data-add="clock">🕐 Часы</button>
     <button data-add="counter">🔢 Счётчик</button>
     <button data-add="chatcounter">💬 Счётчик чата</button>
+    <button data-add="poll" style="grid-column:span 2">📊 Голосование в чате</button>
   </div>
 
   <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
@@ -213,6 +231,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <kbd>F</kbd> показать на N сек · <kbd>Ctrl+D</kbd> копия · <kbd>Del</kbd> удалить<br>
     <kbd>Пробел</kbd> старт/пауза таймера · <kbd>+</kbd>/<kbd>−</kbd> счётчик<br>
     <kbd>P</kbd> проиграть / остановить анимацию<br>
+    <kbd>1</kbd>…<kbd>9</kbd> показать на N сек элемент с этим номером в слоях<br>
     <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение
   </div>
 </aside>
@@ -310,6 +329,17 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       </div>
     </div>
 
+    <!-- голосование -->
+    <div data-for="poll" class="box">
+      <div class="t">📊 Голосование</div>
+      <input type="text" id="iPTitle" placeholder="Вопрос, например: Что играем дальше?">
+      <div class="lbl">Варианты (каждый с новой строки, до 6)</div>
+      <textarea id="iPOpts" rows="4"></textarea>
+      <div class="row"><button id="pToggle" class="go grow">▶ Начать</button><button id="pReset">↺ Обнулить</button></div>
+      <div class="row"><span class="hint">Акцент</span><input type="color" id="iAccent"><span class="hint">Фон</span><input type="color" id="iPCard"></div>
+      <div class="hint">Зрители пишут в чат цифру (1, 2…) или !1, !2. Один голос на зрителя, передумать можно. Нужен подключённый чат Twitch.</div>
+    </div>
+
     <!-- общий вид таймеров/счётчиков -->
     <div data-for="timer counter">
       <div class="lbl">Подпись сверху</div>
@@ -323,7 +353,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter">
+    <div data-for="text timer counter poll">
       <div class="lbl">Шрифт</div>
       <select id="iFont">
         <option value="montserrat">Montserrat (жирный)</option>
@@ -423,6 +453,16 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   </div>
 </aside>
 
+<div id="lock" hidden>
+  <div class="lockbox">
+    <div style="font-size:40px">🔒</div>
+    <h3>Пульт заблокирован</h3>
+    <input type="password" id="lockPass" placeholder="Пароль" autocomplete="current-password">
+    <button id="lockGo" class="primary">Открыть</button>
+    <div id="lockErr" class="hint" style="min-height:18px"></div>
+    <button id="lockReset" class="danger" style="margin-top:14px;font-size:12px">Забыл пароль: стереть комнаты (вернуть из бэкапа)</button>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="fatal"></div>
 
@@ -455,24 +495,38 @@ const clientId='mod_'+rid(10);
 const topics = r => ({ base:`${TOPIC_PREFIX}/${r}`, state:`${TOPIC_PREFIX}/${r}/state`, fx:`${TOPIC_PREFIX}/${r}/fx` });
 const validCode = c => /^[a-z0-9_-]{4,64}$/i.test(c||'');
 
-// ================== КОМНАТЫ ==================
-let rooms=lsGet('overlay.rooms', []);
-if(!Array.isArray(rooms)) rooms=[];
-rooms=rooms.filter(r=>r && validCode(r.code)).map(r=>({ code:r.code, name:String(r.name||'Без названия').slice(0,40) }));
-{ // старый формат: одна комната в overlay.room
-  let old=null; try{ old=localStorage.getItem('overlay.room'); }catch{}
-  if(old && old[0]==='"') try{ old=JSON.parse(old); }catch{}
-  if(validCode(old) && !rooms.some(r=>r.code===old)) rooms.push({ code:old, name:'Комната 1' });
+// ================== КОМНАТЫ И КЛЮЧИ ==================
+// У каждой комнаты: код (тема на брокере, не секрет), ключ шифрования k, открытый ключ p и закрытый ключ s.
+// Закрытый ключ есть только у модераторов: без него на экран стримера ничего не отправить.
+let rooms=[], room=null, KEYS=null, vaultPass=null;
+const curRoom=()=>rooms.find(r=>r.code===room);
+let saveChain=Promise.resolve();
+function saveRooms(){
+  lsSet('overlay.current', room);
+  const data={ rooms };
+  saveChain=saveChain.then(async()=>lsSet('overlay.vault2', vaultPass ? { locked: await lockJSON(vaultPass, data) } : { plain:data })).catch(e=>console.warn(e));
+  return saveChain;
 }
-let room=qs.get('room');
-if(validCode(room)){ if(!rooms.some(r=>r.code===room)) rooms.push({ code:room, name:'Комната '+(rooms.length+1) }); }
-else room=lsGet('overlay.current', null);
-if(!rooms.some(r=>r.code===room)){
-  if(!rooms.length) rooms.push({ code:rid(16), name:'Мой стример' });
-  room=rooms[0].code;
+function cleanRoom(r){
+  return r && validCode(r.code) && typeof r.k==='string' && typeof r.p==='string' && r.s && typeof r.s==='object'
+    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s } : null;
 }
-function saveRooms(){ lsSet('overlay.rooms', rooms); lsSet('overlay.current', room); }
-saveRooms();
+async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
+// Комнаты из старых версий (без ключей). Их коды были видны на брокере всем, поэтому выдаём новые.
+async function migrateOld(){
+  const legacy=[], old=lsGet('overlay.rooms', null);
+  if(Array.isArray(old)) legacy.push(...old.filter(r=>validCode(r?.code)));
+  let one=null; try{ one=localStorage.getItem('overlay.room'); }catch{}
+  if(one && one[0]==='"') try{ one=JSON.parse(one); }catch{}
+  if(validCode(one) && !legacy.some(r=>r.code===one)) legacy.push({ code:one, name:'Комната 1' });
+  for(const r of legacy) rooms.push(await makeRoom(r.name||'Комната'));
+  if(legacy.length){
+    lsSet('overlay.oldCodes', [...new Set([...(lsGet('overlay.oldCodes',[])||[]), ...legacy.map(r=>r.code)])]);
+    try{ localStorage.removeItem('overlay.rooms'); localStorage.removeItem('overlay.room'); }catch{}
+  }
+  return legacy.length;
+}
+async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
 
 let state={ visible:true, els:[] };
 let selectedId=null, drag=null;
@@ -482,7 +536,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=3, widgets=new Map();
+const WIDGET_VER=4, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -518,19 +572,44 @@ function connect(){
   client.on('reconnect', ()=>setPill($('status'), 'warn', 'переподключение…'));
   client.on('offline',   ()=>setPill($('status'), 'bad', 'нет связи'));
   client.on('error', e=>{ console.warn(e); setPill($('status'), 'bad', 'ошибка связи'); });
-  client.on('message', (topic, payload, packet)=>{
-    for(const h of oneOff) if(h(topic, payload)) return;
-    if(Assets.handle(topic, payload)) return;
-    if(topic===topics(room).base+'/hb'){ try{ const h=JSON.parse(payload.toString()); h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); }catch{} return; }
-    if(topic!==topics(room).state) return;
-    let msg=null; const txt=payload.toString();
-    if(txt){ try{ msg=JSON.parse(txt); }catch{ return; } }
-    if(msg && msg.from===clientId && !packet.retain) return;   // своё эхо (но сохранённое состояние комнаты берём)
-    if(drag) return;                         // не мешаем, пока тащим
-    state=sanitizeState(msg || { els:[] });
-    if(selectedId && !byId(selectedId)) selectedId=null;
-    renderAll();
+  let msgChain=Promise.resolve();   // по очереди: расшифровка асинхронная, порядок важен
+  client.on('message', (topic, payload, packet)=>{ msgChain=msgChain.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e)); });
+  // старые виджеты (до версии 4) просим перезагрузиться: они увидят, что нужна новая ссылка
+  client.on('connect', ()=>{
+    const old=lsGet('overlay.oldCodes', []); if(!Array.isArray(old) || !old.length) return;
+    for(const c of old) if(validCode(c)) client.publish(`${TOPIC_PREFIX}/${c}/state`, JSON.stringify({ v:2, wv:WIDGET_VER, t:Date.now(), visible:true, els:[] }), { qos:1, retain:true });
+    lsSet('overlay.oldCodes', []);
   });
+}
+async function onMessage(topic, payload, packet){
+  for(const h of oneOff) if(h(topic, payload)) return;
+  if(!payload.length) return;                     // пустые «удаления» не принимаем
+  const T=topics(room), keys=KEYS;
+  if(topic===T.base+'/hb'){
+    const h=await unsealJSON(keys, payload, false); if(!h) return;
+    h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
+  }
+  if(Assets.isAsset(topic)){ const plain=await unseal(keys, payload, true); if(plain) Assets.handle(topic, plain); return; }
+  if(topic!==T.state) return;
+  const msg=await unsealJSON(keys, payload, true);
+  if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
+  if(msg.from===clientId && !packet.retain) return;   // своё эхо
+  if(drag) return;                                 // не мешаем, пока тащим
+  state=sanitizeState(msg);
+  if(selectedId && !byId(selectedId)) selectedId=null;
+  renderAll();
+}
+// Всё, что уходит на экран, подписывается и шифруется. Очередь сохраняет порядок.
+let pubChain=Promise.resolve();
+function sealedPublish(topic, data, opts, keys=KEYS){
+  const bytes = data instanceof Uint8Array ? data : TE.encode(JSON.stringify(data));
+  const p = pubChain.then(async()=>{
+    if(!client?.connected) throw new Error('нет связи');
+    const box=await seal(keys, bytes, true);
+    await new Promise((res, rej)=>client.publish(topic, box, opts, e=>e?rej(e):res()));
+  });
+  pubChain=p.catch(e=>console.warn(e));
+  return p;
 }
 Assets.onReady=()=>renderAll();
 
@@ -539,7 +618,7 @@ function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
   const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:state.visible, els:state.els };
-  client.publish(topics(room).state, JSON.stringify(msg), { qos, retain:true });
+  sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
 function scheduleSend(){
   if(sendTimer) return;
@@ -547,18 +626,18 @@ function scheduleSend(){
 }
 function sendFx(fx, quiet){
   if(!client || !client.connected){ if(!quiet) toast('Нет связи с сервером'); return false; }
-  client.publish(topics(room).fx, JSON.stringify({ ...fx, from:clientId, t:Date.now() }), { qos: quiet?0:1 });
+  sealedPublish(topics(room).fx, { ...fx, from:clientId, t:Date.now(), n:rid(8) }, { qos: quiet?0:1 }).catch(()=>{});
   return true;
 }
-function switchRoom(code){
+async function switchRoom(code){
   if(code===room) return;
   if(client?.connected) client.unsubscribe([topics(room).state, topics(room).base+'/hb']);
   widgets.clear(); renderObs();
-  room=code; saveRooms();
+  await useRoom(code); saveRooms();
   state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear();
   if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe([topics(room).state, topics(room).base+'/hb'], { qos:1 }); }
-  history.replaceState(null, '', '?room='+room+(brokerUrl!==BROKER_URL?'&broker='+encodeURIComponent(brokerUrl):''));
-  renderRooms(); updateLink(); renderAll();
+  history.replaceState(null, '', location.pathname+(brokerUrl!==BROKER_URL?'?broker='+encodeURIComponent(brokerUrl):''));
+  renderRooms(); renderScenes(); updateLink(); renderAll();
 }
 
 // ================== ИЗМЕНЕНИЯ / ОТМЕНА ==================
@@ -639,6 +718,12 @@ function addCounter(chat){
   if(chat && !chatWs) toast('Подключи чат Twitch слева, чтобы счётчик заработал', 4000);
 }
 
+function addPoll(){
+  addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
+    title:'Что дальше?', opts:['Вариант 1','Вариант 2','Вариант 3'], votes:[0,0,0], running:false });
+  if(!chatWs) toast('Для голосования подключи чат Twitch слева', 4000);
+}
+
 // ================== ФАЙЛЫ С КОМПЬЮТЕРА ==================
 function showUpload(text, p){ $('upload').hidden=false; $('upText').textContent=text; $('upBar').style.width=Math.round(p*100)+'%'; }
 function hideUpload(){ $('upload').hidden=true; }
@@ -655,9 +740,7 @@ async function shrinkImage(file){
     return blob && blob.size<file.size ? blob : file;
   }catch{ return file; }
 }
-function pub(topic, payload){
-  return new Promise((res, rej)=>client.publish(topic, payload, { qos:1, retain:true }, e=>e?rej(e):res()));
-}
+function pub(topic, payload){ return sealedPublish(topic, payload, { qos:1, retain:true }); }
 async function uploadBlob(blob, name){
   if(!client?.connected) throw new Error('нет связи');
   const id=rid(14), base=`${topics(room).base}/asset/${id}`;
@@ -666,7 +749,7 @@ async function uploadBlob(blob, name){
     await pub(`${base}/c/${i}`, buf.subarray(i*CHUNK, (i+1)*CHUNK));
     showUpload(`Загрузка ${name}: ${Math.round((i+1)/n*100)}%`, (i+1)/n);
   }
-  await pub(`${base}/m`, JSON.stringify({ mime:blob.type, n, size:buf.length }));
+  await pub(`${base}/m`, { id, mime:blob.type, n, size:buf.length });
   Assets.addLocal(id, blob);
   return 'asset:'+id;
 }
@@ -748,12 +831,14 @@ function elIcon(el){
   if(el.type==='timer') return MODE_ICO[el.mode];
   if(el.type==='counter') return el.cmode==='chat'?'💬':'🔢';
   if(el.type==='web') return KIND_NAME[parseEmbed(el.url).kind].split(' ')[0];
+  if(el.type==='poll') return '📊';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
 }
 function elName(el){
   if(el.type==='text') return el.text.split('\n')[0] || '(пусто)';
   if(el.type==='timer') return (el.label||MODE_NAME[el.mode])+' · '+twState(el, nowMs()).text;
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
+  if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
   try{ const p=new URL(el.src).pathname.split('/').filter(Boolean).pop(); return decodeURIComponent(p||el.src); }catch{ return el.src; }
@@ -761,16 +846,18 @@ function elName(el){
 function renderLayers(){
   const box=$('layers'); box.replaceChildren();
   if(!state.els.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пока пусто'; box.appendChild(d); return; }
-  [...state.els].reverse().forEach(el=>{
+  [...state.els].reverse().forEach((el, li)=>{
     const row=document.createElement('div');
     row.className='layer'+(el.id===selectedId?' sel':'')+(el.hidden?' hid':'')+(el.ttl?' flashing':'');
     row.dataset.id=el.id;
+    const num=document.createElement('span'); num.className='num'; num.textContent=li<9?li+1:''; num.title=li<9?`Клавиша ${li+1}: показать на N сек`:'';
     const ico=document.createElement('span'); ico.className='ico'; ico.textContent=elIcon(el);
     const name=document.createElement('span'); name.className='name'; name.textContent=elName(el); name.title=name.textContent;
-    row.append(ico, name);
+    row.append(num, ico, name);
     const btn=(act, txt, title)=>{ const b=document.createElement('button'); b.dataset.act=act; b.textContent=txt; b.title=title; row.appendChild(b); };
     if(el.type==='timer' && (el.mode==='countdown'||el.mode==='stopwatch')) btn('ttoggle', el.running?'⏸':'▶', 'Старт / пауза (Пробел)');
     if(el.type==='counter'){ btn('cminus','−','−шаг'); btn('cplus','+','+шаг'); }
+    if(el.type==='poll') btn('ptoggle', el.running?'⏸':'▶', 'Начать / закончить голосование');
     if(el.kf) btn('kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
     btn('eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H)');
     btn('flash', '⚡', 'Показать на N секунд (F)');
@@ -792,7 +879,7 @@ function renderInspector(){
   eye.className=el.hidden?'off':'on';
   eye.textContent=el.hidden?'🙈 Скрыто: нажми, чтобы показать':'👁 На стриме: нажми, чтобы скрыть';
   $('flashBtn').textContent=`⚡ Показать на ${flashSecs()} сек`;
-  const sizeTxt = el.type==='text'||el.type==='timer'||el.type==='counter';
+  const sizeTxt = 'fs' in el;
   if(sizeTxt){
     Object.assign(I('iSize'), { min:1, max:40, step:0.5 }); setField(I('iSize'), String(el.fs));
     $('vSize').textContent=el.fs.toFixed(1)+'% высоты';
@@ -826,6 +913,11 @@ function renderInspector(){
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
   if(el.type==='video') setField(I('iSound'), el.sound, 'checked');
+  if(el.type==='poll'){
+    setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
+    setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
+    $('pToggle').textContent = el.running ? '⏹ Закончить' : '▶ Начать'; $('pToggle').className = el.running ? 'grow' : 'go grow';
+  }
   if(el.type==='web'){
     const k=parseEmbed(el.url).kind; showFor('kind', k);
     $('webKind').textContent=KIND_NAME[k];
@@ -950,7 +1042,7 @@ $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''
 $('addCam').onclick=addCam;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
-  if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else addTimer(a);
+  if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else addTimer(a);
 });
 
 $('pickSound').onclick=()=>$('soundFile').click();
@@ -975,6 +1067,8 @@ function widgetLink(){
   const base=WIDGET_BASE_URL || new URL('widget.html', location.href).href;
   const u=new URL(base); u.searchParams.set('room', room); u.searchParams.set('v', String(WIDGET_VER));
   if(brokerUrl!==BROKER_URL) u.searchParams.set('broker', brokerUrl);
+  const r=curRoom();
+  u.hash=`k=${r.k}&p=${r.p}`;   // ключи после #: не уходят ни на сайт, ни на брокер
   return u.href;
 }
 function updateLink(){ $('link').value=widgetLink(); }
@@ -992,50 +1086,111 @@ function renderRooms(){
   sel.value=room;
 }
 $('roomSel').onchange=e=>switchRoom(e.target.value);
-$('roomNew').onclick=()=>{
+$('roomNew').onclick=async()=>{
   const name=prompt('Название новой комнаты (например, ник стримера):', ''); if(name==null) return;
-  const r={ code:rid(16), name:(name.trim()||'Комната '+(rooms.length+1)).slice(0,40) };
-  rooms.push(r); saveRooms(); switchRoom(r.code); renderRooms();
+  const r=await makeRoom(name.trim()||'Комната '+(rooms.length+1));
+  rooms.push(r); await switchRoom(r.code); saveRooms(); renderRooms();
   toast('Новая комната: скопируй ссылку для OBS и отдай стримеру', 4000);
 };
-$('roomJoin').onclick=()=>{
-  let code=prompt('Вставь код комнаты или ссылку на виджет:', ''); if(!code) return;
-  code=code.trim(); try{ const u=new URL(code); code=u.searchParams.get('room')||code; }catch{}
-  if(!validCode(code)) return toast('Неправильный код');
-  if(!rooms.some(r=>r.code===code)){
-    const name=prompt('Как назвать эту комнату?', 'Комната '+(rooms.length+1));
-    rooms.push({ code, name:(name||'Комната').slice(0,40) }); saveRooms();
-  }
-  switchRoom(code); renderRooms();
+// Приглашение второго модератора: ссылка на пульт с ключами комнаты после #
+function inviteLink(r){ const u=new URL(location.href); u.search=''; u.hash='invite='+b64u.enc(TE.encode(JSON.stringify(r))); return u.href; }
+async function acceptInvite(text){
+  let r=null;
+  try{ const h=(text.includes('#') ? text.slice(text.indexOf('#')+1) : text).replace(/^invite=/,''); r=cleanRoom(JSON.parse(TD.decode(b64u.dec(h)))); }catch{}
+  if(!r){ toast('Это не ссылка-приглашение модератора'); return false; }
+  const ex=rooms.find(x=>x.code===r.code);
+  if(ex) Object.assign(ex, r); else rooms.push(r);
+  await switchRoom(r.code); saveRooms(); renderRooms();
+  toast(`Комната «${r.name}» добавлена`); return true;
+}
+$('roomJoin').onclick=()=>{ const t=prompt('Вставь ссылку-приглашение от другого модератора:', ''); if(t) acceptInvite(t.trim()); };
+$('roomInvite').onclick=async()=>{
+  const r=curRoom();
+  if(!confirm(`Ссылка-приглашение даёт ПОЛНОЕ управление экраном «${r.name}».\nОтправляй её только модератору, которому доверяешь, и только в личку.\n\nСкопировать?`)) return;
+  try{ await navigator.clipboard.writeText(inviteLink(r)); toast('Приглашение скопировано'); }
+  catch{ prompt('Скопируй ссылку:', inviteLink(r)); }
 };
 $('roomRename').onclick=()=>{
-  const r=rooms.find(r=>r.code===room); const name=prompt('Новое название:', r.name); if(!name) return;
+  const r=curRoom(); const name=prompt('Новое название:', r.name); if(!name) return;
   r.name=name.trim().slice(0,40); saveRooms(); renderRooms();
+};
+$('roomRekey').onclick=async()=>{
+  const r=curRoom();
+  if(!confirm(`Сменить ключи «${r.name}»?\n\nСтарая ссылка для OBS и все приглашения перестанут работать. Стримеру (и другим модераторам) нужно будет отправить новые.\nДелай так, если ссылка утекла.`)) return;
+  const fresh=await makeRoom(r.name); const keep=JSON.parse(JSON.stringify(state));
+  if(client?.connected) sealedPublish(topics(room).state, { v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:true, els:[] }, { qos:1, retain:true }).catch(()=>{});
+  rooms[rooms.indexOf(r)]=fresh; room=null; await switchRoom(fresh.code); saveRooms(); renderRooms();
+  state=keep; commit();   // экран переезжает в новую комнату
+  toast('Ключи сменены: скопируй новую ссылку для OBS', 5000);
 };
 $('roomDel').onclick=()=>{
   if(rooms.length<2) return toast('Это последняя комната, сначала создай другую');
-  const r=rooms.find(r=>r.code===room);
-  if(!confirm(`Убрать «${r.name}» из списка?\nУ стримера ничего не сломается, но код пропадёт из твоего пульта. Сохрани список, если код ещё нужен.`)) return;
-  rooms=rooms.filter(x=>x.code!==room); saveRooms(); switchRoom(rooms[0].code); renderRooms();
+  const r=curRoom();
+  if(!confirm(`Убрать «${r.name}» из списка?\nКлючи пропадут из этого пульта. Сохрани бэкап, если комната ещё нужна.`)) return;
+  rooms=rooms.filter(x=>x.code!==room); room=null; switchRoom(rooms[0].code).then(()=>{ saveRooms(); renderRooms(); });
 };
-$('roomExport').onclick=()=>{
-  const blob=new Blob([JSON.stringify({ overlayRooms:rooms, library, anims:myAnims }, null, 2)], { type:'application/json' });
+// Бэкап: в нём закрытые ключи, поэтому он всегда зашифрован паролем
+$('roomExport').onclick=async()=>{
+  const pass=prompt('Придумай пароль для файла бэкапа (в нём ключи всех комнат):', vaultPass||''); if(!pass) return;
+  const box=await lockJSON(pass, { rooms, library, anims:myAnims, scenes });
+  const blob=new Blob([JSON.stringify({ overlayBackup:2, box })], { type:'application/json' });
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-backup.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  toast('Бэкап скачан. Без пароля его не открыть', 4000);
 };
 $('roomImport').onclick=()=>$('roomFile').click();
 $('roomFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
-  try{
-    const data=JSON.parse(await f.text()); let added=0;
-    for(const r of (data.overlayRooms||[])) if(validCode(r?.code) && !rooms.some(x=>x.code===r.code)){ rooms.push({ code:r.code, name:String(r.name||'Комната').slice(0,40) }); added++; }
-    let libAdded=0, animAdded=0;
-    for(const it of (data.library||[])){ const el=sanitizeEl({ ...it?.el, id:'x' }); if(el && validCode(it.room) && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push({ name:String(it.name||'Элемент').slice(0,60), room:it.room, el:it.el }); libAdded++; } }
-    for(const a of (data.anims||[])){ const f=sanitizeFrames(a?.f); if(f.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f }); animAdded++; } }
-    saveRooms(); saveLib(); saveAnims(); renderRooms(); renderLib(); renderKfPresets();
-    toast(`Добавлено: комнат ${added}, элементов ${libAdded}, анимаций ${animAdded}`);
-  }catch{ toast('Это не файл бэкапа оверлея'); }
+  let data; try{ data=JSON.parse(await f.text()); }catch{ return toast('Это не файл бэкапа оверлея'); }
+  if(data.overlayBackup===2){
+    const pass=prompt('Пароль от файла бэкапа:', ''); if(!pass) return;
+    data=await unlockJSON(pass, data.box); if(!data) return toast('Неверный пароль');
+  }
+  let added=0, libAdded=0, animAdded=0;
+  for(const raw of (data.rooms||[])){ const r=cleanRoom(raw); if(r && !rooms.some(x=>x.code===r.code)){ rooms.push(r); added++; } }
+  for(const r of (data.overlayRooms||[])) if(validCode(r?.code) && !r.k){ rooms.push(await makeRoom(r.name)); added++; }   // старый бэкап без ключей
+  for(const it of (data.library||[])){ const el=sanitizeEl({ ...it?.el, id:'x' }); if(el && validCode(it.room) && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push({ name:String(it.name||'Элемент').slice(0,60), room:it.room, el:it.el }); libAdded++; } }
+  for(const a of (data.anims||[])){ const fr=sanitizeFrames(a?.f); if(fr.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f:fr }); animAdded++; } }
+  if(data.scenes && typeof data.scenes==='object') for(const [code, list] of Object.entries(data.scenes)) if(validCode(code) && Array.isArray(list)){ scenes[code]=[...(scenes[code]||[]), ...list.filter(x=>x && Array.isArray(x.els)).map(x=>({ name:String(x.name||'Сцена').slice(0,40), els:x.els }))]; }
+  saveRooms(); saveLib(); saveAnims(); saveScenes(); renderRooms(); renderLib(); renderKfPresets(); renderScenes();
+  toast(`Добавлено: комнат ${added}, элементов ${libAdded}, анимаций ${animAdded}`);
 };
+
+// --- пароль на пульт ---
+function renderLockBtns(){ $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '🔓 Поставить пароль'; $('lockBtn').hidden=!vaultPass; }
+$('passBtn').onclick=async()=>{
+  if(vaultPass){
+    const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
+    if(old!==vaultPass) return toast('Неверный пароль');
+    const np=prompt('Новый пароль. Оставь пустым, чтобы снять пароль:', ''); if(np==null) return;
+    if(np && np.length<6) return toast('Пароль хотя бы 6 символов');
+    vaultPass=np||null;
+  } else {
+    const np=prompt('Пароль на пульт (хотя бы 6 символов). Без него никто с этого компьютера не откроет твои комнаты.\nЗапомни его: восстановить нельзя, только из бэкапа.', ''); if(!np) return;
+    if(np.length<6) return toast('Пароль хотя бы 6 символов');
+    if(prompt('Повтори пароль:', '')!==np) return toast('Пароли не совпали');
+    vaultPass=np;
+  }
+  await saveRooms(); renderLockBtns(); toast(vaultPass ? 'Пароль установлен 🔒' : 'Пароль снят');
+};
+$('lockBtn').onclick=()=>{ location.reload(); };
+function askUnlock(box){
+  return new Promise(res=>{
+    $('lock').hidden=false; $('lockPass').focus();
+    const tryIt=async()=>{
+      $('lockErr').textContent='Проверяю…';
+      const data=await unlockJSON($('lockPass').value, box);
+      if(!data){ $('lockErr').textContent='Неверный пароль'; $('lockPass').select(); return; }
+      vaultPass=$('lockPass').value; $('lockPass').value=''; $('lock').hidden=true; res(data);
+    };
+    $('lockGo').onclick=tryIt;
+    $('lockPass').onkeydown=e=>{ if(e.key==='Enter') tryIt(); };
+    $('lockReset').onclick=()=>{
+      if(!confirm('Стереть все комнаты в этом браузере? Вернуть их можно будет только из файла бэкапа.')) return;
+      lsSet('overlay.vault2', null); location.reload();
+    };
+  });
+}
 
 // --- фон превью ---
 function applyBg(v){
@@ -1086,9 +1241,19 @@ function chatConnect(ch){
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
+const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
 function onChat(user, text){
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
+  const vm=text.trim().match(/^!?([1-6])$/);
+  if(vm) for(const el of state.els){
+    if(el.type!=='poll' || !el.running) continue;
+    const i=+vm[1]-1; if(i>=el.opts.length) continue;
+    let m=pollVotes.get(el.id); if(!m){ m=new Map(); pollVotes.set(el.id, m); }
+    const prev=m.get(user); if(prev===i) continue;
+    if(prev!=null) el.votes[prev]=Math.max(0, el.votes[prev]-1);
+    el.votes[i]++; m.set(user, i); any=true;
+  }
   for(const el of state.els){
     if(el.type!=='counter' || el.cmode!=='chat' || !el.running) continue;
     const kws=el.kw.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
@@ -1112,6 +1277,7 @@ $('layers').addEventListener('click', e=>{
   else if(act==='flash') flash(el);
   else if(act==='ttoggle') act1(el, timerToggle);
   else if(act==='kfplay') act1(el, kfToggle);
+  else if(act==='ptoggle') act1(el, pollToggle);
   else if(act==='cplus') act1(el, e=>e.value+=e.step);
   else if(act==='cminus') act1(el, e=>e.value-=e.step);
   else select(el.id);
@@ -1137,6 +1303,10 @@ function timerReset(el){
 function timerAdd(el, ms){
   if(el.mode!=='countdown') return;
   if(el.running) el.endAt=Math.max(Date.now(), el.endAt+ms); else el.left=Math.max(0, el.left+ms);
+}
+function pollToggle(el){
+  el.running=!el.running;
+  if(el.running && !chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000);
 }
 function counterToggle(el){
   const now=Date.now();
@@ -1188,6 +1358,12 @@ bindInput('iCmode',  (el,f)=>{ if(el.cmode==='interval' && el.running) el.value=
 bindInput('iKw',     (el,f)=>el.kw=f.value.slice(0,120));
 bindInput('iUniq',   (el,f)=>{ el.uniq=f.checked; chatSeen.delete(el.id); });
 bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.now()); el.startAt=Date.now(); } el.every=num(f.value,60,1,86400); });
+// голосование
+bindInput('iPTitle', (el,f)=>el.title=f.value.slice(0,100));
+bindInput('iPOpts',  (el,f)=>{ const o=f.value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,6); if(o.length<2) return;
+  el.votes=o.map((t,i)=>el.opts[i]===t ? el.votes[i] : 0); el.opts=o; pollVotes.delete(el.id); }, 'change');
+bindInput('iAccent', (el,f)=>el.accent=f.value);
+bindInput('iPCard',  (el,f)=>el.card=f.value);
 // web
 bindInput('iUrl',    (el,f)=>{ const u=safeUrl(f.value); if(u){ el.url=u; nodes.get(el.id)?.remove(); nodes.delete(el.id); } }, 'change');
 bindInput('iWebSound',(el,f)=>el.sound=f.checked);
@@ -1212,6 +1388,8 @@ $('cPlus').onclick=()=>act(el=>el.value+=el.step);
 $('cMinus').onclick=()=>act(el=>el.value-=el.step);
 $('cReset').onclick=()=>act(el=>{ el.value=0; el.startAt=Date.now(); chatSeen.delete(el.id); });
 $('cToggle').onclick=()=>act(counterToggle);
+$('pToggle').onclick=()=>act(pollToggle);
+$('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
 function moveLayer(dir){ const i=state.els.findIndex(e=>e.id===selectedId), j=i+dir; if(i<0||j<0||j>=state.els.length) return; beginChange(); [state.els[i],state.els[j]]=[state.els[j],state.els[i]]; commit(); }
@@ -1229,6 +1407,9 @@ document.addEventListener('keydown', e=>{
   if(typing(e.target)) return;
   if(ctrl && e.code==='KeyZ'){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ setBgInteract(false); select(null); return; }
+  if(/^Digit[1-9]$/.test(e.code) && !ctrl && !e.altKey){
+    const t=[...state.els].reverse()[+e.code.slice(5)-1]; if(t){ e.preventDefault(); flash(t); toast(`⚡ ${elName(t).slice(0,30)}`); } return;
+  }
   const el=byId(selectedId); if(!el) return;
   if(ctrl && e.code==='KeyD'){ e.preventDefault(); duplicate(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); remove(); return; }
@@ -1430,14 +1611,19 @@ $('libList').addEventListener('click', async e=>{
 async function getAssetBlob(fromRoom, id){
   const u=Assets.urls.get(id); if(u) return await (await fetch(u)).blob();
   if(!client?.connected) throw new Error('нет связи');
+  const src=rooms.find(r=>r.code===fromRoom); if(!src) throw new Error('комнаты, откуда этот файл, нет в списке');
+  const keys=await importRoomKeys(src);
   return new Promise((res, rej)=>{
     const base=`${topics(fromRoom).base}/asset/${id}`, parts=[]; let meta=null;
     const t=setTimeout(()=>{ done(); rej(new Error('нет ответа от сервера')); }, 15000);
     const h=(topic, payload)=>{
       if(!topic.startsWith(base+'/')) return false;
       const [kind, idx]=topic.slice(base.length+1).split('/');
-      if(payload.length){ if(kind==='m'){ try{ meta=JSON.parse(payload.toString()); }catch{} } else parts[+idx]=new Uint8Array(payload); }
-      if(meta && Array.from({ length:meta.n }, (_,i)=>parts[i]).every(Boolean)){ done(); res(new Blob(parts.slice(0,meta.n), { type:meta.mime })); }
+      if(payload.length) unseal(keys, payload, true).then(plain=>{
+        if(!plain) return;
+        if(kind==='m'){ try{ meta=JSON.parse(TD.decode(plain)); }catch{} } else parts[+idx]=plain;
+        if(meta && Array.from({ length:meta.n }, (_,i)=>parts[i]).every(Boolean)){ done(); res(new Blob(parts.slice(0,meta.n), { type:meta.mime })); }
+      });
       return true;
     };
     function done(){ clearTimeout(t); oneOff.delete(h); client.unsubscribe(base+'/#'); }
@@ -1445,17 +1631,69 @@ async function getAssetBlob(fromRoom, id){
   });
 }
 
+// ================== СЦЕНЫ ==================
+let scenes=lsGet('overlay.scenes', {}); if(!scenes || typeof scenes!=='object' || Array.isArray(scenes)) scenes={};
+function saveScenes(){ lsSet('overlay.scenes', scenes); }
+function renderScenes(){
+  const box=$('sceneList'); box.replaceChildren();
+  const list=scenes[room]||[];
+  if(!list.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пока нет сцен в этой комнате'; box.appendChild(d); return; }
+  list.forEach((sc,i)=>{
+    const row=document.createElement('div'); row.className='scene'; row.dataset.i=i; row.title='Клик: заменить экран · Shift+клик: добавить поверх';
+    const name=document.createElement('span'); name.className='name'; name.textContent=`🎞 ${sc.name} (${sc.els.length})`;
+    const up=document.createElement('button'); up.textContent='💾'; up.dataset.a='upd'; up.title='Перезаписать текущим экраном';
+    const del=document.createElement('button'); del.textContent='✕'; del.dataset.a='del'; del.title='Удалить сцену';
+    row.append(name, up, del); box.appendChild(row);
+  });
+}
+function snapshotEls(){ return JSON.parse(JSON.stringify(state.els)).map(e=>{ delete e.ttl; return e; }); }
+$('sceneSave').onclick=()=>{
+  if(!state.els.length) return toast('Экран пустой');
+  const name=prompt('Название сцены:', 'Сцена '+((scenes[room]||[]).length+1)); if(!name) return;
+  (scenes[room]=scenes[room]||[]).push({ name:name.trim().slice(0,40), els:snapshotEls() }); saveScenes(); renderScenes();
+  toast('Сцена сохранена');
+};
+$('sceneList').addEventListener('click', e=>{
+  const row=e.target.closest('.scene'); if(!row) return;
+  const list=scenes[room]||[], i=+row.dataset.i, sc=list[i]; if(!sc) return;
+  const a=e.target.dataset.a;
+  if(a==='del'){ if(confirm(`Удалить сцену «${sc.name}»?`)){ list.splice(i,1); saveScenes(); renderScenes(); } return; }
+  if(a==='upd'){ if(confirm(`Перезаписать «${sc.name}» текущим экраном?`)){ sc.els=snapshotEls(); saveScenes(); renderScenes(); } return; }
+  beginChange();
+  const now=Date.now();
+  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ x.id=rid(10); if(x.kf) x.kf.start=now; return sanitizeEl(x); }).filter(Boolean);
+  state.els = e.shiftKey ? [...state.els, ...els].slice(0, MAX_ELS) : els;
+  selectedId=null; commit();
+  toast(`🎞 ${sc.name}${e.shiftKey?' (поверх)':''}`);
+});
+
+// Раз в минуту переотправляем экран: так брокер всегда хранит свежую подписанную версию
+setInterval(()=>{ if(client?.connected && !drag && KEYS) publishNow(1); }, 60000);
+
 // ================== СТАРТ ==================
-history.replaceState(null, '', '?room='+room+(brokerUrl!==BROKER_URL?'&broker='+encodeURIComponent(brokerUrl):''));
-renderRooms();
-renderKfPresets();
-renderLib();
-updateLink();
-applyBg($('bgInput').value);
-renderAll();
-setPill($('status'), 'warn', 'подключение…');
-connect();
-{ const ch=lsGet('overlay.chat',''); if(ch) chatConnect(ch); }
+async function boot(){
+  if(!window.crypto?.subtle){ $('fatal').style.display='flex'; $('fatal').textContent='Пульт работает только по https:// (GitHub Pages) или с localhost: браузеру нужен модуль шифрования.'; return; }
+  const v=lsGet('overlay.vault2', null);
+  let data = v?.locked ? await askUnlock(v.locked) : (v?.plain || null);
+  rooms=(data?.rooms||[]).map(cleanRoom).filter(Boolean);
+  const migrated=await migrateOld();
+  const inv=location.hash.startsWith('#invite=') ? location.hash.slice(1) : null;
+  history.replaceState(null, '', location.pathname+(brokerUrl!==BROKER_URL?'?broker='+encodeURIComponent(brokerUrl):''));
+  if(!rooms.length && !inv) rooms.push(await makeRoom('Мой стример'));
+  const cur=lsGet('overlay.current', null);
+  if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
+  saveRooms();
+  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderLockBtns();
+  applyBg($('bgInput').value);
+  setPill($('status'), 'warn', 'подключение…');
+  connect();
+  if(inv) await acceptInvite(inv);
+  if(!rooms.length){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); saveRooms(); renderRooms(); }
+  updateLink(); renderAll();
+  { const ch=lsGet('overlay.chat',''); if(ch) chatConnect(ch); }
+  if(migrated) setTimeout(()=>alert('🔐 Защита обновлена.\n\nТеперь все команды на экран подписываются твоим ключом, а чужие отбрасываются. Старые ссылки для OBS больше не работают: нажми «📋 Копировать» и отправь стримеру НОВУЮ ссылку.'), 300);
+}
+boot();
 </script>
 </body>
 </html>
