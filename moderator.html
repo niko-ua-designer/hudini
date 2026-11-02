@@ -58,6 +58,9 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 #gv{left:50%;top:0;bottom:0;width:1px}#gh{top:50%;left:0;right:0;height:1px}
 #dropHint{position:absolute;inset:0;border:3px dashed var(--acc);background:#7c5cff22;display:none;align-items:center;justify-content:center;font-size:22px;font-weight:700;pointer-events:none;z-index:99999}
 #stage.dragover #dropHint{display:flex}
+#stage.bg-interact #bgLayer{pointer-events:auto;opacity:1;z-index:5}
+#stage.bg-interact #elLayer{pointer-events:none;opacity:.3}
+#bgClick.on{background:var(--warn);border-color:var(--warn);color:#000}
 
 /* ---------- элементы (общая отрисовка с виджетом) ---------- */
 .el{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);user-select:none;-webkit-user-select:none;cursor:move}
@@ -153,6 +156,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
   <h2>Фон превью (только у тебя)</h2>
   <input id="bgInput" type="text" placeholder="Ник на Twitch или ссылка на скриншот">
+  <div class="row"><button id="bgClick" class="grow" title="Временно сделать плеер кликабельным: например, нажать «Start Watching» на 18+ заглушке">🖱 Нажать в плеере</button></div>
   <div class="hint">Чтобы видеть, куда ставить элементы. Twitch-плеер работает, только если пульт открыт с сайта (GitHub Pages), а не как файл.</div>
 
   <h2>Клавиши</h2>
@@ -669,6 +673,13 @@ function applyBg(v){
 }
 $('bgInput').value=localStorage.getItem('overlay.bg')||'';
 $('bgInput').addEventListener('change', e=>applyBg(e.target.value));
+function setBgInteract(on){
+  stage.classList.toggle('bg-interact', on);
+  $('bgClick').classList.toggle('on', on);
+  $('bgClick').textContent = on ? '✅ Готово, вернуться к элементам' : '🖱 Нажать в плеере';
+  if(on){ select(null); toast('Плеер кликабельный: нажми «Start Watching», громкость и т.д.'); }
+}
+$('bgClick').onclick=()=>setBgInteract(!stage.classList.contains('bg-interact'));
 
 // ================== СЛОИ ==================
 function flashSecs(){ return num($('flashSecs').value, 5, 1, 600); }
@@ -730,7 +741,7 @@ document.addEventListener('keydown', e=>{
   const ctrl=e.ctrlKey||e.metaKey;
   if(typing(e.target)) return;
   if(ctrl && e.code==='KeyZ'){ e.preventDefault(); undo(); return; }
-  if(e.key==='Escape'){ select(null); return; }
+  if(e.key==='Escape'){ setBgInteract(false); select(null); return; }
   const el=byId(selectedId); if(!el) return;
   if(ctrl && e.code==='KeyD'){ e.preventDefault(); duplicate(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); remove(); return; }
