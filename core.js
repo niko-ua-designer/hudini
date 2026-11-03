@@ -63,11 +63,11 @@ function sanitizeEl(e){
     o.src=safeSrc(e.src); if(!o.src) return null;
     o.w=num(e.w,25,1,200);
     o.hh=num(e.hh,0,0,300);   // высота в % экрана; 0 = по пропорциям картинки
-    if(type==='video'){ o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15); }
+    if(type==='video'){ o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.restart=num(e.restart,0,0,1e15); }
   } else if(type==='web'){
     o.url=safeUrl(e.url); if(!o.url) return null;
     o.w=num(e.w,40,1,200); o.ar=ASPECTS[e.ar]?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
-    o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15);
+    o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.restart=num(e.restart,0,0,1e15);
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
   } else if(type==='cs2'){
     o.view=CS2_VIEWS.includes(e.view)?e.view:'card';
@@ -468,7 +468,7 @@ function embedSrc(el, host, forceMute){
   const p = parseEmbed(el.url);
   const e = encodeURIComponent;
   if(p.kind==='youtube')
-    return `https://www.youtube.com/embed/${p.id}?autoplay=1&mute=${mute?1:0}&controls=0&rel=0&playsinline=1&loop=1&playlist=${p.id}${p.start?'&start='+p.start:''}`;
+    return `https://www.youtube.com/embed/${p.id}?autoplay=1&mute=${mute?1:0}&controls=0&rel=0&playsinline=1&loop=1&playlist=${p.id}&enablejsapi=1${p.start?'&start='+p.start:''}`;
   if(p.kind==='twitch'){
     if(!host) return null;
     const base = p.clip ? `https://clips.twitch.tv/embed?clip=${e(p.clip)}`
@@ -488,6 +488,16 @@ function setFrameSrc(node, src, sandboxed){
   if(sandboxed) f.setAttribute('sandbox', SITE_SANDBOX); else f.removeAttribute('sandbox');
   if(src) f.setAttribute('src', src); else f.removeAttribute('src');
   ph.hidden = !!src || node._noPh;
+}
+
+// Громкость YouTube через его iframe API (enablejsapi=1). Плеер принимает команды только после загрузки,
+// поэтому повторяем несколько раз после load; у Twitch и обычных сайтов громкость снаружи не задать
+function setYtVolume(node, vol){
+  const f = node.querySelector('iframe'); if(!f) return;
+  node._ytVol = vol;
+  const send = () => { try{ f.contentWindow?.postMessage(JSON.stringify({ event:'command', func:'setVolume', args:[Math.round(node._ytVol*100)] }), 'https://www.youtube.com'); }catch{} };
+  if(!f._ytHook){ f._ytHook = true; f.addEventListener('load', () => { for(const ms of [500, 1500, 3000, 6000]) setTimeout(send, ms); }); }
+  send();
 }
 
 // ---------- файлы с компьютера ----------
