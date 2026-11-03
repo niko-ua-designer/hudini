@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
 <script src="i18n.js?v=1"></script>
-<script src="core.js?v=11"></script>
+<script src="core.js?v=12"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -530,6 +530,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <!-- видео-файл -->
     <div data-for="video">
       <label class="chk" style="margin-top:8px"><input type="checkbox" id="iSound"> 🔊 Звук на стриме</label>
+      <div class="row"><span class="hint">Громк.</span><input id="iVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vVol"></span></div>
       <div class="row"><button id="restartVideo" class="grow">⏮ С начала</button></div>
     </div>
 
@@ -538,6 +539,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="t" id="webKind">Сайт</div>
       <input type="url" id="iUrl">
       <label class="chk" style="margin-top:6px"><input type="checkbox" id="iWebSound"> 🔊 Звук на стриме</label>
+      <div class="row" data-kind="youtube"><span class="hint">Громк.</span><input id="iWebVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vWebVol"></span></div>
       <div class="row"><button id="restartWeb" class="grow">⏮ Перезапустить</button></div>
       <div class="row"><span class="hint">Формат</span>
         <select id="iAr" class="grow"><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">1:1</option><option value="9:16">9:16 (вертикально)</option><option value="21:9">21:9</option></select>
@@ -702,7 +704,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=10, widgets=new Map();
+const WIDGET_VER=11, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -1189,7 +1191,7 @@ function renderInspector(){
     $('cToggle').textContent = el.running ? '⏸ Остановить' : '▶ Считать';
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
-  if(el.type==='video') setField(I('iSound'), el.sound, 'checked');
+  if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='poll'){
@@ -1201,6 +1203,7 @@ function renderInspector(){
     const k=parseEmbed(el.url).kind; showFor('kind', k);
     $('webKind').textContent=KIND_NAME[k];
     setField(I('iUrl'), el.url); setField(I('iWebSound'), el.sound, 'checked');
+    setField(I('iWebVol'), String(el.vol)); $('vWebVol').textContent=Math.round(el.vol*100)+'%'; I('iWebVol').disabled=!el.sound;
     setField(I('iAr'), el.ar); setField(I('iShape'), el.shape); setField(I('iBc'), el.bc); setField(I('iBw'), String(el.bw));
     setField(I('iZoom'), String(el.zoom)); $('vZoom').textContent=Math.round(el.zoom*100)+'%';
   }
@@ -1756,6 +1759,7 @@ bindInput('iHh',     (el,f)=>el.hh=Number(f.value));
 bindInput('iOp',     (el,f)=>el.op=Number(f.value));
 bindInput('iAnim',   (el,f)=>el.anim=f.value);
 bindInput('iSound',  (el,f)=>el.sound=f.checked);
+bindInput('iVol',    (el,f)=>el.vol=+f.value);
 // таймеры / счётчики
 bindInput('iLabel',  (el,f)=>el.label=f.value.slice(0,80));
 bindInput('iStyle',  (el,f)=>el.style=f.value);
@@ -1808,6 +1812,7 @@ bindInput('iPCard',  (el,f)=>el.card=f.value);
 // web
 bindInput('iUrl',    (el,f)=>{ const u=safeUrl(f.value); if(u){ el.url=u; nodes.get(el.id)?.remove(); nodes.delete(el.id); } }, 'change');
 bindInput('iWebSound',(el,f)=>el.sound=f.checked);
+bindInput('iWebVol', (el,f)=>el.vol=+f.value);
 bindInput('iAr',     (el,f)=>el.ar=f.value);
 bindInput('iShape',  (el,f)=>el.shape=f.value);
 bindInput('iBc',     (el,f)=>el.bc=f.value);

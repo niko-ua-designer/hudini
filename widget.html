@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=10"></script>
+<script src="core.js?v=12"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -53,7 +53,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const LINK = '';
 // ===============================================
 
-const WIDGET_VER=10;
+const WIDGET_VER=11;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
@@ -100,7 +100,7 @@ function applyState(s){
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
       const v=node.querySelector('video');
-      v.muted=!el.sound;
+      v.muted=!el.sound; v.volume=el.vol;
       const restart = el.restart && el.restart!==node._restart;
       node._restart=el.restart;
       if(show){
@@ -112,6 +112,7 @@ function applyState(s){
       // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
       const src = show ? embedSrc(el, location.hostname, false) : null;
       setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
+      if(src && el.sound && parseEmbed(el.url).kind==='youtube' && node._ytVol!==el.vol) setYtVolume(node, el.vol);
     }
     if(show && !node._shown) pop(node);
     node._shown=show;
