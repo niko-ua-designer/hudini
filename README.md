@@ -1,11 +1,13 @@
-# Stream Overlay — an OBS overlay controlled by the moderator
+# 🎩 Hudini: an OBS overlay controlled by the moderator
 
 **[English](#english)** · **[Русский](#русский)**
+
+The panel and Hudini Host speak English, Українська, Deutsch and Русский: pick a language on first start or with the 🌐 switch in the header.
 
 A browser-based control panel for a stream moderator and a transparent OBS widget for the streamer. The moderator adds text, images, GIFs, videos, YouTube/Twitch clips, timers, counters, chat polls, CS2 stats and animations, then moves them around in real time. Everything appears on the stream instantly at the same position.
 
 - **Control panel:** https://niko-ua-designer.github.io/overlay/moderator.html
-- **Streamer app (optional):** [Overlay Host](host/README.md) · [download](https://github.com/niko-ua-designer/overlay/releases/latest)
+- **Streamer app (optional):** [Hudini Host](host/README.md) · [download](https://github.com/niko-ua-designer/overlay/releases/latest)
 
 ---
 
@@ -20,7 +22,7 @@ A browser-based control panel for a stream moderator and a transparent OBS widge
 | `moderator.html` | the moderator's control panel |
 | `widget.html` | the transparent screen the streamer adds to OBS as a Browser Source |
 | `core.js`, `core.css` | shared code, keep them next to the HTML files |
-| `host/` | **Overlay Host**, an optional app for the streamer's PC (own server + CS2 data) |
+| `host/` | **Hudini Host**, an optional app for the streamer's PC (own server + CS2 data) |
 
 Messages travel through a free public MQTT broker (`broker.emqx.io`), so you don't need accounts, API keys or a server. Every message is **encrypted and signed** (see [Security](#security)). The broker keeps the latest state, so the overlay comes back after an OBS restart.
 
@@ -38,9 +40,9 @@ Messages travel through a free public MQTT broker (`broker.emqx.io`), so you don
 
 **Check:** press **📐 Frame** in the panel. A pink frame appears on the streamer's screen for 10 seconds and must follow the edges of the stream exactly.
 
-### Overlay Host (streamer app, recommended)
+### Hudini Host (streamer app, recommended)
 
-[Overlay Host](host/README.md) runs a local server on the streamer's PC. OBS gets commands directly from that machine, and moderators connect through a free Cloudflare tunnel; the panel finds it automatically. It also feeds **live CS2 data** to the overlay.
+[Hudini Host](host/README.md) runs a local server on the streamer's PC. OBS gets commands directly from that machine, and moderators connect through a free Cloudflare tunnel; the panel finds it automatically. It also feeds **live CS2 data** to the overlay.
 
 1. Moderator: **📋 Copy** → send the link.
 2. Streamer: download the app, paste the link into it, copy its **OBS link** and paste that into the Browser Source.
@@ -48,7 +50,7 @@ Messages travel through a free public MQTT broker (`broker.emqx.io`), so you don
 
 If the app or the tunnel is down, the panel automatically falls back to the public broker.
 
-On the public broker, uploaded files are limited: images up to 2 MB, GIF/video/audio up to 6 MB, 25 MB per room. When a limit is hit, the panel suggests switching to Overlay Host, which has no such limits.
+On the public broker, uploaded files are limited: images up to 2 MB, GIF/video/audio up to 6 MB, 25 MB per room. When a limit is hit, the panel suggests switching to Hudini Host, which has no such limits.
 
 **Updates are automatic:** the app updates itself (checksum-verified, never mid-stream), the OBS widget reloads itself when a newer panel connects, and the panel shows **🆕 Update panel** when a new version is published.
 
@@ -63,7 +65,7 @@ On the public broker, uploaded files are limited: images up to 2 MB, GIF/video/a
 - **Counters**: manual (+/−), **Twitch chat words** (e.g. `F`, `*` = any message, optional once per viewer), automatic every N seconds, goal with a progress bar.
 - **📊 Chat polls**: viewers type `1`, `2`… One vote per viewer, live bars, winner highlight.
 - **💬 Chat messages on screen**: the **Chat** tab shows the live Twitch chat with emotes and badges. Click a message and it pops up on stream with the viewer's name and color. New messages reuse the position and style of the previous one.
-- **🎯 CS2** (needs Overlay Host): player card, K/D/A, HP/armor, score, money, weapon, auto **DOUBLE / TRIPLE / QUAD / ACE** popup (threshold of your choice, **▶ Example** button to position it).
+- **🎯 CS2** (needs Hudini Host): player card, K/D/A, HP/armor, score, money, weapon, auto **DOUBLE / TRIPLE / QUAD / ACE** popup (threshold of your choice, **▶ Example** button to position it).
 - **👁 CS2 observer mode** (GOTV / spectator / caster): tournament-style **team panels**, **scorebar** with round timer & bomb, **observed player** card. CS2 sends data about all players only to spectators, never to a player in their own match.
 - **Full-screen effects**: sound (link or file), confetti, screen shake.
 
@@ -126,7 +128,7 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 | Panel shows **OBS: not seen** | the widget isn't connected to this room: wrong link, source hidden, or not in the current scene |
 | Everything on stream is shifted or smaller | select the source → **Ctrl+F**, check with **📐 Frame** |
 | No sound | OBS: "Control audio via OBS" and the source volume in the mixer |
-| Broker is slow | change `BROKER_URL` in `moderator.html` and `widget.html` to `wss://broker.hivemq.com:8884/mqtt`, or use Overlay Host |
+| Broker is slow | change `BROKER_URL` in `moderator.html` and `widget.html` to `wss://broker.hivemq.com:8884/mqtt`, or use Hudini Host |
 
 ---
 
@@ -139,7 +141,7 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 | `moderator.html` | пульт модератора |
 | `widget.html` | прозрачный экран, который стример добавляет в OBS как источник «Браузер» |
 | `core.js`, `core.css` | общий код, держи рядом с HTML-файлами |
-| `host/` | **Overlay Host**, программа для ПК стримера (свой сервер и данные из CS2), по желанию |
+| `host/` | **Hudini Host**, программа для ПК стримера (свой сервер и данные из CS2), по желанию |
 
 Связь идёт через бесплатный публичный MQTT-брокер (`broker.emqx.io`): регистрация, ключи API и свой сервер не нужны. Все сообщения **шифруются и подписываются** (см. «Безопасность»). Брокер хранит последнее состояние, поэтому после перезапуска OBS всё появляется снова.
 
@@ -157,9 +159,9 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 
 **Проверка:** нажми в пульте **📐 Рамка**. У стримера на 10 секунд появится розовая рамка, и она должна идти ровно по краям экрана.
 
-### Overlay Host (программа стримера, лучше с ней)
+### Hudini Host (программа стримера, лучше с ней)
 
-[Overlay Host](host/README.md) поднимает сервер на ПК стримера. OBS получает команды прямо с этого компьютера, а модераторы подключаются через бесплатный туннель Cloudflare, его адрес пульт находит сам. Ещё программа передаёт на оверлей **живые данные из CS2**.
+[Hudini Host](host/README.md) поднимает сервер на ПК стримера. OBS получает команды прямо с этого компьютера, а модераторы подключаются через бесплатный туннель Cloudflare, его адрес пульт находит сам. Ещё программа передаёт на оверлей **живые данные из CS2**.
 
 1. Модератор: **📋 Копировать** → отправляет ссылку.
 2. Стример: скачивает программу, вставляет в неё ссылку, копирует **«Ссылку для OBS»** и вставляет её в источник «Браузер».
@@ -167,7 +169,7 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 
 Если программа или туннель не работают, пульт сам переключается на общий сервер.
 
-На общем сервере файлы ограничены: картинка до 2 МБ, GIF, видео и звук до 6 МБ, всего в комнате до 25 МБ. Когда лимит достигнут, пульт предлагает перейти на Overlay Host: там этих лимитов нет.
+На общем сервере файлы ограничены: картинка до 2 МБ, GIF, видео и звук до 6 МБ, всего в комнате до 25 МБ. Когда лимит достигнут, пульт предлагает перейти на Hudini Host: там этих лимитов нет.
 
 **Обновления приходят сами:** программа обновляет себя (с проверкой контрольной суммы и никогда посреди стрима), виджет в OBS перезагружается, когда подключается более новый пульт, а пульт показывает кнопку **«🆕 Обновить пульт»**, когда выходит новая версия.
 
@@ -182,7 +184,7 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 - **Счётчики**: ручной (+/−), **по словам в чате Twitch** (например `F`, `*` = любое сообщение, можно «один раз на зрителя»), сам каждые N секунд, цель с полосой.
 - **📊 Голосование в чате**: зрители пишут `1`, `2`… Один голос на зрителя, полосы обновляются вживую, победитель подсвечивается.
 - **💬 Сообщения из чата на экране**: во вкладке **«Чат»** идёт живой чат Twitch с эмоутами и значками. Кликни по сообщению, и оно всплывёт на стриме с ником и цветом зрителя. Новые сообщения появляются на месте прошлого и в том же виде.
-- **🎯 CS2** (нужен Overlay Host): карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка **DOUBLE / TRIPLE / QUAD / ACE** (порог на выбор, кнопка **▶ Пример**, чтобы поставить её на место).
+- **🎯 CS2** (нужен Hudini Host): карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка **DOUBLE / TRIPLE / QUAD / ACE** (порог на выбор, кнопка **▶ Пример**, чтобы поставить её на место).
 - **👁 Режим наблюдателя CS2** (GOTV, зритель, кастер): **панели команд** как на турнирах, **счёт-бар** с таймером раунда и бомбой, карточка того, **за кем смотрят**. Данные по всем игрокам CS2 отдаёт только зрителям, в своём матче их нет.
 - **Эффекты на весь экран**: звук (ссылка или файл), конфетти, тряска экрана.
 
@@ -245,4 +247,4 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 | В пульте **OBS: не видно** | виджет не подключён к этой комнате: не та ссылка, источник выключен или не в текущей сцене |
 | На стриме всё сдвинуто или мельче | выделить источник → **Ctrl+F**, проверить кнопкой **📐 Рамка** |
 | Нет звука | OBS: «Управлять аудио через OBS» и громкость источника в микшере |
-| Брокер тормозит | поменять `BROKER_URL` в `moderator.html` и `widget.html` на `wss://broker.hivemq.com:8884/mqtt` или поставить Overlay Host |
+| Брокер тормозит | поменять `BROKER_URL` в `moderator.html` и `widget.html` на `wss://broker.hivemq.com:8884/mqtt` или поставить Hudini Host |

@@ -1,5 +1,5 @@
-# Собирает программу стримера Overlay Host и выкладывает её в Releases
-name: Overlay Host build
+# Собирает программу стримера Hudini Host и выкладывает её в Releases
+name: Hudini Host build
 on:
   push:
     branches: [main]
@@ -34,7 +34,7 @@ jobs:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: host-v${{ steps.v.outputs.ver }}
-          name: Overlay Host ${{ steps.v.outputs.ver }}
+          name: Hudini Host ${{ steps.v.outputs.ver }}
           make_latest: true
           body: |
             **EN:** App for the streamer: a local overlay server + live CS2 data. Windows: download `OverlayHost-windows.exe.zip`, unzip it into its own folder and run it.

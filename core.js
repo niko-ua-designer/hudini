@@ -14,7 +14,7 @@ const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
 const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg'];
 const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed'];
-// Живые данные из CS2 (приходят от программы стримера Overlay Host)
+// Живые данные из CS2 (приходят от программы стримера Hudini Host)
 let CS2 = null;
 const ASPECTS = { '16:9':'16 / 9', '4:3':'4 / 3', '1:1':'1 / 1', '9:16':'9 / 16', '21:9':'21 / 9' };
 const SHAPES = ['rect','round','circle'];
@@ -324,7 +324,7 @@ function buildNode(el){
       bar.appendChild(fill); c.appendChild(bar);
     }
   }
-  c.classList.add('content');
+  c.classList.add('content'); c.setAttribute('data-i18n-skip', '');   // превью = как на стриме, не переводим
   body.appendChild(c); fx.appendChild(body); node.appendChild(fx);
   return node;
 }
