@@ -1,0 +1,37 @@
+# Собирает программу стримера Overlay Host и выкладывает её в Releases
+name: Overlay Host build
+on:
+  push:
+    branches: [main]
+    paths: ['host/**', 'widget.html', 'core.js', 'core.css', '.github/workflows/host.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build
+        run: sh host/build.sh
+      - name: Zip
+        run: |
+          cd host/dist
+          for f in *; do zip -9 "$f.zip" "$f"; done
+      - name: Version
+        id: v
+        run: echo "ver=$(grep -oP "VERSION = '\K[^']+" host/server.js)" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: host-v${{ steps.v.outputs.ver }}
+          name: Overlay Host ${{ steps.v.outputs.ver }}
+          make_latest: true
+          body: |
+            Программа для стримера: свой сервер оверлея на ПК + данные из CS2.
+            Windows: скачай OverlayHost-windows.exe.zip, распакуй в отдельную папку и запусти.
+            Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
+          files: host/dist/*.zip

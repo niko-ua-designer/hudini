@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Overlay Host</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:24px 18px 60px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.n{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:13px;flex:none}
+input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font:inherit;font-size:13px}
+input:focus{outline:none;border-color:var(--acc)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--text);font:inherit;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--acc)}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.row>input{flex:1}
+.hint{color:var(--muted);font-size:13px;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.st{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.st b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:2px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--muted)}
+.ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.bad .dot{background:var(--bad)}
+pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:220px;overflow:auto;white-space:pre-wrap;margin:0;color:#b9bfcc}
+ol{margin:6px 0 0 18px;padding:0}li{margin:3px 0}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none}
+.cs2{display:flex;gap:16px;flex-wrap:wrap;font-variant-numeric:tabular-nums;margin-top:8px;color:var(--muted);font-size:13px}
+.cs2 span b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎛 Overlay Host <span id="ver" class="hint"></span></h1>
+  <div class="sub">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
+
+  <div class="card">
+    <h2><span class="n">1</span> Ссылка от модератора</h2>
+    <div class="hint" style="margin-top:0">Попроси модератора нажать в пульте «📋 Копировать» и пришли эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
+    <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
+    <div class="hint" id="roomInfo"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span> Ссылка для OBS</h2>
+    <div class="row"><input id="obs" readonly placeholder="Появится после шага 1"><button id="copyObs">📋 Копировать</button></div>
+    <ol class="hint">
+      <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
+      <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
+      <li>Выдели источник и нажми <b>Ctrl+F</b>, чтобы растянуть его на весь экран</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span> CS2 на оверлее (по желанию)</h2>
+    <div class="hint" style="margin-top:0">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
+    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">Скачать файл вручную</button></div>
+    <div class="hint" id="gsiInfo"></div>
+    <div class="cs2" id="cs2"></div>
+  </div>
+
+  <div class="card">
+    <h2>Состояние</h2>
+    <div class="grid">
+      <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sTun"><b>Туннель для модераторов</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sMods"><b>Модераторы напрямую</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sBr"><b>Запасной путь (общий сервер)</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sCs"><b>CS2</b><span class="dot"></span><span class="v">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Журнал</h2>
+    <pre id="logs"></pre>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+function toast(t){ const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', 2600); }
+function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
+async function api(p, body){
+  const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
+  const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
+}
+const WEAP={ak47:'AK-47',m4a1:'M4A4',m4a1_silencer:'M4A1-S',awp:'AWP',deagle:'Desert Eagle',usp_silencer:'USP-S',glock:'Glock-18'};
+async function refresh(){
+  let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); return; }
+  $('ver').textContent='v'+s.version;
+  if(document.activeElement!==$('link') && !$('link').value && s.room) $('link').placeholder='сохранена (комната '+s.room+')';
+  $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Ссылка ещё не сохранена';
+  if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
+  st('sObs', s.obsOnline?'ok':'bad', s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1'));
+  st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), s.tunnel?'работает':(s.tunnelErr||'запускается…'));
+  st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
+  st('sBr', s.bridge?'ok':'warn', s.bridge?'подключён':'нет связи');
+  st('sCs', s.cs2Online?'ok':'warn', s.cs2Online?'данные идут':'нет данных');
+  if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
+  const c=s.cs2;
+  $('cs2').innerHTML='';
+  if(c && s.cs2Online){
+    const add=(k,v)=>{ const sp=document.createElement('span'); sp.append(k+' '); const b=document.createElement('b'); b.textContent=v??'—'; sp.append(b); $('cs2').append(sp); };
+    add('Карта',c.map); add('Счёт',`${c.ct??0}:${c.tt??0}`); add('K/D/A',`${c.k??0}/${c.d??0}/${c.a??0}`); add('HP',c.hp); add('$',c.money);
+    if(c.weapon) add('Оружие', WEAP[c.weapon.replace('weapon_','')]||c.weapon.replace('weapon_',''));
+  }
+  $('logs').textContent=(s.logs||[]).join('\n'); $('logs').scrollTop=1e9;
+}
+$('saveLink').onclick=async()=>{ try{ await api('/api/link', { link:$('link').value }); $('link').value=''; toast('Сохранено ✓'); refresh(); }catch(e){ toast(e.message); } };
+$('copyObs').onclick=async()=>{ if(!$('obs').value) return toast('Сначала шаг 1'); try{ await navigator.clipboard.writeText($('obs').value); }catch{ $('obs').select(); document.execCommand('copy'); } toast('Скопировано: вставь в OBS'); };
+$('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
+$('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>
