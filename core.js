@@ -9,7 +9,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg'];
 const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed'];
 // Живые данные из CS2 (приходят от программы стримера Overlay Host)
 let CS2 = null;
@@ -71,6 +71,14 @@ function sanitizeEl(e){
     o.fs=num(e.fs,4,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#ffb020');
     o.label=str(e.label,40); o.side=['both','ct','t'].includes(e.side)?e.side:'both';
+    o.minK=Math.round(num(e.minK,2,1,5));
+  } else if(type==='msg'){
+    o.user=str(e.user,40); o.ucolor=hex(e.ucolor,'#a78bfa'); o.text=str(e.text,500);
+    o.emotes=(Array.isArray(e.emotes)?e.emotes:[]).slice(0,80).map(x=>[str(x?.[0],40).replace(/[^A-Za-z0-9_]/g,''), Math.round(num(x?.[1],0,0,600)), Math.round(num(x?.[2],0,0,600))]).filter(x=>x[0] && x[2]>=x[1]);
+    o.badge=['mod','vip','sub','broadcaster',''].includes(e.badge)?e.badge:'';
+    o.fs=num(e.fs,3,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
+    o.maxw=num(e.maxw,38,10,100);
   } else if(type==='poll'){
     o.fs=num(e.fs,3.2,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
@@ -98,6 +106,7 @@ function sanitizeEl(e){
     }
   }
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
+  if(e.g) o.g=str(e.g,12).replace(/[^a-z0-9]/gi,'');
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
   return o;
 }
@@ -286,6 +295,7 @@ function buildNode(el){
     c.setAttribute('playsinline',''); c.setAttribute('muted','');
   } else if(el.type==='image'){ c=document.createElement('img'); c.alt=''; c.draggable=false; }
   else if(el.type==='cs2'){ c=document.createElement('div'); c.className='cs2'; }
+  else if(el.type==='msg'){ c=document.createElement('div'); c.className='msg'; }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -336,6 +346,13 @@ function paintNode(node, el, z){
     const url=resolveSrc(el.src);
     if(url && c.getAttribute('src')!==url) c.setAttribute('src', url);
     node.classList.toggle('loading', !url);
+  } else if(el.type==='msg'){
+    node.style.width='';
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
+    c.style.maxWidth=`calc(var(--u) * ${(el.maxw*16/9).toFixed(2)})`;
+    const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.badge]);
+    if(c._sig!==sig){ const had=!!c._sig; c._sig=sig; paintMsg(c, el); if(had){ c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); } }
   } else if(el.type==='cs2'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
@@ -597,14 +614,12 @@ function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.class
 function paintCs2(c, el){
   const d = cs2Fresh() ? CS2 : null;
   if(el.view==='streak'){
-    // всплывашка на мульти-килл: появляется сама, когда за раунд 2+ убийства
-    const rk = d?.rk||0;
-    if(c._rk!=null && rk>c._rk && rk>=2){
-      c.replaceChildren(h('div','c-streak', STREAK[Math.min(rk,5)]), h('div','c-sub', (d.rhs?`${d.rhs} в голову · `:'')+weaponName(d.weapon)));
-      c._until=Date.now()+3500; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
-    }
-    if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub','появится само при 2+ убийствах за раунд'));
-    c._rk = rk;
+    // всплывашка по событиям от программы стримера: свои мульти-киллы и (в режиме наблюдателя) любого игрока
+    const list=(d?.evs||[]).filter(e=>e.k==='multikill' && e.n>=(el.minK||2));
+    const last=list[list.length-1];
+    if(c._seen==null) c._seen = last ? last.s : 0;          // старые события при подключении не показываем
+    else if(last && last.s>c._seen){ c._seen=last.s; if(Date.now()-(last.t+(d._skew||0)) < 8000) cs2Popup(c, last); }
+    if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub','появится само при мульти-килле'));
     return;
   }
   c.classList.toggle('nodata', !d);
@@ -679,4 +694,29 @@ function paintCs2(c, el){
     case 'weapon': parts.push(h('div','c-big', d.weapon ? weaponName(d.weapon) : '—'), h('div','c-map', d.ammoMax>0 ? `${d.ammo} / ${d.reserve}` : '')); break;
   }
   c.replaceChildren(...parts);
+}
+
+function cs2Popup(c, ev){
+  const sub=[ev.me?null:ev.name, ev.hs?`${ev.hs} в голову`:null, ev.weapon?weaponName(ev.weapon):null].filter(Boolean).join(' · ');
+  c.replaceChildren(h('div','c-streak', STREAK[Math.min(ev.n,5)] || (ev.n+' KILLS')), h('div','c-sub', sub));
+  c._until=Date.now()+3800; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); c.classList.add('on');
+}
+// ---------- сообщение из чата ----------
+const BADGE = { mod:'🛡', vip:'💎', sub:'⭐', broadcaster:'🎥' };
+function paintMsg(c, el){
+  const head=h('div','m-head');
+  if(el.badge) head.append(h('span','m-badge', BADGE[el.badge]));
+  const nm=h('span','m-user', el.user||'Зритель'); nm.style.color=el.ucolor; head.append(nm);
+  const body=h('div','m-text');
+  const cp=Array.from(el.text);                       // Twitch считает позиции эмоутов по символам
+  const em=[...el.emotes].sort((a,b)=>a[1]-b[1]); let i=0;
+  for(const [id,a,b] of em){
+    if(a<i || a>=cp.length) continue;
+    if(a>i) body.append(document.createTextNode(cp.slice(i,a).join('')));
+    const img=document.createElement('img'); img.className='m-emote'; img.alt=cp.slice(a,b+1).join(''); img.draggable=false;
+    img.src=`https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0`;
+    body.append(img); i=b+1;
+  }
+  if(i<cp.length) body.append(document.createTextNode(cp.slice(i).join('')));
+  c.replaceChildren(head, body);
 }

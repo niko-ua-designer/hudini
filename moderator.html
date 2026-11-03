@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=7">
+<link rel="stylesheet" href="core.css?v=8">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=7"></script>
+<script src="core.js?v=8"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -138,6 +138,61 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 .scene{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0;cursor:pointer}
 .scene .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
 .scene button{padding:2px 6px;font-size:12px}
+
+/* ---------- вкладки слева ---------- */
+#left{padding-top:0}
+#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+#tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px 6px;font-size:16px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:none;color:var(--muted)}
+#tabs button span{font-size:10.5px;letter-spacing:.02em}
+#tabs button:hover{background:var(--panel2);color:var(--text)}
+#tabs button.on{color:var(--text);border-bottom-color:var(--acc);background:var(--panel2)}
+#tabs button .badge{position:absolute}
+section[data-pane][hidden]{display:none}
+/* ---------- лента чата ---------- */
+#chatFeed{margin-top:8px;max-height:calc(100vh - 360px);min-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;background:#11141a}
+.cm{padding:5px 8px;border-bottom:1px solid #ffffff08;cursor:pointer;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.cm:hover{background:#7c5cff22}
+.cm .u{font-weight:700}
+.cm .b{margin-right:3px}
+.cm img{height:20px;vertical-align:middle}
+.cm.shown{background:#2ecc7122}
+.cm .tm{float:right;color:var(--muted);font-size:10px;margin-left:6px}
+#chatMore{position:sticky;bottom:0;text-align:center;background:var(--acc);color:#fff;border-radius:6px;padding:3px;margin-top:-28px;cursor:pointer;font-size:12px}
+/* ---------- сценарии ---------- */
+.scn{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);margin:6px 0}
+.scn.off{opacity:.5}
+.scn .nm{flex:1;min-width:0}
+.scn .nm b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scn .nm span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scn button{padding:3px 7px;font-size:12px}
+.scn.fired{box-shadow:0 0 0 2px var(--warn) inset}
+#scnEdit{border:1px solid var(--acc);border-radius:10px;padding:10px;margin-top:10px;background:#16122a}
+#scnEdit .t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px}
+.act{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0}
+.act select,.act input{width:auto!important;flex:1 1 90px;padding:4px 6px!important;font-size:12px}
+.act .n{color:var(--muted);font-size:11px;width:14px}
+.act button{padding:2px 6px;font-size:12px}
+/* ---------- панель инструментов над холстом ---------- */
+main{flex-direction:column;align-items:stretch;justify-content:flex-start}
+#toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);background:#13161c;flex-wrap:wrap;min-height:40px}
+#toolbar .tgrp{display:inline-flex;gap:1px;background:var(--line);border-radius:7px;padding:1px}
+#toolbar .tgrp button{border:0;border-radius:6px;padding:4px 8px;background:var(--panel2);font-size:14px;min-width:30px}
+#toolbar .tgrp button:hover{background:#2a2550}
+#toolbar .tsep{width:1px;height:20px;background:var(--line)}
+#toolbar select{width:auto;padding:3px 6px;font-size:12px}
+#toolbar.none .tgrp button{opacity:.35;pointer-events:none}
+#selInfo{min-width:120px}
+#stageBox{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#gridLayer{position:absolute;inset:0;pointer-events:none;display:none;z-index:0;
+  background-image:linear-gradient(to right,#7c5cff38 1px,transparent 1px),linear-gradient(to bottom,#7c5cff38 1px,transparent 1px)}
+#stage.grid #gridLayer{display:block}
+#selRect{position:absolute;border:1px solid var(--acc);background:#7c5cff22;pointer-events:none;display:none;z-index:99997}
+.el.msel{outline:2px dashed #b9a8ff;outline-offset:4px}
+.el.msel .h{display:none!important}
+.layer.msel{border-color:#b9a8ff;background:#211c3c}
+.layer .grp{font-size:10px;color:#b9a8ff}
+#multiBanner{background:#211c3c;border:1px solid #b9a8ff;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:6px}
+
 #fatal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100001;padding:30px;text-align:center;font-size:16px}
 </style>
 </head>
@@ -160,98 +215,143 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 </header>
 
 <aside id="left">
-  <h2>Комната (стример)</h2>
-  <select id="roomSel"></select>
-  <div class="grid2">
-    <button id="roomNew">＋ Новая</button>
-    <button id="roomRename">✎ Название</button>
-    <button id="roomInvite" title="Ссылка для второго модератора">👥 Пригласить</button>
-    <button id="roomJoin" title="Вставить приглашение от другого модератора">🔑 Приглашение</button>
-    <button id="roomRekey" title="Если ссылка для OBS утекла">♻ Сменить ключи</button>
-    <button id="roomDel">🗑 Из списка</button>
-    <button id="roomExport">⬇ Бэкап</button>
-    <button id="roomImport">⬆ Из бэкапа</button>
-  </div>
-  <input type="file" id="roomFile" accept=".json,application/json" hidden>
-  <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта: без него управлять нельзя. «Бэкап» сохраняет всё в файл под паролем.</div>
+  <nav id="tabs">
+    <button data-tab="add" class="on" title="Добавить на экран">➕<span>Добавить</span></button>
+    <button data-tab="scenes" title="Сцены и библиотека">🎞<span>Сцены</span></button>
+    <button data-tab="chat" title="Чат Twitch">💬<span>Чат</span></button>
+    <button data-tab="auto" title="Сценарии: если… то…">⚡<span>Сценарии</span></button>
+    <button data-tab="room" title="Комната, ключи, настройки">⚙<span>Комната</span></button>
+  </nav>
 
-  <h2>🎞 Сцены</h2>
-  <div id="sceneList"></div>
-  <div class="row"><button id="sceneSave" class="grow">＋ Запомнить экран как сцену</button></div>
-  <div class="hint">Клик по сцене заменяет весь экран, Shift+клик добавляет поверх. Например: «Начало», «Перерыв», «Итоги».</div>
+  <section data-pane="add">
+    <h2>Текст</h2>
+    <textarea id="newText" placeholder="Текст на экран… (Ctrl+Enter — добавить)"></textarea>
+    <div class="row"><button id="addText" class="primary grow">➕ Добавить текст</button></div>
 
-  <h2>Текст</h2>
-  <textarea id="newText" placeholder="Текст на экран… (Ctrl+Enter — добавить)"></textarea>
-  <div class="row"><button id="addText" class="primary grow">➕ Добавить текст</button></div>
+    <h2>Картинки, видео, сайты</h2>
+    <input id="newUrl" type="url" placeholder="Ссылка: картинка, GIF, видео, YouTube, Twitch, сайт">
+    <div class="row"><button id="addUrl" class="primary grow">➕ По ссылке</button><button id="pickFile">📁 Файл</button></div>
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+    <div class="hint">Файлы и картинки можно перетащить на холст или вставить через Ctrl+V.</div>
+    <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
 
-  <h2>Картинки, видео, сайты</h2>
-  <input id="newUrl" type="url" placeholder="Ссылка: картинка, GIF, видео, YouTube, Twitch, сайт">
-  <div class="row"><button id="addUrl" class="primary grow">➕ Добавить по ссылке</button></div>
-  <div class="row"><button id="pickFile" class="grow">📁 Файл с компьютера</button></div>
-  <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
-  <div class="hint">Файлы можно перетащить на холст или вставить картинку из буфера (Ctrl+V).</div>
-  <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
+    <h2>Виджеты</h2>
+    <div class="grid2">
+      <button data-add="countdown">⏱ Таймер</button>
+      <button data-add="stopwatch">⏲ Секундомер</button>
+      <button data-add="until">📅 Отсчёт до</button>
+      <button data-add="clock">🕐 Часы</button>
+      <button data-add="counter">🔢 Счётчик</button>
+      <button data-add="chatcounter">💬 Счётчик чата</button>
+      <button data-add="poll">📊 Голосование</button>
+      <button data-add="cs2">🎯 CS2</button>
+      <button id="addCam" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
+    </div>
 
-  <h2>📚 Библиотека</h2>
-  <div id="libList"></div>
-  <div class="hint">Сохраняй готовые элементы (с анимацией) кнопкой «📚» в инспекторе, а потом добавляй в один клик в любую комнату.</div>
+    <h2>Эффекты на весь экран</h2>
+    <div class="row"><input id="soundUrl" type="url" class="grow" placeholder="Звук .mp3 / .ogg / .wav"><button id="pickSound" title="Звук с компьютера">📁</button></div>
+    <input type="file" id="soundFile" accept="audio/*" hidden>
+    <div class="row"><span class="hint">Громк.</span><input id="soundVol" type="range" min="0" max="1" step="0.05" value="0.7" class="grow"></div>
+    <div class="grid2">
+      <button id="playSound">🔊 Звук</button><button id="stopSounds">⏹ Стоп звуки</button>
+      <button id="confetti">🎉 Конфетти</button><button id="shake">💥 Тряска</button>
+    </div>
+  </section>
 
-  <h2>Вебка</h2>
-  <div class="row"><button id="addCam" class="grow">📷 Вывести мою вебку</button></div>
-  <div class="hint">Откроется вкладка VDO.Ninja: выбери камеру и нажми старт. Не закрывай эту вкладку, пока вебка нужна на стриме.</div>
+  <section data-pane="scenes" hidden>
+    <h2>🎞 Сцены</h2>
+    <div id="sceneList"></div>
+    <div class="row"><button id="sceneSave" class="grow">＋ Запомнить экран как сцену</button></div>
+    <div class="hint">Клик заменяет весь экран, Shift+клик добавляет поверх.</div>
 
-  <h2>Таймеры и счётчики</h2>
-  <div class="grid2">
-    <button data-add="countdown">⏱ Таймер</button>
-    <button data-add="stopwatch">⏲ Секундомер</button>
-    <button data-add="until">📅 Отсчёт до</button>
-    <button data-add="clock">🕐 Часы</button>
-    <button data-add="counter">🔢 Счётчик</button>
-    <button data-add="chatcounter">💬 Счётчик чата</button>
-    <button data-add="poll">📊 Голосование</button>
-    <button data-add="cs2">🎯 CS2</button>
-  </div>
+    <h2>📚 Библиотека</h2>
+    <div id="libList"></div>
+    <div class="hint">Сохраняй элементы кнопкой «📚» внизу инспектора, потом добавляй их в любую комнату в один клик.</div>
+  </section>
 
-  <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
-  <div class="row"><input id="chatChan" type="text" class="grow" placeholder="ник канала"><button id="chatBtn">Подключить</button></div>
-  <div class="hint">Нужен для «счётчика чата». Только читает чат, без входа в аккаунт. Считает, пока этот пульт открыт.</div>
+  <section data-pane="chat" hidden>
+    <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
+    <div class="row"><input id="chatChan" type="text" class="grow" placeholder="ник канала"><button id="chatBtn">Подключить</button></div>
+    <div class="hint">Только читает чат, без входа в аккаунт. Нужен для ленты, счётчиков, голосований и сценариев. Подключай в одном пульте, иначе всё посчитается дважды.</div>
+    <h2>Показ сообщений</h2>
+    <div class="row"><span class="hint">Держать</span><input type="number" id="msgSecs" min="0" max="600" value="8" style="width:60px"><span class="hint">сек (0 = пока не скрою)</span></div>
+    <label class="chk"><input type="checkbox" id="msgReplace" checked> Новое сообщение заменяет предыдущее</label>
+    <div class="row"><input id="chatFilter" type="text" class="grow" placeholder="🔍 фильтр: ник или слово"><button id="chatClear" title="Очистить ленту">🧹</button></div>
+    <div id="chatFeed"><div class="hint" style="padding:10px">Подключи чат, и сообщения появятся здесь. Клик по сообщению покажет его на стриме.</div></div>
+    <div id="chatMore" hidden>⬇ новые сообщения</div>
+  </section>
 
-  <h2>Эффекты на весь экран</h2>
-  <input id="soundUrl" type="url" placeholder="Ссылка на звук .mp3 / .ogg / .wav">
-  <div class="row"><button id="pickSound" class="grow">📁 Звук с компьютера</button></div>
-  <input type="file" id="soundFile" accept="audio/*" hidden>
-  <div class="row"><span class="hint">Громк.</span><input id="soundVol" type="range" min="0" max="1" step="0.05" value="0.7" class="grow"></div>
-  <div class="row"><button id="playSound" class="grow">🔊 Звук</button><button id="stopSounds">⏹ Стоп</button></div>
-  <div class="row"><button id="confetti" class="grow">🎉 Конфетти</button><button id="shake" class="grow">💥 Тряска</button></div>
+  <section data-pane="auto" hidden>
+    <h2>⚡ Сценарии <span class="hint" style="text-transform:none;letter-spacing:0">если… → то…</span></h2>
+    <label class="chk"><input type="checkbox" id="scnRun"> Выполнять сценарии в этом пульте</label>
+    <div class="hint">Если пульт открыт у двух модераторов, включи это только у одного.</div>
+    <div id="scnList"></div>
+    <div class="row"><button id="scnNew" class="primary grow">＋ Новый сценарий</button></div>
+    <div id="scnEdit" hidden></div>
+  </section>
 
-  <h2>Фон превью (только у тебя)</h2>
-  <input id="bgInput" type="text" placeholder="Ник на Twitch или ссылка на скриншот">
-  <div class="row"><button id="bgClick" class="grow" title="Временно сделать плеер кликабельным">🖱 Нажать в плеере</button></div>
-  <div class="hint">Чтобы видеть, куда ставить элементы. Стрим на Twitch отстаёт на несколько секунд.</div>
+  <section data-pane="room" hidden>
+    <h2>Комната (стример)</h2>
+    <select id="roomSel"></select>
+    <div class="grid2">
+      <button id="roomNew">＋ Новая</button>
+      <button id="roomRename">✎ Название</button>
+      <button id="roomInvite" title="Ссылка для второго модератора">👥 Пригласить</button>
+      <button id="roomJoin" title="Вставить приглашение от другого модератора">🔑 Приглашение</button>
+      <button id="roomRekey" title="Если ссылка для OBS утекла">♻ Сменить ключи</button>
+      <button id="roomDel">🗑 Из списка</button>
+      <button id="roomExport">⬇ Бэкап</button>
+      <button id="roomImport">⬆ Из бэкапа</button>
+    </div>
+    <input type="file" id="roomFile" accept=".json,application/json" hidden>
+    <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта. «Бэкап» сохраняет всё (комнаты, сцены, библиотеку, анимации, сценарии) в файл под паролем.</div>
 
-  <h2>Клавиши</h2>
-  <div class="keys">
-    Тащить — двигать · уголок — размер · кружок — поворот<br>
-    Картинки: боковые ручки или <kbd>Shift</kbd>+уголок — растянуть<br>
-    <kbd>Колёсико</kbd> размер · <kbd>Shift</kbd>/<kbd>Alt</kbd>+колёсико поворот<br>
-    <kbd>Alt</kbd>+тащить — поворот · <kbd>Shift</kbd> — шаг 15°<br>
-    <kbd>Ctrl</kbd> при перетаскивании — можно за край и без магнита<br>
-    <kbd>Стрелки</kbd> сдвиг (<kbd>Shift</kbd> сильнее) · <kbd>H</kbd> скрыть/показать<br>
-    <kbd>F</kbd> показать на N сек · <kbd>Ctrl+D</kbd> копия · <kbd>Del</kbd> удалить<br>
-    <kbd>Пробел</kbd> старт/пауза таймера · <kbd>+</kbd>/<kbd>−</kbd> счётчик<br>
-    <kbd>P</kbd> проиграть / остановить анимацию<br>
-    <kbd>1</kbd>…<kbd>9</kbd> показать на N сек элемент с этим номером в слоях<br>
-    <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение
-  </div>
+    <h2>Фон превью (только у тебя)</h2>
+    <input id="bgInput" type="text" placeholder="Ник на Twitch или ссылка на скриншот">
+    <div class="row"><button id="bgClick" class="grow" title="Временно сделать плеер кликабельным">🖱 Нажать в плеере</button></div>
+    <div class="hint">Чтобы видеть, куда ставить элементы. Стрим на Twitch отстаёт на несколько секунд.</div>
+
+    <h2>Клавиши</h2>
+    <div class="keys">
+      Тащить — двигать · уголок — размер · кружок — поворот<br>
+      <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+клик — добавить к выделению · рамкой по пустому месту — выделить несколько<br>
+      <kbd>Ctrl+A</kbd> выделить всё · <kbd>Ctrl+G</kbd> группа · <kbd>Ctrl+Shift+G</kbd> разгруппировать<br>
+      Картинки: боковые ручки или <kbd>Shift</kbd>+уголок — растянуть<br>
+      <kbd>Колёсико</kbd> размер · <kbd>Shift</kbd>/<kbd>Alt</kbd>+колёсико поворот · <kbd>Alt</kbd>+тащить поворот<br>
+      <kbd>Ctrl</kbd> при перетаскивании — за край и без магнита<br>
+      <kbd>Стрелки</kbd> сдвиг (<kbd>Shift</kbd> сильнее) · <kbd>H</kbd> скрыть/показать<br>
+      <kbd>F</kbd> показать на N сек · <kbd>1</kbd>…<kbd>9</kbd> слой с этим номером<br>
+      <kbd>Ctrl+D</kbd> копия · <kbd>Del</kbd> удалить · <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение<br>
+      <kbd>Пробел</kbd> таймер · <kbd>+</kbd>/<kbd>−</kbd> счётчик · <kbd>P</kbd> анимация
+    </div>
+  </section>
 </aside>
 
 <main id="wrap">
-  <div id="stage">
-    <div id="bgLayer"></div>
-    <div id="elLayer"></div>
-    <div class="guide" id="gv"></div><div class="guide" id="gh"></div>
-    <div id="dropHint">Отпусти, чтобы добавить</div>
-    <div id="upload" hidden><span id="upText"></span><div class="b"><i id="upBar"></i></div></div>
+  <div id="toolbar">
+    <span id="selInfo" class="hint">Ничего не выбрано</span>
+    <span class="tsep"></span>
+    <span class="tgrp" title="Выровнять (один элемент — по экрану)">
+      <button data-align="l" title="По левому краю">⇤</button><button data-align="ch" title="По центру горизонтально">⇹</button><button data-align="r" title="По правому краю">⇥</button>
+      <button data-align="t" title="По верху">⤒</button><button data-align="cv" title="По центру вертикально">⇳</button><button data-align="b" title="По низу">⤓</button>
+    </span>
+    <span class="tgrp"><button data-dist="h" title="Распределить по горизонтали (3+)">↔</button><button data-dist="v" title="Распределить по вертикали (3+)">↕</button></span>
+    <span class="tgrp"><button id="tGroup" title="Сгруппировать (Ctrl+G)">🔗</button><button id="tUngroup" title="Разгруппировать (Ctrl+Shift+G)">⛓️‍💥</button></span>
+    <span class="tgrp"><button id="tEye" title="Скрыть / показать выбранное (H)">👁</button><button id="tDup" title="Копия (Ctrl+D)">⧉</button><button id="tDel" title="Удалить (Del)">🗑</button></span>
+    <span class="spacer"></span>
+    <label class="chk" title="Показать сетку и примагничивать к ней"><input type="checkbox" id="gridOn"> Сетка</label>
+    <select id="gridStep" title="Шаг сетки"><option value="2.5">2.5%</option><option value="5" selected>5%</option><option value="10">10%</option><option value="12.5">⅛</option><option value="25">¼</option></select>
+  </div>
+  <div id="stageBox">
+    <div id="stage">
+      <div id="bgLayer"></div>
+      <div id="gridLayer"></div>
+      <div id="elLayer"></div>
+      <div class="guide" id="gv"></div><div class="guide" id="gh"></div>
+      <div id="selRect"></div>
+      <div id="dropHint">Отпусти, чтобы добавить</div>
+      <div id="upload" hidden><span id="upText"></span><div class="b"><i id="upBar"></i></div></div>
+    </div>
   </div>
 </main>
 
@@ -263,6 +363,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <h2>Выбранный элемент</h2>
   <div id="insp-empty">Кликни по элементу на холсте</div>
   <div id="insp" hidden>
+    <div id="multiBanner" hidden></div>
     <button id="bigEye">👁 На стриме</button>
     <div class="row"><button id="flashBtn" class="grow">⚡ Показать на N сек</button></div>
 
@@ -338,6 +439,15 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       </div>
     </div>
 
+    <!-- сообщение из чата -->
+    <div data-for="msg" class="box">
+      <div class="t">💬 Сообщение из чата</div>
+      <div class="hint">Новые сообщения из вкладки «💬 Чат» появляются в этом же месте и с этим же видом.</div>
+      <div class="lbl"><span>Ширина строки</span><span id="vMaxw"></span></div>
+      <input type="range" id="iMaxw" min="15" max="90" step="1">
+      <div class="row"><span class="hint">Полоска</span><input type="color" id="iMsgAccent"><span class="hint">Фон</span><input type="color" id="iMsgCard"></div>
+    </div>
+
     <!-- CS2 -->
     <div data-for="cs2" class="box">
       <div class="t">🎯 CS2</div>
@@ -353,6 +463,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <option value="scorebar">👁 Наблюдатель: счёт-бар с таймером</option>
         <option value="observed">👁 Наблюдатель: за кем смотрим</option>
       </select>
+      <div class="row" id="csStreakRow"><span class="hint">Показывать</span><select id="iCsMinK" class="grow"><option value="2">от DOUBLE</option><option value="3">от TRIPLE</option><option value="4">от QUAD</option><option value="5">только ACE</option></select><button id="csTest" title="Показать пример на стриме, чтобы поставить на место">▶ Пример</button></div>
       <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
       <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
@@ -383,7 +494,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter poll cs2">
+    <div data-for="text timer counter poll cs2 msg">
       <div class="lbl">Шрифт</div>
       <select id="iFont">
         <option value="montserrat">Montserrat (жирный)</option>
@@ -571,7 +682,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=7, widgets=new Map();
+const WIDGET_VER=8, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -664,7 +775,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(Assets.isAsset(topic)){ const plain=await unseal(keys, payload, true); if(plain) Assets.handle(topic, plain); return; }
-  if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); repaintCs2(); } return; }
+  if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
@@ -715,7 +826,7 @@ async function switchRoom(code){
   if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe(mainTopics(), { qos:1 }); }
   if(pubClient?.connected) pubClient.subscribe(topics(room).base+'/srv', { qos:1 });
   history.replaceState(null, '', location.pathname+(brokerUrl!==BROKER_URL?'?broker='+encodeURIComponent(brokerUrl):''));
-  renderRooms(); renderScenes(); updateLink(); renderAll();
+  renderRooms(); renderScenes(); renderScn(); $('scnEdit').hidden=true; lastEvSeq=null; updateLink(); renderAll();
 }
 
 // ================== ИЗМЕНЕНИЯ / ОТМЕНА ==================
@@ -905,6 +1016,7 @@ function addHandles(node){
   }
 }
 function renderAll(){
+  syncSel();
   stage.classList.toggle('all-hidden', !state.visible);
   const seen=new Set(), now=nowMs();
   state.els.forEach((el,i)=>{
@@ -924,11 +1036,12 @@ function renderAll(){
     node.classList.toggle('is-hidden', el.hidden);
     node.classList.toggle('flashing', !!el.ttl);
     node.classList.toggle('sel', el.id===selectedId);
+    node.classList.toggle('msel', msel.has(el.id) && el.id!==selectedId);
     node.querySelector('.tag').textContent = el.ttl ? 'на стриме ⏱' : 'скрыто';
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ n.remove(); nodes.delete(id); }
-  renderLayers(); renderInspector();
+  renderLayers(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
@@ -940,12 +1053,14 @@ function elIcon(el){
   if(el.type==='web') return KIND_NAME[parseEmbed(el.url).kind].split(' ')[0];
   if(el.type==='poll') return '📊';
   if(el.type==='cs2') return '🎯';
+  if(el.type==='msg') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
 }
 function elName(el){
   if(el.type==='text') return el.text.split('\n')[0] || '(пусто)';
   if(el.type==='timer') return (el.label||MODE_NAME[el.mode])+' · '+twState(el, nowMs()).text;
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
+  if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
@@ -957,11 +1072,11 @@ function renderLayers(){
   if(!state.els.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пока пусто'; box.appendChild(d); return; }
   [...state.els].reverse().forEach((el, li)=>{
     const row=document.createElement('div');
-    row.className='layer'+(el.id===selectedId?' sel':'')+(el.hidden?' hid':'')+(el.ttl?' flashing':'');
+    row.className='layer'+(el.id===selectedId?' sel':msel.has(el.id)?' msel':'')+(el.hidden?' hid':'')+(el.ttl?' flashing':'');
     row.dataset.id=el.id;
     const num=document.createElement('span'); num.className='num'; num.textContent=li<9?li+1:''; num.title=li<9?`Клавиша ${li+1}: показать на N сек`:'';
     const ico=document.createElement('span'); ico.className='ico'; ico.textContent=elIcon(el);
-    const name=document.createElement('span'); name.className='name'; name.textContent=elName(el); name.title=name.textContent;
+    const name=document.createElement('span'); name.className='name'; name.textContent=(el.g?'🔗 ':'')+elName(el); name.title=name.textContent;
     row.append(num, ico, name);
     const btn=(act, txt, title)=>{ const b=document.createElement('button'); b.dataset.act=act; b.textContent=txt; b.title=title; row.appendChild(b); };
     if(el.type==='timer' && (el.mode==='countdown'||el.mode==='stopwatch')) btn('ttoggle', el.running?'⏸':'▶', 'Старт / пауза (Пробел)');
@@ -983,6 +1098,8 @@ function renderInspector(){
   const el=byId(selectedId);
   $('insp').hidden=!el; $('insp-empty').hidden=!!el;
   if(!el) return;
+  $('multiBanner').hidden = msel.size<2;
+  $('multiBanner').textContent = `Выбрано ${msel.size}. Ниже настройки «${elName(el).slice(0,20)}». Двигать, выравнивать, скрывать и удалять можно все сразу: панель над холстом.`;
   showFor('for', el.type);
   const eye=$('bigEye');
   eye.className=el.hidden?'off':'on';
@@ -1022,7 +1139,8 @@ function renderInspector(){
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
   if(el.type==='video') setField(I('iSound'), el.sound, 'checked');
-  if(el.type==='cs2'){ $('csSideRow').hidden = el.view!=='teams'; setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
+  if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
+  if(el.type==='cs2'){ $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -1044,16 +1162,33 @@ function renderInspector(){
   setField(I('iOp'), String(el.op)); $('vOp').textContent=Math.round(el.op*100)+'%';
   setField(I('iAnim'), el.anim);
 }
-function select(id){ selectedId=id; renderAll(); }
+// ---- выделение: несколько элементов, группы ----
+const msel=new Set();
+function groupOf(id){ const el=byId(id); return el?.g ? state.els.filter(e=>e.g===el.g).map(e=>e.id) : [id]; }
+function select(id, mode='replace'){
+  if(!id){ msel.clear(); selectedId=null; renderAll(); return; }
+  const ids=groupOf(id);
+  if(mode==='toggle' && msel.has(id)){ ids.forEach(i=>msel.delete(i)); if(!msel.has(selectedId)) selectedId=[...msel][0]||null; }
+  else { if(mode!=='toggle' && mode!=='add') msel.clear(); ids.forEach(i=>msel.add(i)); selectedId=id; }
+  renderAll();
+}
+function selList(){ return state.els.filter(e=>msel.has(e.id)); }
+function syncSel(){
+  for(const id of [...msel]) if(!byId(id)) msel.delete(id);
+  if(selectedId && !byId(selectedId)) selectedId=null;
+  if(!selectedId){ msel.clear(); return; }
+  if(!msel.has(selectedId)){ msel.clear(); groupOf(selectedId).forEach(i=>msel.add(i)); }
+}
 
 // ================== СЦЕНА ==================
+const stageBox=$('stageBox');
 function fit(){
-  const W=wrap.clientWidth-30, H=wrap.clientHeight-60;
+  const W=stageBox.clientWidth-30, H=stageBox.clientHeight-40;
   let w=W, h=w*9/16; if(h>H){ h=H; w=h*16/9; }
   stage.style.width=w+'px'; stage.style.height=h+'px';
   stage.style.setProperty('--u', (h/100)+'px');
 }
-new ResizeObserver(fit).observe(wrap);
+new ResizeObserver(fit).observe(stageBox);
 
 function scaleEl(el,k){ if('fs' in el) el.fs=num(el.fs*k,el.fs,0.5,100); else { el.w=num(el.w*k,el.w,1,200); if(el.hh) el.hh=num(el.hh*k,el.hh,0.5,300); } }
 function centerPx(el){ const r=stage.getBoundingClientRect(); return { cx:r.left+el.x/100*r.width, cy:r.top+el.y/100*r.height, r }; }
@@ -1062,13 +1197,22 @@ const angleOf=(e,cx,cy)=>Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI;
 stage.addEventListener('pointerdown', e=>{
   if(e.button!==0) return;
   const node=e.target.closest('.el');
-  if(!node){ select(null); return; }
+  document.activeElement?.blur?.();
+  if(!node){
+    // рамка выделения по пустому месту
+    e.preventDefault();
+    const r=stage.getBoundingClientRect();
+    drag={ mode:'rect', x0:e.clientX, y0:e.clientY, r, add:e.shiftKey||e.ctrlKey||e.metaKey, base:new Set(msel), moved:false };
+    stage.setPointerCapture(e.pointerId);
+    return;
+  }
   const el=byId(node.dataset.id); if(!el) return;
   e.preventDefault();
-  document.activeElement?.blur?.();
-  select(el.id); beginChange();
-  const { cx, cy, r }=centerPx(el);
   const h=e.target.closest('.h')?.dataset.h;
+  if(!h && (e.shiftKey||e.ctrlKey||e.metaKey)){ select(el.id, 'toggle'); return; }   // Shift/Ctrl+клик — добавить/убрать из выделения
+  if(msel.has(el.id) && msel.size>1 && !h){ selectedId=el.id; renderAll(); } else select(el.id);
+  beginChange();
+  const { cx, cy, r }=centerPx(el);
   const media = el.type==='image' || el.type==='video';
   if(media && (h==='sw' || h==='shh' || (h==='size' && e.shiftKey))){
     // растягивание: считаем по осям самого элемента (с учётом поворота)
@@ -1082,28 +1226,45 @@ stage.addEventListener('pointerdown', e=>{
   } else if(h==='rot' || e.altKey){
     drag={ mode:'rot', cx, cy, prev:angleOf(e,cx,cy), acc:0, rot0:el.rot };
   } else {
-    // половина размера элемента в % сцены: чтобы не вытащить его за край кадра
-    const b=node.querySelector('.fx').getBoundingClientRect();
-    drag={ mode:'move', mx:e.clientX, my:e.clientY, x0:el.x, y0:el.y, r, hw:b.width/2/r.width*100, hh:b.height/2/r.height*100 };
+    // двигаем всё выделенное; рамка всей группы не должна вылезти за край кадра
+    const items=selList().map(x=>({ id:x.id, x0:x.x, y0:x.y }));
+    const bb=selBounds(items.map(i=>i.id));
+    drag={ mode:'move', mx:e.clientX, my:e.clientY, x0:el.x, y0:el.y, r, items, bb };
   }
   drag.id=el.id;
   stage.setPointerCapture(e.pointerId);
 });
 stage.addEventListener('pointermove', e=>{
   if(!drag) return;
+  if(drag.mode==='rect'){
+    const x1=Math.min(drag.x0,e.clientX), x2=Math.max(drag.x0,e.clientX), y1=Math.min(drag.y0,e.clientY), y2=Math.max(drag.y0,e.clientY);
+    if(x2-x1+y2-y1>6) drag.moved=true;
+    Object.assign($('selRect').style, { display:'block', left:(x1-drag.r.left)+'px', top:(y1-drag.r.top)+'px', width:(x2-x1)+'px', height:(y2-y1)+'px' });
+    msel.clear(); if(drag.add) drag.base.forEach(i=>msel.add(i));
+    for(const el of state.els){
+      const b=nodes.get(el.id)?.querySelector('.fx')?.getBoundingClientRect(); if(!b) continue;
+      const cx=(b.left+b.right)/2, cy=(b.top+b.bottom)/2;
+      if(cx>=x1 && cx<=x2 && cy>=y1 && cy<=y2) groupOf(el.id).forEach(i=>msel.add(i));
+    }
+    selectedId=[...msel].pop()||null;
+    renderAll(); return;
+  }
   const el=byId(drag.id); if(!el){ drag=null; return; }
   if(drag.mode==='move'){
     let x=drag.x0+(e.clientX-drag.mx)/drag.r.width*100;
     let y=drag.y0+(e.clientY-drag.my)/drag.r.height*100;
-    const free=e.ctrlKey||e.metaKey;
-    const snapX=!free && Math.abs(x-50)<1.2, snapY=!free && Math.abs(y-50)<1.8;
-    if(snapX) x=50; if(snapY) y=50;
-    if(!free){
-      x=Math.min(Math.max(x, Math.min(drag.hw,50)), Math.max(100-drag.hw,50));
-      y=Math.min(Math.max(y, Math.min(drag.hh,50)), Math.max(100-drag.hh,50));
+    const free=e.ctrlKey||e.metaKey, single=drag.items.length===1;
+    let snapX=false, snapY=false;
+    if(!free && gridOn){ x=Math.round(x/gridStep)*gridStep; y=Math.round(y/gridStep)*gridStep; }
+    else if(!free && single){ snapX=Math.abs(x-50)<1.2; snapY=Math.abs(y-50)<1.8; if(snapX) x=50; if(snapY) y=50; }
+    let dx=x-drag.x0, dy=y-drag.y0;
+    if(!free && drag.bb){   // не даём рамке выделения выйти за кадр
+      const b=drag.bb;
+      if(b.r-b.l<100) dx=Math.min(Math.max(dx, -b.l), 100-b.r);
+      if(b.b-b.t<100) dy=Math.min(Math.max(dy, -b.t), 100-b.b);
     }
     $('gv').classList.toggle('show', snapX); $('gh').classList.toggle('show', snapY);
-    el.x=num(x,50,0,100); el.y=num(y,50,0,100);
+    for(const it of drag.items){ const t=byId(it.id); if(t){ t.x=num(it.x0+dx,50,0,100); t.y=num(it.y0+dy,50,0,100); } }
   } else if(drag.mode==='stretch'){
     const p=drag.loc(e.clientX, e.clientY);
     if(drag.axis!=='y') el.w=num(drag.w0*Math.abs(p.u)/drag.u0, 25, 1, 200);
@@ -1122,7 +1283,12 @@ stage.addEventListener('pointermove', e=>{
   }
   changed();
 });
-function endDrag(){ if(!drag) return; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show'); commit(); }
+function endDrag(){
+  if(!drag) return;
+  const d=drag; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show');
+  if(d.mode==='rect'){ $('selRect').style.display='none'; if(!d.moved && !d.add) select(null); else renderAll(); return; }
+  commit();
+}
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
 stage.addEventListener('dblclick', e=>{ if(e.target.closest('.el[data-type="text"]')){ I('iText').focus(); I('iText').select(); } });
@@ -1258,7 +1424,7 @@ $('roomDel').onclick=()=>{
 // Бэкап: в нём закрытые ключи, поэтому он всегда зашифрован паролем
 $('roomExport').onclick=async()=>{
   const pass=prompt('Придумай пароль для файла бэкапа (в нём ключи всех комнат):', vaultPass||''); if(!pass) return;
-  const box=await lockJSON(pass, { rooms, library, anims:myAnims, scenes });
+  const box=await lockJSON(pass, { rooms, library, anims:myAnims, scenes, scenarios:scnStore });
   const blob=new Blob([JSON.stringify({ overlayBackup:2, box })], { type:'application/json' });
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-backup.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
@@ -1278,7 +1444,9 @@ $('roomFile').onchange=async e=>{
   for(const it of (data.library||[])){ const el=sanitizeEl({ ...it?.el, id:'x' }); if(el && validCode(it.room) && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push({ name:String(it.name||'Элемент').slice(0,60), room:it.room, el:it.el }); libAdded++; } }
   for(const a of (data.anims||[])){ const fr=sanitizeFrames(a?.f); if(fr.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f:fr }); animAdded++; } }
   if(data.scenes && typeof data.scenes==='object') for(const [code, list] of Object.entries(data.scenes)) if(validCode(code) && Array.isArray(list)){ scenes[code]=[...(scenes[code]||[]), ...list.filter(x=>x && Array.isArray(x.els)).map(x=>({ name:String(x.name||'Сцена').slice(0,40), els:x.els }))]; }
-  saveRooms(); saveLib(); saveAnims(); saveScenes(); renderRooms(); renderLib(); renderKfPresets(); renderScenes();
+  if(data.scenarios && typeof data.scenarios==='object') for(const [code, list] of Object.entries(data.scenarios)) if(validCode(code) && Array.isArray(list)){
+    const have=new Set((scnStore[code]||[]).map(x=>x.id)); scnStore[code]=[...(scnStore[code]||[]), ...list.filter(x=>x && x.trig && Array.isArray(x.acts) && !have.has(x.id))]; }
+  saveRooms(); saveLib(); saveAnims(); saveScenes(); saveScn(); renderRooms(); renderLib(); renderKfPresets(); renderScenes(); renderScn();
   toast(`Добавлено: комнат ${added}, элементов ${libAdded}, анимаций ${animAdded}`);
 };
 
@@ -1345,6 +1513,22 @@ $('bgClick').onclick=()=>setBgInteract(!stage.classList.contains('bg-interact'))
 // --- чат Twitch (только чтение, анонимно) ---
 let chatWs=null;
 const chatSeen=new Map();
+const chatLog=[];
+function parseTags(str){
+  const o={}; if(!str) return o;
+  for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
+    o[kv.slice(0,i)]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
+  return o;
+}
+function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]
+  const out=[]; if(!tag) return out;
+  for(const part of tag.split('/')){ const [id, ranges]=part.split(':'); if(!id || !ranges) continue;
+    for(const r of ranges.split(',')){ const [a,b]=r.split('-').map(Number); if(Number.isFinite(a)&&Number.isFinite(b)) out.push([id,a,b]); } }
+  return out;
+}
+function badgeOf(b){ b=b||''; return /broadcaster\//.test(b)?'broadcaster':/moderator\//.test(b)?'mod':/vip\//.test(b)?'vip':/(subscriber|founder)\//.test(b)?'sub':''; }
+const NAME_COLORS=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac'];
+function nameColor(login){ let h=0; for(const ch of login) h=(h*31+ch.charCodeAt(0))>>>0; return NAME_COLORS[h%NAME_COLORS.length]; }
 function chatConnect(ch){
   chatDisconnect();
   ch=(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'');
@@ -1358,17 +1542,77 @@ function chatConnect(ch){
       if(!line) continue;
       if(line.startsWith('PING')){ ws.send('PONG'+line.slice(4)); continue; }
       if(/ 366 /.test(line)) setPill($('chatStatus'), 'ok', '#'+ch);
-      const m=line.match(/^(?:@\S+ )?:(\w+)!\S+ PRIVMSG #\w+ :(.*)$/);
-      if(m) onChat(m[1], m[2].replace(/^\x01ACTION |\x01$/g,''));
+      const m=line.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\w+ :(.*)$/);
+      if(!m) continue;
+      const tags=parseTags(m[1]), text=m[3].replace(/^\x01ACTION |\x01$/g,'');
+      const badge=badgeOf(tags.badges);
+      const msg={ id:tags.id||rid(8), login:m[2], user:tags['display-name']||m[2], color:/^#[0-9a-f]{6}$/i.test(tags.color||'')?tags.color:nameColor(m[2]),
+        text, emotes:parseEmotes(tags.emotes), badge, mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', t:Date.now() };
+      onChat(msg.login, msg.text, msg);
+      addChatRow(msg);
     }
   };
   ws.onclose=()=>{ if(chatWs!==ws) return; setPill($('chatStatus'), 'bad', 'переподключение…'); setTimeout(()=>{ if(chatWs===ws) chatConnect(ch); }, 3000); };
+}
+// ---- лента чата в пульте ----
+function chatRowNode(m){
+  const row=document.createElement('div'); row.className='cm'; row.dataset.id=m.id; row.title='Клик — показать на стриме';
+  const tm=document.createElement('span'); tm.className='tm'; tm.textContent=new Date(m.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  row.appendChild(tm);
+  if(m.badge){ const b=document.createElement('span'); b.className='b'; b.textContent=BADGE[m.badge]; row.appendChild(b); }
+  const u=document.createElement('span'); u.className='u'; u.style.color=m.color; u.textContent=m.user; row.append(u, document.createTextNode(': '));
+  const tmp=document.createElement('div'); paintMsg(tmp, { user:'', ucolor:'#000000', text:m.text, emotes:m.emotes, badge:'' });
+  row.append(...tmp.querySelector('.m-text').childNodes);
+  return row;
+}
+function chatMatches(m){ const f=$('chatFilter').value.trim().toLowerCase(); return !f || m.user.toLowerCase().includes(f) || m.text.toLowerCase().includes(f); }
+function addChatRow(m){
+  chatLog.push(m); if(chatLog.length>300) chatLog.shift();
+  const feed=$('chatFeed');
+  if(feed.firstElementChild?.classList.contains('hint')) feed.replaceChildren();
+  if(!chatMatches(m)) return;
+  const atBottom=feed.scrollHeight-feed.scrollTop-feed.clientHeight<40;
+  feed.appendChild(chatRowNode(m));
+  while(feed.children.length>200) feed.firstChild.remove();
+  if(atBottom) feed.scrollTop=feed.scrollHeight; else $('chatMore').hidden=false;
+}
+function rebuildFeed(){ const feed=$('chatFeed'); feed.replaceChildren(...chatLog.filter(chatMatches).slice(-200).map(chatRowNode)); feed.scrollTop=feed.scrollHeight; }
+$('chatFilter').addEventListener('input', rebuildFeed);
+$('chatClear').onclick=()=>{ chatLog.length=0; $('chatFeed').replaceChildren(); };
+$('chatFeed').addEventListener('scroll', ()=>{ const f=$('chatFeed'); if(f.scrollHeight-f.scrollTop-f.clientHeight<40) $('chatMore').hidden=true; });
+$('chatMore').onclick=()=>{ const f=$('chatFeed'); f.scrollTop=f.scrollHeight; $('chatMore').hidden=true; };
+$('chatFeed').addEventListener('click', e=>{
+  const row=e.target.closest('.cm'); if(!row) return;
+  const m=chatLog.find(x=>x.id===row.dataset.id); if(!m) return;
+  showChatMsg(m); row.classList.add('shown');
+});
+$('msgSecs').value=lsGet('overlay.msgSecs', 8); $('msgSecs').onchange=e=>lsSet('overlay.msgSecs', num(e.target.value,8,0,600));
+$('msgReplace').checked=lsGet('overlay.msgReplace', true)!==false; $('msgReplace').onchange=e=>lsSet('overlay.msgReplace', e.target.checked);
+// Показать сообщение на стриме. Вид и место берутся у прошлого сообщения: настроил один раз — дальше просто кликай.
+function showChatMsg(m){
+  const secs=num($('msgSecs').value,8,0,600);
+  const data={ user:m.user, ucolor:m.color, text:m.text, emotes:m.emotes, badge:m.badge };
+  const prev=[...state.els].reverse().find(e=>e.type==='msg');
+  beginChange();
+  let el;
+  if(prev && $('msgReplace').checked){ el=prev; Object.assign(el, data); }
+  else {
+    const base = prev ? JSON.parse(JSON.stringify(prev)) : { type:'msg', x:22, y:80, fs:3, font:'montserrat', color:'#ffffff', card:'#15171d', accent:'#a78bfa', maxw:38, rot:0, op:1, anim:'none' };
+    el=sanitizeEl({ ...base, ...data, id:rid(10), hidden:false }); if(prev){ el.y=num(prev.y-6,80,0,100); }
+    state.els.push(el);
+  }
+  el.hidden=false;
+  if(secs>0) el.ttl=Date.now()+secs*1000; else delete el.ttl;
+  if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); }
+  commit();
+  toast(`💬 ${m.user}: ${m.text.slice(0,40)}`);
 }
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
-function onChat(user, text){
+function onChat(user, text, msg){
+  if(msg) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
   const vm=text.trim().match(/^!?([1-6])$/);
@@ -1406,7 +1650,7 @@ $('layers').addEventListener('click', e=>{
   else if(act==='ptoggle') act1(el, pollToggle);
   else if(act==='cplus') act1(el, e=>e.value+=e.step);
   else if(act==='cminus') act1(el, e=>e.value-=e.step);
-  else select(el.id);
+  else select(el.id, e.shiftKey||e.ctrlKey||e.metaKey ? 'toggle' : 'replace');
 });
 
 // ================== ДЕЙСТВИЯ ==================
@@ -1488,8 +1732,18 @@ bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.no
 // CS2
 bindInput('iCsView',   (el,f)=>{ el.view=f.value;
   if(el.view==='teams' && el.fs>2.6) el.fs=2.4;            // панели команд крупные — сразу поменьше
-  if(el.view==='scorebar'){ el.x=50; el.y=7; } });
+  if(el.view==='scorebar'){ el.x=50; el.y=7; }
+  if(el.view==='streak'){ el.x=50; el.y=32; if(el.fs<5) el.fs=5; } });
 bindInput('iCsSide',   (el,f)=>el.side=f.value);
+bindInput('iMaxw',      (el,f)=>el.maxw=Number(f.value));
+bindInput('iMsgAccent', (el,f)=>el.accent=f.value);
+bindInput('iMsgCard',   (el,f)=>el.card=f.value);
+bindInput('iCsMinK',   (el,f)=>el.minK=Number(f.value));
+$('csTest').onclick=()=>{
+  const ev={ n:3, name:'Пример', weapon:'weapon_ak47', hs:2 };
+  sendFx({ type:'cs2test', ...ev });
+  for(const el of state.els) if(el.type==='cs2' && el.view==='streak'){ const c=nodes.get(el.id)?.querySelector('.cs2'); if(c) cs2Popup(c, ev); }
+};
 bindInput('iCsLabel',  (el,f)=>el.label=f.value.slice(0,40));
 bindInput('iCsAccent', (el,f)=>el.accent=f.value);
 bindInput('iCsCard',   (el,f)=>el.card=f.value);
@@ -1531,8 +1785,76 @@ $('bRatio').onclick=()=>act(el=>el.hh=0);
 function moveLayer(dir){ const i=state.els.findIndex(e=>e.id===selectedId), j=i+dir; if(i<0||j<0||j>=state.els.length) return; beginChange(); [state.els[i],state.els[j]]=[state.els[j],state.els[i]]; commit(); }
 $('bUp').onclick=()=>moveLayer(1);
 $('bDown').onclick=()=>moveLayer(-1);
-function duplicate(){ const el=byId(selectedId); if(!el) return; beginChange(); const c={ ...el, id:rid(10), x:num(el.x+3,50,0,100), y:num(el.y+3,50,0,100) }; delete c.ttl; state.els.push(c); selectedId=c.id; commit(); }
-function remove(){ const i=state.els.findIndex(e=>e.id===selectedId); if(i<0) return; beginChange(); state.els.splice(i,1); selectedId=null; commit(); }
+function duplicate(){
+  const list=selList(); if(!list.length) return; beginChange();
+  const gmap=new Map(), ids=[];
+  for(const el of list){ const c=JSON.parse(JSON.stringify(el)); c.id=rid(10); c.x=num(el.x+3,50,0,100); c.y=num(el.y+3,50,0,100); delete c.ttl;
+    if(el.g){ if(!gmap.has(el.g)) gmap.set(el.g, rid(6)); c.g=gmap.get(el.g); } state.els.push(c); ids.push(c.id); }
+  msel.clear(); ids.forEach(i=>msel.add(i)); selectedId=ids.at(-1); commit();
+}
+function remove(){ if(!msel.size) return; beginChange(); state.els=state.els.filter(e=>!msel.has(e.id)); msel.clear(); selectedId=null; commit(); }
+function hideSel(){ const list=selList(); if(!list.length) return; const hide=list.some(x=>!x.hidden); beginChange(); list.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
+function groupSel(){ const list=selList(); if(list.length<2) return toast('Выдели 2+ элемента (Shift+клик или рамкой)'); beginChange(); const g=rid(6); list.forEach(x=>x.g=g); commit(); toast('🔗 Сгруппировано: двигаются вместе'); }
+function ungroupSel(){ const list=selList().filter(x=>x.g); if(!list.length) return; beginChange(); list.forEach(x=>delete x.g); commit(); toast('Группа разбита'); }
+// ---- рамки элементов и выравнивание ----
+function boxOf(id){
+  const n=nodes.get(id), r=stage.getBoundingClientRect(); if(!n) return null;
+  const b=n.querySelector('.fx').getBoundingClientRect();
+  return { l:(b.left-r.left)/r.width*100, r:(b.right-r.left)/r.width*100, t:(b.top-r.top)/r.height*100, b:(b.bottom-r.top)/r.height*100 };
+}
+function selBounds(ids){
+  const bs=ids.map(boxOf).filter(Boolean); if(!bs.length) return null;
+  return { l:Math.min(...bs.map(b=>b.l)), r:Math.max(...bs.map(b=>b.r)), t:Math.min(...bs.map(b=>b.t)), b:Math.max(...bs.map(b=>b.b)) };
+}
+function units(){   // группа считается одним блоком
+  const m=new Map();
+  for(const el of selList()){ const k=el.g||el.id; if(!m.has(k)) m.set(k, []); m.get(k).push(el); }
+  return [...m.values()].map(els=>({ els, box:selBounds(els.map(x=>x.id)) })).filter(u=>u.box);
+}
+function moveUnit(u, dx, dy){ for(const el of u.els){ el.x=num(el.x+dx,50,0,100); el.y=num(el.y+dy,50,0,100); } }
+function alignSel(mode){
+  const us=units(); if(!us.length) return toast('Сначала выдели элементы');
+  const ref = us.length===1 ? { l:0, r:100, t:0, b:100 } : { l:Math.min(...us.map(u=>u.box.l)), r:Math.max(...us.map(u=>u.box.r)), t:Math.min(...us.map(u=>u.box.t)), b:Math.max(...us.map(u=>u.box.b)) };
+  beginChange();
+  for(const u of us){ const b=u.box; let dx=0, dy=0;
+    if(mode==='l') dx=ref.l-b.l; if(mode==='r') dx=ref.r-b.r; if(mode==='ch') dx=(ref.l+ref.r)/2-(b.l+b.r)/2;
+    if(mode==='t') dy=ref.t-b.t; if(mode==='b') dy=ref.b-b.b; if(mode==='cv') dy=(ref.t+ref.b)/2-(b.t+b.b)/2;
+    moveUnit(u, dx, dy); }
+  commit();
+}
+function distributeSel(axis){
+  const us=units(); if(us.length<3) return toast('Для распределения нужно 3+ элемента');
+  const c=u=>axis==='h' ? (u.box.l+u.box.r)/2 : (u.box.t+u.box.b)/2;
+  us.sort((a,b)=>c(a)-c(b));
+  const first=c(us[0]), step=(c(us.at(-1))-first)/(us.length-1);
+  beginChange();
+  us.forEach((u,i)=>{ const d=first+step*i-c(u); moveUnit(u, axis==='h'?d:0, axis==='v'?d:0); });
+  commit();
+}
+// ---- панель инструментов и сетка ----
+let gridOn=!!lsGet('overlay.grid', false), gridStep=num(lsGet('overlay.gridStep', 5),5,1,50);
+function applyGrid(){ stage.classList.toggle('grid', gridOn); $('gridLayer').style.backgroundSize=`${gridStep}% ${gridStep}%`; $('gridOn').checked=gridOn; $('gridStep').value=String(gridStep); }
+$('gridOn').onchange=e=>{ gridOn=e.target.checked; lsSet('overlay.grid', gridOn); applyGrid(); };
+$('gridStep').onchange=e=>{ gridStep=num(e.target.value,5,1,50); lsSet('overlay.gridStep', gridStep); applyGrid(); };
+applyGrid();
+document.querySelectorAll('[data-align]').forEach(b=>b.onclick=()=>alignSel(b.dataset.align));
+document.querySelectorAll('[data-dist]').forEach(b=>b.onclick=()=>distributeSel(b.dataset.dist));
+$('tGroup').onclick=groupSel; $('tUngroup').onclick=ungroupSel;
+$('tEye').onclick=hideSel; $('tDup').onclick=duplicate; $('tDel').onclick=remove;
+function renderToolbar(){
+  const list=selList();
+  $('toolbar').classList.toggle('none', !list.length);
+  $('selInfo').textContent = !list.length ? 'Ничего не выбрано' : list.length===1 ? elIcon(list[0])+' '+elName(list[0]).slice(0,26) : `Выбрано: ${list.length}`;
+  $('tGroup').disabled = list.length<2; $('tUngroup').disabled = !list.some(x=>x.g);
+}
+// ---- вкладки слева ----
+function showTab(t){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  document.querySelectorAll('section[data-pane]').forEach(p=>p.hidden = p.dataset.pane!==t);
+  lsSet('overlay.tab', t);
+}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+showTab(lsGet('overlay.tab','add')||'add');
 $('bDup').onclick=duplicate;
 $('bDel').onclick=remove;
 
@@ -1546,18 +1868,20 @@ document.addEventListener('keydown', e=>{
   if(/^Digit[1-9]$/.test(e.code) && !ctrl && !e.altKey){
     const t=[...state.els].reverse()[+e.code.slice(5)-1]; if(t){ e.preventDefault(); flash(t); toast(`⚡ ${elName(t).slice(0,30)}`); } return;
   }
+  if(ctrl && e.code==='KeyA'){ e.preventDefault(); msel.clear(); state.els.forEach(x=>msel.add(x.id)); selectedId=state.els.at(-1)?.id||null; renderAll(); return; }
+  if(ctrl && e.code==='KeyG'){ e.preventDefault(); if(e.shiftKey) ungroupSel(); else groupSel(); return; }
   const el=byId(selectedId); if(!el) return;
   if(ctrl && e.code==='KeyD'){ e.preventDefault(); duplicate(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); remove(); return; }
-  if(e.code==='KeyH' && !ctrl){ toggleHidden(el); return; }
-  if(e.code==='KeyF' && !ctrl){ flash(el); return; }
+  if(e.code==='KeyH' && !ctrl){ hideSel(); return; }
+  if(e.code==='KeyF' && !ctrl){ selList().forEach(x=>flash(x)); return; }
   if(e.code==='KeyP' && !ctrl){ if(el.kf) act1(el, kfToggle); else toast('У элемента нет анимации движения'); return; }
   if(e.code==='Space' && el.type==='timer'){ e.preventDefault(); act1(el, timerToggle); return; }
   if(el.type==='counter' && (e.code==='Equal'||e.code==='NumpadAdd')){ e.preventDefault(); act1(el, x=>x.value+=x.step); return; }
   if(el.type==='counter' && (e.code==='Minus'||e.code==='NumpadSubtract')){ e.preventDefault(); act1(el, x=>x.value-=x.step); return; }
   const step=e.shiftKey?5:0.5;
   const mv={ ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step] }[e.key];
-  if(mv){ e.preventDefault(); beginChange(); el.x=num(el.x+mv[0],50,0,100); el.y=num(el.y+mv[1],50,0,100); changed(); clearTimeout(wheelT); wheelT=setTimeout(commit,300); }
+  if(mv){ e.preventDefault(); beginChange(); for(const t of selList()){ t.x=num(t.x+mv[0],50,0,100); t.y=num(t.y+mv[1],50,0,100); } changed(); clearTimeout(wheelT); wheelT=setTimeout(commit,300); }
 });
 // Ссылка на оригинал из HTML (браузер при «Копировать изображение» кладёт в файл статичный PNG, а ссылку — на настоящую GIF)
 function htmlMediaUrl(html){
@@ -1579,6 +1903,7 @@ document.addEventListener('paste', e=>{
 setInterval(()=>{
   const now=nowMs();
   for(const el of state.els){ if(el.type==='timer'||el.type==='counter'||el.type==='cs2'){ const n=nodes.get(el.id); if(n) tickNode(n, el, now); } }
+  checkTwTriggers(now);
 }, 100);
 setInterval(()=>{ // подписи в слоях и инспекторе (цифры таймеров)
   if(!state.els.some(e=>e.type==='timer'||e.type==='counter')) return;
@@ -1774,6 +2099,237 @@ async function getAssetBlob(fromRoom, id){
   });
 }
 
+// ================== СЦЕНАРИИ: «если … → то …» ==================
+// Хранятся в этом браузере для каждой комнаты; выполняются, пока пульт открыт.
+let scnStore=lsGet('overlay.scn', {}); if(!scnStore || typeof scnStore!=='object' || Array.isArray(scnStore)) scnStore={};
+const scnList=()=> (scnStore[room] ||= []);
+function saveScn(){ lsSet('overlay.scn', scnStore); }
+const sleep=ms=>new Promise(r=>setTimeout(r, ms));
+const TRIGS={ chat:'💬 Команда в чате', cs2:'🎯 Событие в CS2', timer:'⏱ Таймер закончился', counter:'🔢 Счётчик дошёл до цели', manual:'🖐 Только вручную (кнопка ▶)' };
+const CS2EV={ kill:'Убийство (своё)', multikill:'Мульти-килл от N', ace:'ACE (5 за раунд)', death:'Смерть', mvp:'MVP раунда',
+  round_win:'Раунд выигран', round_loss:'Раунд проигран', round_end:'Конец раунда', bomb_planted:'Бомба заложена', bomb_defused:'Бомба разминирована', bomb_exploded:'Бомба взорвалась' };
+const ACTS={
+  flash:{ n:'⚡ Показать на N сек', el:'any', secs:5 }, show:{ n:'👁 Показать', el:'any' }, hide:{ n:'🙈 Скрыть', el:'any' },
+  toggle:{ n:'🔁 Показать / скрыть', el:'any' }, anim:{ n:'🎬 Проиграть анимацию', el:'any' },
+  sound:{ n:'🔊 Звук', url:true }, confetti:{ n:'🎉 Конфетти' }, shake:{ n:'💥 Тряска' },
+  scene:{ n:'🎞 Включить сцену', scene:true }, counter:{ n:'🔢 Счётчик +N', el:'counter', num:1 },
+  text:{ n:'✏ Поменять текст', el:'text', tpl:true }, chatmsg:{ n:'💬 Показать это сообщение чата' },
+  timer:{ n:'⏱ Запустить таймер заново', el:'timer' }, wait:{ n:'⏳ Подождать N сек', secs:2 },
+};
+function fillTpl(t, ctx){ return String(t).replace(/\{(user|args|msg|name|n)\}/g, (_,k)=>String(ctx[k]??'')); }
+function flashFor(el, secs){ beginChange(); el.hidden=false; el.ttl=Date.now()+secs*1000; if(el.type==='video'||el.type==='web') el.restart=Date.now(); if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); } commit(); }
+async function runAction(a, ctx){
+  const el=a.el ? byId(a.el) : null;
+  switch(a.t){
+    case 'flash': if(el) flashFor(el, num(a.secs,5,0.5,600)); break;
+    case 'show': if(el) act1(el, x=>{ x.hidden=false; delete x.ttl; if(x.kf){ x.kf.playing=true; x.kf.start=Date.now(); } if(x.type==='video'||x.type==='web') x.restart=Date.now(); }); break;
+    case 'hide': if(el) act1(el, x=>{ x.hidden=true; delete x.ttl; }); break;
+    case 'toggle': if(el) toggleHidden(el); break;
+    case 'anim': if(el?.kf) act1(el, x=>{ x.kf.playing=true; x.kf.start=Date.now(); x.hidden=false; }); break;
+    case 'sound': { const src=safeSrc(String(a.url||'').trim()); if(src) sendFx({ type:'sound', src, vol:num(a.vol,0.8,0,1) }, true); break; }
+    case 'confetti': sendFx({ type:'confetti' }, true); break;
+    case 'shake': sendFx({ type:'shake' }, true); break;
+    case 'scene': { const sc=(scenes[room]||[]).find(x=>x.name===a.scene); if(sc) applyScene(sc, false); break; }
+    case 'counter': if(el?.type==='counter') act1(el, x=>x.value+=Math.round(num(a.num,1,-1e6,1e6))); break;
+    case 'text': if(el?.type==='text') act1(el, x=>x.text=fillTpl(a.tpl||'', ctx).slice(0,500)); break;
+    case 'chatmsg': if(ctx.chatMsg) showChatMsg(ctx.chatMsg); break;
+    case 'timer': if(el?.type==='timer') act1(el, x=>{ timerReset(x); timerToggle(x); }); break;
+    case 'wait': await sleep(num(a.secs,1,0,600)*1000); break;
+  }
+}
+async function runScenario(sc, ctx={}){
+  const row=document.querySelector(`.scn[data-id="${sc.id}"]`); row?.classList.add('fired'); setTimeout(()=>row?.classList.remove('fired'), 900);
+  for(const a of sc.acts||[]){ try{ await runAction(a, ctx); }catch(e){ console.warn(e); } }
+}
+function matchTrig(t, ctx){
+  if(t.type==='chat'){
+    const cmd=String(t.cmd||'').trim().toLowerCase(), m=String(ctx.msg||'').trim(), low=m.toLowerCase();
+    if(!cmd || !(low===cmd || low.startsWith(cmd+' '))) return false;
+    if(t.who==='mods' && !ctx.chatMsg?.mod) return false;
+    if(t.who==='subs' && !(ctx.chatMsg?.sub || ctx.chatMsg?.mod)) return false;
+    ctx.args=m.slice(cmd.length).trim(); return true;
+  }
+  if(t.type==='cs2'){
+    const ev=ctx.ev; if(!ev) return false;
+    switch(t.ev){
+      case 'multikill': return ev.k==='multikill' && ev.n>=(t.n||2);
+      case 'ace': return ev.k==='multikill' && ev.n>=5;
+      case 'round_win': return ev.k==='round_end' && !!ev.my && ev.win===ev.my;
+      case 'round_loss': return ev.k==='round_end' && !!ev.my && !!ev.win && ev.win!==ev.my;
+      default: return ev.k===t.ev;
+    }
+  }
+  if(t.type==='timer' || t.type==='counter') return !t.el || t.el===ctx.el;
+  return false;
+}
+const scnLast=new Map();
+function fire(kind, ctx){
+  if(!$('scnRun').checked) return;
+  for(const sc of scnList()){
+    if(!sc.on || sc.trig?.type!==kind) continue;
+    const c={ ...ctx };
+    if(!matchTrig(sc.trig, c)) continue;
+    const cd=num(sc.trig.cd,0,0,3600)*1000, last=scnLast.get(sc.id)||0;
+    if(Date.now()-last<cd) continue;
+    scnLast.set(sc.id, Date.now());
+    runScenario(sc, c);
+  }
+}
+$('scnRun').checked=lsGet('overlay.scnRun', true)!==false;
+$('scnRun').onchange=e=>lsSet('overlay.scnRun', e.target.checked);
+// События CS2 от программы стримера → сценарии
+let lastEvSeq=null;
+function processCs2Events(d){
+  const evs=Array.isArray(d.evs)?d.evs:[]; const max=Math.max(0, ...evs.map(e=>e.s||0));
+  if(lastEvSeq===null){ lastEvSeq=max; return; }          // при подключении старое не запускаем
+  for(const ev of evs) if(ev.s>lastEvSeq){ fire('cs2', { ev, name:ev.name||'', n:ev.n||'' }); }
+  lastEvSeq=Math.max(lastEvSeq, max);
+}
+// Таймеры и счётчики → сценарии (проверяем в общем тике)
+const twPrev=new Map();
+function checkTwTriggers(now){
+  for(const el of state.els){
+    if(el.type==='timer' && (el.mode==='countdown'||el.mode==='until')){
+      const ended=twState(el, now).ended, was=twPrev.get(el.id);
+      if(was===false && ended) fire('timer', { el:el.id, name:el.label||'' });
+      twPrev.set(el.id, ended);
+    } else if(el.type==='counter' && el.goal){
+      const v=counterValue(el, now), was=twPrev.get(el.id);
+      if(typeof was==='number' && was<el.goal && v>=el.goal) fire('counter', { el:el.id, n:v });
+      twPrev.set(el.id, v);
+    }
+  }
+}
+// ---- список и редактор ----
+function trigText(t){
+  if(!t) return '';
+  if(t.type==='chat') return `чат: ${t.cmd||'?'}${t.who==='mods'?' (модеры)':t.who==='subs'?' (сабы)':''}`;
+  if(t.type==='cs2') return 'CS2: '+(CS2EV[t.ev]||'').replace(' от N', t.ev==='multikill'?' от '+(t.n||2):'');
+  if(t.type==='timer') return 'таймер: '+(t.el ? elName(byId(t.el)||{type:'text',text:'(удалён)'}) : 'любой');
+  if(t.type==='counter') return 'цель счётчика: '+(t.el ? elName(byId(t.el)||{type:'text',text:'(удалён)'}) : 'любого');
+  return 'вручную';
+}
+function renderScn(){
+  const box=$('scnList'); box.replaceChildren();
+  const list=scnList();
+  if(!list.length){ const d=document.createElement('div'); d.className='hint'; d.style.margin='8px 0'; d.textContent='Пока нет сценариев. Например: «!кринж» в чате → показать мем на 5 сек и звук; ACE в CS2 → конфетти.'; box.appendChild(d); return; }
+  for(const sc of list){
+    const row=document.createElement('div'); row.className='scn'+(sc.on?'':' off'); row.dataset.id=sc.id;
+    const on=document.createElement('input'); on.type='checkbox'; on.checked=sc.on; on.dataset.a='on'; on.title='Включён';
+    const nm=document.createElement('div'); nm.className='nm';
+    const b=document.createElement('b'); b.textContent=sc.name||'Без названия';
+    const sp=document.createElement('span'); sp.textContent=`${trigText(sc.trig)} → ${(sc.acts||[]).map(a=>ACTS[a.t]?.n.split(' ')[0]).join(' ')}`;
+    nm.append(b, sp);
+    const run=document.createElement('button'); run.textContent='▶'; run.dataset.a='run'; run.title='Запустить сейчас';
+    const ed=document.createElement('button'); ed.textContent='✎'; ed.dataset.a='edit'; ed.title='Изменить';
+    const del=document.createElement('button'); del.textContent='✕'; del.dataset.a='del'; del.title='Удалить';
+    row.append(on, nm, run, ed, del); box.appendChild(row);
+  }
+}
+$('scnList').addEventListener('click', e=>{
+  const row=e.target.closest('.scn'); if(!row) return;
+  const list=scnList(), sc=list.find(x=>x.id===row.dataset.id); if(!sc) return;
+  const a=e.target.dataset.a;
+  if(a==='on'){ sc.on=e.target.checked; saveScn(); renderScn(); }
+  else if(a==='run') runScenario(sc, { user:'тест', msg:'', args:'', name:'тест', n:3 });
+  else if(a==='edit') editScn(sc);
+  else if(a==='del'){ if(confirm(`Удалить сценарий «${sc.name}»?`)){ list.splice(list.indexOf(sc),1); saveScn(); renderScn(); } }
+});
+$('scnNew').onclick=()=>editScn(null);
+function opt(sel, v, t){ const o=document.createElement('option'); o.value=v; o.textContent=t; sel.appendChild(o); return o; }
+function elSelect(kind, value){
+  const s=document.createElement('select');
+  opt(s, '', kind==='trigger' ? '— любой —' : '— выбери элемент —');
+  const ok=el=> kind==='any'||kind==='trigger'||kind==='trigger-timer'||kind==='trigger-counter' ? (kind==='trigger-timer'?el.type==='timer':kind==='trigger-counter'?el.type==='counter':true) : el.type===kind;
+  for(const el of [...state.els].reverse()) if(ok(el)) opt(s, el.id, `${elIcon(el)} ${elName(el).slice(0,30)}`);
+  if(value && !byId(value)) opt(s, value, '(элемент удалён)');
+  s.value=value||''; return s;
+}
+function field(label, node){ const w=document.createElement('div'); const l=document.createElement('div'); l.className='lbl'; l.textContent=label; w.append(l, node); return w; }
+function inp(type, value, ph){ const i=document.createElement('input'); i.type=type; i.value=value??''; if(ph) i.placeholder=ph; return i; }
+function editScn(orig){
+  const sc = orig ? JSON.parse(JSON.stringify(orig)) : { id:rid(8), name:'', on:true, trig:{ type:'chat', cmd:'!', who:'all', cd:10 }, acts:[{ t:'flash', el:'', secs:5 }] };
+  const box=$('scnEdit'); box.hidden=false; box.replaceChildren();
+  const name=inp('text', sc.name, 'Название, например: Кринж-мем');
+  box.append(field('Название', name));
+  const t1=document.createElement('div'); t1.className='t'; t1.textContent='Если…'; box.appendChild(t1);
+  const ttype=document.createElement('select'); for(const [k,v] of Object.entries(TRIGS)) opt(ttype, k, v); ttype.value=sc.trig.type;
+  const tbox=document.createElement('div');
+  box.append(ttype, tbox);
+  const tf={};
+  function drawTrig(){
+    tbox.replaceChildren(); const t=sc.trig; t.type=ttype.value;
+    if(t.type==='chat'){
+      tf.cmd=inp('text', t.cmd||'!', '!команда'); tf.who=document.createElement('select');
+      opt(tf.who,'all','все зрители'); opt(tf.who,'subs','сабы и модеры'); opt(tf.who,'mods','только модеры'); tf.who.value=t.who||'all';
+      tbox.append(field('Команда (сообщение начинается с неё)', tf.cmd), field('Кто может', tf.who));
+    }
+    if(t.type==='cs2'){
+      tf.ev=document.createElement('select'); for(const [k,v] of Object.entries(CS2EV)) opt(tf.ev,k,v); tf.ev.value=t.ev||'multikill';
+      tf.n=inp('number', t.n||3); tf.n.min=2; tf.n.max=5;
+      const nWrap=field('Сколько убийств за раунд (от)', tf.n); nWrap.hidden=tf.ev.value!=='multikill';
+      tf.ev.onchange=()=>nWrap.hidden=tf.ev.value!=='multikill';
+      tbox.append(field('Событие', tf.ev), nWrap);
+    }
+    if(t.type==='timer'){ tf.el=elSelect('trigger-timer', t.el); tbox.append(field('Какой таймер', tf.el)); }
+    if(t.type==='counter'){ tf.el=elSelect('trigger-counter', t.el); tbox.append(field('Какой счётчик (нужна цель в его настройках)', tf.el)); }
+    if(t.type!=='manual'){ tf.cd=inp('number', t.cd??10); tf.cd.min=0; tbox.append(field('Перезарядка, сек (чтобы не спамили)', tf.cd)); }
+  }
+  ttype.onchange=drawTrig; drawTrig();
+  const t2=document.createElement('div'); t2.className='t'; t2.textContent='…то сделать по порядку'; box.appendChild(t2);
+  const alist=document.createElement('div'); box.appendChild(alist);
+  function drawActs(){
+    alist.replaceChildren();
+    sc.acts.forEach((a,i)=>{
+      const row=document.createElement('div'); row.className='act';
+      const n=document.createElement('span'); n.className='n'; n.textContent=i+1;
+      const ts=document.createElement('select'); for(const [k,v] of Object.entries(ACTS)) opt(ts,k,v.n); ts.value=a.t;
+      ts.onchange=()=>{ sc.acts[i]={ t:ts.value }; drawActs(); };
+      row.append(n, ts);
+      const d=ACTS[a.t]||{};
+      if(d.el){ const s=elSelect(d.el, a.el); s.onchange=()=>a.el=s.value; row.appendChild(s); }
+      if(d.secs!=null){ const x=inp('number', a.secs??d.secs); x.step='0.5'; x.min='0'; x.title='секунд'; x.style.maxWidth='64px'; x.oninput=()=>a.secs=Number(x.value); row.appendChild(x); }
+      if(d.num!=null){ const x=inp('number', a.num??d.num); x.title='на сколько (можно минус)'; x.style.maxWidth='64px'; x.oninput=()=>a.num=Number(x.value); row.appendChild(x); }
+      if(d.url){ const x=inp('url', a.url, 'ссылка на звук'); x.oninput=()=>a.url=x.value; row.appendChild(x);
+        const v=inp('range', a.vol??0.8); v.min=0; v.max=1; v.step=0.05; v.title='громкость'; v.oninput=()=>a.vol=Number(v.value); row.appendChild(v); }
+      if(d.scene){ const s=document.createElement('select'); opt(s,'','— сцена —'); for(const x of (scenes[room]||[])) opt(s,x.name,x.name); s.value=a.scene||''; s.onchange=()=>a.scene=s.value; row.appendChild(s); }
+      if(d.tpl){ const x=inp('text', a.tpl, 'текст: {user} {args} {name} {n}'); x.oninput=()=>a.tpl=x.value; x.style.flexBasis='100%'; row.appendChild(x); }
+      const up=document.createElement('button'); up.textContent='↑'; up.title='Выше'; up.onclick=()=>{ if(i>0){ [sc.acts[i-1],sc.acts[i]]=[sc.acts[i],sc.acts[i-1]]; drawActs(); } };
+      const rm=document.createElement('button'); rm.textContent='✕'; rm.title='Убрать'; rm.onclick=()=>{ sc.acts.splice(i,1); drawActs(); };
+      row.append(up, rm); alist.appendChild(row);
+    });
+  }
+  drawActs();
+  const add=document.createElement('button'); add.textContent='＋ Действие'; add.style.width='100%'; add.onclick=()=>{ sc.acts.push({ t:'flash', el:'', secs:5 }); drawActs(); };
+  const hint=document.createElement('div'); hint.className='hint'; hint.textContent='В тексте можно писать {user} (кто написал), {args} (что после команды), {name} (игрок CS2), {n}.';
+  const bar=document.createElement('div'); bar.className='row';
+  const save=document.createElement('button'); save.className='primary grow'; save.textContent='💾 Сохранить';
+  const test=document.createElement('button'); test.textContent='▶ Тест';
+  const cancel=document.createElement('button'); cancel.textContent='Отмена';
+  bar.append(save, test, cancel);
+  box.append(add, hint, bar);
+  function collect(){
+    sc.name=name.value.trim().slice(0,60) || TRIGS[ttype.value].replace(/^\S+ /,'');
+    const t=sc.trig;
+    if(t.type==='chat'){ t.cmd=tf.cmd.value.trim().slice(0,40); t.who=tf.who.value; }
+    if(t.type==='cs2'){ t.ev=tf.ev.value; t.n=Math.round(num(tf.n.value,3,2,5)); }
+    if(t.type==='timer'||t.type==='counter') t.el=tf.el.value;
+    if(t.type!=='manual') t.cd=num(tf.cd.value,10,0,3600);
+    for(const k of Object.keys(t)) if(!['type','cmd','who','ev','n','el','cd'].includes(k)) delete t[k];
+    return sc;
+  }
+  save.onclick=()=>{
+    const c=collect(); const list=scnList(), i=list.findIndex(x=>x.id===c.id);
+    if(c.trig.type==='chat' && c.trig.cmd.length<2) return toast('Впиши команду, например !кринж');
+    if(i>=0) list[i]=c; else list.push(c);
+    saveScn(); renderScn(); box.hidden=true;
+    if(c.trig.type==='chat' && !chatWs) toast('Не забудь подключить чат во вкладке 💬', 4000);
+  };
+  test.onclick=()=>runScenario(collect(), { user:'тест', msg:'', args:'аргументы', name:'тест', n:3 });
+  cancel.onclick=()=>{ box.hidden=true; };
+  box.scrollIntoView({ block:'nearest' });
+}
+
 // ================== СЦЕНЫ ==================
 let scenes=lsGet('overlay.scenes', {}); if(!scenes || typeof scenes!=='object' || Array.isArray(scenes)) scenes={};
 function saveScenes(){ lsSet('overlay.scenes', scenes); }
@@ -1802,13 +2358,17 @@ $('sceneList').addEventListener('click', e=>{
   const a=e.target.dataset.a;
   if(a==='del'){ if(confirm(`Удалить сцену «${sc.name}»?`)){ list.splice(i,1); saveScenes(); renderScenes(); } return; }
   if(a==='upd'){ if(confirm(`Перезаписать «${sc.name}» текущим экраном?`)){ sc.els=snapshotEls(); saveScenes(); renderScenes(); } return; }
-  beginChange();
-  const now=Date.now();
-  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ x.id=rid(10); if(x.kf) x.kf.start=now; return sanitizeEl(x); }).filter(Boolean);
-  state.els = e.shiftKey ? [...state.els, ...els].slice(0, MAX_ELS) : els;
-  selectedId=null; commit();
+  applyScene(sc, e.shiftKey);
   toast(`🎞 ${sc.name}${e.shiftKey?' (поверх)':''}`);
 });
+// id элементов сохраняем: так сценарии продолжают работать после смены сцены
+function applyScene(sc, add){
+  beginChange();
+  const now=Date.now(), ids=new Set(add ? state.els.map(x=>x.id) : []);
+  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ if(!x.id || ids.has(x.id)) x.id=rid(10); ids.add(x.id); if(x.kf) x.kf.start=now; return sanitizeEl(x); }).filter(Boolean);
+  state.els = add ? [...state.els, ...els].slice(0, MAX_ELS) : els;
+  selectedId=null; commit();
+}
 
 // Раз в минуту переотправляем экран: так брокер всегда хранит свежую подписанную версию
 setInterval(()=>{ if(client?.connected && !drag && KEYS) publishNow(1); }, 60000);
@@ -1826,7 +2386,7 @@ async function boot(){
   const cur=lsGet('overlay.current', null);
   if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
   saveRooms();
-  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderLockBtns();
+  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns();
   applyBg($('bgInput').value);
   setPill($('status'), 'warn', 'подключение…');
   connect();

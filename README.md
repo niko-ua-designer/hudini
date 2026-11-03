@@ -58,9 +58,25 @@ If the app or the tunnel is down, the panel automatically falls back to the publ
 - **Timers**: countdown, stopwatch, countdown to a date, clock. Styles: **flip cards**, neon, plain. On finish they can show your own text, blink, and play a sound or confetti.
 - **Counters**: manual (+/−), **Twitch chat words** (e.g. `F`, `*` = any message, optional once per viewer), automatic every N seconds, goal with a progress bar.
 - **📊 Chat polls**: viewers type `1`, `2`… One vote per viewer, live bars, winner highlight.
-- **🎯 CS2** (needs Overlay Host): player card, K/D/A, HP/armor, score, money, weapon, auto **DOUBLE / TRIPLE / ACE** popup.
+- **💬 Chat messages on screen**: the **Chat** tab shows the live Twitch chat with emotes and badges. Click a message and it pops up on stream with the viewer's name and color. New messages reuse the position and style of the previous one.
+- **🎯 CS2** (needs Overlay Host): player card, K/D/A, HP/armor, score, money, weapon, auto **DOUBLE / TRIPLE / QUAD / ACE** popup (threshold of your choice, **▶ Example** button to position it).
 - **👁 CS2 observer mode** (GOTV / spectator / caster): tournament-style **team panels**, **scorebar** with round timer & bomb, **observed player** card. CS2 sends data about all players only to spectators, never to a player in their own match.
 - **Full-screen effects**: sound (link or file), confetti, screen shake.
+
+### ⚡ Scenarios ("if … then …")
+
+The **Scenarios** tab lets you automate the overlay:
+- **Triggers:** a chat command (`!cringe`, for everyone / subs / mods, with a cooldown), a CS2 event (kill, multi-kill from N, ACE, death, MVP, round won/lost, bomb planted/defused/exploded), a timer finishing, a counter reaching its goal, or manual only.
+- **Actions** (run in order): show an element for N seconds, show/hide/toggle, play its animation, sound, confetti, shake, switch scene, change a counter, replace text (`{user}`, `{args}`, `{name}`, `{n}`), show the chat message, restart a timer, wait.
+
+Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Scenarios run while the panel is open; if two moderators have it open, enable them in only one panel.
+
+### Editor
+
+- **Multi-select:** Shift/Ctrl+click or drag a selection box over empty space; Ctrl+A selects everything. Moving, arrow keys, hiding, duplicating and deleting work on the whole selection.
+- **Groups** (Ctrl+G / Ctrl+Shift+G): grouped elements are selected and moved together.
+- **Align & distribute** from the toolbar above the canvas (a single element aligns to the screen).
+- **Grid** with snapping (2.5 % … 25 %).
 
 ### Animations, scenes, library
 
@@ -72,7 +88,9 @@ If the app or the tunnel is down, the panel automatically falls back to the publ
 
 | Action | How |
 |---|---|
-| Move | drag (stays inside the frame; hold Ctrl to go past the edge) |
+| Select several | Shift/Ctrl+click, selection box, Ctrl+A |
+| Group / ungroup | Ctrl+G / Ctrl+Shift+G |
+| Move | drag (stays inside the frame; hold Ctrl while dragging to go past the edge) |
 | Resize | corner handle, mouse wheel or slider |
 | Stretch image/video | side handles or Shift+corner |
 | Rotate | handle above the element, Alt+drag, Shift+wheel; Shift snaps to 15° |
@@ -155,9 +173,25 @@ If the app or the tunnel is down, the panel automatically falls back to the publ
 - **Таймеры**: обратный отсчёт, секундомер, отсчёт до даты, часы. Стили: **флип-карточки**, неон, простой текст. По окончании можно показать свой текст, мигать, включить звук и конфетти.
 - **Счётчики**: ручной (+/−), **по словам в чате Twitch** (например `F`, `*` = любое сообщение, можно «один раз на зрителя»), сам каждые N секунд, цель с полосой.
 - **📊 Голосование в чате**: зрители пишут `1`, `2`… Один голос на зрителя, полосы обновляются вживую, победитель подсвечивается.
-- **🎯 CS2** (нужен Overlay Host): карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка **DOUBLE / TRIPLE / ACE**.
+- **💬 Сообщения из чата на экране**: во вкладке **«Чат»** идёт живой чат Twitch с эмоутами и значками. Кликни по сообщению, и оно всплывёт на стриме с ником и цветом зрителя. Новые сообщения появляются на месте прошлого и в том же виде.
+- **🎯 CS2** (нужен Overlay Host): карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка **DOUBLE / TRIPLE / QUAD / ACE** (порог на выбор, кнопка **▶ Пример**, чтобы поставить её на место).
 - **👁 Режим наблюдателя CS2** (GOTV, зритель, кастер): **панели команд** как на турнирах, **счёт-бар** с таймером раунда и бомбой, карточка того, **за кем смотрят**. Данные по всем игрокам CS2 отдаёт только зрителям, в своём матче их нет.
 - **Эффекты на весь экран**: звук (ссылка или файл), конфетти, тряска экрана.
+
+### ⚡ Сценарии («если… то…»)
+
+Во вкладке **«Сценарии»** оверлей можно автоматизировать:
+- **Если:** команда в чате (`!кринж`, для всех, сабов или модеров, с перезарядкой), событие CS2 (килл, мульти-килл от N, ACE, смерть, MVP, раунд выигран или проигран, бомба заложена, разминирована или взорвалась), таймер закончился, счётчик дошёл до цели, только вручную.
+- **То** (по порядку): показать элемент на N сек, показать, скрыть или переключить, проиграть анимацию, звук, конфетти, тряска, включить сцену, изменить счётчик, поменять текст (`{user}`, `{args}`, `{name}`, `{n}`), показать это сообщение из чата, перезапустить таймер, подождать.
+
+Пример: `!кринж` → мем на 5 сек + звук; ACE → конфетти + тряска. Сценарии работают, пока пульт открыт. Если пульт открыт у двух модераторов, включи их только у одного.
+
+### Редактор
+
+- **Несколько элементов сразу:** Shift/Ctrl+клик или рамка по пустому месту, Ctrl+A выделяет всё. Двигать, стрелки, скрыть, копировать и удалить работают для всего выделения.
+- **Группы** (Ctrl+G / Ctrl+Shift+G): элементы группы выделяются и двигаются вместе.
+- **Выравнивание и распределение** на панели над холстом (один элемент выравнивается по экрану).
+- **Сетка** с примагничиванием (2.5 % … 25 %).
 
 ### Анимации, сцены, библиотека
 
@@ -169,7 +203,9 @@ If the app or the tunnel is down, the panel automatically falls back to the publ
 
 | Действие | Как |
 |---|---|
-| Двигать | тащить мышкой (за край кадра не вылезает; с Ctrl можно) |
+| Выделить несколько | Shift/Ctrl+клик, рамка, Ctrl+A |
+| Сгруппировать / разгруппировать | Ctrl+G / Ctrl+Shift+G |
+| Двигать | тащить мышкой (за край кадра не вылезает; с зажатым Ctrl во время перетаскивания можно) |
 | Размер | уголок, колёсико или ползунок |
 | Растянуть картинку или видео | боковые ручки или Shift+уголок |
 | Поворот | кружок над элементом, Alt+тащить, Shift+колёсико; Shift = шаг 15° |

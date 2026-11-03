@@ -30,6 +30,8 @@ The app writes `gamestate_integration_streamoverlay.cfg` into the CS2 `cfg` fold
 - **As a player:** player card, K/D/A, HP/armor, score, money, weapon, and an auto DOUBLE / TRIPLE / QUAD / ACE popup.
 - **As a spectator** (GOTV, server observer, casting): panels for both teams with every player, a scorebar with the round timer and bomb status, and the observed player card. CS2 sends data about all players only to spectators.
 
+The app also detects **game events** (kill, multi-kill, ACE, death, MVP, round end, bomb planted/defused/exploded) and sends them to the overlay. They power the multi-kill popup (for any player in spectator mode) and **CS2 scenarios** in the panel.
+
 If you already clicked "Connect CS2" in an older version, the app updates the file itself, so just restart CS2.
 
 ### Security
@@ -78,6 +80,8 @@ Environment variables: `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TU
 
 - **Когда играешь:** карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка DOUBLE / TRIPLE / QUAD / ACE.
 - **Когда смотришь матч зрителем** (GOTV, наблюдатель на сервере, кастинг): панели обеих команд со всеми игроками, счёт-бар с таймером раунда и бомбой, карточка того, за кем смотрят. Данные по всем игрокам CS2 отдаёт только зрителям.
+
+Ещё программа замечает **события игры** (килл, мульти-килл, ACE, смерть, MVP, конец раунда, бомба заложена, разминирована или взорвалась) и передаёт их оверлею. На них работают всплывашка мульти-киллов (в режиме наблюдателя для любого игрока) и **сценарии CS2** в пульте.
 
 Если «Подключить CS2» уже нажимали в старой версии, программа сама обновит файл, достаточно перезапустить CS2.
 
