@@ -1,9 +1,12 @@
 // Общий код пульта и виджета. Оба HTML подключают этот файл: держи их в одной папке.
 
+// Эмодзи рисуем одним шрифтом (Noto Color Emoji) у всех: системные шрифты в старых Windows/OBS
+// не знают новые эмодзи (например 🪖) и показывают пустой квадрат
+const EMOJI_FONT = "'Noto Color Emoji'";
 const FONTS = {
-  montserrat:"'Montserrat',sans-serif", russo:"'Russo One',sans-serif",
-  impact:"Impact,'Anton','Arial Black',sans-serif", pixel:"'Press Start 2P',monospace",
-  comfortaa:"'Comfortaa',sans-serif", caveat:"'Caveat',cursive"
+  montserrat:`'Montserrat',${EMOJI_FONT},sans-serif`, russo:`'Russo One',${EMOJI_FONT},sans-serif`,
+  impact:`Impact,'Anton','Arial Black',${EMOJI_FONT},sans-serif`, pixel:`'Press Start 2P',${EMOJI_FONT},monospace`,
+  comfortaa:`'Comfortaa',${EMOJI_FONT},sans-serif`, caveat:`'Caveat',${EMOJI_FONT},cursive`
 };
 const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
@@ -306,7 +309,7 @@ function buildNode(el){
     f.setAttribute('allow','autoplay; encrypted-media; fullscreen; picture-in-picture');
     f.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
     f.setAttribute('frameborder','0');
-    if(parseEmbed(el.url).kind==='site') f.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation allow-forms');
+    if(parseEmbed(el.url).kind==='site') f.setAttribute('sandbox', SITE_SANDBOX);
     const ph=document.createElement('div'); ph.className='ph';
     c.append(f, ph);
   }
@@ -475,10 +478,14 @@ function embedSrc(el, host, forceMute){
   if(p.kind==='cam'){ const u = new URL(el.url); if(mute) u.searchParams.set('noaudio','1'); else u.searchParams.delete('noaudio'); return u.href; }
   return el.url;
 }
-function setFrameSrc(node, src){
+// Обычные сайты открываем в песочнице. Ставим её при каждой смене ссылки, до загрузки:
+// у элемента могли сменить YouTube на сайт, и песочница от старой ссылки не подходит
+const SITE_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-forms';
+function setFrameSrc(node, src, sandboxed){
   const f = node.querySelector('iframe'), ph = node.querySelector('.ph');
   if(node._src === src) return;
   node._src = src;
+  if(sandboxed) f.setAttribute('sandbox', SITE_SANDBOX); else f.removeAttribute('sandbox');
   if(src) f.setAttribute('src', src); else f.removeAttribute('src');
   ph.hidden = !!src || node._noPh;
 }
