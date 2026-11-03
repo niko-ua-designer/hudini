@@ -59,6 +59,7 @@ function sanitizeEl(e){
   } else if(type==='image' || type==='video'){
     o.src=safeSrc(e.src); if(!o.src) return null;
     o.w=num(e.w,25,1,200);
+    o.hh=num(e.hh,0,0,300);   // высота в % экрана; 0 = по пропорциям картинки
     if(type==='video'){ o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15); }
   } else if(type==='web'){
     o.url=safeUrl(e.url); if(!o.url) return null;
@@ -330,6 +331,8 @@ function paintNode(node, el, z){
     c.classList.toggle('plate', el.bg);
   } else if(el.type==='image' || el.type==='video'){
     node.style.width=el.w+'%';
+    c.style.height = el.hh ? `calc(var(--u) * ${el.hh})` : '';
+    c.style.objectFit = el.hh ? 'fill' : '';
     const url=resolveSrc(el.src);
     if(url && c.getAttribute('src')!==url) c.setAttribute('src', url);
     node.classList.toggle('loading', !url);
