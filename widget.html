@@ -5,10 +5,10 @@
 <title>Оверлей</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=9">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
+<link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=9"></script>
+<script src="core.js?v=10"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -25,7 +25,7 @@ body{display:flex;align-items:center;justify-content:center}
 .el.instant,.el.instant .txt,.el.instant .tw,.el.instant .content{transition:none!important}
 
 /* Проверочная рамка: должна совпасть с краями экрана стрима */
-#calib{position:absolute;inset:0;z-index:100001;pointer-events:none;display:none;border:.6vmin solid #ff2e88;box-sizing:border-box;font:700 2.2vmin system-ui,sans-serif;color:#fff}
+#calib{position:absolute;inset:0;z-index:100001;pointer-events:none;display:none;border:.6vmin solid #ff2e88;box-sizing:border-box;font:700 2.2vmin system-ui,'Noto Color Emoji',sans-serif;color:#fff}
 #calib.show{display:block}
 #calib i{position:absolute;width:6vmin;height:6vmin;border:.6vmin solid #00e5ff}
 #calib i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}
@@ -34,7 +34,7 @@ body{display:flex;align-items:center;justify-content:center}
 #calib i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
 #calib div{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000c;padding:1.5vmin 3vmin;border-radius:1vmin;text-align:center;line-height:1.5}
 
-#debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
+#debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,'Noto Color Emoji',sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
 </style>
 </head>
 <body>
@@ -53,7 +53,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const LINK = '';
 // ===============================================
 
-const WIDGET_VER=9;
+const WIDGET_VER=10;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
@@ -111,7 +111,7 @@ function applyState(s){
     if(el.type==='web'){
       // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
       const src = show ? embedSrc(el, location.hostname, false) : null;
-      setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null);
+      setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
     }
     if(show && !node._shown) pop(node);
     node._shown=show;

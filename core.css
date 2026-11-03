@@ -65,7 +65,7 @@
 .web iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:transparent}
 .web[data-shape="round"]{border-radius:calc(var(--u) * 3)}
 .web[data-shape="circle"]{border-radius:50%}
-.web .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:1em;color:#ccc;font:600 calc(var(--u) * 2) system-ui,sans-serif;background:#111}
+.web .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:1em;color:#ccc;font:600 calc(var(--u) * 2) system-ui,'Noto Color Emoji',sans-serif;background:#111}
 .web .ph[hidden],.tw [hidden]{display:none}
 .el.animating,.el.animating .txt,.el.animating .tw{transition:none!important}
 
