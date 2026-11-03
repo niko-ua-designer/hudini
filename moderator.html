@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=6">
+<link rel="stylesheet" href="core.css?v=7">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=6"></script>
+<script src="core.js?v=7"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -349,7 +349,11 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <option value="money">Деньги</option>
         <option value="weapon">Оружие и патроны</option>
         <option value="streak">Всплывашка DOUBLE / TRIPLE / ACE</option>
+        <option value="teams">👁 Наблюдатель: панели команд</option>
+        <option value="scorebar">👁 Наблюдатель: счёт-бар с таймером</option>
+        <option value="observed">👁 Наблюдатель: за кем смотрим</option>
       </select>
+      <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
       <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
       <div class="hint" id="csStatus"></div>
@@ -567,7 +571,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=6, widgets=new Map();
+const WIDGET_VER=7, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -660,7 +664,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(Assets.isAsset(topic)){ const plain=await unseal(keys, payload, true); if(plain) Assets.handle(topic, plain); return; }
-  if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); repaintCs2(); } return; }
+  if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
@@ -805,6 +809,7 @@ function renderCsStatus(){
   $('csStatus').textContent = cs2Fresh()
     ? `✓ Данные идут: ${mapName(CS2.map)||'меню'}${CS2.name?' · '+CS2.name:''}`
     : 'Нет данных. У стримера должна быть запущена программа Overlay Host и нажата кнопка «Подключить CS2».';
+  if(cs2Fresh()) $('csStatus').textContent += CS2.spec ? ` · 👁 режим наблюдателя, игроков: ${CS2.players.length}` : ' · игрок (панели команд — только в режиме наблюдателя)';
 }
 function addPoll(){
   addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
@@ -941,7 +946,7 @@ function elName(el){
   if(el.type==='text') return el.text.split('\n')[0] || '(пусто)';
   if(el.type==='timer') return (el.label||MODE_NAME[el.mode])+' · '+twState(el, nowMs()).text;
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
-  if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия' }[el.view];
+  if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
@@ -1017,7 +1022,7 @@ function renderInspector(){
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
   if(el.type==='video') setField(I('iSound'), el.sound, 'checked');
-  if(el.type==='cs2'){ setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
+  if(el.type==='cs2'){ $('csSideRow').hidden = el.view!=='teams'; setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -1481,7 +1486,10 @@ bindInput('iKw',     (el,f)=>el.kw=f.value.slice(0,120));
 bindInput('iUniq',   (el,f)=>{ el.uniq=f.checked; chatSeen.delete(el.id); });
 bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.now()); el.startAt=Date.now(); } el.every=num(f.value,60,1,86400); });
 // CS2
-bindInput('iCsView',   (el,f)=>el.view=f.value);
+bindInput('iCsView',   (el,f)=>{ el.view=f.value;
+  if(el.view==='teams' && el.fs>2.6) el.fs=2.4;            // панели команд крупные — сразу поменьше
+  if(el.view==='scorebar'){ el.x=50; el.y=7; } });
+bindInput('iCsSide',   (el,f)=>el.side=f.value);
 bindInput('iCsLabel',  (el,f)=>el.label=f.value.slice(0,40));
 bindInput('iCsAccent', (el,f)=>el.accent=f.value);
 bindInput('iCsCard',   (el,f)=>el.card=f.value);

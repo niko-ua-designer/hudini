@@ -111,3 +111,34 @@
 .cs2 .c-streak{font-size:2em;letter-spacing:.04em;color:var(--c);text-shadow:0 0 .15em #000,0 0 .5em var(--c),.04em .04em 0 #000,-.04em -.04em 0 #000}
 .cs2 .c-sub{font-size:.7em;opacity:.85;text-shadow:0 0 .2em #000}
 .cs2.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+
+/* CS2: режим наблюдателя */
+.cs2[data-view="teams"],.cs2[data-view="scorebar"]{border-left:0;padding:.45em .55em}
+.cs2 .tm-wrap{display:flex;gap:.8em;align-items:flex-start}
+.cs2 .tm-col{min-width:16em}
+.cs2 .tm-head{display:flex;justify-content:space-between;align-items:baseline;gap:1em;padding:.15em .4em .35em;font-size:.95em}
+.cs2 .tm-head b{font-size:1.3em}
+.cs2 .tm-ct .tm-head{color:#7fb4ff}.cs2 .tm-t .tm-head{color:#f0b34a}
+.cs2 .tm-row{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:.6em;padding:.28em .45em;margin:.18em 0;border-radius:.3em;background:#ffffff0d;overflow:hidden}
+.cs2 .tm-hp{position:absolute;inset:0;pointer-events:none}
+.cs2 .tm-hpf{height:100%;transition:width .3s}
+.cs2 .tm-ct .tm-hpf{background:linear-gradient(90deg,#5d9cec55,#5d9cec22)}
+.cs2 .tm-t .tm-hpf{background:linear-gradient(90deg,#e0a03055,#e0a03022)}
+.cs2 .tm-name,.cs2 .tm-info{position:relative;white-space:nowrap}
+.cs2 .tm-name{overflow:hidden;text-overflow:ellipsis;max-width:9em}
+.cs2 .tm-slot{display:inline-block;min-width:1.1em;opacity:.55;font-size:.75em;margin-right:.3em}
+.cs2 .tm-info{display:flex;gap:.55em;align-items:baseline;font-size:.8em}
+.cs2 .tm-hpn{min-width:1.8em;text-align:right;font-weight:inherit}
+.cs2 .tm-money{color:#7ee787;min-width:3.6em;text-align:right}
+.cs2 .tm-kd{opacity:.8;min-width:2.6em;text-align:right}
+.cs2 .tm-w{opacity:.75;min-width:4.5em}
+.cs2 .tm-row.dead{opacity:.4}
+.cs2 .tm-row.obs{box-shadow:0 0 0 .1em var(--c) inset}
+.cs2 .sb{display:flex;align-items:center;gap:.7em}
+.cs2 .sb-team{font-size:.85em;min-width:6em}
+.cs2 .sb-ct{color:#7fb4ff;text-align:right}.cs2 .sb-t{color:#f0b34a}
+.cs2 .sb-s{font-size:1.6em;min-width:1.2em;text-align:center}
+.cs2 .sb-mid{text-align:center;padding:0 .6em;border-left:1px solid #ffffff22;border-right:1px solid #ffffff22}
+.cs2 .sb-time{font-size:1.1em;color:var(--c);min-width:4em}
+.cs2 .sb-round{font-size:.65em;opacity:.75;white-space:nowrap}
+.cs2 .sb-map{text-align:center;margin-top:.2em}
