@@ -67,7 +67,7 @@ function sanitizeEl(e){
   } else if(type==='web'){
     o.url=safeUrl(e.url); if(!o.url) return null;
     o.w=num(e.w,40,1,200); o.ar=ASPECTS[e.ar]?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
-    o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.restart=num(e.restart,0,0,1e15);
+    o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.paused=!!e.paused; o.restart=num(e.restart,0,0,1e15);
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
   } else if(type==='cs2'){
     o.view=CS2_VIEWS.includes(e.view)?e.view:'card';
@@ -490,14 +490,66 @@ function setFrameSrc(node, src, sandboxed){
   ph.hidden = !!src || node._noPh;
 }
 
-// Громкость YouTube через его iframe API (enablejsapi=1). Плеер принимает команды только после загрузки,
-// поэтому повторяем несколько раз после load; у Twitch и обычных сайтов громкость снаружи не задать
-function setYtVolume(node, vol){
+// ---------- управление плеером YouTube / Twitch ----------
+// Команды уходят в iframe через postMessage: YouTube — iframe API (enablejsapi=1),
+// Twitch — тот же протокол, что у их embed-библиотеки (namespace twitch-embed-player-proxy).
+// Оба плеера сами присылают текущее время, по нему считаем перемотку «±10 с».
+// Заглушку 18+ у Twitch так не снять: её нажимают в OBS через «Взаимодействовать».
+const PLAYER_ORIGIN = { youtube:'https://www.youtube.com', twitch:'https://player.twitch.tv' };
+const TWITCH_CMD = { pause:2, play:3, seek:4, vol:11 };
+const playerTime = new WeakMap();   // окно iframe → { t: секунды, at: когда узнали }
+addEventListener('message', e => {
+  if(!e.source) return;
+  if(e.origin === PLAYER_ORIGIN.youtube){
+    let d = e.data; if(typeof d === 'string'){ try{ d = JSON.parse(d); }catch{ return; } }
+    const t = d?.info?.currentTime;
+    if(typeof t === 'number') playerTime.set(e.source, { t, at:Date.now() });
+  } else if(e.origin === PLAYER_ORIGIN.twitch){
+    const d = e.data;
+    if(d?.namespace === 'twitch-embed-player-proxy' && d.eventName === 'UPDATE_STATE' && typeof d.params?.currentTime === 'number')
+      playerTime.set(e.source, { t:d.params.currentTime, at:Date.now() });
+  }
+});
+function playerKind(el){ const k = parseEmbed(el.url).kind; return k==='youtube' || k==='twitch' ? k : null; }
+function playerPost(node, kind, cmd, arg){
+  const w = node.querySelector('iframe')?.contentWindow; if(!w) return;
+  try{
+    if(kind === 'youtube'){
+      const call = { play:['playVideo',[]], pause:['pauseVideo',[]], seek:['seekTo',[arg,true]], vol:['setVolume',[Math.round(arg*100)]], listen:null }[cmd];
+      w.postMessage(JSON.stringify(call ? { event:'command', func:call[0], args:call[1] } : { event:'listening', id:1, channel:'widget' }), PLAYER_ORIGIN.youtube);
+    } else if(kind === 'twitch' && TWITCH_CMD[cmd] !== undefined){
+      w.postMessage({ eventName:TWITCH_CMD[cmd], params: cmd==='seek'||cmd==='vol' ? arg : undefined, namespace:'twitch-embed-player-proxy' }, PLAYER_ORIGIN.twitch);
+    }
+  }catch{}
+}
+// Довести плеер до нужного состояния: пауза/игра и громкость (muted = превью в пульте, без звука).
+// Плеер принимает команды только после загрузки, поэтому после load повторяем несколько раз.
+function playerApply(node, el, muted){
+  const kind = playerKind(el); if(!kind) return;
   const f = node.querySelector('iframe'); if(!f) return;
-  node._ytVol = vol;
-  const send = () => { try{ f.contentWindow?.postMessage(JSON.stringify({ event:'command', func:'setVolume', args:[Math.round(node._ytVol*100)] }), 'https://www.youtube.com'); }catch{} };
-  if(!f._ytHook){ f._ytHook = true; f.addEventListener('load', () => { for(const ms of [500, 1500, 3000, 6000]) setTimeout(send, ms); }); }
-  send();
+  const want = { kind, paused:!!el.paused, vol: !muted && el.sound ? el.vol : null };
+  const prev = node._plWant; node._plWant = want;
+  const send = () => {
+    const w = node._plWant; if(!w) return;
+    playerPost(node, w.kind, 'listen');
+    if(w.vol !== null) playerPost(node, w.kind, 'vol', w.vol);
+    if(w.paused) playerPost(node, w.kind, 'pause');
+  };
+  if(!f._plHook){ f._plHook = true; f.addEventListener('load', () => { for(const ms of [600, 1500, 3000, 6000]) setTimeout(send, ms); }); }
+  if(!prev || prev.kind!==want.kind || prev.vol!==want.vol || prev.paused!==want.paused){
+    send();
+    if(prev && prev.paused && !want.paused) playerPost(node, kind, 'play');
+  }
+}
+// Перемотка на d секунд от текущего места (для записей и клипов; у прямого эфира не работает)
+function playerSeek(node, el, d){
+  const kind = playerKind(el); if(!kind) return;
+  const w = node.querySelector('iframe')?.contentWindow; if(!w) return;
+  const cur = playerTime.get(w);
+  const now = cur ? cur.t + (node._plWant?.paused ? 0 : (Date.now()-cur.at)/1000) : 0;
+  const t = Math.max(0, now + d);
+  playerPost(node, kind, 'seek', t);
+  playerTime.set(w, { t, at:Date.now() });
 }
 
 // ---------- файлы с компьютера ----------

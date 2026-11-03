@@ -9,8 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="i18n.js?v=1"></script>
-<script src="core.js?v=12"></script>
+<script src="i18n.js?v=2"></script>
+<script src="core.js?v=13"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -540,6 +540,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <input type="url" id="iUrl">
       <label class="chk" style="margin-top:6px"><input type="checkbox" id="iWebSound"> 🔊 Звук на стриме</label>
       <div class="row" data-kind="youtube"><span class="hint">Громк.</span><input id="iWebVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vWebVol"></span></div>
+      <div class="row" data-kind="youtube twitch"><button id="plToggle" class="grow" title="Пауза / продолжить на стриме">⏸ Пауза</button><span id="plSeek" style="display:contents"><button id="plBack" title="Назад на 10 секунд">⏪ 10 с</button><button id="plFwd" title="Вперёд на 10 секунд">10 с ⏩</button></span></div>
       <div class="row"><button id="restartWeb" class="grow">⏮ Перезапустить</button></div>
       <div class="row"><span class="hint">Формат</span>
         <select id="iAr" class="grow"><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">1:1</option><option value="9:16">9:16 (вертикально)</option><option value="21:9">21:9</option></select>
@@ -704,7 +705,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=11, widgets=new Map();
+const WIDGET_VER=12, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -1084,6 +1085,7 @@ function renderAll(){
       const src=embedSrc(el, location.hostname, true);   // в пульте всегда без звука
       node.querySelector('.ph').textContent = src ? '' : (window.HudiniI18n?.t || String)('Twitch показывается, только когда пульт открыт с сайта');
       setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
+      if(src) playerApply(node, el, true);   // превью повторяет паузу стрима, но всегда без звука
     }
     node.style.opacity=el.op;
     node.classList.toggle('is-hidden', el.hidden);
@@ -1203,6 +1205,8 @@ function renderInspector(){
     const k=parseEmbed(el.url).kind; showFor('kind', k);
     $('webKind').textContent=KIND_NAME[k];
     setField(I('iUrl'), el.url); setField(I('iWebSound'), el.sound, 'checked');
+    $('plToggle').textContent = el.paused ? '▶ Играть' : '⏸ Пауза'; $('plToggle').className = el.paused ? 'go grow' : 'grow';
+    { const p=parseEmbed(el.url); $('plSeek').hidden = p.kind==='twitch' && !!p.channel; }   // у прямого эфира перематывать некуда
     setField(I('iWebVol'), String(el.vol)); $('vWebVol').textContent=Math.round(el.vol*100)+'%'; I('iWebVol').disabled=!el.sound;
     setField(I('iAr'), el.ar); setField(I('iShape'), el.shape); setField(I('iBc'), el.bc); setField(I('iBw'), String(el.bw));
     setField(I('iZoom'), String(el.zoom)); $('vZoom').textContent=Math.round(el.zoom*100)+'%';
@@ -1823,7 +1827,15 @@ I('iText').addEventListener('blur', ()=>{ if(changeOpen) commit(); });
 $('bigEye').onclick=()=>{ const el=byId(selectedId); if(el) toggleHidden(el); };
 $('flashBtn').onclick=()=>{ const el=byId(selectedId); if(el) flash(el); };
 $('restartVideo').onclick=()=>act(el=>el.restart=Date.now());
-$('restartWeb').onclick=()=>act(el=>el.restart=Date.now());
+$('restartWeb').onclick=()=>act(el=>{ el.restart=Date.now(); el.paused=false; });
+$('plToggle').onclick=()=>act(el=>{ el.paused=!el.paused; });
+function seekPlayer(d){
+  const el=byId(selectedId); if(!el || el.type!=='web') return;
+  if(!sendFx({ type:'seek', id:el.id, d })) return;
+  const node=nodes.get(el.id); if(node) playerSeek(node, el, d);   // и превью в пульте
+}
+$('plBack').onclick=()=>seekPlayer(-10);
+$('plFwd').onclick=()=>seekPlayer(10);
 $('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(`https://vdo.ninja/?push=${id}&webcam&label=moderator`, '_blank'); };
 $('tToggle').onclick=()=>act(timerToggle);
 $('tReset').onclick=()=>act(timerReset);
