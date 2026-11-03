@@ -31,7 +31,8 @@ jobs:
           name: Overlay Host ${{ steps.v.outputs.ver }}
           make_latest: true
           body: |
-            Программа для стримера: свой сервер оверлея на ПК + данные из CS2.
-            Windows: скачай OverlayHost-windows.exe.zip, распакуй в отдельную папку и запусти.
-            Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
+            **EN:** App for the streamer: a local overlay server + live CS2 data. Windows: download `OverlayHost-windows.exe.zip`, unzip it into its own folder and run it.
+            **RU:** Программа для стримера: свой сервер оверлея на ПК и данные из CS2. Windows: скачай `OverlayHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
+
+            Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
           files: host/dist/*.zip
