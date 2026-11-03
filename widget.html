@@ -6,9 +6,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=4">
+<link rel="stylesheet" href="core.css?v=5">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=4"></script>
+<script src="core.js?v=5"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -52,7 +52,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const LINK = '';
 // ===============================================
 
-const WIDGET_VER=4;
+const WIDGET_VER=5;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
@@ -224,7 +224,7 @@ async function start(){
   try{ KEYS=await importRoomKeys({ k:hp.get('k'), p:hp.get('p') }); }
   catch{ status('Ключ в ссылке повреждён: попроси у модератора новую ссылку', true); return; }
   const base=`${TOPIC_PREFIX}/${room}`;
-  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb' };
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   Assets.setRoom(client, base);
@@ -237,7 +237,7 @@ async function start(){
   setInterval(async()=>{ if(!client.connected) return;
     client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx], { qos:1 }); Assets.resubscribe(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2], { qos:1 }); Assets.resubscribe(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -245,6 +245,11 @@ async function start(){
   client.on('message', (topic, payload, packet)=>{ queue=queue.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e)); });
   async function onMessage(topic, payload, packet){
     if(!payload.length) return;                      // пустые «удаления» не принимаем: так нельзя стереть экран
+    if(topic===T.cs2){                               // данные CS2 шлёт программа стримера: зашифрованы ключом комнаты
+      const d=await unsealJSON(KEYS, payload, false);
+      if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); for(const n of nodes.values()) if(n._el?.type==='cs2' && !n._animOn) paintNode(n, n._el, n._z); }
+      return;
+    }
     const plain=await unseal(KEYS, payload, true);
     if(!plain){ console.warn('[overlay] отброшено неподписанное сообщение', topic); return; }
     if(Assets.handle(topic, plain)) return;
