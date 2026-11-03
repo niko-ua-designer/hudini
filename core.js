@@ -10,7 +10,7 @@ const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
 const TYPES = ['text','image','video','timer','counter','web','poll','cs2'];
-const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak'];
+const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed'];
 // Живые данные из CS2 (приходят от программы стримера Overlay Host)
 let CS2 = null;
 const ASPECTS = { '16:9':'16 / 9', '4:3':'4 / 3', '1:1':'1 / 1', '9:16':'9 / 16', '21:9':'21 / 9' };
@@ -70,7 +70,7 @@ function sanitizeEl(e){
     o.view=CS2_VIEWS.includes(e.view)?e.view:'card';
     o.fs=num(e.fs,4,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#ffb020');
-    o.label=str(e.label,40);
+    o.label=str(e.label,40); o.side=['both','ct','t'].includes(e.side)?e.side:'both';
   } else if(type==='poll'){
     o.fs=num(e.fs,3.2,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
@@ -391,7 +391,12 @@ function paintNode(node, el, z){
 }
 // Обновить цифры таймера/счётчика. Вызывается часто (10 раз в секунду).
 function tickNode(node, el, now){
-  if(el.type==='cs2'){ const c=node.querySelector('.cs2'); if(c && el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0)); return null; }
+  if(el.type==='cs2'){
+    const c=node.querySelector('.cs2'); if(!c) return null;
+    if(el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0));
+    if(el.view==='scorebar'){ const t=c.querySelector('.sb-time'); if(t) t.textContent=cs2Timer(); }
+    return null;
+  }
   if(el.type!=='timer' && el.type!=='counter') return null;
   const tw=node.querySelector('.tw'), disp=tw.querySelector('.disp');
   const s=twState(el, now);
@@ -578,6 +583,15 @@ function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,
 function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
+function bombText(d){ const b=d.bomb; return b==='planted'?' · 💣 заложена':b==='defusing'?' · 🔧 разминируют':b==='defused'?' · ✅ разминирована':b==='exploded'?' · 💥 взорвалась':''; }
+// Таймер фазы: сколько осталось (по времени программы стримера)
+function cs2Timer(){
+  const d=CS2; if(!d?.pend) return '';
+  const left=Math.max(0, Math.ceil((d.pend + (d._skew||0) - Date.now())/1000));
+  const m=Math.floor(left/60), s=left%60;
+  const icon = d.pphase==='bomb' ? '💣 ' : d.pphase==='defuse' ? '🔧 ' : d.pphase==='freezetime' ? '❄ ' : '';
+  return icon + m + ':' + String(s).padStart(2,'0');
+}
 function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 function paintCs2(c, el){
@@ -621,6 +635,47 @@ function paintCs2(c, el){
       parts.push(r, h('div','c-map', `${mapName(d.map)}${d.round!=null?' · раунд '+(d.round+1):''}`)); break;
     }
     case 'money': parts.push(h('div','c-big c-money', money(d.money))); break;
+    case 'observed': {
+      const o = d.observed || (d.spec ? null : { ...d, alive:d.alive!==false });
+      if(!o){ parts.push(h('div','c-none','👁 Наблюдатель: выбери игрока')); break; }
+      const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||'Игрок'}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
+      const okd = o.d ? (o.k/o.d).toFixed(2) : (o.k||0).toFixed(2);
+      const kr=h('div','c-kda'); for(const [v,l] of [[o.k,'K'],[o.d,'D'],[o.a,'A']]) kr.append(h('b',null,String(v??0)), h('i',null,l)); kr.append(h('span','c-kd','K/D '+okd));
+      const hr=h('div','c-hprow');
+      if(o.alive===false) hr.append(h('span','c-dead','💀'));
+      else { const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,o.hp||0))+'%'; f.style.background=(o.hp||0)>50?'#3ddc84':(o.hp||0)>20?'#ffb020':'#ff4d5e'; b.appendChild(f);
+        hr.append(h('span','c-hp','❤ '+(o.hp??0)), b, h('span','c-ar',(o.helmet?'🪖 ':'🛡 ')+(o.armor??0))); }
+      const bot=h('div','c-bot'); bot.append(h('span','c-money', money(o.money)), h('span','c-weap', o.weapon ? `${weaponName(o.weapon)}${o.ammoMax>0?` ${o.ammo}/${o.reserve}`:''}` : ''));
+      parts.push(top, kr, hr, bot); break;
+    }
+    case 'teams': {
+      if(!d.players?.length){ parts.push(h('div','c-none','👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)')); break; }
+      const sides = el.side==='both' ? ['CT','T'] : [el.side.toUpperCase()];
+      const wrap=h('div','tm-wrap');
+      for(const side of sides){
+        const col=h('div','tm-col tm-'+side.toLowerCase());
+        const head=h('div','tm-head'); head.append(h('span',null, (side==='CT'?d.ctName:d.tName) || (side==='CT'?'Спецназ':'Террористы')), h('b',null,String(side==='CT'?d.ct??0:d.tt??0)));
+        col.appendChild(head);
+        const list=d.players.filter(p=>p.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99));
+        for(const p of list){
+          const r=h('div','tm-row'+(p.alive?'':' dead')+(d.obs===p.id?' obs':''));
+          const hpw=h('div','tm-hp'), hf=h('div','tm-hpf'); hf.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; hpw.appendChild(hf);
+          const nm=h('div','tm-name'); nm.append(h('span','tm-slot', p.slot!=null?String(p.slot):''), document.createTextNode(p.name||'?'));
+          const ic=p.alive ? (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.armor>0?(p.helmet?'🪖':'🛡'):'') : '';
+          const info=h('div','tm-info'); info.append(h('span','tm-hpn', p.alive?String(p.hp):'💀'), h('span','tm-ic', ic), h('span','tm-money', money(p.money)), h('span','tm-kd', `${p.k??0}/${p.d??0}`), h('span','tm-w', weaponName(p.main||p.weapon)));
+          r.append(hpw, nm, info); col.appendChild(r);
+        }
+        wrap.appendChild(col);
+      }
+      parts.push(wrap); break;
+    }
+    case 'scorebar': {
+      const r=h('div','sb');
+      r.append(h('span','sb-team sb-ct', d.ctName||'CT'), h('b','sb-s',String(d.ct??0)));
+      const mid=h('div','sb-mid'); mid.append(h('div','sb-time', cs2Timer()), h('div','sb-round', `Раунд ${(d.round??0)+1}${bombText(d)}`));
+      r.append(mid, h('b','sb-s',String(d.tt??0)), h('span','sb-team sb-t', d.tName||'T'));
+      parts.push(r, h('div','c-map sb-map', mapName(d.map))); break;
+    }
     case 'weapon': parts.push(h('div','c-big', d.weapon ? weaponName(d.weapon) : '—'), h('div','c-map', d.ammoMax>0 ? `${d.ammo} / ${d.reserve}` : '')); break;
   }
   c.replaceChildren(...parts);

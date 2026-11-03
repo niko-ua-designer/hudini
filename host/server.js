@@ -18,7 +18,7 @@ import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -195,6 +195,15 @@ async function startTunnel(){
 
 // ---------- CS2 Game State Integration ----------
 let lastOwn = null, cs2Local = 0, cs2Public = 0, cs2Pending = null, cs2Timer = null;
+function shortPlayer(p, id){
+  const st=p.state||{}, ms=p.match_stats||{};
+  const ws=Object.values(p.weapons||{}).filter(Boolean);
+  const w=ws.find(x=>x.state==='active') || {};
+  const main=ws.find(x=>/Rifle|SniperRifle|Submachine Gun|Shotgun|Machine Gun/.test(x.type||'')) || ws.find(x=>x.type==='Pistol') || {};
+  return { id, name:p.name, team:p.team, slot:p.observer_slot, hp:st.health, armor:st.armor, helmet:!!st.helmet, money:st.money,
+    rk:st.round_kills, k:ms.kills, d:ms.deaths, a:ms.assists, mvps:ms.mvps, weapon:w.name, main:main.name, ammo:w.ammo_clip, reserve:w.ammo_reserve, ammoMax:w.ammo_clip_max,
+    kit:!!st.defusekit, bomb:ws.some(x=>x.name==='weapon_c4'), alive:(st.health??0)>0 };
+}
 function compactGsi(g){
   const me = g.provider?.steamid, p = g.player || {}, own = !!me && p.steamid === me;
   const st = p.state || {}, ms = p.match_stats || {};
@@ -206,9 +215,21 @@ function compactGsi(g){
     mvps:ms.mvps, score:ms.score, weapon:w.name, ammo:w.ammo_clip, ammoMax:w.ammo_clip_max, reserve:w.ammo_reserve, alive:(st.health??0)>0,
   } : { ...(lastOwn||{}), hp:0, alive:false, weapon:null, ammo:null };
   if(own) lastOwn = mine;
-  return { t:Date.now(), map:map.name, mode:map.mode, phase:map.phase, round:map.round,
-    ct:map.team_ct?.score, tt:map.team_t?.score, rphase:g.round?.phase, bomb:g.round?.bomb, win:g.round?.win_team,
+  const out = { t:Date.now(), map:map.name, mode:map.mode, phase:map.phase, round:map.round,
+    ct:map.team_ct?.score, tt:map.team_t?.score, ctName:map.team_ct?.name, tName:map.team_t?.name,
+    rphase:g.round?.phase, bomb:g.bomb?.state || g.round?.bomb, win:g.round?.win_team,
     spectating: !own && p.name ? p.name : null, ...mine };
+  // таймер фазы раунда (заморозка / раунд / бомба / разминирование)
+  const pc=g.phase_countdowns;
+  if(pc && pc.phase_ends_in!=null){ out.pphase=pc.phase; out.pend=Date.now()+Number(pc.phase_ends_in)*1000; }
+  // режим наблюдателя: CS2 отдаёт всех игроков (только зрителям, GOTV и кастерам)
+  if(g.allplayers){
+    out.spec=true;
+    out.players=Object.entries(g.allplayers).slice(0,12).map(([id,pl])=>shortPlayer(pl, id));
+    if(p.steamid) out.obs=p.steamid;
+  }
+  if(!own && p.name) out.observed=shortPlayer(p, p.steamid);
+  return out;
 }
 async function pushCs2(data){
   status.cs2 = data; status.cs2Seen = Date.now();
@@ -244,6 +265,12 @@ function gsiCfgText(){
     "player_state"       "1"
     "player_weapons"     "1"
     "player_match_stats" "1"
+    "allplayers_id"          "1"
+    "allplayers_state"       "1"
+    "allplayers_match_stats" "1"
+    "allplayers_weapons"     "1"
+    "phase_countdowns"       "1"
+    "bomb"                   "1"
   }
 }
 `;
@@ -280,7 +307,7 @@ async function installGsi(){
   if(!dir) throw new Error('Не нашёл папку CS2. Скачай файл и положи его вручную в …\\Counter-Strike Global Offensive\\game\\csgo\\cfg');
   const file = path.join(dir, 'gamestate_integration_streamoverlay.cfg');
   fs.writeFileSync(file, gsiCfgText());
-  status.gsiPath = file; log('✓ Файл для CS2 записан:', file);
+  status.gsiPath = file; cfg.gsiFile = file; saveCfg(); log('✓ Файл для CS2 записан:', file);
   return file;
 }
 
@@ -320,7 +347,7 @@ function readBody(req, max){
 }
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=6#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=7#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding
@@ -375,6 +402,8 @@ local.listen(PORT, '127.0.0.1', async () => {
   console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Overlay Host ${VERSION}                          ║\n  ║  Управление:  http://localhost:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
   log('Папка настроек:', BASE);
   if(cfg.link){ try{ await setRoom(cfg.link); }catch(e){ log('⚠', e.message); } }
+  // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
+  if(cfg.gsiFile && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
   startTunnel();
   openBrowser(`http://localhost:${PORT}/`);
 });
