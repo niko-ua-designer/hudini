@@ -131,6 +131,10 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 #toast.show{transform:translateX(-50%) translateY(0)}
 #lock{position:fixed;inset:0;background:#0b0d11f2;z-index:100002;display:flex;align-items:center;justify-content:center}
 #lock[hidden]{display:none!important}
+#hostTip{position:fixed;inset:0;background:#0b0d11cc;z-index:100001;display:flex;align-items:center;justify-content:center}
+#hostTip[hidden]{display:none!important}
+#hostTip .lockbox{width:380px;text-align:left}
+#hostTip a.primary{display:block;text-align:center;text-decoration:none;background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:6px;padding:8px 10px}
 .lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
 .lockbox h3{margin:0 0 6px}
 .el .cs2[data-view="streak"]{opacity:.45}.el .cs2[data-view="streak"].on{opacity:1}
@@ -610,6 +614,18 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <button id="lockReset" class="danger" style="margin-top:14px;font-size:12px">Забыл пароль: стереть комнаты (вернуть из бэкапа)</button>
   </div>
 </div>
+<div id="hostTip" hidden>
+  <div class="lockbox">
+    <div style="font-size:36px;text-align:center">🏠</div>
+    <h3 style="text-align:center">Лимит общего сервера</h3>
+    <div id="hostTipWhy" style="font-weight:600"></div>
+    <div class="hint">Общий сервер бесплатный и один на всех, поэтому файлы на нём ограничены: картинка до <span class="shLim" data-k="imageMB"></span> МБ, GIF, видео и звук до <span class="shLim" data-k="mediaMB"></span> МБ, всего в комнате до <span class="shLim" data-k="roomMB"></span> МБ.</div>
+    <div class="hint">Без этих лимитов можно работать через <b>Overlay Host</b>: стример запускает программу у себя на ПК, пульт подключится к ней сам. Так быстрее, а файлы не уходят на чужой сервер.</div>
+    <a class="primary" href="https://github.com/niko-ua-designer/overlay/releases/latest" target="_blank" rel="noopener">⬇ Скачать Overlay Host</a>
+    <a class="hint" href="https://github.com/niko-ua-designer/overlay/blob/main/host/README.md" target="_blank" rel="noopener" style="text-align:center">Инструкция для стримера</a>
+    <button id="hostTipOk">Понятно</button>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="fatal"></div>
 
@@ -622,6 +638,8 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
 const MAX_IMAGE_MB = 4, MAX_MEDIA_MB = 20;
+// Лимиты, пока пульт работает через общий сервер (через Overlay Host действуют только лимиты выше)
+const SHARED_LIMITS = { imageMB:2, mediaMB:6, roomMB:25 };
 // ===============================================
 
 const $ = id => document.getElementById(id);
@@ -960,8 +978,41 @@ async function shrinkImage(file){
   }catch{ return file; }
 }
 function pub(topic, payload){ return sealedPublish(topic, payload, { qos:1, retain:true }); }
+// ---- лимиты общего сервера ----
+const onShared = () => !client || client!==homeClient;
+// Файлы, которые нужны этой комнате: на экране, звук и библиотека
+function usedAssets(){
+  const used=new Set(state.els.map(e=>assetId(e.src)).filter(Boolean));
+  const s=assetId($('soundUrl').value); if(s) used.add(s);
+  for(const it of library) if(it.room===room){ const a=assetId(it.el.src); if(a) used.add(a); }
+  return used;
+}
+function roomBytes(){
+  let sum=0;
+  for(const id of usedAssets()){ const m=Assets.meta.get(id); if(m) sum += Number(m.size) || m.n*CHUNK; }
+  return sum;
+}
+function suggestHost(why){
+  for(const el of document.querySelectorAll('#hostTip .shLim')) el.textContent=SHARED_LIMITS[el.dataset.k];
+  $('hostTipWhy').textContent=why; $('hostTip').hidden=false;
+}
+$('hostTipOk').onclick=()=>{ $('hostTip').hidden=true; };
+const mbStr = b => (b/1048576).toFixed(1);
+async function sharedCheck(blob, name){
+  if(!onShared()) return;
+  const still = blob.type.startsWith('image/') && blob.type!=='image/gif' && !(await isAnimated(blob));
+  const lim = (still ? SHARED_LIMITS.imageMB : SHARED_LIMITS.mediaMB)*1048576;
+  let why='';
+  if(blob.size>lim) why=`${name}: ${mbStr(blob.size)} МБ, а на общем сервере можно до ${lim/1048576} МБ.`;
+  else{
+    const used=roomBytes();
+    if(used+blob.size > SHARED_LIMITS.roomMB*1048576) why=`В комнате уже ${mbStr(used)} МБ файлов, с «${name}» будет больше ${SHARED_LIMITS.roomMB} МБ. Удали ненужные файлы или подключи Overlay Host.`;
+  }
+  if(why){ suggestHost(why); const e=new Error('лимит общего сервера'); e.shown=true; throw e; }
+}
 async function uploadBlob(blob, name){
   if(!client?.connected) throw new Error('нет связи');
+  await sharedCheck(blob, name);
   const id=rid(14), base=`${topics(room).base}/asset/${id}`;
   const buf=new Uint8Array(await blob.arrayBuffer()), n=Math.max(1, Math.ceil(buf.length/CHUNK));
   for(let i=0;i<n;i++){
@@ -983,7 +1034,7 @@ async function uploadFiles(files, x, y){
       showUpload(`Загрузка ${file.name}…`, 0);
       const src=await uploadBlob(blob, file.name);
       addEl({ type: kind==='video'?'video':'image', src, ...place(x,y), w: kind==='video'?35:25, sound:false });
-    }catch(e){ toast(`Не загрузилось: ${e.message||e}`); }
+    }catch(e){ if(!e.shown) toast(`Не загрузилось: ${e.message||e}`); }
   }
   hideUpload();
 }
@@ -991,9 +1042,7 @@ async function uploadFiles(files, x, y){
 const unrefSince=new Map();
 setInterval(()=>{
   if(!client?.connected) return;
-  const used=new Set(state.els.map(e=>assetId(e.src)).filter(Boolean));
-  const s=assetId($('soundUrl').value); if(s) used.add(s);
-  for(const it of library) if(it.room===room){ const a=assetId(it.el.src); if(a) used.add(a); }
+  const used=usedAssets();
   for(const [id, m] of Assets.meta){
     if(used.has(id)){ unrefSince.delete(id); continue; }
     if(!unrefSince.has(id)){ unrefSince.set(id, Date.now()); continue; }
@@ -1343,7 +1392,7 @@ $('soundFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   if(f.size>8*1048576) return toast('Звук больше 8 МБ, возьми покороче');
   try{ showUpload('Загрузка звука…', 0); $('soundUrl').value=await uploadBlob(f, f.name); toast('Звук загружен, жми 🔊'); }
-  catch(err){ toast('Не загрузилось: '+(err.message||err)); }
+  catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
   hideUpload();
 };
 $('playSound').onclick=()=>{ const src=safeSrc($('soundUrl').value.trim()); if(!src) return toast('Вставь ссылку на звук или выбери файл'); if(sendFx({ type:'sound', src, vol:Number($('soundVol').value) })) toast('🔊 Звук отправлен'); };
@@ -2070,7 +2119,7 @@ $('libList').addEventListener('click', async e=>{
   const aid=assetId(el.src);
   if(aid && it.room!==room){
     try{ showUpload('Копирую файл в эту комнату…', 0.3); el.src=await uploadBlob(await getAssetBlob(it.room, aid), it.name); }
-    catch(err){ hideUpload(); return toast('Файл не нашёлся: '+(err.message||err)); }
+    catch(err){ hideUpload(); return err.shown ? undefined : toast('Файл не нашёлся: '+(err.message||err)); }
     hideUpload();
   }
   if(el.kf){ el.kf.start=Date.now(); if(el.kf.mode==='once') el.kf.playing=true; }

@@ -48,6 +48,8 @@ Messages travel through a free public MQTT broker (`broker.emqx.io`), so you don
 
 If the app or the tunnel is down, the panel automatically falls back to the public broker.
 
+On the public broker, uploaded files are limited: images up to 2 MB, GIF/video/audio up to 6 MB, 25 MB per room. When a limit is hit, the panel suggests switching to Overlay Host, which has no such limits.
+
 **Updates are automatic:** the app updates itself (checksum-verified, never mid-stream), the OBS widget reloads itself when a newer panel connects, and the panel shows **🆕 Update panel** when a new version is published.
 
 ### What you can show
@@ -164,6 +166,8 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 3. Модератор: просто открывает пульт. Вверху будет **«онлайн · сервер стримера»**.
 
 Если программа или туннель не работают, пульт сам переключается на общий сервер.
+
+На общем сервере файлы ограничены: картинка до 2 МБ, GIF, видео и звук до 6 МБ, всего в комнате до 25 МБ. Когда лимит достигнут, пульт предлагает перейти на Overlay Host: там этих лимитов нет.
 
 **Обновления приходят сами:** программа обновляет себя (с проверкой контрольной суммы и никогда посреди стрима), виджет в OBS перезагружается, когда подключается более новый пульт, а пульт показывает кнопку **«🆕 Обновить пульт»**, когда выходит новая версия.
 
