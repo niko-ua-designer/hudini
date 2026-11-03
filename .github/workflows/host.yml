@@ -5,17 +5,19 @@ on:
     branches: [main]
     paths: ['host/**', 'widget.html', 'core.js', 'core.css', '.github/workflows/host.yml']
   workflow_dispatch:
-permissions:
-  contents: write
+permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # только для публикации релиза
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 24 }
       - name: Build
         run: sh host/build.sh
       - name: Zip
@@ -26,7 +28,7 @@ jobs:
       - name: Version
         id: v
         run: echo "ver=$(grep -oP "VERSION = '\K[^']+" host/server.js)" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: host-v${{ steps.v.outputs.ver }}
           name: Overlay Host ${{ steps.v.outputs.ver }}

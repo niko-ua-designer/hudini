@@ -19,7 +19,7 @@ import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -150,26 +150,55 @@ setInterval(announce, 60000);
 
 // ---------- туннель Cloudflare ----------
 function cfName(){ return process.platform==='win32' ? 'cloudflared.exe' : 'cloudflared'; }
+// Закреплённая версия cloudflared и SHA-256 готового бинарника (для macOS: файла внутри .tgz).
+// Хеши из release notes Cloudflare, перепроверены скачиванием.
+// Обновление: поменять CF_VERSION и хеши из https://github.com/cloudflare/cloudflared/releases
+const CF_VERSION = '2026.10.4';
+const CF_PINS = {
+  'win32-amd64':  { file:'cloudflared-windows-amd64.exe', sha256:'411b16d40c8d872243efeb52c550053d00af0a8a97fbb32e730fb8aba429eaa8' },
+  'linux-amd64':  { file:'cloudflared-linux-amd64',       sha256:'ae5e8add7884b0531d66bbca4570d1de491ff6da51e4ebe7eb160cdf241d9e42' },
+  'linux-arm64':  { file:'cloudflared-linux-arm64',       sha256:'2b7203b4fb0ba28a0c1e12f8855ce2c25f76d266a8d5edafac5540b6812acff6' },
+  'darwin-amd64': { file:'cloudflared-darwin-amd64.tgz',  sha256:'fdec0f9a1c726f4c10283fc0cd70e602d510c72887b737270433c81a08c883a9' },
+  'darwin-arm64': { file:'cloudflared-darwin-arm64.tgz',  sha256:'49e7963072b2ca83fb44c09f4d4a7cda52d390c0c9c6f55bac83454a5bc43910' },
+};
+function cfPin(){
+  const arch = os.arch()==='arm64' ? 'arm64' : os.arch()==='x64' ? 'amd64' : os.arch();
+  // Windows на ARM запускает amd64-сборку через эмуляцию: отдельной arm64-сборки у Cloudflare нет
+  const key = process.platform==='win32' ? 'win32-amd64' : `${process.platform}-${arch}`;
+  const pin = CF_PINS[key];
+  if(!pin) throw new Error('нет cloudflared для этой системы ('+key+')');
+  return pin;
+}
+const sha256File = p => nodeCrypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 async function ensureCloudflared(){
   const local = path.join(BASE, cfName());
-  if(fs.existsSync(local)) return local;
-  const arch = os.arch()==='arm64' ? 'arm64' : 'amd64';
-  let url;
-  if(process.platform==='win32') url = `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-${arch}.exe`;
-  else if(process.platform==='linux') url = `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${arch}`;
-  else if(process.platform==='darwin') url = `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-${arch}.tgz`;
-  else throw new Error('нет cloudflared для этой системы');
-  log('⬇ Скачиваю cloudflared (один раз, ~30 МБ)…');
-  const res = await fetch(url, { redirect:'follow' });
+  const pin = cfPin();
+  // Уже скачанный файл тоже проверяем: старые версии программы качали его без проверки
+  if(fs.existsSync(local)){
+    if(sha256File(local)===pin.sha256) return local;
+    log('⚠ cloudflared на диске не совпадает с проверенной версией', CF_VERSION, '— скачиваю заново');
+    fs.rmSync(local, { force:true });
+  }
+  const url = `https://github.com/cloudflare/cloudflared/releases/download/${CF_VERSION}/${pin.file}`;
+  log('⬇ Скачиваю cloudflared', CF_VERSION, '(один раз, ~30 МБ)…');
+  const res = await fetch(url, { redirect:'follow', signal:AbortSignal.timeout(10*60*1000) });
   if(!res.ok) throw new Error('не скачался cloudflared: HTTP '+res.status);
   const buf = Buffer.from(await res.arrayBuffer());
-  if(url.endsWith('.tgz')){
-    const tgz = local+'.tgz'; fs.writeFileSync(tgz, buf);
-    await new Promise((ok, no) => execFile('tar', ['-xzf', tgz, '-C', BASE], e => e?no(e):ok()));
-    fs.unlinkSync(tgz);
-  } else fs.writeFileSync(local, buf);
-  fs.chmodSync(local, 0o755);
-  log('✓ cloudflared скачан');
+  // Распаковываем и проверяем во временном месте; на постоянное место кладём только проверенный файл
+  const tmpDir = fs.mkdtempSync(path.join(BASE, '.cf-'));
+  try{
+    let bin;
+    if(pin.file.endsWith('.tgz')){
+      const tgz = path.join(tmpDir, 'cf.tgz'); fs.writeFileSync(tgz, buf);
+      await new Promise((ok, no) => execFile('tar', ['-xzf', tgz, '-C', tmpDir, 'cloudflared'], e => e?no(e):ok()));
+      bin = path.join(tmpDir, 'cloudflared');
+    } else { bin = path.join(tmpDir, cfName()); fs.writeFileSync(bin, buf); }
+    const got = sha256File(bin);
+    if(got!==pin.sha256) throw new Error('контрольная сумма cloudflared не совпала, файл удалён');
+    fs.chmodSync(bin, 0o755);
+    fs.renameSync(bin, local);
+  } finally { fs.rmSync(tmpDir, { recursive:true, force:true }); }
+  log('✓ cloudflared', CF_VERSION, 'скачан и проверен');
   return local;
 }
 let tunnelProc = null;
@@ -182,7 +211,8 @@ async function startTunnel(){
   log('🚇 Поднимаю туннель для модераторов…');
   tunnelProc = spawn(bin, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${TPORT}`], { windowsHide:true });
   const onData = d => {
-    const m = String(d).match(/https:\/\/([a-z0-9-]+\.trycloudflare\.com)/);
+    // api.trycloudflare.com встречается в сообщениях об ошибках: это не адрес туннеля
+    const m = String(d).match(/https:\/\/(?!api\.)([a-z0-9-]+\.trycloudflare\.com)/);
     if(m && m[1]!==status.tunnel){ status.tunnel=m[1]; status.tunnelErr=''; log('✓ Туннель готов:', m[1]); announce(); }
   };
   tunnelProc.stdout.on('data', onData); tunnelProc.stderr.on('data', onData);
