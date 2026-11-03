@@ -9,6 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn, exec, execFile } from 'node:child_process';
 import nodeCrypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { WebSocketServer, createWebSocketStream } from 'ws';
 import createAedes from 'aedes';
 import mqtt from 'mqtt';
@@ -18,7 +19,7 @@ import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -360,10 +361,94 @@ async function refreshSite(){
   }catch(e){ log('⚠ Не обновил файлы виджета с сайта (', e.message, '), использую сохранённые'); }
 }
 refreshSite(); setInterval(refreshSite, 10*60*1000);
+// виджет перезагружается за обновлением: сначала сами берём свежие файлы с сайта
+let refreshing=null, lastRefresh=0;
+function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
 function widgetHtml(){
   // mqtt.min.js отдаём свой (та же версия, тот же хеш)
   return files['widget.html'].replace(/src="https:\/\/unpkg\.com\/mqtt@[^"]+"/, 'src="mqtt.min.js"');
 }
+
+
+// ---------- автообновление программы ----------
+// Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
+// Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
+const REPO = 'niko-ua-designer/overlay';
+const ASSET = { win32:'OverlayHost-windows.exe', linux:'OverlayHost-linux', darwin: os.arch()==='arm64' ? 'OverlayHost-mac-arm64' : 'OverlayHost-mac-intel' }[process.platform];
+const startedAt = Date.now();
+const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false };
+const cmpVer = (a,b) => { const x=a.split('.').map(Number), y=b.split('.').map(Number); for(let i=0;i<3;i++) if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); return 0; };
+function unzipSingle(buf, want){
+  let eocd=-1;
+  for(let i=buf.length-22; i>=Math.max(0, buf.length-65557); i--) if(buf.readUInt32LE(i)===0x06054b50){ eocd=i; break; }
+  if(eocd<0) throw new Error('архив повреждён');
+  let p=buf.readUInt32LE(eocd+16); const count=buf.readUInt16LE(eocd+10);
+  for(let i=0;i<count;i++){
+    if(buf.readUInt32LE(p)!==0x02014b50) throw new Error('архив повреждён');
+    const method=buf.readUInt16LE(p+10), csize=buf.readUInt32LE(p+20), usize=buf.readUInt32LE(p+24);
+    const nlen=buf.readUInt16LE(p+28), xlen=buf.readUInt16LE(p+30), clen=buf.readUInt16LE(p+32), lho=buf.readUInt32LE(p+42);
+    const name=buf.toString('utf8', p+46, p+46+nlen);
+    if(name===want){
+      const start=lho+30+buf.readUInt16LE(lho+26)+buf.readUInt16LE(lho+28), data=buf.subarray(start, start+csize);
+      const out = method===0 ? Buffer.from(data) : method===8 ? zlib.inflateRawSync(data) : null;
+      if(!out || out.length!==usize) throw new Error('не распаковался');
+      return out;
+    }
+    p+=46+nlen+xlen+clen;
+  }
+  throw new Error('в архиве нет '+want);
+}
+let checking=null;
+function checkUpdate(applyIfIdle){ return checking ||= doCheck(applyIfIdle).finally(()=>{ checking=null; }); }
+async function doCheck(applyIfIdle){
+  if(!compiled || process.env.OVERLAY_NO_UPDATE || !ASSET) { upd.state='off'; return; }
+  try{
+    upd.state='checking'; upd.err='';
+    const r=await fetch(process.env.OVERLAY_RELEASES_API || `https://api.github.com/repos/${REPO}/releases/latest`, { headers:{ accept:'application/vnd.github+json', 'user-agent':'OverlayHost' }, signal:AbortSignal.timeout(15000) });
+    if(!r.ok) throw new Error('GitHub ответил '+r.status);
+    const rel=await r.json(), ver=String(rel.tag_name||'').replace(/^host-v/,'');
+    upd.latest=ver;
+    if(!/^\d+\.\d+\.\d+$/.test(ver) || cmpVer(ver, VERSION)<=0){ upd.state='latest'; return; }
+    if(upd.staged?.ver!==ver){
+      const zipA=rel.assets?.find(a=>a.name===ASSET+'.zip'), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt');
+      if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
+      upd.state='downloading'; log('⬇ Скачиваю обновление', ver, '…');
+      const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
+      const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
+      const want=(line||'').trim().split(/\s+/)[0];
+      const zip=Buffer.from(await (await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) })).arrayBuffer());
+      const got=nodeCrypto.createHash('sha256').update(zip).digest('hex');
+      if(!want || got!==want) throw new Error('контрольная сумма не совпала, обновление отменено');
+      const staged=process.execPath+'.new';
+      fs.writeFileSync(staged, unzipSingle(zip, ASSET)); fs.chmodSync(staged, 0o755);
+      upd.staged={ ver, path:staged }; log('✓ Обновление', ver, 'скачано и проверено');
+    }
+    upd.state='ready';
+    if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
+  }catch(e){ upd.state='error'; upd.err=e.message; log('⚠ Обновление:', e.message); }
+}
+// «Простой»: OBS-виджет не подключён и модераторов нет
+function isIdle(){ return status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
+async function applyUpdate(){
+  if(!upd.staged) return;
+  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
+  const exe=process.execPath, old=exe+'.old';
+  try{ fs.rmSync(old, { force:true }); }catch{}
+  fs.renameSync(exe, old);               // работающий файл можно переименовать, но не перезаписать
+  fs.renameSync(upd.staged.path, exe);
+  shuttingDown=true;
+  try{ tunnelProc?.kill(); }catch{}
+  try{ pub?.end(true); }catch{}
+  try{ local.closeAllConnections?.(); local.close(); tunnelSrv.closeAllConnections?.(); tunnelSrv.close(); }catch{}
+  const child=spawn(exe, [], { cwd:BASE, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
+  child.unref();
+  setTimeout(()=>process.exit(0), 400);
+}
+// при старте убираем старую версию, проверяем обновление; потом раз в 3 часа
+try{ fs.rmSync(process.execPath+'.old', { force:true }); fs.rmSync(process.execPath+'.new', { force:true }); }catch{}
+setTimeout(()=>checkUpdate(true), 4000);
+setInterval(()=>checkUpdate(true), 3*60*60*1000);
+setInterval(()=>{ if(upd.state==='ready' && upd.auto && isIdle() && Date.now()-startedAt>10*60*1000) applyUpdate(); }, 5*60*1000);
 
 // ---------- HTTP ----------
 const okHost = h => h===`localhost:${PORT}` || h===`127.0.0.1:${PORT}`;
@@ -378,7 +463,7 @@ function readBody(req, max){
 }
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=8#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding
@@ -392,7 +477,10 @@ const local = http.createServer(async (req, res) => {
     }
     if(p.startsWith('/api/')){
       if(req.method==='POST' && !okOrigin(req.headers.origin)) return send(res, 403, 'bad origin');   // защита от чужих сайтов
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, room:ROOM?.room||null, obsLink:obsLink(),
+      if(req.method==='POST' && p==='/api/update/check'){ await checkUpdate(false); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/update/apply'){ if(!upd.staged) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json'); send(res, 200, JSON.stringify({ ok:true }), 'application/json'); setTimeout(applyUpdate, 300); return; }
+      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, room:ROOM?.room||null, obsLink:obsLink(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
@@ -400,7 +488,7 @@ const local = http.createServer(async (req, res) => {
       return send(res, 404, 'not found');
     }
     if(p==='/' || p==='/index.html') return send(res, 200, UI_HTML, 'text/html; charset=utf-8');
-    if(p==='/widget.html') return send(res, 200, widgetHtml(), 'text/html; charset=utf-8');
+    if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
     if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
@@ -436,6 +524,11 @@ local.listen(PORT, '127.0.0.1', async () => {
   // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
   if(cfg.gsiFile && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
   startTunnel();
-  openBrowser(`http://localhost:${PORT}/`);
+  if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
+  else openBrowser(`http://localhost:${PORT}/`);
 });
-local.on('error', e => { log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); openBrowser(`http://localhost:${PORT}/`); setTimeout(()=>process.exit(1), 4000); });
+let portTries=0;
+local.on('error', e => {
+  if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
+  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); openBrowser(`http://localhost:${PORT}/`); setTimeout(()=>process.exit(1), 4000);
+});

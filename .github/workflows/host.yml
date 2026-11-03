@@ -22,6 +22,7 @@ jobs:
         run: |
           cd host/dist
           for f in *; do zip -9 "$f.zip" "$f"; done
+          sha256sum *.zip > SHA256SUMS.txt
       - name: Version
         id: v
         run: echo "ver=$(grep -oP "VERSION = '\K[^']+" host/server.js)" >> "$GITHUB_OUTPUT"
@@ -35,4 +36,6 @@ jobs:
             **RU:** Программа для стримера: свой сервер оверлея на ПК и данные из CS2. Windows: скачай `OverlayHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
 
             Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
-          files: host/dist/*.zip
+          files: |
+            host/dist/*.zip
+            host/dist/SHA256SUMS.txt

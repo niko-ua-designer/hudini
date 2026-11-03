@@ -48,6 +48,8 @@ Messages travel through a free public MQTT broker (`broker.emqx.io`), so you don
 
 If the app or the tunnel is down, the panel automatically falls back to the public broker.
 
+**Updates are automatic:** the app updates itself (checksum-verified, never mid-stream), the OBS widget reloads itself when a newer panel connects, and the panel shows **🆕 Update panel** when a new version is published.
+
 ### What you can show
 
 - **Text**: font, color, outline, background plate.
@@ -162,6 +164,8 @@ Example: `!cringe` → show a meme for 5 s + sound; ACE → confetti + shake. Sc
 3. Модератор: просто открывает пульт. Вверху будет **«онлайн · сервер стримера»**.
 
 Если программа или туннель не работают, пульт сам переключается на общий сервер.
+
+**Обновления приходят сами:** программа обновляет себя (с проверкой контрольной суммы и никогда посреди стрима), виджет в OBS перезагружается, когда подключается более новый пульт, а пульт показывает кнопку **«🆕 Обновить пульт»**, когда выходит новая версия.
 
 ### Что можно выводить
 
