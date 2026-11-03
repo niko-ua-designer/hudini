@@ -613,6 +613,7 @@ function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 function paintCs2(c, el){
   const d = cs2Fresh() ? CS2 : null;
+  if(c._view!==el.view){ c.replaceChildren(); c._view=el.view; c._seen=null; c.classList.remove('nodata','on','pop'); }
   if(el.view==='streak'){
     // всплывашка по событиям от программы стримера: свои мульти-киллы и (в режиме наблюдателя) любого игрока
     const list=(d?.evs||[]).filter(e=>e.k==='multikill' && e.n>=(el.minK||2));

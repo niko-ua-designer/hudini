@@ -66,6 +66,13 @@ code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
   </div>
 
   <div class="card">
+    <h2>Обновления</h2>
+    <div class="row" style="margin-top:0"><span id="updInfo" class="hint" style="flex:1;margin:0">—</span>
+      <button id="updCheck">Проверить</button><button id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
+    <label class="hint" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="updAuto"> Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)</label>
+  </div>
+
+  <div class="card">
     <h2>Состояние</h2>
     <div class="grid">
       <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
@@ -110,12 +117,21 @@ async function refresh(){
     add('Карта',c.map); add('Счёт',`${c.ct??0}:${c.tt??0}`); add('K/D/A',`${c.k??0}/${c.d??0}/${c.a??0}`); add('HP',c.hp); add('$',c.money);
     if(c.weapon) add('Оружие', WEAP[c.weapon.replace('weapon_','')]||c.weapon.replace('weapon_',''));
   }
+  const u=s.upd||{};
+  $('updInfo').textContent = !u.compiled ? 'Запущено из исходников: обновляй через git pull' :
+    u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…` :
+    u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
+    u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
+  $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
   $('logs').textContent=(s.logs||[]).join('\n'); $('logs').scrollTop=1e9;
 }
 $('saveLink').onclick=async()=>{ try{ await api('/api/link', { link:$('link').value }); $('link').value=''; toast('Сохранено ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('copyObs').onclick=async()=>{ if(!$('obs').value) return toast('Сначала шаг 1'); try{ await navigator.clipboard.writeText($('obs').value); }catch{ $('obs').select(); document.execCommand('copy'); } toast('Скопировано: вставь в OBS'); };
 $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
+$('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
+$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
+$('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>

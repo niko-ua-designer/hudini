@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=8">
+<link rel="stylesheet" href="core.css?v=9">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=8"></script>
+<script src="core.js?v=9"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -206,6 +206,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
   <input id="link" type="text" readonly>
   <button id="copyLink">📋 Копировать</button>
   <button id="calibBtn" title="Показать у стримера рамку по краям экрана на 10 секунд">📐 Рамка</button>
+  <button id="updBanner" class="primary" hidden title="На GitHub вышла новая версия пульта">🆕 Обновить пульт</button>
   <span class="spacer"></span>
   <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Пароль</button>
   <button id="lockBtn" title="Закрыть пульт до ввода пароля" hidden>🔐</button>
@@ -682,7 +683,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=8, widgets=new Map();
+const WIDGET_VER=9, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -2372,6 +2373,18 @@ function applyScene(sc, add){
 
 // Раз в минуту переотправляем экран: так брокер всегда хранит свежую подписанную версию
 setInterval(()=>{ if(client?.connected && !drag && KEYS) publishNow(1); }, 60000);
+
+// ================== ОБНОВЛЕНИЯ ПУЛЬТА ==================
+// Раз в 5 минут смотрим version.json на сайте; если вышла новая версия — предлагаем перезагрузить (экран при этом не теряется)
+async function checkPanelUpdate(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try{
+    const v=await (await fetch('version.json?t='+Date.now(), { cache:'no-store' })).json();
+    if(Number(v.panel)>WIDGET_VER){ $('updBanner').hidden=false; $('updBanner').title=`Вышла версия ${v.panel}${v.notes?': '+v.notes:''}`; }
+  }catch{}
+}
+$('updBanner').onclick=()=>{ if(!drag) location.reload(); };
+setInterval(checkPanelUpdate, 5*60*1000); setTimeout(checkPanelUpdate, 15000);
 
 // ================== СТАРТ ==================
 async function boot(){

@@ -34,6 +34,10 @@ The app also detects **game events** (kill, multi-kill, ACE, death, MVP, round e
 
 If you already clicked "Connect CS2" in an older version, the app updates the file itself, so just restart CS2.
 
+### Auto-updates
+
+The app checks GitHub Releases at start and every 3 hours, downloads the new version for your system and **verifies its SHA-256 checksum**. It never restarts in the middle of a stream: the update is applied on start (before OBS connects), when idle (no OBS widget and no moderators for a while), or when you click **🔄 Update now** on the control page. You can turn auto-updates off there too. The OBS widget updates itself as well.
+
 ### Security
 
 - The control page and the OBS port are only reachable from this computer. The page also rejects requests from other websites and DNS rebinding.
@@ -51,7 +55,7 @@ sh build.sh                # build Windows / Linux / macOS binaries into host/di
 
 GitHub Actions builds the binaries and publishes a release on every push that touches `host/` or the widget.
 
-Environment variables: `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://your.domain/mqtt` (your own address instead of Cloudflare), `OVERLAY_HOST_DIR` (settings folder), `OVERLAY_PUBLIC_BROKER`.
+Environment variables: `OVERLAY_NO_UPDATE=1` (disable auto-update), `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://your.domain/mqtt` (your own address instead of Cloudflare), `OVERLAY_HOST_DIR` (settings folder), `OVERLAY_PUBLIC_BROKER`.
 
 ---
 
@@ -85,6 +89,10 @@ Environment variables: `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TU
 
 Если «Подключить CS2» уже нажимали в старой версии, программа сама обновит файл, достаточно перезапустить CS2.
 
+### Автообновление
+
+Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает новую версию для твоей системы и **сверяет её контрольную сумму SHA-256**. Посреди стрима она не перезапускается: обновление ставится при запуске (пока OBS не подключился), в простое (ни виджета OBS, ни модераторов какое-то время) или по кнопке **«🔄 Обновить сейчас»** на странице управления. Там же автообновление можно выключить. Виджет в OBS тоже обновляется сам.
+
 ### Безопасность
 
 - Страница управления и порт для OBS доступны только с этого компьютера. Запросы с чужих сайтов и DNS-rebinding страница отклоняет.
@@ -102,4 +110,4 @@ sh build.sh                # сборка для Windows / Linux / macOS в host
 
 GitHub Actions собирает программу и выкладывает релиз при каждом изменении в `host/` или в виджете.
 
-Переменные: `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://свой.домен/mqtt` (свой адрес вместо Cloudflare), `OVERLAY_HOST_DIR` (папка настроек), `OVERLAY_PUBLIC_BROKER`.
+Переменные: `OVERLAY_NO_UPDATE=1` (выключить автообновление), `OVERLAY_PORT` (7777), `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://свой.домен/mqtt` (свой адрес вместо Cloudflare), `OVERLAY_HOST_DIR` (папка настроек), `OVERLAY_PUBLIC_BROKER`.
