@@ -320,7 +320,7 @@ function readBody(req, max){
 }
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=4#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=5#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding

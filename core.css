@@ -81,3 +81,33 @@
 .poll .pr.win .pl,.poll .pr.win .pv{color:var(--c);opacity:1}
 .poll .pr.win .pb{box-shadow:0 0 .5em var(--c)}
 .poll .pfoot{font-size:.75em;opacity:.7;text-align:center;margin-top:.6em}
+
+/* ---------- CS2 ---------- */
+.cs2{width:max-content;font-variant-numeric:tabular-nums;line-height:1.2}
+.cs2:not([data-view="streak"]){background:var(--card);border-radius:.45em;padding:.55em .8em;box-shadow:0 .15em .6em #0009;border-left:.18em solid var(--c)}
+.cs2 .c-none{opacity:.6;font-size:.8em}
+.cs2 .c-top{display:flex;justify-content:space-between;gap:1.2em;align-items:baseline;margin-bottom:.3em}
+.cs2 .c-name{font-weight:inherit;color:var(--c)}
+.cs2 .c-map{opacity:.7;font-size:.72em}
+.cs2 .c-cap{font-size:.7em;opacity:.75;margin-bottom:.15em;color:var(--c)}
+.cs2 .c-kda{display:flex;align-items:baseline;gap:.25em}
+.cs2 .c-kda b{font-size:1.3em}
+.cs2 .c-kda i{font-style:normal;opacity:.55;font-size:.7em;margin-right:.45em}
+.cs2 .c-kd{margin-left:.4em;font-size:.72em;padding:.1em .45em;border-radius:.3em;background:#ffffff14;color:var(--c)}
+.cs2 .c-hprow{display:flex;align-items:center;gap:.5em;margin-top:.35em;font-size:.85em}
+.cs2 .c-hprow.big{font-size:1em;margin:0}
+.cs2 .c-bar{width:6em;height:.5em;background:#ffffff1a;border-radius:.25em;overflow:hidden}
+.cs2 .c-fill{height:100%;border-radius:.25em;transition:width .3s,background .3s}
+.cs2 .c-dead{opacity:.75}
+.cs2 .c-bot{display:flex;justify-content:space-between;gap:1.2em;margin-top:.35em;font-size:.85em}
+.cs2 .c-money{color:#7ee787}
+.cs2 .c-weap{opacity:.85}
+.cs2 .c-big{font-size:1.4em}
+.cs2 .c-score{display:flex;align-items:center;gap:.35em;font-size:1.4em}
+.cs2 .c-score b{min-width:1.2em;text-align:center}
+.cs2 .c-ct{color:#5d9cec;font-size:.6em}.cs2 .c-t{color:#e0a030;font-size:.6em}.cs2 .c-sep{opacity:.5}
+.cs2[data-view="streak"]{text-align:center;opacity:0;transition:opacity .3s}
+.cs2[data-view="streak"].on{opacity:1}
+.cs2 .c-streak{font-size:2em;letter-spacing:.04em;color:var(--c);text-shadow:0 0 .15em #000,0 0 .5em var(--c),.04em .04em 0 #000,-.04em -.04em 0 #000}
+.cs2 .c-sub{font-size:.7em;opacity:.85;text-shadow:0 0 .2em #000}
+.cs2.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}

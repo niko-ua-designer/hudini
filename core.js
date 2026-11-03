@@ -9,7 +9,10 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2'];
+const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak'];
+// Живые данные из CS2 (приходят от программы стримера Overlay Host)
+let CS2 = null;
 const ASPECTS = { '16:9':'16 / 9', '4:3':'4 / 3', '1:1':'1 / 1', '9:16':'9 / 16', '21:9':'21 / 9' };
 const SHAPES = ['rect','round','circle'];
 const MAX_ELS = 200;
@@ -62,6 +65,11 @@ function sanitizeEl(e){
     o.w=num(e.w,40,1,200); o.ar=ASPECTS[e.ar]?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
     o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.restart=num(e.restart,0,0,1e15);
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
+  } else if(type==='cs2'){
+    o.view=CS2_VIEWS.includes(e.view)?e.view:'card';
+    o.fs=num(e.fs,4,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#ffb020');
+    o.label=str(e.label,40);
   } else if(type==='poll'){
     o.fs=num(e.fs,3.2,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
@@ -276,6 +284,7 @@ function buildNode(el){
     c=document.createElement('video'); c.autoplay=true; c.loop=true; c.muted=true; c.playsInline=true;
     c.setAttribute('playsinline',''); c.setAttribute('muted','');
   } else if(el.type==='image'){ c=document.createElement('img'); c.alt=''; c.draggable=false; }
+  else if(el.type==='cs2'){ c=document.createElement('div'); c.className='cs2'; }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -324,6 +333,12 @@ function paintNode(node, el, z){
     const url=resolveSrc(el.src);
     if(url && c.getAttribute('src')!==url) c.setAttribute('src', url);
     node.classList.toggle('loading', !url);
+  } else if(el.type==='cs2'){
+    node.style.width='';
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
+    c.dataset.view=el.view;
+    paintCs2(c, el);
   } else if(el.type==='poll'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
@@ -373,6 +388,7 @@ function paintNode(node, el, z){
 }
 // Обновить цифры таймера/счётчика. Вызывается часто (10 раз в секунду).
 function tickNode(node, el, now){
+  if(el.type==='cs2'){ const c=node.querySelector('.cs2'); if(c && el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0)); return null; }
   if(el.type!=='timer' && el.type!=='counter') return null;
   const tw=node.querySelector('.tw'), disp=tw.querySelector('.disp');
   const s=twState(el, now);
@@ -546,4 +562,63 @@ async function lockJSON(pass, obj){
 async function unlockJSON(pass, box){
   try{ const d = await crypto.subtle.decrypt({ name:'AES-GCM', iv:b64u.dec(box.iv) }, await passKey(pass, b64u.dec(box.salt)), b64u.dec(box.ct)); return JSON.parse(TD.decode(d)); }
   catch{ return null; }
+}
+
+// ---------- CS2 ----------
+const WEAPONS = { ak47:'AK-47', m4a1:'M4A4', m4a1_silencer:'M4A1-S', awp:'AWP', deagle:'Desert Eagle', usp_silencer:'USP-S',
+  glock:'Glock-18', hkp2000:'P2000', p250:'P250', fiveseven:'Five-SeveN', tec9:'Tec-9', cz75a:'CZ75', elite:'Dual Berettas',
+  revolver:'R8', galilar:'Galil AR', famas:'FAMAS', sg556:'SG 553', aug:'AUG', ssg08:'SSG 08', scar20:'SCAR-20', g3sg1:'G3SG1',
+  mac10:'MAC-10', mp9:'MP9', mp7:'MP7', mp5sd:'MP5-SD', ump45:'UMP-45', p90:'P90', bizon:'PP-Bizon', nova:'Nova', xm1014:'XM1014',
+  mag7:'MAG-7', sawedoff:'Sawed-Off', negev:'Negev', m249:'M249', taser:'Zeus', c4:'C4', hegrenade:'HE', flashbang:'Флешка',
+  smokegrenade:'Дым', molotov:'Молотов', incgrenade:'Зажигалка', decoy:'Ложная' };
+function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? 'Нож' : (WEAPONS[id] || id.toUpperCase()); }
+function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
+const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
+function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
+function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+function paintCs2(c, el){
+  const d = cs2Fresh() ? CS2 : null;
+  if(el.view==='streak'){
+    // всплывашка на мульти-килл: появляется сама, когда за раунд 2+ убийства
+    const rk = d?.rk||0;
+    if(c._rk!=null && rk>c._rk && rk>=2){
+      c.replaceChildren(h('div','c-streak', STREAK[Math.min(rk,5)]), h('div','c-sub', (d.rhs?`${d.rhs} в голову · `:'')+weaponName(d.weapon)));
+      c._until=Date.now()+3500; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+    }
+    if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub','появится само при 2+ убийствах за раунд'));
+    c._rk = rk;
+    return;
+  }
+  c.classList.toggle('nodata', !d);
+  if(!d){ c.replaceChildren(h('div','c-none','🎯 CS2: ждём данные из игры')); return; }
+  const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
+  const name = el.label || d.name || 'Игрок';
+  const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
+  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(h('b',null,String(v??0)), h('i',null,l)); } r.append(h('span','c-kd','K/D '+kd)); return r; };
+  const parts=[];
+  switch(el.view){
+    case 'card': {
+      const top=h('div','c-top'); top.append(h('span','c-name', name), h('span','c-map', `${mapName(d.map)}${d.round!=null?' · R'+(d.round+1):''}`));
+      const bars=h('div','c-hprow');
+      if(d.alive===false){ bars.append(h('span','c-dead', d.spectating ? `💀 смотрит ${d.spectating}` : '💀 мёртв')); }
+      else { bars.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0))); }
+      const bot=h('div','c-bot'); bot.append(h('span','c-money', money(d.money)), h('span','c-weap', d.weapon ? `${weaponName(d.weapon)}${d.ammoMax>0?` ${d.ammo}/${d.reserve}`:''}` : ''));
+      parts.push(top, kdaRow(), bars, bot); break;
+    }
+    case 'kda': parts.push(h('div','c-cap', name), kdaRow()); break;
+    case 'hp': {
+      const r=h('div','c-hprow big');
+      if(d.alive===false) r.append(h('span','c-dead','💀'));
+      else r.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0)));
+      parts.push(r); break;
+    }
+    case 'score': {
+      const r=h('div','c-score'); r.append(h('span','c-ct','CT'), h('b',null,String(d.ct??0)), h('span','c-sep',':'), h('b',null,String(d.tt??0)), h('span','c-t','T'));
+      parts.push(r, h('div','c-map', `${mapName(d.map)}${d.round!=null?' · раунд '+(d.round+1):''}`)); break;
+    }
+    case 'money': parts.push(h('div','c-big c-money', money(d.money))); break;
+    case 'weapon': parts.push(h('div','c-big', d.weapon ? weaponName(d.weapon) : '—'), h('div','c-map', d.ammoMax>0 ? `${d.ammo} / ${d.reserve}` : '')); break;
+  }
+  c.replaceChildren(...parts);
 }

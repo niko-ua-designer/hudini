@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=4">
+<link rel="stylesheet" href="core.css?v=5">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=4"></script>
+<script src="core.js?v=5"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -127,6 +127,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 #lock[hidden]{display:none!important}
 .lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
 .lockbox h3{margin:0 0 6px}
+.el .cs2[data-view="streak"]{opacity:.45}.el .cs2[data-view="streak"].on{opacity:1}
 .layer .num{font-size:11px;color:var(--muted);width:12px;text-align:center}
 .scene{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0;cursor:pointer}
 .scene .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
@@ -201,7 +202,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <button data-add="clock">🕐 Часы</button>
     <button data-add="counter">🔢 Счётчик</button>
     <button data-add="chatcounter">💬 Счётчик чата</button>
-    <button data-add="poll" style="grid-column:span 2">📊 Голосование в чате</button>
+    <button data-add="poll">📊 Голосование</button>
+    <button data-add="cs2">🎯 CS2</button>
   </div>
 
   <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
@@ -329,6 +331,23 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       </div>
     </div>
 
+    <!-- CS2 -->
+    <div data-for="cs2" class="box">
+      <div class="t">🎯 CS2</div>
+      <select id="iCsView">
+        <option value="card">Карточка игрока (всё сразу)</option>
+        <option value="kda">K / D / A</option>
+        <option value="hp">Здоровье и броня</option>
+        <option value="score">Счёт карты</option>
+        <option value="money">Деньги</option>
+        <option value="weapon">Оружие и патроны</option>
+        <option value="streak">Всплывашка DOUBLE / TRIPLE / ACE</option>
+      </select>
+      <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
+      <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
+      <div class="hint" id="csStatus"></div>
+    </div>
+
     <!-- голосование -->
     <div data-for="poll" class="box">
       <div class="t">📊 Голосование</div>
@@ -353,7 +372,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter poll">
+    <div data-for="text timer counter poll cs2">
       <div class="lbl">Шрифт</div>
       <select id="iFont">
         <option value="montserrat">Montserrat (жирный)</option>
@@ -536,7 +555,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=4, widgets=new Map();
+const WIDGET_VER=5, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -553,33 +572,72 @@ function renderObs(){
 }
 setInterval(renderObs, 3000);
 const oneOff=new Set();   // разовые загрузки файлов из других комнат (для библиотеки)
+// Подключения: «общий» сервер есть всегда (через него находим сервер стримера и работаем, если его нет),
+// а если стример запустил программу Overlay Host — основным становится его сервер (через туннель).
+let pubClient=null, homeInfo=null, homeClient=null;
+function mqttClient(url, suffix, opts={}){
+  return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
+    connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
+}
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2'];
+function mainLabel(){ return client && client===homeClient ? 'онлайн · сервер стримера' : 'онлайн · общий сервер'; }
+function useMain(c){
+  if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
+  client=c; Assets.setRoom(c, topics(room).base);
+  if(c.connected){
+    setPill($('status'), 'ok', mainLabel());
+    if(pendingOffline){ pendingOffline=false; publishNow(1); }   // сначала свои изменения, сделанные без сети
+    c.subscribe(mainTopics(), { qos:1 }); Assets.resubscribe(); renderAll();
+  }
+}
+function wire(c){
+  c.on('connect', ()=>{ if(client===c) useMain(c); });
+  c.on('reconnect', ()=>{ if(client===c) setPill($('status'), 'warn', 'переподключение…'); });
+  c.on('offline',   ()=>{ if(client===c) setPill($('status'), 'bad', 'нет связи'); });
+  c.on('error', e=>{ console.warn(e); if(client===c) setPill($('status'), 'bad', 'ошибка связи'); });
+  let chain=Promise.resolve();   // по очереди: расшифровка асинхронная, порядок важен
+  c.on('message', (topic, payload, packet)=>{
+    if(c===pubClient && topic===topics(room).base+'/srv'){ onSrv(payload); return; }
+    if(client!==c) return;
+    chain=chain.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e));
+  });
+}
 function connect(){
   if(typeof mqtt==='undefined'){
     $('fatal').style.display='flex';
     $('fatal').textContent='Не загрузилась библиотека mqtt.js (unpkg.com). Проверь интернет или блокировщик рекламы и обнови страницу.';
     return;
   }
-  client=mqtt.connect(brokerUrl, { clientId, clean:true, keepalive:30, reconnectPeriod:2000,
-    connectTimeout:8000, resubscribe:false, queueQoSZero:false });
-  Assets.setRoom(client, topics(room).base);
-  client.on('connect', ()=>{
-    setPill($('status'), 'ok', 'онлайн');
-    if(pendingOffline){ pendingOffline=false; publishNow(1); }   // сначала свои изменения, сделанные без сети
-    client.subscribe([topics(room).state, topics(room).base+'/hb'], { qos:1 });
-    Assets.resubscribe();
-    renderAll();
-  });
-  client.on('reconnect', ()=>setPill($('status'), 'warn', 'переподключение…'));
-  client.on('offline',   ()=>setPill($('status'), 'bad', 'нет связи'));
-  client.on('error', e=>{ console.warn(e); setPill($('status'), 'bad', 'ошибка связи'); });
-  let msgChain=Promise.resolve();   // по очереди: расшифровка асинхронная, порядок важен
-  client.on('message', (topic, payload, packet)=>{ msgChain=msgChain.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e)); });
-  // старые виджеты (до версии 4) просим перезагрузиться: они увидят, что нужна новая ссылка
-  client.on('connect', ()=>{
+  pubClient=mqttClient(brokerUrl, '');
+  wire(pubClient); useMain(pubClient);
+  pubClient.on('connect', ()=>{
+    pubClient.subscribe(topics(room).base+'/srv', { qos:1 });
+    // старые виджеты (до версии 4) просим перезагрузиться: они увидят, что нужна новая ссылка
     const old=lsGet('overlay.oldCodes', []); if(!Array.isArray(old) || !old.length) return;
-    for(const c of old) if(validCode(c)) client.publish(`${TOPIC_PREFIX}/${c}/state`, JSON.stringify({ v:2, wv:WIDGET_VER, t:Date.now(), visible:true, els:[] }), { qos:1, retain:true });
+    for(const c of old) if(validCode(c)) pubClient.publish(`${TOPIC_PREFIX}/${c}/state`, JSON.stringify({ v:2, wv:WIDGET_VER, t:Date.now(), visible:true, els:[] }), { qos:1, retain:true });
     lsSet('overlay.oldCodes', []);
   });
+}
+function dropHome(why){
+  const h=homeClient; homeClient=null; homeInfo=null;
+  if(client===h) useMain(pubClient);
+  h?.end(true);
+  if(why) toast(why, 4000);
+}
+// Программа стримера сообщает адрес своего сервера (зашифровано ключом комнаты)
+async function onSrv(payload){
+  if(!payload.length || !KEYS) return;
+  const info=await unsealJSON(KEYS, payload, false); if(!info) return;
+  const fresh = typeof info.url==='string' && /^wss?:\/\/[^\s/]+\/mqtt$/.test(info.url) && Math.abs(Date.now()-Number(info.t)) < 3*60*1000;
+  if(!fresh){ if(homeClient) dropHome('Сервер стримера выключен: работаю через общий'); return; }
+  if(homeInfo && homeInfo.url===info.url && homeInfo.pass===info.pass) return;
+  if(homeClient) dropHome();
+  homeInfo=info;
+  const c=mqttClient(info.url, 'h', { username:String(info.user||'mod'), password:String(info.pass||''), reconnectPeriod:3000 });
+  homeClient=c; wire(c);
+  const giveUp=setTimeout(()=>{ if(homeClient===c && !c.connected) dropHome('Сервер стримера не отвечает: работаю через общий'); }, 12000);
+  c.once('connect', ()=>{ clearTimeout(giveUp); if(homeClient===c){ useMain(c); toast('🏠 Подключено к серверу стримера', 3000); } });
+  c.on('offline', ()=>setTimeout(()=>{ if(homeClient===c && !c.connected) dropHome('Связь с сервером стримера пропала: работаю через общий'); }, 8000));
 }
 async function onMessage(topic, payload, packet){
   for(const h of oneOff) if(h(topic, payload)) return;
@@ -590,6 +648,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(Assets.isAsset(topic)){ const plain=await unseal(keys, payload, true); if(plain) Assets.handle(topic, plain); return; }
+  if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
@@ -631,11 +690,14 @@ function sendFx(fx, quiet){
 }
 async function switchRoom(code){
   if(code===room) return;
-  if(client?.connected) client.unsubscribe([topics(room).state, topics(room).base+'/hb']);
-  widgets.clear(); renderObs();
+  if(homeClient) dropHome();
+  if(client?.connected) client.unsubscribe(mainTopics());
+  if(pubClient?.connected) pubClient.unsubscribe(topics(room).base+'/srv');
+  widgets.clear(); renderObs(); CS2=null;
   await useRoom(code); saveRooms();
   state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear();
-  if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe([topics(room).state, topics(room).base+'/hb'], { qos:1 }); }
+  if(client){ Assets.setRoom(client, topics(room).base); if(client.connected) client.subscribe(mainTopics(), { qos:1 }); }
+  if(pubClient?.connected) pubClient.subscribe(topics(room).base+'/srv', { qos:1 });
   history.replaceState(null, '', location.pathname+(brokerUrl!==BROKER_URL?'?broker='+encodeURIComponent(brokerUrl):''));
   renderRooms(); renderScenes(); updateLink(); renderAll();
 }
@@ -718,6 +780,20 @@ function addCounter(chat){
   if(chat && !chatWs) toast('Подключи чат Twitch слева, чтобы счётчик заработал', 4000);
 }
 
+function addCs2(){
+  const n=state.els.filter(e=>e.type==='cs2').length%5;
+  addEl({ type:'cs2', view:'card', x:16+n*4, y:86-n*14, fs:3.4, font:'montserrat', color:'#ffffff', card:'#15171d', accent:'#ffb020', label:'' });
+  if(!cs2Fresh()) toast('Данные CS2 появятся, когда у стримера запущена программа Overlay Host и подключена CS2', 5000);
+}
+function repaintCs2(){
+  state.els.forEach((el,i)=>{ if(el.type!=='cs2') return; const n=nodes.get(el.id); if(n && !n._animOn) paintNode(n, el, i+1); });
+  const sel=byId(selectedId); if(sel?.type==='cs2') renderCsStatus();
+}
+function renderCsStatus(){
+  $('csStatus').textContent = cs2Fresh()
+    ? `✓ Данные идут: ${mapName(CS2.map)||'меню'}${CS2.name?' · '+CS2.name:''}`
+    : 'Нет данных. У стримера должна быть запущена программа Overlay Host и нажата кнопка «Подключить CS2».';
+}
 function addPoll(){
   addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
     title:'Что дальше?', opts:['Вариант 1','Вариант 2','Вариант 3'], votes:[0,0,0], running:false });
@@ -832,12 +908,14 @@ function elIcon(el){
   if(el.type==='counter') return el.cmode==='chat'?'💬':'🔢';
   if(el.type==='web') return KIND_NAME[parseEmbed(el.url).kind].split(' ')[0];
   if(el.type==='poll') return '📊';
+  if(el.type==='cs2') return '🎯';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
 }
 function elName(el){
   if(el.type==='text') return el.text.split('\n')[0] || '(пусто)';
   if(el.type==='timer') return (el.label||MODE_NAME[el.mode])+' · '+twState(el, nowMs()).text;
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
+  if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
@@ -913,6 +991,7 @@ function renderInspector(){
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
   if(el.type==='video') setField(I('iSound'), el.sound, 'checked');
+  if(el.type==='cs2'){ setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -1042,7 +1121,7 @@ $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''
 $('addCam').onclick=addCam;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
-  if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else addTimer(a);
+  if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
 
 $('pickSound').onclick=()=>$('soundFile').click();
@@ -1358,6 +1437,11 @@ bindInput('iCmode',  (el,f)=>{ if(el.cmode==='interval' && el.running) el.value=
 bindInput('iKw',     (el,f)=>el.kw=f.value.slice(0,120));
 bindInput('iUniq',   (el,f)=>{ el.uniq=f.checked; chatSeen.delete(el.id); });
 bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.now()); el.startAt=Date.now(); } el.every=num(f.value,60,1,86400); });
+// CS2
+bindInput('iCsView',   (el,f)=>el.view=f.value);
+bindInput('iCsLabel',  (el,f)=>el.label=f.value.slice(0,40));
+bindInput('iCsAccent', (el,f)=>el.accent=f.value);
+bindInput('iCsCard',   (el,f)=>el.card=f.value);
 // голосование
 bindInput('iPTitle', (el,f)=>el.title=f.value.slice(0,100));
 bindInput('iPOpts',  (el,f)=>{ const o=f.value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,6); if(o.length<2) return;
@@ -1435,7 +1519,7 @@ document.addEventListener('paste', e=>{
 // ================== ТИКИ ==================
 setInterval(()=>{
   const now=nowMs();
-  for(const el of state.els){ if(el.type==='timer'||el.type==='counter'){ const n=nodes.get(el.id); if(n) tickNode(n, el, now); } }
+  for(const el of state.els){ if(el.type==='timer'||el.type==='counter'||el.type==='cs2'){ const n=nodes.get(el.id); if(n) tickNode(n, el, now); } }
 }, 100);
 setInterval(()=>{ // подписи в слоях и инспекторе (цифры таймеров)
   if(!state.els.some(e=>e.type==='timer'||e.type==='counter')) return;
