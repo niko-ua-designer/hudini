@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Пульт оверлея</title>
+<title>Hudini · пульт</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=10"></script>
+<script src="i18n.js?v=1"></script>
+<script src="core.js?v=11"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -203,7 +204,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 <body>
 
 <header>
-  <h1>🎛 Пульт оверлея</h1>
+  <h1>🎩 Hudini <span data-i18n-switch></span></h1>
   <span id="status" class="pill">подключение…</span>
   <span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span>
   <span class="hint hide-narrow">Ссылка для OBS:</span>
@@ -620,8 +621,8 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <h3 style="text-align:center">Лимит общего сервера</h3>
     <div id="hostTipWhy" style="font-weight:600"></div>
     <div class="hint">Общий сервер бесплатный и один на всех, поэтому файлы на нём ограничены: картинка до <span class="shLim" data-k="imageMB"></span> МБ, GIF, видео и звук до <span class="shLim" data-k="mediaMB"></span> МБ, всего в комнате до <span class="shLim" data-k="roomMB"></span> МБ.</div>
-    <div class="hint">Без этих лимитов можно работать через <b>Overlay Host</b>: стример запускает программу у себя на ПК, пульт подключится к ней сам. Так быстрее, а файлы не уходят на чужой сервер.</div>
-    <a class="primary" href="https://github.com/niko-ua-designer/overlay/releases/latest" target="_blank" rel="noopener">⬇ Скачать Overlay Host</a>
+    <div class="hint">Без этих лимитов можно работать через <b>Hudini Host</b>: стример запускает программу у себя на ПК, пульт подключится к ней сам. Так быстрее, а файлы не уходят на чужой сервер.</div>
+    <a class="primary" href="https://github.com/niko-ua-designer/overlay/releases/latest" target="_blank" rel="noopener">⬇ Скачать Hudini Host</a>
     <a class="hint" href="https://github.com/niko-ua-designer/overlay/blob/main/host/README.md" target="_blank" rel="noopener" style="text-align:center">Инструкция для стримера</a>
     <button id="hostTipOk">Понятно</button>
   </div>
@@ -638,7 +639,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
 const MAX_IMAGE_MB = 4, MAX_MEDIA_MB = 20;
-// Лимиты, пока пульт работает через общий сервер (через Overlay Host действуют только лимиты выше)
+// Лимиты, пока пульт работает через общий сервер (через Hudini Host действуют только лимиты выше)
 const SHARED_LIMITS = { imageMB:2, mediaMB:6, roomMB:25 };
 // ===============================================
 
@@ -719,7 +720,7 @@ function renderObs(){
 setInterval(renderObs, 3000);
 const oneOff=new Set();   // разовые загрузки файлов из других комнат (для библиотеки)
 // Подключения: «общий» сервер есть всегда (через него находим сервер стримера и работаем, если его нет),
-// а если стример запустил программу Overlay Host — основным становится его сервер (через туннель).
+// а если стример запустил программу Hudini Host — основным становится его сервер (через туннель).
 let pubClient=null, homeInfo=null, homeClient=null;
 function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
@@ -929,7 +930,7 @@ function addCounter(chat){
 function addCs2(){
   const n=state.els.filter(e=>e.type==='cs2').length%5;
   addEl({ type:'cs2', view:'card', x:16+n*4, y:86-n*14, fs:3.4, font:'montserrat', color:'#ffffff', card:'#15171d', accent:'#ffb020', label:'' });
-  if(!cs2Fresh()) toast('Данные CS2 появятся, когда у стримера запущена программа Overlay Host и подключена CS2', 5000);
+  if(!cs2Fresh()) toast('Данные CS2 появятся, когда у стримера запущена программа Hudini Host и подключена CS2', 5000);
 }
 function repaintCs2(){
   state.els.forEach((el,i)=>{ if(el.type!=='cs2') return; const n=nodes.get(el.id); if(n && !n._animOn) paintNode(n, el, i+1); });
@@ -938,7 +939,7 @@ function repaintCs2(){
 function renderCsStatus(){
   $('csStatus').textContent = cs2Fresh()
     ? `✓ Данные идут: ${mapName(CS2.map)||'меню'}${CS2.name?' · '+CS2.name:''}`
-    : 'Нет данных. У стримера должна быть запущена программа Overlay Host и нажата кнопка «Подключить CS2».';
+    : 'Нет данных. У стримера должна быть запущена программа Hudini Host и нажата кнопка «Подключить CS2».';
   if(cs2Fresh()) $('csStatus').textContent += CS2.spec ? ` · 👁 режим наблюдателя, игроков: ${CS2.players.length}` : ' · игрок (панели команд — только в режиме наблюдателя)';
 }
 function addPoll(){
@@ -1006,7 +1007,7 @@ async function sharedCheck(blob, name){
   if(blob.size>lim) why=`${name}: ${mbStr(blob.size)} МБ, а на общем сервере можно до ${lim/1048576} МБ.`;
   else{
     const used=roomBytes();
-    if(used+blob.size > SHARED_LIMITS.roomMB*1048576) why=`В комнате уже ${mbStr(used)} МБ файлов, с «${name}» будет больше ${SHARED_LIMITS.roomMB} МБ. Удали ненужные файлы или подключи Overlay Host.`;
+    if(used+blob.size > SHARED_LIMITS.roomMB*1048576) why=`В комнате уже ${mbStr(used)} МБ файлов, с «${name}» будет больше ${SHARED_LIMITS.roomMB} МБ. Удали ненужные файлы или подключи Hudini Host.`;
   }
   if(why){ suggestHost(why); const e=new Error('лимит общего сервера'); e.shown=true; throw e; }
 }
@@ -1079,7 +1080,7 @@ function renderAll(){
     tickNode(node, el, now);
     if(el.type==='web'){
       const src=embedSrc(el, location.hostname, true);   // в пульте всегда без звука
-      node.querySelector('.ph').textContent = src ? '' : 'Twitch показывается, только когда пульт открыт с сайта';
+      node.querySelector('.ph').textContent = src ? '' : (window.HudiniI18n?.t || String)('Twitch показывается, только когда пульт открыт с сайта');
       setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
     }
     node.style.opacity=el.op;
@@ -1612,7 +1613,8 @@ function chatRowNode(m){
   if(m.badge){ const b=document.createElement('span'); b.className='b'; b.textContent=BADGE[m.badge]; row.appendChild(b); }
   const u=document.createElement('span'); u.className='u'; u.style.color=m.color; u.textContent=m.user; row.append(u, document.createTextNode(': '));
   const tmp=document.createElement('div'); paintMsg(tmp, { user:'', ucolor:'#000000', text:m.text, emotes:m.emotes, badge:'' });
-  row.append(...tmp.querySelector('.m-text').childNodes);
+  const txt=document.createElement('span'); txt.setAttribute('data-i18n-skip',''); txt.append(...tmp.querySelector('.m-text').childNodes);
+  u.setAttribute('data-i18n-skip',''); row.append(txt);
   return row;
 }
 function chatMatches(m){ const f=$('chatFilter').value.trim().toLowerCase(); return !f || m.user.toLowerCase().includes(f) || m.text.toLowerCase().includes(f); }

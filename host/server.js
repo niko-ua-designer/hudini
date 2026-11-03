@@ -1,4 +1,4 @@
-// Overlay Host: сервер оверлея на ПК стримера.
+// Hudini Host: сервер оверлея на ПК стримера.
 // • OBS подключается к нему напрямую (localhost) — минимальная задержка, без интернета посередине.
 // • Модераторы подключаются через бесплатный туннель Cloudflare (с паролем), адрес пульт находит сам.
 // • Мост с публичным брокером: если туннель не поднялся, всё работает по-старому.
@@ -18,8 +18,9 @@ import CORE_JS from '../core.js' with { type: 'text' };
 import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
+import I18N_JS from '../i18n.js' with { type: 'text' };
 
-const VERSION = '1.3.1';
+const VERSION = '1.4.0';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -521,13 +522,14 @@ const local = http.createServer(async (req, res) => {
     if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
     if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');
+    if(p==='/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
     send(res, 404, 'not found');
   }catch(e){ send(res, 400, JSON.stringify({ ok:false, error:e.message }), 'application/json'); }
 });
 local.on('upgrade', wsServer(false));
 // Порт для туннеля: только MQTT по WebSocket, ничего больше (страница управления наружу не видна)
-const tunnelSrv = http.createServer((req, res) => send(res, 404, 'Overlay Host'));
+const tunnelSrv = http.createServer((req, res) => send(res, 404, 'Hudini Host'));
 tunnelSrv.on('upgrade', wsServer(true));
 
 function openBrowser(u){
@@ -548,7 +550,7 @@ process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 local.listen(PORT, '127.0.0.1', async () => {
   tunnelSrv.listen(TPORT, '127.0.0.1');
-  console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Overlay Host ${VERSION}                          ║\n  ║  Управление:  http://localhost:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
+  console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini Host ${VERSION}                           ║\n  ║  Управление:  http://localhost:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
   log('Папка настроек:', BASE);
   if(cfg.link){ try{ await setRoom(cfg.link); }catch(e){ log('⚠', e.message); } }
   // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
