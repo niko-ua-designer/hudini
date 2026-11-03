@@ -18,7 +18,7 @@ import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -195,6 +195,9 @@ async function startTunnel(){
 
 // ---------- CS2 Game State Integration ----------
 let lastOwn = null, cs2Local = 0, cs2Public = 0, cs2Pending = null, cs2Timer = null;
+// События игры: считаем здесь, по каждому пакету от CS2, чтобы пульт и виджет получали готовое и ничего не пропускали
+let evSeq = Date.now() % 1e9, evs = [], prevOwn = null, prevAll = {}, prevBomb = null, prevRPhase = null;
+function addEv(k, extra){ evs.push({ s:++evSeq, k, t:Date.now(), ...extra }); if(evs.length>20) evs.shift(); }
 function shortPlayer(p, id){
   const st=p.state||{}, ms=p.match_stats||{};
   const ws=Object.values(p.weapons||{}).filter(Boolean);
@@ -229,6 +232,34 @@ function compactGsi(g){
     if(p.steamid) out.obs=p.steamid;
   }
   if(!own && p.name) out.observed=shortPlayer(p, p.steamid);
+
+  // ---- события ----
+  if(own){
+    if(prevOwn){
+      const dk=(mine.k||0)-(prevOwn.k||0);
+      if(dk>0 && dk<6) addEv('kill', { n:dk, name:mine.name, team:mine.team, hs:(mine.rhs||0)>(prevOwn.rhs||0), weapon:mine.weapon, rk:mine.rk||0 });
+      if((mine.rk||0)>=2 && (mine.rk||0)>(prevOwn.rk||0)) addEv('multikill', { n:mine.rk, name:mine.name, team:mine.team, hs:mine.rhs||0, weapon:mine.weapon, me:true });
+      if((mine.mvps||0)>(prevOwn.mvps||0)) addEv('mvp', { name:mine.name });
+      if(prevOwn.alive && !mine.alive) addEv('death', { name:mine.name });
+    }
+    prevOwn = mine;
+  } else if(prevOwn?.alive && lastOwn){ addEv('death', { name:lastOwn.name }); prevOwn = { ...prevOwn, alive:false }; }
+  if(out.players){
+    for(const pl of out.players){
+      const pv=prevAll[pl.id];
+      if(pv && (pl.rk||0)>=2 && (pl.rk||0)>(pv.rk||0)) addEv('multikill', { n:pl.rk, name:pl.name, team:pl.team, weapon:pl.weapon });
+      prevAll[pl.id]=pl;
+    }
+  }
+  if(out.bomb && out.bomb!==prevBomb && ['planted','defused','exploded'].includes(out.bomb)) addEv('bomb_'+out.bomb, {});
+  prevBomb = out.bomb;
+  const rp = g.round?.phase;
+  if(rp==='over' && prevRPhase && prevRPhase!=='over'){
+    const win=g.round?.win_team, my=(own?mine.team:lastOwn?.team)||null;
+    addEv('round_end', { win, my, ct:out.ct, tt:out.tt });
+  }
+  if(rp) prevRPhase = rp;
+  out.evs = evs.slice(-10);
   return out;
 }
 async function pushCs2(data){
@@ -347,7 +378,7 @@ function readBody(req, max){
 }
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=7#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=8#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding
