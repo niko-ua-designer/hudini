@@ -27,7 +27,10 @@ jobs:
           sha256sum *.zip > SHA256SUMS.txt
       - name: Version
         id: v
-        run: echo "ver=$(grep -oP "VERSION = '\K[^']+" host/server.js)" >> "$GITHUB_OUTPUT"
+        run: |
+          ver=$(grep -oP "^const VERSION = '\K[^']+" host/server.js)
+          echo "$ver" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+'   # ровно одна версия вида 1.2.3
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: host-v${{ steps.v.outputs.ver }}
