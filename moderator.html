@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&display=swap">
-<link rel="stylesheet" href="core.css?v=5">
+<link rel="stylesheet" href="core.css?v=6">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=5"></script>
+<script src="core.js?v=6"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -32,6 +32,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;flex:none}
 button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--acc)}
+button:disabled{opacity:.4;cursor:default;border-color:var(--line)!important}
 button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
 button.danger{background:#3a1820;border-color:#6b2433;color:#ffb3bd}
 button.danger:hover{border-color:var(--bad)}
@@ -46,7 +47,8 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;background:var(--panel2);font-size:12px}
 .pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
 .pill.ok::before{background:var(--ok)}.pill.warn::before{background:var(--warn)}.pill.bad::before{background:var(--bad)}
-#link{width:300px;font-size:12px;color:var(--muted)}
+#link{width:220px;font-size:12px;color:var(--muted)}
+@media (max-width:1750px){ .hide-narrow{display:none} }
 .spacer{flex:1}
 [hidden]{display:none!important}
 
@@ -89,6 +91,10 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .el.sel .h{display:block}
 .h-size{right:-12px;bottom:-12px;cursor:nwse-resize;border-radius:3px}
 .h-rot{left:50%;top:-36px;margin-left:-7px;border-radius:50%;cursor:grab}
+.h-sw,.h-shh{display:none!important;border-radius:3px;background:var(--acc);border-color:#fff}
+.el.sel[data-type="image"] .h-sw,.el.sel[data-type="video"] .h-sw,.el.sel[data-type="image"] .h-shh,.el.sel[data-type="video"] .h-shh{display:block!important}
+.h-sw{right:-10px;top:50%;margin-top:-10px;width:10px;height:20px;cursor:ew-resize}
+.h-shh{bottom:-10px;left:50%;margin-left:-10px;width:20px;height:10px;cursor:ns-resize}
 .h-rot::after{content:"";position:absolute;left:4px;top:12px;width:2px;height:20px;background:var(--acc)}
 .tag{position:absolute;left:0;top:-22px;font:600 11px system-ui;background:#000a;color:#ccc;padding:1px 6px;border-radius:3px;white-space:nowrap;display:none;z-index:3}
 .el.is-hidden .tag,.el.flashing .tag{display:block}
@@ -141,13 +147,13 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <h1>🎛 Пульт оверлея</h1>
   <span id="status" class="pill">подключение…</span>
   <span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span>
-  <span class="hint">Ссылка для OBS:</span>
+  <span class="hint hide-narrow">Ссылка для OBS:</span>
   <input id="link" type="text" readonly>
   <button id="copyLink">📋 Копировать</button>
   <button id="calibBtn" title="Показать у стримера рамку по краям экрана на 10 секунд">📐 Рамка</button>
   <span class="spacer"></span>
-  <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Поставить пароль</button>
-  <button id="lockBtn" title="Закрыть пульт до ввода пароля" hidden>🔐 Заблокировать</button>
+  <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Пароль</button>
+  <button id="lockBtn" title="Закрыть пульт до ввода пароля" hidden>🔐</button>
   <button id="undoBtn" title="Ctrl+Z">↶ Отменить</button>
   <button id="globalEye">🙈 Скрыть всё</button>
   <button id="clearAll" class="danger">🗑 Очистить всё</button>
@@ -226,6 +232,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <h2>Клавиши</h2>
   <div class="keys">
     Тащить — двигать · уголок — размер · кружок — поворот<br>
+    Картинки: боковые ручки или <kbd>Shift</kbd>+уголок — растянуть<br>
     <kbd>Колёсико</kbd> размер · <kbd>Shift</kbd>/<kbd>Alt</kbd>+колёсико поворот<br>
     <kbd>Alt</kbd>+тащить — поворот · <kbd>Shift</kbd> — шаг 15°<br>
     <kbd>Ctrl</kbd> при перетаскивании — можно за край и без магнита<br>
@@ -445,6 +452,11 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
     <div class="lbl"><span>Размер</span><span id="vSize"></span></div>
     <input type="range" id="iSize">
+    <div data-for="image video">
+      <div class="lbl"><span>Высота (растянуть)</span><span id="vHh"></span></div>
+      <input type="range" id="iHh" min="0" max="150" step="0.5">
+      <div class="row"><button id="bRatio" class="grow" title="Убрать растяжение">↺ Вернуть пропорции</button></div>
+    </div>
     <div class="lbl"><span>Поворот</span><span id="vRot"></span></div>
     <input type="range" id="iRot" min="-180" max="180" step="1">
     <div class="lbl"><span>Непрозрачность</span><span id="vOp"></span></div>
@@ -555,7 +567,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=5, widgets=new Map();
+const WIDGET_VER=6, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -803,9 +815,23 @@ function addPoll(){
 // ================== ФАЙЛЫ С КОМПЬЮТЕРА ==================
 function showUpload(text, p){ $('upload').hidden=false; $('upText').textContent=text; $('upBar').style.width=Math.round(p*100)+'%'; }
 function hideUpload(){ $('upload').hidden=true; }
+// Анимированная ли картинка: WebP с флагом анимации или APNG (кадр acTL до первых данных)
+async function isAnimated(file){
+  try{
+    const b=new Uint8Array(await file.slice(0, 256*1024).arrayBuffer());
+    const at=(i,str)=>[...str].every((c,k)=>b[i+k]===c.charCodeAt(0));
+    if(file.type==='image/gif') return true;
+    if(at(0,'RIFF') && at(8,'WEBP')) return at(12,'VP8X') && (b[20] & 0x02)!==0;
+    if(b[0]===0x89 && at(1,'PNG')){
+      for(let i=8;i+8<b.length;){ const len=(b[i]<<24|b[i+1]<<16|b[i+2]<<8|b[i+3])>>>0;
+        if(at(i+4,'acTL')) return true; if(at(i+4,'IDAT')) return false; i+=12+len; }
+    }
+  }catch{}
+  return false;
+}
 async function shrinkImage(file){
-  // GIF и SVG не трогаем (анимация/вектор). Большие фото уменьшаем до 1920 px и жмём в WebP.
-  if(!/^image\/(png|jpeg|webp|bmp)$/.test(file.type)) return file;
+  // GIF, анимированные WebP/PNG и SVG не трогаем. Большие обычные фото уменьшаем до 1920 px и жмём в WebP.
+  if(!/^image\/(png|jpeg|webp|bmp)$/.test(file.type) || await isAnimated(file)) return file;
   try{
     const bmp=await createImageBitmap(file);
     const k=Math.min(1, 1920/Math.max(bmp.width, bmp.height));
@@ -835,7 +861,7 @@ async function uploadFiles(files, x, y){
     if(kind!=='image' && kind!=='video'){ toast(`${file.name}: это не картинка и не видео`); continue; }
     try{
       const blob = kind==='image' ? await shrinkImage(file) : file;
-      const mb=blob.size/1048576, max = kind==='image' && blob.type!=='image/gif' ? MAX_IMAGE_MB : MAX_MEDIA_MB;
+      const mb=blob.size/1048576, max = kind==='image' && !(await isAnimated(blob)) ? MAX_IMAGE_MB : MAX_MEDIA_MB;
       if(mb>max){ toast(`${file.name}: ${mb.toFixed(1)} МБ, максимум ${max} МБ. Для больших видео лучше ссылка или YouTube.`, 5000); continue; }
       showUpload(`Загрузка ${file.name}…`, 0);
       const src=await uploadBlob(blob, file.name);
@@ -865,7 +891,7 @@ setInterval(()=>{
 // ================== ОТРИСОВКА ==================
 const nodes=new Map();
 function addHandles(node){
-  for(const h of ['size','rot']){ const d=document.createElement('div'); d.className='h h-'+h; d.dataset.h=h; node.appendChild(d); }
+  for(const h of ['size','rot','sw','shh']){ const d=document.createElement('div'); d.className='h h-'+h; d.dataset.h=h; node.appendChild(d); }
   const t=document.createElement('div'); t.className='tag'; node.appendChild(t);
   const c=node.querySelector('.content');
   if(c.tagName==='IMG' || c.tagName==='VIDEO'){
@@ -1005,6 +1031,10 @@ function renderInspector(){
     setField(I('iZoom'), String(el.zoom)); $('vZoom').textContent=Math.round(el.zoom*100)+'%';
   }
   renderKf(el);
+  if(el.type==='image'||el.type==='video'){
+    setField(I('iHh'), String(el.hh||0)); $('vHh').textContent = el.hh ? el.hh.toFixed(1)+'% высоты' : 'по пропорциям';
+    $('bRatio').disabled = !el.hh;
+  }
   setField(I('iRot'), String(Math.round(normRot(el.rot)))); $('vRot').textContent=Math.round(normRot(el.rot))+'°';
   setField(I('iOp'), String(el.op)); $('vOp').textContent=Math.round(el.op*100)+'%';
   setField(I('iAnim'), el.anim);
@@ -1020,7 +1050,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(wrap);
 
-function scaleEl(el,k){ if('fs' in el) el.fs=num(el.fs*k,el.fs,0.5,100); else el.w=num(el.w*k,el.w,1,200); }
+function scaleEl(el,k){ if('fs' in el) el.fs=num(el.fs*k,el.fs,0.5,100); else { el.w=num(el.w*k,el.w,1,200); if(el.hh) el.hh=num(el.hh*k,el.hh,0.5,300); } }
 function centerPx(el){ const r=stage.getBoundingClientRect(); return { cx:r.left+el.x/100*r.width, cy:r.top+el.y/100*r.height, r }; }
 const angleOf=(e,cx,cy)=>Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI;
 
@@ -1034,8 +1064,16 @@ stage.addEventListener('pointerdown', e=>{
   select(el.id); beginChange();
   const { cx, cy, r }=centerPx(el);
   const h=e.target.closest('.h')?.dataset.h;
-  if(h==='size'){
-    drag={ mode:'size', cx, cy, d0:Math.max(5, Math.hypot(e.clientX-cx, e.clientY-cy)), fs0:el.fs, w0:el.w };
+  const media = el.type==='image' || el.type==='video';
+  if(media && (h==='sw' || h==='shh' || (h==='size' && e.shiftKey))){
+    // растягивание: считаем по осям самого элемента (с учётом поворота)
+    const c=node.querySelector('.content'), a=el.rot*Math.PI/180;
+    const loc=(x,y)=>({ u:(x-cx)*Math.cos(a)+(y-cy)*Math.sin(a), v:-(x-cx)*Math.sin(a)+(y-cy)*Math.cos(a) });
+    const p0=loc(e.clientX, e.clientY);
+    drag={ mode:'stretch', axis: h==='sw'?'x':h==='shh'?'y':'xy', loc, u0:Math.max(4,Math.abs(p0.u)), v0:Math.max(4,Math.abs(p0.v)),
+      w0:el.w, hh0: el.hh || c.offsetHeight/r.height*100 };
+  } else if(h==='size'){
+    drag={ mode:'size', cx, cy, d0:Math.max(5, Math.hypot(e.clientX-cx, e.clientY-cy)), fs0:el.fs, w0:el.w, hh0:el.hh };
   } else if(h==='rot' || e.altKey){
     drag={ mode:'rot', cx, cy, prev:angleOf(e,cx,cy), acc:0, rot0:el.rot };
   } else {
@@ -1061,9 +1099,15 @@ stage.addEventListener('pointermove', e=>{
     }
     $('gv').classList.toggle('show', snapX); $('gh').classList.toggle('show', snapY);
     el.x=num(x,50,0,100); el.y=num(y,50,0,100);
+  } else if(drag.mode==='stretch'){
+    const p=drag.loc(e.clientX, e.clientY);
+    if(drag.axis!=='y') el.w=num(drag.w0*Math.abs(p.u)/drag.u0, 25, 1, 200);
+    if(drag.axis!=='x') el.hh=num(drag.hh0*Math.abs(p.v)/drag.v0, 10, 0.5, 300);
+    else if(!el.hh) el.hh=num(drag.hh0, 10, 0.5, 300);   // высоту фиксируем, иначе картинка поедет пропорционально
   } else if(drag.mode==='size'){
     const k=Math.hypot(e.clientX-drag.cx, e.clientY-drag.cy)/drag.d0;
-    if('fs' in el) el.fs=num(drag.fs0*k,8,0.5,100); else el.w=num(drag.w0*k,25,1,200);
+    if('fs' in el) el.fs=num(drag.fs0*k,8,0.5,100);
+    else { el.w=num(drag.w0*k,25,1,200); if(drag.hh0) el.hh=num(drag.hh0*k,10,0.5,300); }
   } else {
     const a=angleOf(e,drag.cx,drag.cy); let d=a-drag.prev;
     if(d>180) d-=360; if(d<-180) d+=360;
@@ -1100,10 +1144,8 @@ stage.addEventListener('dragleave', e=>{ if(!stage.contains(e.relatedTarget)) st
 stage.addEventListener('drop', e=>{
   e.preventDefault(); stage.classList.remove('dragover');
   const dt=e.dataTransfer, p=stagePoint(e);
-  if(dt.files?.length) return uploadFiles([...dt.files], p.x, p.y);
-  let url=null;
-  const html=dt.getData('text/html');
-  if(html){ const m=html.match(/<(?:img|video|source)[^>]+src=["']([^"']+)["']/i); if(m) url=m[1].replace(/&amp;/g,'&'); }
+  let url=htmlMediaUrl(dt.getData('text/html'));   // из другой вкладки: берём оригинал (GIF останется анимированной)
+  if(!url && dt.files?.length) return uploadFiles([...dt.files], p.x, p.y);
   if(!url){ const list=dt.getData('text/uri-list'); if(list) url=list.split('\n').find(l=>l && !l.startsWith('#'))?.trim(); }
   const plain=dt.getData('text/plain');
   if(!url && plain && safeUrl(plain)) url=plain;
@@ -1236,7 +1278,7 @@ $('roomFile').onchange=async e=>{
 };
 
 // --- пароль на пульт ---
-function renderLockBtns(){ $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '🔓 Поставить пароль'; $('lockBtn').hidden=!vaultPass; }
+function renderLockBtns(){ $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '🔓 Пароль'; $('lockBtn').hidden=!vaultPass; }
 $('passBtn').onclick=async()=>{
   if(vaultPass){
     const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
@@ -1409,6 +1451,7 @@ bindInput('iBgColor',(el,f)=>el.bgColor=f.value);
 bindInput('iBgA',    (el,f)=>el.bgA=Number(f.value));
 bindInput('iSize',   (el,f)=>{ if('fs' in el) el.fs=Number(f.value); else el.w=Number(f.value); });
 bindInput('iRot',    (el,f)=>el.rot=Number(f.value));
+bindInput('iHh',     (el,f)=>el.hh=Number(f.value));
 bindInput('iOp',     (el,f)=>el.op=Number(f.value));
 bindInput('iAnim',   (el,f)=>el.anim=f.value);
 bindInput('iSound',  (el,f)=>el.sound=f.checked);
@@ -1476,6 +1519,7 @@ $('pToggle').onclick=()=>act(pollToggle);
 $('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
+$('bRatio').onclick=()=>act(el=>el.hh=0);
 function moveLayer(dir){ const i=state.els.findIndex(e=>e.id===selectedId), j=i+dir; if(i<0||j<0||j>=state.els.length) return; beginChange(); [state.els[i],state.els[j]]=[state.els[j],state.els[i]]; commit(); }
 $('bUp').onclick=()=>moveLayer(1);
 $('bDown').onclick=()=>moveLayer(-1);
@@ -1507,8 +1551,15 @@ document.addEventListener('keydown', e=>{
   const mv={ ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step] }[e.key];
   if(mv){ e.preventDefault(); beginChange(); el.x=num(el.x+mv[0],50,0,100); el.y=num(el.y+mv[1],50,0,100); changed(); clearTimeout(wheelT); wheelT=setTimeout(commit,300); }
 });
+// Ссылка на оригинал из HTML (браузер при «Копировать изображение» кладёт в файл статичный PNG, а ссылку — на настоящую GIF)
+function htmlMediaUrl(html){
+  const m=(html||'').match(/<(?:img|video|source)[^>]+src=["']([^"']+)["']/i);
+  return m ? safeUrl(m[1].replace(/&amp;/g,'&')) : null;
+}
 document.addEventListener('paste', e=>{
   if(typing(e.target)) return;
+  const orig=htmlMediaUrl(e.clipboardData?.getData('text/html'));
+  if(orig){ e.preventDefault(); addUrl(orig); return; }
   const files=[...(e.clipboardData?.files||[])].filter(f=>/^(image|video)\//.test(f.type));
   if(files.length){ e.preventDefault(); uploadFiles(files); return; }
   const t=e.clipboardData?.getData('text/plain')?.trim(); if(!t) return;

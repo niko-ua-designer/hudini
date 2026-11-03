@@ -18,7 +18,7 @@ import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/overlay/';
@@ -320,7 +320,7 @@ function readBody(req, max){
 }
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=5#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=6#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding
