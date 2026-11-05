@@ -10,7 +10,7 @@ The app for the streamer's PC. Since Hudini 1.0 it is required: it serves the ov
 
 ### How to use
 
-1. Download the app from [Releases](https://github.com/niko-ua-designer/overlay/releases/latest). For Windows that's `HudiniHost-windows.exe.zip`.
+1. Download the app from [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1). For Windows that's `HudiniHost-windows.exe.zip`.
 2. Unzip it **into its own folder** (settings and files are saved there) and run it.
    Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). If Windows asks about network access, allow private networks.
 3. The control page `http://localhost:7777` opens:
@@ -74,7 +74,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 
 ### Как пользоваться
 
-1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/overlay/releases/latest): для Windows это `HudiniHost-windows.exe.zip`.
+1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1): для Windows это `HudiniHost-windows.exe.zip`.
 2. Распакуй **в отдельную папку** (там хранятся настройки и файлы) и запусти.
    Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Если Windows спросит про доступ к сети, разреши для частных сетей.
 3. Откроется страница управления `http://localhost:7777`:
