@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https:; connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=13"></script>
+<script src="core.js?v=14"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -34,6 +35,15 @@ body{display:flex;align-items:center;justify-content:center}
 #calib i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
 #calib div{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000c;padding:1.5vmin 3vmin;border-radius:1vmin;text-align:center;line-height:1.5}
 
+/* Нет программы Hudini Host или неверный размер источника */
+#need{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:100003;font:600 3.2vmin/1.45 system-ui,'Noto Color Emoji',sans-serif;color:#fff}
+#need.show{display:flex}
+#need div{background:#0b0d11ee;border:.4vmin solid #7c5cff;border-radius:2vmin;padding:4vmin 5vmin;max-width:80vw;text-align:center}
+#need b{color:#b9a8ff}
+#need small{display:block;font-weight:400;font-size:2.4vmin;color:#c9cede;margin-top:2vmin}
+#sizeWarn{position:fixed;left:50%;top:3vmin;transform:translateX(-50%);z-index:100003;display:none;background:#ff2e88;color:#fff;font:700 3vmin/1.4 system-ui,'Noto Color Emoji',sans-serif;padding:2vmin 3.5vmin;border-radius:1.5vmin;text-align:center;box-shadow:0 1vmin 4vmin #0008}
+#sizeWarn.show{display:block}
+#sizeWarn small{display:block;font-weight:500;font-size:2.2vmin}
 #debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,'Noto Color Emoji',sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
 </style>
 </head>
@@ -43,27 +53,28 @@ body{display:flex;align-items:center;justify-content:center}
   <div id="calib"><i></i><i></i><i></i><i></i><div id="calibText"></div></div>
 </div>
 <div id="debug"></div>
+<div id="need"><div></div></div>
+<div id="sizeWarn"></div>
 
 <script>
 // ================== НАСТРОЙКИ ==================
-// Должны совпадать с moderator.html
-const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt';
+// Должно совпадать с moderator.html
 const TOPIC_PREFIX = 'stream-overlay/v1';
-// Режим «Локальный файл» в OBS: вставь сюда ЦЕЛИКОМ ссылку для OBS из пульта
-const LINK = '';
+const SITE = 'https://niko-ua-designer.github.io/overlay/';
 // ===============================================
 
-const WIDGET_VER=12;
+const WIDGET_VER=13;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
 const stage=document.getElementById('stage');
 const qs=new URLSearchParams(location.search);
 // Ключи стоят после # : эта часть ссылки не уходит ни на сайт, ни на сервер
-let linkHash=location.hash.slice(1), room=qs.get('room');
-if(LINK){ try{ const u=new URL(LINK); room=room||u.searchParams.get('room'); linkHash=linkHash||u.hash.slice(1); }catch{} }
-const hp=new URLSearchParams(linkHash);
-const brokerUrl=qs.get('broker') || BROKER_URL;
+const room=qs.get('room'), hp=new URLSearchParams(location.hash.slice(1));
+// С версии 1.0 виджет работает только через программу Hudini Host на компьютере стримера
+const brokerUrl=qs.get('broker') || '';
+const viaHost=/^ws:\/\/(localhost|127\.0\.0\.1):\d{2,5}\/mqtt$/.test(brokerUrl);
+const HTTP_BASE=brokerUrl.replace(/^ws:/,'http:').replace(/\/mqtt$/,'');
 const DEBUG=qs.has('debug');
 const dbg=document.getElementById('debug');
 function status(t, force){ console.log('[overlay]', t); if(DEBUG||force){ dbg.style.display='block'; dbg.textContent=t; } }
@@ -75,6 +86,18 @@ function fit(){
   stage.style.width=w+'px'; stage.style.height=h+'px';
   stage.style.setProperty('--u', (h/100)+'px');
   const cv=document.getElementById('confetti'); cv.width=w; cv.height=h;
+  checkSize();
+}
+// Размер источника в OBS: если он не 16:9 (например, 800×600 по умолчанию и растянут), всё будет сплюснуто
+const badRatio=()=>innerHeight>0 && Math.abs(innerWidth/innerHeight-16/9)>0.03;
+let sizeT=null;
+function checkSize(){
+  const w=document.getElementById('sizeWarn'); if(!w) return;
+  clearTimeout(sizeT);
+  if(!badRatio()){ w.classList.remove('show'); return; }
+  w.innerHTML=`⚠ Источник «Браузер» ${innerWidth}×${innerHeight}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`;
+  w.classList.add('show');
+  sizeT=setTimeout(()=>w.classList.remove('show'), 30000);   // на стриме не висит вечно: пульт продолжит напоминать
 }
 addEventListener('resize', fit); fit();
 
@@ -189,7 +212,7 @@ function tick(t){
 function shake(){ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
 let calibT=null;
 function calib(){
-  const c=document.getElementById('calib');
+  const c=document.getElementById('calib'); checkSize();
   document.getElementById('calibText').innerHTML=
     `Окно источника: <b>${innerWidth}×${innerHeight}</b><br>`+
     `Розовая рамка должна идти ровно по краям экрана стрима.<br>`+
@@ -222,7 +245,17 @@ function clockSample(t){
 // Принимаем только сообщения, подписанные ключом модератора. Остальное (подделки, мусор) молча выкидываем.
 let KEYS=null, lastStateT=0;
 const seenFx=new Map();
+function needHost(title, more){
+  const n=document.getElementById('need');
+  n.firstChild.innerHTML=`🎩 ${title}<small>${more}</small>`;
+  n.classList.add('show');
+}
 async function start(){
+  if(!viaHost){
+    needHost('Для Hudini нужна программа <b>Hudini Host</b>',
+      `Это старая ссылка. Стример запускает Hudini Host (скачать: ${SITE.replace('https://','')}),<br>вставляет в неё ссылку от модератора, а в OBS ставит ссылку из программы (http://localhost:7777/…).`);
+    return;
+  }
   if(!room){ status('Нет кода комнаты: скопируй ссылку для OBS в пульте модератора', true); return; }
   if(!hp.get('k') || !hp.get('p')){ status('Старая или обрезанная ссылка: попроси у модератора новую ссылку для OBS', true); return; }
   if(typeof mqtt==='undefined'){ status('Не загрузилась библиотека mqtt.js: проверь интернет', true); return; }
@@ -232,7 +265,12 @@ async function start(){
   const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
-  Assets.setRoom(client, base);
+  // файлы берём из программы на этом же компьютере и проверяем подпись модератора
+  Assets.fetcher=async id=>{
+    const r=await fetch(`${HTTP_BASE}/files/${id}`, { cache:'force-cache' });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return openAsset(KEYS, new Uint8Array(await r.arrayBuffer()), id);
+  };
   Assets.onReady=id=>{
     applyState(lastState);   // файл догрузился: дорисовать картинку/видео
     if(pendingSounds.has(id)){ const v=pendingSounds.get(id); pendingSounds.delete(id); playSound('asset:'+id, v); }
@@ -240,9 +278,9 @@ async function start(){
   // Сообщаем пульту, что виджет жив (зашифровано ключом комнаты)
   const wid=Math.random().toString(36).slice(2,8);
   setInterval(async()=>{ if(!client.connected) return;
-    client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
+    client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2], { qos:1 }); Assets.resubscribe(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2], { qos:1 }); Assets.retry(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -257,7 +295,6 @@ async function start(){
     }
     const plain=await unseal(KEYS, payload, true);
     if(!plain){ console.warn('[overlay] отброшено неподписанное сообщение', topic); return; }
-    if(Assets.handle(topic, plain)) return;
     let msg; try{ msg=JSON.parse(TD.decode(plain)); }catch{ return; }
     if(!msg || typeof msg!=='object') return;
     if(!packet.retain) clockSample(Number(msg.t));

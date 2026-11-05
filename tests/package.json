@@ -1,0 +1,15 @@
+{
+  "name": "hudini-tests",
+  "private": true,
+  "description": "End-to-end tests for Hudini: panel, widget and Hudini Host. Run: npm test",
+  "scripts": {
+    "test": "node run.js",
+    "test:update": "node run.js update"
+  },
+  "dependencies": {
+    "aedes": "0.51.3",
+    "aedes-server-factory": "0.2.1",
+    "mqtt": "5.16.1",
+    "playwright": "1.63.0"
+  }
+}

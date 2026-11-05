@@ -13,6 +13,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-ap
 h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);margin-bottom:20px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+.card.first{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
 .n{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:13px;flex:none}
 input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font:inherit;font-size:13px}
@@ -34,6 +35,10 @@ code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none}
 .cs2{display:flex;gap:16px;flex-wrap:wrap;font-variant-numeric:tabular-nums;margin-top:8px;color:var(--muted);font-size:13px}
 .cs2 span b{color:var(--text)}
+.lim{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.lim label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+details summary{cursor:pointer;font-weight:600;font-size:15px}
+details[open] summary{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -41,9 +46,20 @@ code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
   <h1>🎩 Hudini Host <span id="ver" class="hint"></span> <span data-i18n-switch></span></h1>
   <div class="sub">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
 
+  <div class="card" id="limCard">
+    <h2>📁 Место для файлов модераторов</h2>
+    <div class="hint" style="margin-top:0" id="limAsk">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. Сколько места им дать?</div>
+    <div class="lim">
+      <label>Один файл до, МБ<input type="number" id="limFile" min="1" max="4096"></label>
+      <label>Всего места, МБ<input type="number" id="limTotal" min="10"></label>
+      <label>Файлов не больше<input type="number" id="limFiles" min="1" max="100000"></label>
+    </div>
+    <div class="row"><button id="limSave" class="primary">Сохранить</button><span class="hint" id="limUsed" style="margin:0"></span></div>
+  </div>
+
   <div class="card">
     <h2><span class="n">1</span> Ссылка от модератора</h2>
-    <div class="hint" style="margin-top:0">Попроси модератора нажать в пульте «📋 Копировать» и пришли эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
+    <div class="hint" style="margin-top:0">Попроси модератора нажать в пульте «📋 Копировать» и вставь эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
     <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
     <div class="hint" id="roomInfo"></div>
   </div>
@@ -74,12 +90,25 @@ code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
   </div>
 
   <div class="card">
+    <details>
+      <summary>⚙ Для продвинутых</summary>
+      <div class="hint" style="margin-top:0"><b>Свой адрес для модераторов.</b> Вместо бесплатного туннеля Cloudflare: Tailscale Funnel, свой туннель Cloudflare или свой домен. Направь его на <code id="tport">http://127.0.0.1:7778</code> и впиши адрес вида <code>wss://мой-адрес/mqtt</code>. Пусто = обычный туннель.</div>
+      <div class="row"><input id="fixedUrl" placeholder="wss://my-pc.tailnet.ts.net/mqtt"><button id="fixedSave">Сохранить</button></div>
+      <div class="hint" style="margin-top:14px"><b>Адрес и пароль для пульта.</b> Обычно пульт находит программу сам. Если нет, модератор вписывает их в пульте: «Комната» → «Для продвинутых». Никому больше не показывай.</div>
+      <div class="row"><input id="modUrl" readonly placeholder="адрес появится, когда заработает туннель"><input id="modPass" type="password" readonly><button id="showPass">👁 Показать</button></div>
+      <div class="hint" style="margin-top:14px"><b>Новый пароль модераторов.</b> Все модераторы отключатся на пару секунд и подключатся снова сами. Чтобы закрыть доступ человеку насовсем, модератор нажимает в пульте «♻ Сменить ключи», а ты вставляешь новую ссылку в шаг 1.</div>
+      <div class="row"><button id="newPass">🔑 Новый пароль</button></div>
+    </details>
+  </div>
+
+  <div class="card">
     <h2>Состояние</h2>
     <div class="grid">
       <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sTun"><b>Туннель для модераторов</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sMods"><b>Модераторы напрямую</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sBr"><b>Запасной путь (общий сервер)</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sFiles"><b>Файлы</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sBr"><b>Поиск адреса (общий сервер)</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sCs"><b>CS2</b><span class="dot"></span><span class="v">—</span></div>
     </div>
   </div>
@@ -98,6 +127,7 @@ async function api(p, body){
   const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
   const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
 }
+let limFilled=false;
 const WEAP={ak47:'AK-47',m4a1:'M4A4',m4a1_silencer:'M4A1-S',awp:'AWP',deagle:'Desert Eagle',usp_silencer:'USP-S',glock:'Glock-18'};
 async function refresh(){
   let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); return; }
@@ -108,7 +138,17 @@ async function refresh(){
   st('sObs', s.obsOnline?'ok':'bad', s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1'));
   st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), s.tunnel?'работает':(s.tunnelErr||'запускается…'));
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
-  st('sBr', s.bridge?'ok':'warn', s.bridge?'подключён':'нет связи');
+  st('sBr', s.bridge?'ok':'warn', s.bridge?'работает':'нет связи (пульт попробует последний адрес)');
+  const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0);
+  st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} из ${L.totalMB} МБ · ${g.files||0} из ${L.files}`);
+  $('limUsed').textContent = `Сейчас занято ${mb(g.used||0)} МБ, файлов ${g.files||0}.`;
+  if(!limFilled || !g.limitsSet){
+    if(!['limFile','limTotal','limFiles'].includes(document.activeElement?.id)){ $('limFile').value=L.fileMB; $('limTotal').value=L.totalMB; $('limFiles').value=L.files; limFilled=true; }
+  }
+  $('limAsk').hidden = !!g.limitsSet; $('limCard').classList.toggle('first', !g.limitsSet);
+  $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
+  if(document.activeElement!==$('fixedUrl')) $('fixedUrl').value=s.fixedUrl||''; $('fixedUrl').disabled=$('fixedSave').disabled=!!s.fixedEnv;
+  $('tport').textContent='http://127.0.0.1:'+(s.tport||7778);
   st('sCs', s.cs2Online?'ok':'warn', s.cs2Online?'данные идут':'нет данных');
   if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
   const c=s.cs2;
@@ -133,6 +173,10 @@ $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
 $('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
 $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
+$('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
+$('fixedSave').onclick=async()=>{ try{ await api('/api/fixedurl', { url:$('fixedUrl').value }); toast($('fixedUrl').value?'Свой адрес сохранён ✓':'Вернул обычный туннель ✓'); refresh(); }catch(e){ toast(e.message); } };
+$('newPass').onclick=async()=>{ if(!confirm('Сменить пароль модераторов? Все модераторы отключатся на минуту.')) return; try{ await api('/api/modpass/new', {}); toast('Новый пароль ✓'); }catch(e){ toast(e.message); } };
+$('showPass').onclick=async()=>{ try{ const r=await api('/api/modpass'); $('modUrl').value=r.url||''; $('modPass').value=r.pass; $('modPass').type=$('modPass').type==='password'?'text':'password'; }catch(e){ toast(e.message); } };
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>

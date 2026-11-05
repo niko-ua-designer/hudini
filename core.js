@@ -553,45 +553,56 @@ function playerSeek(node, el, d){
 }
 
 // ---------- файлы с компьютера ----------
-// Файл режется на куски и хранится на брокере (retained), поэтому виджет получает его и после перезапуска OBS.
-const CHUNK = 64*1024;
+// Файл хранится в программе стримера Hudini Host. Пульт шифрует и подписывает его ключами комнаты,
+// программа держит байты как есть, виджет и пульты скачивают и проверяют подпись.
+// Формат открытой части: [4 байта длина заголовка][заголовок JSON { id, mime, size, name }][байты файла]
+const MIME_RE = /^(image|video|audio)\/[\w.+-]+$/;
+async function packAsset(keys, blob, id, name){
+  const head = TE.encode(JSON.stringify({ id, mime:blob.type, size:blob.size, name:str(name, 80) }));
+  const data = new Uint8Array(4 + head.length + blob.size);
+  new DataView(data.buffer).setUint32(0, head.length);
+  data.set(head, 4); data.set(new Uint8Array(await blob.arrayBuffer()), 4 + head.length);
+  return seal(keys, data, true);
+}
+// null = подделка, чужой файл или мусор
+async function openAsset(keys, buf, id){
+  const plain = await unseal(keys, buf, true); if(!plain || plain.length < 4) return null;
+  const n = new DataView(plain.buffer, plain.byteOffset).getUint32(0); if(n > 4096 || 4 + n > plain.length) return null;
+  let m; try{ m = JSON.parse(TD.decode(plain.subarray(4, 4 + n))); }catch{ return null; }
+  if(!m || m.id !== id || !MIME_RE.test(m.mime)) return null;   // программа не может подсунуть один файл вместо другого
+  const body = plain.subarray(4 + n);
+  return { blob:new Blob([body], { type:m.mime }), mime:m.mime, size:body.length, name:str(m.name, 80) };
+}
 const Assets = {
-  urls:new Map(), meta:new Map(), parts:new Map(), subs:new Set(),
-  client:null, base:'', onReady:()=>{},
-  setRoom(client, base){
-    for(const id of this.subs) this.client?.unsubscribe(`${this.base}/asset/${id}/#`);
-    this.client=client; this.base=base; this.subs.clear(); this.parts.clear();
-  },
+  urls:new Map(), meta:new Map(), loading:new Set(), tries:new Map(),
+  fetcher:null,                // async id → { blob, mime, size } | null; задаёт страница
+  onReady:()=>{},
+  reset(){ for(const u of this.urls.values()) URL.revokeObjectURL(u); this.urls.clear(); this.meta.clear(); this.tries.clear(); this.loading.clear(); this.gen=(this.gen||0)+1; },
   want(id){
-    if(this.urls.has(id) || this.subs.has(id) || !this.client?.connected) return;
-    this.subs.add(id); this.client.subscribe(`${this.base}/asset/${id}/#`, { qos:1 });
+    if(this.urls.has(id) || this.loading.has(id) || !this.fetcher) return;
+    const t = this.tries.get(id);
+    if(t && (t.timer || t.n > 12)) return;
+    this.loading.add(id);
+    const gen = this.gen;
+    this.fetcher(id).then(r => {
+      if(gen !== this.gen) return;
+      if(!r) throw new Error('нет файла');
+      this.add(id, r.blob, r.name); this.tries.delete(id); this.onReady(id);
+    }).catch(() => {
+      if(gen !== this.gen) return;
+      const x = this.tries.get(id) || { n:0 }; x.n++;
+      // ещё загружается у модератора или программа перезапускается: пробуем снова, всё реже
+      x.timer = setTimeout(() => { x.timer = null; this.want(id); }, Math.min(60000, 1500 * 2 ** Math.min(x.n, 6)));
+      this.tries.set(id, x);
+    }).finally(() => { if(gen === this.gen) this.loading.delete(id); });
   },
-  resubscribe(){ const ids=[...this.subs]; this.subs.clear(); ids.forEach(id=>this.want(id)); },
+  retry(){ for(const [id, x] of this.tries){ clearTimeout(x.timer); this.tries.delete(id); this.want(id); } },
   resolve(src){
     const id = assetId(src); if(!id) return src;
     const u = this.urls.get(id); if(!u) this.want(id);
     return u || '';
   },
-  isAsset(topic){ return topic.startsWith(this.base+'/asset/'); },
-  // plain: уже проверенные и расшифрованные байты
-  handle(topic, plain){
-    const pre = this.base+'/asset/';
-    if(!topic.startsWith(pre)) return false;
-    const [id, kind, idx] = topic.slice(pre.length).split('/');
-    if(!plain || !plain.length || this.urls.has(id)) return true;
-    if(kind==='m'){ try{ const m = JSON.parse(TD.decode(plain)); if(/^(image|video|audio)\/[\w.+-]+$/.test(m.mime) && m.n>0 && m.n<2000 && m.id===id) this.meta.set(id, m); }catch{} }
-    else if(kind==='c' && /^\d{1,4}$/.test(idx)){ let a = this.parts.get(id); if(!a){ a=[]; this.parts.set(id,a); } a[+idx] = plain; }
-    const m = this.meta.get(id), a = this.parts.get(id);
-    if(m && a){
-      for(let i=0;i<m.n;i++) if(!a[i]) return true;
-      this.urls.set(id, URL.createObjectURL(new Blob(a.slice(0,m.n), { type:m.mime })));
-      this.parts.delete(id);
-      this.client.unsubscribe(`${this.base}/asset/${id}/#`); this.subs.delete(id);
-      this.onReady(id);
-    }
-    return true;
-  },
-  addLocal(id, blob){ this.urls.set(id, URL.createObjectURL(blob)); this.meta.set(id, { mime:blob.type, n:Math.ceil(blob.size/CHUNK), size:blob.size }); },
+  add(id, blob, name){ if(this.urls.has(id)) return; this.urls.set(id, URL.createObjectURL(blob)); this.meta.set(id, { mime:blob.type, size:blob.size, name }); },
 };
 function resolveSrc(src){ return Assets.resolve(src); }
 

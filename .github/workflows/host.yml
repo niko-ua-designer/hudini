@@ -1,16 +1,16 @@
-# Собирает программу стримера Hudini Host и выкладывает её в Releases
-name: Hudini Host build
+# Builds Hudini Host and publishes it to Releases when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed.
+# The tag must match `const VERSION` in host/server.js.
+name: Hudini Host release
 on:
   push:
-    branches: [main]
-    paths: ['host/**', 'widget.html', 'core.js', 'core.css', '.github/workflows/host.yml']
+    tags: ['v*']
   workflow_dispatch:
 permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # только для публикации релиза
+      contents: write   # only to publish the release
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { persist-credentials: false }
@@ -18,6 +18,14 @@ jobs:
         with: { bun-version: 1.4.4 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 24 }
+      - name: Version
+        id: v
+        run: |
+          ver=$(grep -oP "^const VERSION = '\K[^']+" host/server.js)
+          echo "$ver" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?'
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$ver" ]; then echo "tag $GITHUB_REF_NAME does not match VERSION $ver"; exit 1; fi
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          case "$ver" in *-*) echo "pre=true" >> "$GITHUB_OUTPUT";; *) echo "pre=false" >> "$GITHUB_OUTPUT";; esac
       - name: Build
         run: sh host/build.sh
       - name: Zip
@@ -25,22 +33,26 @@ jobs:
           cd host/dist
           for f in *; do zip -9 "$f.zip" "$f"; done
           sha256sum *.zip > SHA256SUMS.txt
-      - name: Version
-        id: v
-        run: |
-          ver=$(grep -oP "^const VERSION = '\K[^']+" host/server.js)
-          echo "$ver" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+'   # ровно одна версия вида 1.2.3
-          echo "ver=$ver" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          tag_name: host-v${{ steps.v.outputs.ver }}
-          name: Hudini Host ${{ steps.v.outputs.ver }}
-          make_latest: true
+          tag_name: v${{ steps.v.outputs.ver }}
+          name: Hudini ${{ steps.v.outputs.ver }}
+          prerelease: ${{ steps.v.outputs.pre }}
+          make_latest: ${{ steps.v.outputs.pre == 'false' }}
           body: |
-            **EN:** App for the streamer: a local overlay server + live CS2 data. Windows: download `OverlayHost-windows.exe.zip`, unzip it into its own folder and run it.
-            **RU:** Программа для стримера: свой сервер оверлея на ПК и данные из CS2. Windows: скачай `OverlayHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
+            **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Windows: download `HudiniHost-windows.exe.zip`, unzip it into its own folder and run it.
+            **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Windows: скачай `HudiniHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
 
+            Panel / Пульт: https://niko-ua-designer.github.io/overlay/
             Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
           files: |
             host/dist/*.zip
             host/dist/SHA256SUMS.txt
+      # Releases before 1.0 (host-v…) become old pre-releases, so "latest" always points to Hudini 1.x
+      - name: Retire old releases
+        if: steps.v.outputs.pre == 'false'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          for t in $(gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[].tagName' | grep '^host-v'); do
+            gh release edit "$t" -R "$GITHUB_REPOSITORY" --prerelease --latest=false --title "Old Overlay Host ${t#host-v} (before Hudini 1.0)"
+          done
