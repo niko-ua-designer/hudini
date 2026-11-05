@@ -163,7 +163,7 @@
     // золотые уголки: скруглённые колпачки сверху и снизу
     const capG = slab(THREE, 0.46, 0.46, 0.2, 0.2, 0.05);
     for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){
-      const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.2), -0.03, zz * (D / 2 - 0.2)); caseG.add(cp);
+      const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.22), -0.03, zz * (D / 2 - 0.22)); caseG.add(cp);
     }
     // светящийся шов между корпусом и крышкой
     const seam = new THREE.Mesh(ringSlab(THREE, W + 0.004, D + 0.004, 0.03, 0.3, 0.05), mSeam); seam.position.y = H - 0.015; caseG.add(seam);
@@ -174,9 +174,10 @@
     const lidP = new THREE.Group(); lidP.position.set(0, H, -D / 2 + 0.02); caseG.add(lidP); S.lidP = lidP;
     const lid = new THREE.Mesh(slab(THREE, W, D, LH, 0.3, 0.1), mBody); lid.position.z = D / 2 - 0.02; lidP.add(lid);
     const lidIn = new THREE.Mesh(slab(THREE, W - 0.34, D - 0.34, 0.03, 0.2, 0), mFoam); lidIn.position.set(0, -0.01, D / 2 - 0.02); lidP.add(lidIn);
-    // верхние уголки едут вместе с крышкой
-    for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){ const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.2), LH - 0.17, D / 2 - 0.02 + zz * (D / 2 - 0.2)); lidP.add(cp); }
-    for(const xx of [-1.2, 1.2]){ const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 20), mGold); hg.rotation.z = Math.PI / 2; hg.position.set(xx, 0.02, -0.02); lidP.add(hg); }
+    // золотая окантовка по краю крышки: часть крышки, ничего не торчит наружу
+    const lidTrim = new THREE.Mesh(ringSlab(THREE, W - 0.02, D - 0.02, 0.05, 0.29, 0.07), mGold); lidTrim.position.set(0, LH - 0.04, D / 2 - 0.02); lidP.add(lidTrim);
+    // петли утоплены в заднюю стенку
+    for(const xx of [-1.2, 1.2]){ const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.5, 20), mGold); hg.rotation.z = Math.PI / 2; hg.position.set(xx, 0, 0.04); lidP.add(hg); }
     // утопленная табличка с тиснением
     const plateEdge = new THREE.Mesh(slab(THREE, 2.34, 1.5, 0.035, 0.12, 0.012), mGold); plateEdge.position.set(0, LH - 0.005, D / 2 - 0.02); lidP.add(plateEdge);
     const lt = lidTexture(THREE, el);
