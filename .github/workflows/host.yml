@@ -50,7 +50,7 @@ jobs:
             **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Windows: download `HudiniHost-windows.exe.zip`, unzip it into its own folder and run it.
             **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Windows: скачай `HudiniHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
 
-            Panel / Пульт: https://niko-ua-designer.github.io/overlay/
+            Panel / Пульт: https://niko-ua-designer.github.io/hudini/
             Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
           files: |
             host/dist/*.zip
