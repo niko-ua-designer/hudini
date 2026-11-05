@@ -41,7 +41,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq(files.length, 1, 'one file on disk');
     const raw = fs.readFileSync(path.join(dir, files[0])), png = fs.readFileSync(IMG);
     check(!raw.includes(png.subarray(0, 8)) && !raw.includes(Buffer.from('image/png')), 'file on disk is ciphertext (no PNG header, no mime)');
-    const info = await until(async () => { const t = await panel.textContent('#storageInfo'); return /файлов 1 из 300/.test(t) && t; });
+    const info = await until(async () => { const t = await panel.textContent('#storageInfo'); return /файлов: 1 \/ 300/.test(t) && t; });
     check(info, 'panel shows storage: ' + info);
   });
 
@@ -84,14 +84,14 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     await panel.setInputFiles('#fileInput', IMG);
     check(await until(() => panel.isVisible('#hostTip')), 'dialog shown when the file limit is reached');
     check(await panel.isVisible('#hostTipClean'), 'dialog offers 🧹 cleanup');
-    check(/файлов/.test(await panel.textContent('#hostTipWhy')), 'message says why: ' + await panel.textContent('#hostTipWhy'));
+    check(/файлов уже столько/.test(await panel.textContent('#hostTipWhy')), 'message says why: ' + await panel.textContent('#hostTipWhy'));
     await panel.click('#hostTipOk');
     // remove the GIF from the screen, then clean
     await panel.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'image' && Assets.meta.get(assetId(e.src))?.mime === 'image/gif')); commit(); });
     await panel.click('#hostTipOk').catch(() => {});
     await panel.click('#cleanFiles');
     check(await until(() => fs.readdirSync(path.join(host.dir, 'files', room)).length === 1), 'unused GIF deleted, used picture kept');
-    check(await until(async () => /файлов 1 из 2/.test(await panel.textContent('#storageInfo'))), 'storage indicator updated');
+    check(await until(async () => /файлов: 1 \/ 2/.test(await panel.textContent('#storageInfo'))), 'storage indicator updated');
     await host.api('/api/limits', { fileMB: 100, totalMB: 2048, files: 300 });
   });
 

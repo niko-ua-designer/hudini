@@ -1,0 +1,123 @@
+/* Hudini panel: layout settings, guided tour, help menu, storage prompt, motion. Loaded after the panel styles. */
+
+/* ---------- layout from settings (CSS variables set by ui.js) ---------- */
+body{grid-template-columns:var(--lw,300px) 1fr var(--rw,310px);font-size:var(--fs,14px)}
+body.swap{grid-template-columns:var(--rw,310px) 1fr var(--lw,300px);grid-template-areas:"top top top" "right main left"}
+body.swap #left{border-right:0;border-left:1px solid var(--line)}
+body.swap #right{border-left:0;border-right:1px solid var(--line)}
+body.compact aside{padding:6px 8px 30px}
+body.compact h2{margin:10px 0 5px}
+body.compact .row{margin:4px 0}
+body.compact button{padding:4px 8px}
+body.compact header{padding:5px 10px;gap:6px}
+.rz{position:absolute;top:0;bottom:0;width:8px;cursor:col-resize;z-index:50;touch-action:none}
+.rz::after{content:"";position:absolute;top:0;bottom:0;left:3px;width:2px;background:transparent;transition:background .15s}
+.rz:hover::after,.rz.on::after{background:var(--acc)}
+#rzL{left:-4px}#rzR{right:-4px}
+body.swap #rzL{left:auto;right:-4px}body.swap #rzR{right:auto;left:-4px}
+
+/* free windows */
+.winbar{display:none}
+body.free{grid-template-columns:0 1fr 0;grid-template-areas:"top top top" "main main main"}
+body.free main{z-index:0;isolation:isolate}
+body.free aside{position:fixed;z-index:60;border:1px solid var(--line)!important;border-radius:12px;box-shadow:0 14px 50px #000c;resize:both;overflow:auto;padding-top:0;min-width:220px;min-height:200px}
+body.free .winbar{display:flex;align-items:center;justify-content:space-between;gap:6px;position:sticky;top:0;z-index:3;margin:0 -12px 8px;padding:7px 10px 7px 12px;background:#20242e;border-bottom:1px solid var(--line);cursor:grab;user-select:none;font-size:12px;color:var(--muted);touch-action:none}
+body.free .winbar:active{cursor:grabbing}
+body.free .winbar button{padding:2px 7px;font-size:12px}
+body.free .rz{display:none}
+body.free #tabs{top:31px}
+#uiPresets button.on,.tchips button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.tset{margin:8px 0}
+.tchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.tchips button{padding:5px 9px;font-size:12px}
+#uiExport,#uiImport{white-space:normal}
+
+/* tabs can be dragged into another order */
+#tabs button.drag-over{box-shadow:inset 3px 0 0 var(--acc)}
+#tabs button.dragging{opacity:.4}
+
+/* sections in the left panel fold */
+aside section h2.fold{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+aside section h2.fold::after{content:"▾";font-size:11px;transition:transform .18s;margin-left:auto;opacity:.6}
+aside section h2.fold.closed::after{transform:rotate(-90deg)}
+aside section h2.fold:hover{color:var(--text)}
+.sec-hide{display:none!important}
+
+/* ---------- empty stage ---------- */
+#emptyHint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;z-index:2;color:#c9cede;text-align:center;font-size:15px}
+#emptyHint b{font-size:20px;color:#fff}
+#emptyHint .arrow{font-size:28px;animation:nudge 1.6s ease-in-out infinite}
+body.swap #emptyHint .arrow{transform:scaleX(-1)}
+@keyframes nudge{0%,100%{translate:0 0}50%{translate:-10px 0}}
+
+/* ---------- help menu ---------- */
+#helpMenu{position:fixed;z-index:100005;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 40px #000a;display:flex;flex-direction:column;min-width:230px}
+#helpMenu button,#helpMenu a{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text)}
+#helpMenu button:hover,#helpMenu a:hover{background:var(--panel2)}
+#helpBtn{font-weight:700;min-width:34px}
+
+/* ---------- help drawer ---------- */
+#helpDrawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,96vw);z-index:100003;background:var(--panel);border-left:1px solid var(--line);box-shadow:-20px 0 60px #0009;display:flex;flex-direction:column;animation:slideIn .22s ease-out}
+@keyframes slideIn{from{translate:40px 0;opacity:0}to{translate:0 0;opacity:1}}
+#helpDrawer .hd-top{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+#helpDrawer .hd-top input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text);outline:none}
+#helpDrawer .hd-top input:focus{border-color:var(--acc)}
+#helpDrawer .hd-top a{color:var(--acc2,#b9a8ff);text-decoration:none;padding:4px 8px}
+#helpDrawer .hd-body{overflow:auto;padding:8px 14px 40px;font-size:13px;line-height:1.55}
+#helpDrawer details{border-bottom:1px solid var(--line);padding:6px 0}
+#helpDrawer summary{cursor:pointer;font-weight:600;font-size:14px;padding:4px 0}
+#helpDrawer details>div{color:#c9cede}
+#helpDrawer a{color:#b9a8ff}
+#helpDrawer code,#helpDrawer kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px}
+#helpDrawer li{margin:3px 0}
+
+/* ---------- guided tour ---------- */
+#tour{position:fixed;inset:0;z-index:100004;pointer-events:auto}
+#tourHole{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px #05060ac4;transition:all .3s cubic-bezier(.2,.8,.2,1);pointer-events:none;outline:2px solid var(--acc);outline-offset:2px}
+#tourHole.center{left:50%!important;top:50%!important;width:0!important;height:0!important;outline:0}
+#tourBox{position:fixed;width:min(340px,92vw);background:var(--panel);border:1px solid #3a3f4c;border-radius:12px;padding:16px 18px;box-shadow:0 12px 40px #000b;transition:left .3s cubic-bezier(.2,.8,.2,1),top .3s cubic-bezier(.2,.8,.2,1)}
+#tourBox h3{margin:0 0 6px;font-size:16px}
+#tourBox p{margin:0 0 12px;color:#c9cede;font-size:13px;line-height:1.5}
+#tourBox .foot{display:flex;gap:6px;align-items:center}
+#tourBox .dots{flex:1;display:flex;gap:4px}
+#tourBox .dots i{width:6px;height:6px;border-radius:50%;background:var(--line);transition:background .2s,transform .2s}
+#tourBox .dots i.on{background:var(--acc);transform:scale(1.3)}
+#tourBox .extra{margin:-4px 0 12px}
+
+/* ---------- storage prompt ---------- */
+#persistBox{position:fixed;left:16px;bottom:16px;z-index:100003;width:min(360px,92vw);background:var(--panel);border:1px solid var(--acc);border-radius:12px;padding:14px 16px;box-shadow:0 12px 40px #000b}
+#persistBox h3{margin:0 0 6px;font-size:14px}
+#persistBox p{margin:0 0 10px;color:#c9cede;font-size:12px;line-height:1.5}
+
+/* ---------- settings section ---------- */
+.uiset .row label{flex:1}
+.uiset select{width:auto}
+
+/* ---------- motion: short and contextual, off with "Анимации: выкл" or the system setting ---------- */
+@keyframes paneIn{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+@keyframes popIn{from{opacity:0;scale:.94}to{opacity:1;scale:1}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #7c5cff99}100%{box-shadow:0 0 0 10px #7c5cff00}}
+@keyframes rowIn{from{background:#7c5cff44}to{background:transparent}}
+@keyframes bornIn{from{opacity:0;scale:.6}to{opacity:1;scale:1}}
+section[data-pane]:not([hidden]){animation:paneIn .2s ease-out}
+.lockbox,#tourBox,#helpMenu,#persistBox,#lvlPop{animation:popIn .18s ease-out}
+#hostTip,#lock,#tour{animation:fadeIn .2s ease-out}
+#storageRow:not([hidden]){animation:fadeIn .4s ease-out}
+.pill.changed{animation:pulse .7s ease-out}
+.layer.fresh{animation:rowIn 1s ease-out}
+.el.born .fx{animation:bornIn .25s cubic-bezier(.2,.9,.3,1.3)}
+button{transition:border-color .15s,background-color .15s,transform .08s}
+button:active:not(:disabled){transform:scale(.97)}
+#tabs button{transition:color .15s,background-color .15s}
+#upBar{transition:width .2s}
+#toast{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .25s}
+/* bright: a little more life */
+body.bright #tabs button:hover span:first-child,body.bright #tabs button:hover{animation:wiggle .4s ease}
+body.bright button:hover:not(:disabled){transform:translateY(-1px)}
+body.bright .pill.changed{animation:pulse 1s ease-out 2}
+body.bright section[data-pane]:not([hidden]){animation:paneIn .3s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes wiggle{0%,100%{rotate:0deg}30%{rotate:-4deg}60%{rotate:3deg}}
+#cheer{position:fixed;inset:0;pointer-events:none;z-index:100006}
+body.nomotion *,body.nomotion *::before,body.nomotion *::after{animation:none!important;transition:none!important}
+

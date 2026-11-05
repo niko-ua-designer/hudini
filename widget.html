@@ -64,6 +64,18 @@ const SITE = 'https://niko-ua-designer.github.io/overlay/';
 // ===============================================
 
 const WIDGET_VER=13;
+// Подсказки на самом виджете: на языке системы (OBS не знает язык пульта)
+const MSG={
+  ru:{ size:(w,h)=>`⚠ Источник «Браузер» ${w}×${h}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`,
+    host:'Для Hudini нужна программа <b>Hudini Host</b>', hostMore:s=>`Это старая ссылка. Стример запускает Hudini Host (скачать: ${s}),<br>вставляет в неё ссылку от модератора, а в OBS ставит ссылку из программы (http://localhost:7777/…).` },
+  uk:{ size:(w,h)=>`⚠ Джерело «Браузер» ${w}×${h}, а треба 16:9<small>OBS → властивості джерела → Ширина <b>1920</b>, Висота <b>1080</b> → ОК, потім Ctrl+F</small>`,
+    host:'Для Hudini потрібна програма <b>Hudini Host</b>', hostMore:s=>`Це старе посилання. Стример запускає Hudini Host (завантажити: ${s}),<br>вставляє в неї посилання від модератора, а в OBS ставить посилання з програми (http://localhost:7777/…).` },
+  de:{ size:(w,h)=>`⚠ Browser-Quelle ${w}×${h}, nötig ist 16:9<small>OBS → Eigenschaften der Quelle → Breite <b>1920</b>, Höhe <b>1080</b> → OK, dann Strg+F</small>`,
+    host:'Hudini braucht das Programm <b>Hudini Host</b>', hostMore:s=>`Das ist ein alter Link. Der Streamer startet Hudini Host (Download: ${s}),<br>fügt dort den Link vom Mod ein und nutzt in OBS den Link aus dem Programm (http://localhost:7777/…).` },
+  en:{ size:(w,h)=>`⚠ Browser source is ${w}×${h}, it must be 16:9<small>OBS → source properties → Width <b>1920</b>, Height <b>1080</b> → OK, then Ctrl+F</small>`,
+    host:'Hudini needs the <b>Hudini Host</b> app', hostMore:s=>`This is an old link. The streamer runs Hudini Host (download: ${s}),<br>pastes the moderator's link into it and uses the link from the app in OBS (http://localhost:7777/…).` },
+};
+const L=MSG[(navigator.language||'').slice(0,2).toLowerCase()]||MSG.en;
 let lastError='';
 addEventListener('error', e=>{ lastError=String(e.message||e.error||'ошибка').slice(0,200); });
 addEventListener('unhandledrejection', e=>{ lastError=String(e.reason?.message||e.reason||'ошибка').slice(0,200); });
@@ -95,7 +107,7 @@ function checkSize(){
   const w=document.getElementById('sizeWarn'); if(!w) return;
   clearTimeout(sizeT);
   if(!badRatio()){ w.classList.remove('show'); return; }
-  w.innerHTML=`⚠ Источник «Браузер» ${innerWidth}×${innerHeight}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`;
+  w.innerHTML=L.size(innerWidth, innerHeight);
   w.classList.add('show');
   sizeT=setTimeout(()=>w.classList.remove('show'), 30000);   // на стриме не висит вечно: пульт продолжит напоминать
 }
@@ -106,6 +118,7 @@ const nodes=new Map();
 let visible=true, lastState={ visible:true, els:[] };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
+  if(s.lang) STREAM_LANG=s.lang;
   lastState=s; visible=s.visible;
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
@@ -252,8 +265,7 @@ function needHost(title, more){
 }
 async function start(){
   if(!viaHost){
-    needHost('Для Hudini нужна программа <b>Hudini Host</b>',
-      `Это старая ссылка. Стример запускает Hudini Host (скачать: ${SITE.replace('https://','')}),<br>вставляет в неё ссылку от модератора, а в OBS ставит ссылку из программы (http://localhost:7777/…).`);
+    needHost(L.host, L.hostMore(SITE.replace('https://','')));
     return;
   }
   if(!room){ status('Нет кода комнаты: скопируй ссылку для OBS в пульте модератора', true); return; }

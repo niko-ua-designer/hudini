@@ -1,7 +1,7 @@
 // Hudini panel as an installable app. Network first, so updates arrive at once;
 // the cached copy is only used when the network is down. Requests to other sites (Hudini Host, Twitch, YouTube) are not touched.
 const CACHE = 'hudini-v1';
-const SHELL = ['moderator.html', 'moderator.js', 'core.js', 'core.css', 'i18n.js', 'manifest.webmanifest', 'icons/icon-192.png'];
+const SHELL = ['moderator.html', 'moderator.js', 'ui.js', 'ui.css', 'core.js', 'core.css', 'presets/animations.js', 'i18n.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
   self.skipWaiting();
