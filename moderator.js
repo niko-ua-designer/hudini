@@ -7,7 +7,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
 const PART_BYTES = 8*1048576;           // файлы уходят в программу кусками (туннель Cloudflare берёт до 100 МБ за раз)
-const HOST_DL = 'https://github.com/niko-ua-designer/overlay/releases/latest';
+const HOST_DL = 'https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1';
 // ===============================================
 
 const $ = id => document.getElementById(id);
