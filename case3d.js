@@ -162,8 +162,8 @@
     for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){ const f = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.06, 20), mRubber); f.position.set(xx * (W / 2 - 0.4), -0.02, zz * (D / 2 - 0.35)); caseG.add(f); }
     // золотые уголки: скруглённые колпачки сверху и снизу
     const capG = slab(THREE, 0.46, 0.46, 0.2, 0.2, 0.05);
-    for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for(const yy of [-0.03, H + LH - 0.17]){
-      const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.2), yy, zz * (D / 2 - 0.2)); caseG.add(cp);
+    for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){
+      const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.2), -0.03, zz * (D / 2 - 0.2)); caseG.add(cp);
     }
     // светящийся шов между корпусом и крышкой
     const seam = new THREE.Mesh(ringSlab(THREE, W + 0.004, D + 0.004, 0.03, 0.3, 0.05), mSeam); seam.position.y = H - 0.015; caseG.add(seam);
@@ -174,6 +174,8 @@
     const lidP = new THREE.Group(); lidP.position.set(0, H, -D / 2 + 0.02); caseG.add(lidP); S.lidP = lidP;
     const lid = new THREE.Mesh(slab(THREE, W, D, LH, 0.3, 0.1), mBody); lid.position.z = D / 2 - 0.02; lidP.add(lid);
     const lidIn = new THREE.Mesh(slab(THREE, W - 0.34, D - 0.34, 0.03, 0.2, 0), mFoam); lidIn.position.set(0, -0.01, D / 2 - 0.02); lidP.add(lidIn);
+    // верхние уголки едут вместе с крышкой
+    for(const [xx, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){ const cp = new THREE.Mesh(capG, mGold); cp.position.set(xx * (W / 2 - 0.2), LH - 0.17, D / 2 - 0.02 + zz * (D / 2 - 0.2)); lidP.add(cp); }
     for(const xx of [-1.2, 1.2]){ const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 20), mGold); hg.rotation.z = Math.PI / 2; hg.position.set(xx, 0.02, -0.02); lidP.add(hg); }
     // утопленная табличка с тиснением
     const plateEdge = new THREE.Mesh(slab(THREE, 2.34, 1.5, 0.035, 0.12, 0.012), mGold); plateEdge.position.set(0, LH - 0.005, D / 2 - 0.02); lidP.add(plateEdge);
@@ -289,7 +291,7 @@
     const lidK = easeOutBack((t - ct.open) / 650);
     S.lidP.rotation.x = -lidK * 1.92;
     S.mInner.emissiveIntensity = t > ct.open ? 2.2 + 6 * Math.exp(-(t - ct.open) / 600) : tense * 0.3;
-    S.innerL.intensity = t > ct.open ? 5 + 28 * Math.exp(-(t - ct.open) / 500) : 0;
+    S.innerL.intensity = t > ct.open ? 5 + 14 * Math.exp(-(t - ct.open) / 400) : 0;
     S.beamM.uniforms.time.value = t / 1000;
     const rev = t - ct.reveal;
     S.beamM.uniforms.k.value = t > ct.open ? Math.min(1, (t - ct.open) / 300) * (rev > 0 ? 1.1 + (top ? 0.8 : 0) : 0.55) : 0;
@@ -317,9 +319,9 @@
     S.cam.lookAt(0, 0.4 + back * 0.9, 0);
     // свет и вспышки
     const openFlash = t > ct.open ? Math.exp(-(t - ct.open) / 180) : 0, revFlash = rev > 0 ? Math.exp(-rev / (gold ? 320 : 220)) : 0;
-    S.mComp.uniforms.bloom.value = 0.55 + tense * 0.5 + openFlash * 1.8 + revFlash * (gold ? 2.6 : 1.6);
+    S.mComp.uniforms.bloom.value = 0.55 + tense * 0.5 + openFlash * 0.9 + revFlash * (gold ? 1.8 : 1.1);
     S.mComp.uniforms.expo.value = 0.95 - back * 0.5 * (rev > 0 ? 0.3 : 1);
-    S.mComp.uniforms.flash.value = openFlash * 0.18 + revFlash * (gold ? 0.32 : 0.18);
+    S.mComp.uniforms.flash.value = 0;   // вспышка только через bloom: заливка поверх кадра делала корпус серым
     // кадр: сцена → яркое → размытие в двух масштабах → сборка
     const r = S.renderer;
     r.setRenderTarget(S.rtScene); r.setClearColor(0x000000, 0); r.clear(); r.render(S.scene, S.cam);
