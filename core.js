@@ -10,26 +10,56 @@ const FONTS = {
   impact:`Impact,'Anton','Arial Black',${TEXT_FB},${EMOJI_FONT},sans-serif`, pixel:`'Press Start 2P','Courier New',${EMOJI_FONT},monospace`,
   comfortaa:`'Comfortaa',${TEXT_FB},${EMOJI_FONT},sans-serif`, caveat:`'Caveat',${TEXT_FB},${EMOJI_FONT},cursive`
 };
+// ---------- свои шрифты ----------
+// Файл шрифта лежит в Hudini Host как обычный файл комнаты, элемент хранит ключ 'u:<id>'.
+// Автоподгонка: у разных шрифтов разная высота букв и строки, поэтому заглавные приводим к высоте Montserrat
+// (size-adjust), а верх и низ строки к его же пропорциям. Тогда смена шрифта не ломает размер и рамку элемента.
+const UFONT_RE = /^u:([a-z0-9]{6,24})$/;
+const REF = { cap:0.70, asc:0.968, desc:0.251 };
+const UFonts = { done:new Map(),   // id → 'loading' | 'ok' | 'bad'
+  async load(id, buf){
+    const probe = new FontFace('hu-probe-'+id, buf.slice(0)); await probe.load(); document.fonts.add(probe);
+    const cx = document.createElement('canvas').getContext('2d'); cx.font = `100px 'hu-probe-${id}'`;
+    const cap = cx.measureText('H').actualBoundingBoxAscent / 100; document.fonts.delete(probe);
+    const adj = cap > 0.2 ? Math.min(1.6, Math.max(0.6, REF.cap / cap)) : 1;
+    const pc = v => (v*100).toFixed(2)+'%';
+    const f = new FontFace('hu-'+id, buf, { sizeAdjust:pc(adj), ascentOverride:pc(REF.asc/adj), descentOverride:pc(REF.desc/adj), lineGapOverride:'0%' });
+    await f.load(); document.fonts.add(f); return adj;
+  },
+  use(id){
+    if(this.done.has(id)) return;
+    const u = Assets.resolve('asset:'+id); if(!u) return;   // файл ещё качается: позовут снова после onReady
+    this.done.set(id, 'loading');
+    fetch(u).then(r => r.arrayBuffer()).then(b => this.load(id, b)).then(() => this.done.set(id, 'ok')).catch(() => this.done.set(id, 'bad'));
+  } };
+function fontOf(v){ return FONTS[v] || UFONT_RE.test(v||'') ? v : 'montserrat'; }
+function fontCss(key){
+  const m = UFONT_RE.exec(key||''); if(!m) return FONTS[key] || FONTS.montserrat;
+  UFonts.use(m[1]);
+  return `'hu-${m[1]}',${TEXT_FB},${EMOJI_FONT},sans-serif`;
+}
+const FONT_EXT = { ttf:'font/ttf', otf:'font/otf', woff:'font/woff', woff2:'font/woff2' };
+
 // ---------- надписи на стриме ----------
 // Язык выбирает модератор (Комната → «Язык надписей на стриме»), он приходит в состоянии экрана.
 const STREAM_LANGS = ['ru', 'en', 'uk', 'de'];
 let STREAM_LANG = 'ru';
 const STREAM_TXT = {
-  en:{ 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
+  en:{ "Розыгрыш":"Giveaway", "только подписчики":"subscribers only", "Пиши в чат":"Type in chat", "Пиши в чат что угодно, чтобы участвовать":"Type anything in chat to join", "Сбор закрыт, сейчас крутим!":"Entries closed, spinning now!", "Розыгрыш скоро начнётся":"Giveaway starts soon", "У подписчиков шанс x2":"Subscribers have x2 chance", "выигрывает":"wins", "Победители":"Winners", "на связи":"is here", "Напиши в чат за":"Reply in chat within", "Не ответил, перекручиваем…":"No reply, spinning again…", 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
     'Нож':'Knife', 'Флешка':'Flashbang', 'Дым':'Smoke', 'Молотов':'Molotov', 'Зажигалка':'Incendiary', 'Ложная':'Decoy',
     'заложена':'planted', 'разминируют':'defusing', 'разминирована':'defused', 'взорвалась':'exploded',
     'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
     'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
     'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
-  uk:{ 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
+  uk:{ "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
     'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
     'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
     'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
     'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
     'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
-  de:{ 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
+  de:{ "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
     'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
     'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
     'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
@@ -42,7 +72,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','raffle'];
 const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare'];
 // Виды на весь экран: своя сетка на 16:9, двигать их нельзя, чтобы ничего не съезжало
 const CS2_FULL = new Set(['hud_solo','hud_tour','table','duel','compare']);
@@ -81,6 +111,9 @@ function outline(color, wEm){
 
 // Элементы, у которых размер можно задать рамкой: тогда они не прыгают от данных
 const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg']);
+// Розыгрыш: сбор → (закрыт) → лента. Время ленты общее для пульта и виджета, поэтому все видят одно и то же
+const RAFFLE_PHASES = ['idle','collect','closed','spin'];
+const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
   const type = TYPES.includes(e.type) ? e.type : null;
@@ -90,7 +123,7 @@ function sanitizeEl(e){
     op:num(e.op,1,0,1), anim:ANIMS.includes(e.anim)?e.anim:'none', hidden:!!e.hidden };
   if(type==='text'){
     o.text=str(e.text,500); o.fs=num(e.fs,8,0.5,100);
-    o.font=FONTS[e.font]?e.font:'montserrat'; o.color=hex(e.color,'#ffffff');
+    o.font=fontOf(e.font); o.color=hex(e.color,'#ffffff');
     o.stroke=hex(e.stroke,'#000000'); o.sw=num(e.sw,6,0,10);
     o.bg=!!e.bg; o.bgColor=hex(e.bgColor,'#000000'); o.bgA=num(e.bgA,0.6,0,1);
   } else if(type==='image' || type==='video'){
@@ -105,7 +138,7 @@ function sanitizeEl(e){
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
   } else if(type==='cs2'){
     o.view=CS2_VIEWS.includes(e.view)?e.view:'card';
-    o.fs=num(e.fs,4,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.fs=num(e.fs,4,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#ffb020');
     o.label=str(e.label,40); o.side=['both','ct','t'].includes(e.side)?e.side:'both';
     o.minK=Math.round(num(e.minK,2,1,5));
@@ -114,16 +147,32 @@ function sanitizeEl(e){
     o.av={}; if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
+    o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip;
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
   } else if(type==='msg'){
     o.user=str(e.user,40); o.ucolor=hex(e.ucolor,'#a78bfa'); o.text=str(e.text,500);
     o.emotes=(Array.isArray(e.emotes)?e.emotes:[]).slice(0,80).map(x=>[str(x?.[0],40).replace(/[^A-Za-z0-9_]/g,''), Math.round(num(x?.[1],0,0,600)), Math.round(num(x?.[2],0,0,600))]).filter(x=>x[0] && x[2]>=x[1]);
     o.badge=['mod','vip','sub','broadcaster',''].includes(e.badge)?e.badge:'';
-    o.fs=num(e.fs,3,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
     o.maxw=num(e.maxw,38,10,100);
+  } else if(type==='raffle'){
+    o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
+    o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');
+    o.title=str(e.title,80); o.prize=str(e.prize,120); o.pimg=safeSrc(e.pimg)||'';
+    o.entry=['word','any'].includes(e.entry)?e.entry:'word'; o.kw=str(e.kw,30).trim()||'!участвую';
+    o.subs=!!e.subs; o.subx2=e.subx2!==false; o.auto=e.auto!==false;
+    o.phase=RAFFLE_PHASES.includes(e.phase)?e.phase:'idle';
+    o.closeAt=num(e.closeAt,0,0,1e15); o.n=Math.round(num(e.n,0,0,1e7));
+    o.reel=(Array.isArray(e.reel)?e.reel:[]).slice(0,RAFFLE_REEL).map(x=>[str(x?.[0],40), Math.round(num(x?.[1],0,0,4))]);
+    o.spinAt=num(e.spinAt,0,0,1e15); o.jit=num(e.jit,0,-0.45,0.45);
+    o.winner=str(e.winner,40); o.wlogin=str(e.wlogin,40).toLowerCase();
+    o.winners=(Array.isArray(e.winners)?e.winners:[]).slice(-50).map(x=>str(x,40)).filter(Boolean);
+    o.confirm=Math.round(num(e.confirm,0,0,600)); o.cUntil=num(e.cUntil,0,0,1e15); o.ok=!!e.ok;
+    o.snd=safeSrc(e.snd)||''; o.vfx=safeSrc(e.vfx)||''; o.key=e.key!==false; o.kc=hex(e.kc,'#00ff00'); o.ksim=num(e.ksim,0.4,0.05,0.9);
+    o.fxc=e.fxc!==false; o.ticks=e.ticks!==false;
   } else if(type==='poll'){
-    o.fs=num(e.fs,3.2,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.fs=num(e.fs,3.2,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
     o.title=str(e.title,100);
     o.opts=(Array.isArray(e.opts)?e.opts:[]).slice(0,6).map(x=>str(x,40));
@@ -131,7 +180,7 @@ function sanitizeEl(e){
     o.votes=o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));
     o.running=!!e.running; o.closeAt=num(e.closeAt,0,0,1e15);   // закрыть само в это время (0 = вручную)
   } else {
-    o.fs=num(e.fs,10,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
+    o.fs=num(e.fs,10,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24');
     o.style=STYLES.includes(e.style)?e.style:'flip'; o.label=str(e.label,80);
     o.running=!!e.running; o.startAt=num(e.startAt,0,0,1e15);
@@ -221,7 +270,9 @@ function animApply(node, el, now){
 
 function sanitizeState(m){
   const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
-  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null };
+  const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
+    .filter(f => /^[a-z0-9]{6,24}$/.test(f?.id||'')).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
+  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts };
 }
 
 // ---------- время ----------
@@ -258,6 +309,90 @@ function twState(el, now){
   const ms = el.mode==='until' ? (el.target ? el.target-now : 0) : (el.running ? el.endAt-now : el.left);
   const ended = ms<=0 && (el.mode==='until' ? el.target>0 : el.dur>0);
   return { text: ended && el.endText ? el.endText : fmtDur(Math.max(0, ms), true), ended };
+}
+
+// ---------- розыгрыш: сбор в чате, открытие кейса, лента как в CS2, победитель ----------
+const RARITY = ['#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
+// Звуки и эффекты на стриме задаёт виджет; в пульте превью молчит
+const RaffleFx = { tick(){}, win(){}, open(){} };
+const rEase = p => 1 - Math.pow(1 - p, 4);
+function rh(tag, cls, text){ const n=document.createElement(tag); if(cls) n.className=cls; if(text!=null) n.textContent=text; return n; }
+function rafPrize(el){
+  const p=rh('div','rf-prize'); if(!el.prize && !el.pimg) return p;
+  if(el.pimg){ const im=rh('img'); im.alt=''; im.src=resolveSrc(el.pimg); p.appendChild(im); }
+  if(el.prize) p.appendChild(rh('b',null,el.prize));
+  return p;
+}
+function rafCard(name, rar, win){
+  const c=rh('div','rf-card'+(win?' win':'')); c.style.setProperty('--r', RARITY[rar]||RARITY[0]);
+  const ini=String(name||'?').replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase()||'?';
+  c.append(rh('div','rf-ava',ini), rh('div','rf-nm',name)); return c;
+}
+function paintRaffle(c, el){
+  const sig=JSON.stringify([el.phase, el.title, el.prize, el.pimg && resolveSrc(el.pimg), el.entry, el.kw, el.subs, el.subx2, el.spinAt, el.winner, el.winners, el.confirm, el.ok, STREAM_LANG]);
+  if(el.snd) resolveSrc(el.snd); if(el.vfx) resolveSrc(el.vfx);   // заранее скачать звук и видео победы, чтобы не опоздали
+  if(c._sig===sig){ raffleTick(c, el, nowMs()); return; }
+  c._sig=sig; c.dataset.phase=el.phase; c.replaceChildren();
+  const head=rh('div','rf-head'); head.append(rh('span','rf-ic','🎁'), rh('b',null, el.title || st('Розыгрыш')));
+  if(el.subs) head.appendChild(rh('span','rf-tag', st('только подписчики')));
+  c.appendChild(head);
+  if(el.phase==='idle' || el.phase==='collect' || el.phase==='closed'){
+    c.appendChild(rafPrize(el));
+    const how=rh('div','rf-how');
+    if(el.phase==='collect'){
+      if(el.entry==='word'){ how.append(document.createTextNode(st('Пиши в чат')+' ')); how.appendChild(rh('code',null,el.kw)); }
+      else how.textContent=st('Пиши в чат что угодно, чтобы участвовать');
+    } else how.textContent = el.phase==='closed' ? st('Сбор закрыт, сейчас крутим!') : st('Розыгрыш скоро начнётся');
+    c.appendChild(how);
+    const foot=rh('div','rf-foot'); foot.append(rh('span','rf-n'), rh('span','rf-t')); c.appendChild(foot);
+    if(el.subx2 && !el.subs && el.phase!=='closed') c.appendChild(rh('div','rf-note', st('У подписчиков шанс x2')));
+  } else {
+    // лента: окно, полоса карточек, стрелка по центру
+    const stg=rh('div','rf-stage');
+    const box=rh('div','rf-case'); box.append(rh('div','rf-lid'), rh('div','rf-body'), rh('div','rf-glow'));
+    const win=rh('div','rf-win'), strip=rh('div','rf-strip');
+    el.reel.forEach(([n,r],i)=>strip.appendChild(rafCard(n, r, i===RAFFLE_WIN)));
+    win.append(strip, rh('div','rf-mark')); stg.append(box, win); c.appendChild(stg);
+    const res=rh('div','rf-res');
+    const wn=rh('div','rf-wname'); wn.append(rh('span','rf-cup','🏆'), rh('b',null, el.winner));
+    res.append(wn, rh('div','rf-wins', st('выигрывает')), rafPrize(el), rh('div','rf-conf'));
+    c.appendChild(res);
+    const others=el.winners.filter(w=>w!==el.winner);
+    if(others.length) c.appendChild(rh('div','rf-list', st('Победители')+': '+others.join(', ')));
+    c._strip=strip; c._box=box; c._res=res; c._lastIdx=-1;
+  }
+  raffleTick(c, el, nowMs());
+}
+function raffleTick(c, el, now){
+  if(el.phase!=='spin'){
+    const n=c.querySelector('.rf-n'), t=c.querySelector('.rf-t');
+    if(n){ const v=`👥 ${el.n}`; if(n.textContent!==v) n.textContent=v; }
+    if(t){ const left = el.phase==='collect' && el.closeAt ? Math.max(0, Math.ceil((el.closeAt-now)/1000)) : 0;
+      const v = left ? `⏳ ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}` : ''; if(t.textContent!==v) t.textContent=v; }
+    return;
+  }
+  const t=now-el.spinAt;
+  c.classList.toggle('opening', t < RAFFLE_OPEN);
+  c.classList.toggle('done', t >= RAFFLE_OPEN + RAFFLE_SPIN);
+  c.classList.toggle('reveal', t >= RAFFLE_OPEN + RAFFLE_SPIN + 700);
+  if(c._box && t>=0 && t<RAFFLE_OPEN && c._opened!==el.spinAt){ c._opened=el.spinAt; RaffleFx.open(el); }
+  const conf=c.querySelector('.rf-conf');
+  if(conf){
+    let v='';
+    if(el.confirm){ if(el.ok) v='✅ '+st('на связи'); else { const l=Math.max(0, Math.ceil((el.cUntil-now)/1000)); v = l ? `⌛ ${st('Напиши в чат за')} ${Math.floor(l/60)}:${String(l%60).padStart(2,'0')}` : st('Не ответил, перекручиваем…'); } }
+    if(conf.textContent!==v) conf.textContent=v; conf.classList.toggle('ok', el.ok);
+  }
+  if(c._won!==el.spinAt && t >= RAFFLE_OPEN + RAFFLE_SPIN + 700){ c._won=el.spinAt; if(t < RAFFLE_OPEN + RAFFLE_SPIN + 8000) RaffleFx.win(el); }
+  if(!c._loop){ c._loop=true; const step=()=>{ if(!c.isConnected || !c._strip){ c._loop=false; return; } rafFrame(c, el, nowMs()); if(nowMs()-el.spinAt < RAFFLE_OPEN+RAFFLE_SPIN+200) requestAnimationFrame(step); else { rafFrame(c, el, nowMs()); c._loop=false; } }; requestAnimationFrame(step); }
+}
+// Положение ленты считается от общего времени: открывший стрим позже увидит тот же кадр
+function rafFrame(c, el, now){
+  const p=Math.min(1, Math.max(0, (now-el.spinAt-RAFFLE_OPEN)/RAFFLE_SPIN));
+  const target=(RAFFLE_WIN + 0.5 + el.jit*0.8)*RAFFLE_STEP - 0.2;   // центр выигрышной карточки (со смещением) под стрелкой
+  const x=target*rEase(p);
+  c._strip.style.transform=`translate3d(${(-x).toFixed(3)}em,0,0)`;
+  const idx=Math.floor((x+0.2)/RAFFLE_STEP);
+  if(idx!==c._lastIdx){ if(c._lastIdx>=0 && p>0 && p<1) RaffleFx.tick(el); c._lastIdx=idx; }
 }
 
 // ---------- флип-цифры ----------
@@ -314,6 +449,7 @@ function buildNode(el){
   } else if(el.type==='image'){ c=document.createElement('img'); c.alt=''; c.draggable=false; }
   else if(el.type==='cs2'){ c=document.createElement('div'); c.className='cs2'; }
   else if(el.type==='msg'){ c=document.createElement('div'); c.className='msg'; }
+  else if(el.type==='raffle'){ c=document.createElement('div'); c.className='raf'; }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -352,7 +488,7 @@ function paintNode(node, el, z){
     node.style.width='';
     if(c.textContent!==el.text) c.textContent=el.text;
     c.style.fontSize=`calc(var(--u) * ${el.fs})`;
-    c.style.fontFamily=FONTS[el.font];
+    c.style.fontFamily=fontCss(el.font);
     c.style.color=el.color;
     c.style.textShadow=outline(el.stroke, el.sw*0.01);
     c.style.background=el.bg ? rgba(el.bgColor, el.bgA) : 'transparent';
@@ -366,7 +502,7 @@ function paintNode(node, el, z){
     node.classList.toggle('loading', !url);
   } else if(el.type==='msg'){
     node.style.width='';
-    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     c.style.maxWidth=`calc(var(--u) * ${(el.maxw*16/9).toFixed(2)})`;
     const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.badge]);
@@ -374,15 +510,20 @@ function paintNode(node, el, z){
   } else if(el.type==='cs2'){
     const full=CS2_FULL.has(el.view);
     node.style.width = full ? '100%' : ''; node.classList.toggle('full', full);
-    c.classList.toggle('full', full); c.classList.toggle('glow', full && el.glow); c.dataset.fx = el.fx;
+    c.classList.toggle('full', full); c.classList.toggle('glow', full && el.glow); c.dataset.fx = el.fx; c.dataset.theme = el.theme;
     c.style.setProperty('--ct', el.ctc); c.style.setProperty('--tt', el.tc);
-    c.style.fontSize = full ? `calc(var(--u) * ${(el.fs/4*1.6).toFixed(3)})` : `calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.fontSize = full ? `calc(var(--u) * ${(el.fs/4*1.85).toFixed(3)})` : `calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     c.dataset.view=el.view;
     paintCs2(c, el);
+  } else if(el.type==='raffle'){
+    node.style.width='';
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
+    c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
+    paintRaffle(c, el);
   } else if(el.type==='poll'){
     node.style.width='';
-    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     const [title, rows, foot]=c.children;
     if(title.textContent!==el.title) title.textContent=el.title; title.hidden=!el.title;
@@ -418,7 +559,7 @@ function paintNode(node, el, z){
     node.style.width='';
     c.dataset.st=el.style;
     c.style.fontSize=`calc(var(--u) * ${el.fs})`;
-    c.style.fontFamily=FONTS[el.font];
+    c.style.fontFamily=fontCss(el.font);
     c.style.color=el.color;
     c.style.setProperty('--card', el.card);
     c.style.setProperty('--c', el.color);
@@ -445,13 +586,14 @@ function pollFoot(foot, el, now){
   if(foot.textContent !== t) foot.textContent = t;
 }
 function tickNode(node, el, now){
+  if(el.type==='raffle'){ const c=node.querySelector('.raf'); if(c) raffleTick(c, el, now); return null; }
   if(el.type==='poll'){ const f=node.querySelector('.poll')?.children[2]; if(f) pollFoot(f, el, now); return null; }
   if(el.type==='cs2'){
     const c=node.querySelector('.cs2'); if(!c) return null;
     if(el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0));
     if(el.view==='scorebar'){ const t=c.querySelector('.sb-time'); if(t) t.textContent=cs2Timer(); }
     if(CS2_FULL.has(el.view)){
-      const t=c.querySelector('.hd-time'); if(t){ const v=cs2Timer(); if(t.textContent!==v) t.textContent=v; }
+      const t=c.querySelector('.hd-time'); if(t){ const v=cs2Timer(); if(el.flip){ if(t._prev!==v){ flipFill(t, v, t._prev); t._prev=v; } } else if(t.textContent!==v) t.textContent=v; }
       if(el.view==='duel' && c._duel && Date.now()>(c._duntil||0) && c.querySelector('.hd-vs')){ c._sig=null; paintCs2(c, el); }
       if(c._feedT!==Math.floor(Date.now()/1000)){ c._feedT=Math.floor(Date.now()/1000); if(c.querySelector('.hd-kill')){ c._sig=null; paintCs2(c, el); } }
     }
@@ -596,7 +738,7 @@ function playerSeek(node, el, d){
 // Файл хранится в программе стримера Hudini Host. Пульт шифрует и подписывает его ключами комнаты,
 // программа держит байты как есть, виджет и пульты скачивают и проверяют подпись.
 // Формат открытой части: [4 байта длина заголовка][заголовок JSON { id, mime, size, name }][байты файла]
-const MIME_RE = /^(image|video|audio)\/[\w.+-]+$/;
+const MIME_RE = /^(image|video|audio|font)\/[\w.+-]+$/;
 async function packAsset(keys, blob, id, name){
   const head = TE.encode(JSON.stringify({ id, mime:blob.type, size:blob.size, name:str(name, 80) }));
   const data = new Uint8Array(4 + head.length + blob.size);
@@ -751,7 +893,7 @@ function paintCs2(c, el){
   const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
   const name = el.label || d.name || st('Игрок');
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
-  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(h('b',null,String(v??0)), h('i',null,l)); } r.append(h('span','c-kd','K/D '+kd)); return r; };
+  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(fnum(c, el, 'c'+l, String(v??0)), h('i',null,l)); } r.append(h('span','c-kd','K/D '+kd)); if(d.adr!=null){ r.append(h('i',null,'ADR')); r.append(fnum(c, el, 'cadr', String(d.adr))); } return r; };
   const parts=[];
   switch(el.view){
     case 'card': {
@@ -759,7 +901,7 @@ function paintCs2(c, el){
       const bars=h('div','c-hprow');
       if(d.alive===false){ bars.append(h('span','c-dead', d.spectating ? `💀 ${st('смотрит')} ${d.spectating}` : '💀 '+st('мёртв'))); }
       else { bars.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0))); }
-      const bot=h('div','c-bot'); bot.append(h('span','c-money', money(d.money)), h('span','c-weap', d.weapon ? `${weaponName(d.weapon)}${d.ammoMax>0?` ${d.ammo}/${d.reserve}`:''}` : ''));
+      const bot=h('div','c-bot'); bot.append(fnum(c, el, 'c$', money(d.money), 'c-money'), h('span','c-weap', d.weapon ? `${weaponName(d.weapon)}${d.ammoMax>0?` ${d.ammo}/${d.reserve}`:''}` : ''));
       parts.push(top, kdaRow(), bars, bot); break;
     }
     case 'kda': parts.push(h('div','c-cap', name), kdaRow()); break;
@@ -770,10 +912,10 @@ function paintCs2(c, el){
       parts.push(r); break;
     }
     case 'score': {
-      const r=h('div','c-score'); r.append(h('span','c-ct','CT'), h('b',null,String(d.ct??0)), h('span','c-sep',':'), h('b',null,String(d.tt??0)), h('span','c-t','T'));
+      const r=h('div','c-score'); r.append(h('span','c-ct','CT'), fnum(c, el, 'sc', String(d.ct??0)), h('span','c-sep',':'), fnum(c, el, 'st', String(d.tt??0)), h('span','c-t','T'));
       parts.push(r, h('div','c-map', `${mapName(d.map)}${d.round!=null?' · '+st('раунд')+' '+(d.round+1):''}`)); break;
     }
-    case 'money': parts.push(h('div','c-big c-money', money(d.money))); break;
+    case 'money': parts.push(fnum(c, el, 'm$', money(d.money), 'c-big c-money')); break;
     case 'observed': {
       const o = d.observed || (d.spec ? null : { ...d, alive:d.alive!==false });
       if(!o){ parts.push(h('div','c-none',st('👁 Наблюдатель: выбери игрока'))); break; }
@@ -820,6 +962,25 @@ function paintCs2(c, el){
   c.replaceChildren(...parts);
 }
 
+// ---------- флип-цифры: каждая цифра на своей плашке, при смене перелистывается ----------
+// Значения прошлой отрисовки хранятся на контейнере элемента по ключу, поэтому анимация идёт только у изменившихся цифр
+function flipFill(box, text, prev){
+  box.replaceChildren();
+  const t=String(text), p=prev==null ? t : String(prev), off=p.length-t.length;
+  for(let i=0;i<t.length;i++){
+    const ch=t[i], digit=/[0-9]/.test(ch);
+    const sp=document.createElement('span'); sp.className = digit ? 'fd' : 'fs'; sp.textContent=ch;
+    if(digit && prev!=null && p[i+off]!==ch) sp.classList.add('go');
+    box.appendChild(sp);
+  }
+}
+function fnum(c, el, key, text, cls){
+  if(!el.flip) return h('b', cls||null, String(text));
+  c._flip ||= {};
+  const b=h('b', 'flipn'+(cls?' '+cls:'')); flipFill(b, text, c._flip[key]); c._flip[key]=String(text);
+  return b;
+}
+
 // ---------- турнирный и соло HUD, таблица, дуэль, сравнение ----------
 const NADE_IC = { he:'💥', flash:'⚡', smoke:'☁', molly:'🔥', decoy:'🎯' };
 function avatar(el, p, cls){
@@ -847,7 +1008,7 @@ function playerCard(c, el, p, obs){
   card.appendChild(top);
   const bar=h('div','hd-bar'), f=h('div','hd-fill'); f.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; f.style.background=hpColor(p.hp||0); bar.appendChild(f);
   card.append(bar, h('div','hd-name', p.name||'?'));
-  const row=h('div','hd-row'); row.append(h('span',null,`${p.k??0} / ${p.d??0}`), h('span','hd-money', money(p.money)));
+  const key=p.id||p.name, row=h('div','hd-row'); row.append(fnum(c, el, key+'kd', `${p.k??0}/${p.d??0}`), fnum(c, el, key+'$', money(p.money), 'hd-money'));
   card.appendChild(row);
   const low=h('div','hd-low');
   if(p.alive===false) low.append(h('span','hd-dmgl', st('урон за раунд')), h('b',null, String(p.dmg||0)));
@@ -867,10 +1028,10 @@ function bigCard(c, el, p){
   bars.append(h('b','hd-bhp', p.alive===false?'💀':String(p.hp??0)), hb, h('span','hd-bar-ar', (p.helmet?'🪖 ':'🛡 ')+(p.armor??0)));
   mid.appendChild(bars);
   const stats=h('div','hd-bstats');
-  for(const [l,v] of [['K',p.k??0],['D',p.d??0],['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), h('b',null,String(v)));
+  for(const [l,v] of [['K',p.k??0],['D',p.d??0],['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), fnum(c, el, 'big'+l, String(v)));
   mid.appendChild(stats);
   const right=h('div','hd-bright');
-  right.append(h('div','hd-money', money(p.money)), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), h('div','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join(' ')));
+  right.append(fnum(c, el, 'big$', money(p.money), 'hd-money'), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), h('div','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join(' ')));
   card.append(mid, right);
   hpDrop(c, p, card);
   return card;
@@ -881,8 +1042,9 @@ function scoreTop(el, d, withSeries){
     if(lg){ const i=document.createElement('img'); i.src=resolveSrc(lg); i.alt=''; b.appendChild(i); }
     b.appendChild(h('span','hd-tname', (side==='ct'?(el.tnCT||d.ctName):(el.tnT||d.tName)) || (side==='ct'?'CT':'T'))); return b; };
   const mid=h('div','hd-mid');
-  mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), h('div','hd-time'+(d.pphase==='bomb'?' bomb':''), cs2Timer()));
-  top.append(team('ct'), h('b','hd-n tm-ct', String(d.ct??0)), mid, h('b','hd-n tm-t', String(d.tt??0)), team('t'));
+  const tm=h('div','hd-time'+(d.pphase==='bomb'?' bomb':'')+(el.flip?' flipn':'')); if(el.flip){ flipFill(tm, cs2Timer(), null); tm._prev=cs2Timer(); } else tm.textContent=cs2Timer();
+  mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), tm);
+  top.append(team('ct'), fnum(scoreTop.c, el, 'sct', String(d.ct??0), 'hd-n tm-ct'), mid, fnum(scoreTop.c, el, 'stt', String(d.tt??0), 'hd-n tm-t'), team('t'));
   const wrap=h('div','hd-top'); wrap.appendChild(top);
   if(withSeries && el.series) wrap.appendChild(h('div','hd-series', el.series));
   return wrap;
@@ -905,7 +1067,7 @@ function statRows(a, b){
     const r=h('div','hd-crow'), tot=Math.max(1, x+y);
     const better = x===y ? 0 : ((x>y) !== !!lowGood ? -1 : 1);
     const L=h('div','hd-cl'+(better<0?' win':'')), R=h('div','hd-cr'+(better>0?' win':''));
-    L.append(h('b',null, l==='$'?money(x):String(x))); R.append(h('b',null, l==='$'?money(y):String(y)));
+    L.append(fnum(statRows.c, statRows.el, 'cl'+l, l==='$'?money(x):String(x))); R.append(fnum(statRows.c, statRows.el, 'cr'+l, l==='$'?money(y):String(y)));
     const bar=h('div','hd-cbar'), fl=h('i','tm-'+(a.team==='T'?'t':'ct')), fr=h('i','tm-'+(b.team==='T'?'t':'ct'));
     fl.style.width=(x/tot*100)+'%'; fr.style.width=(y/tot*100)+'%'; bar.append(fl, fr);
     r.append(L, h('span','hd-cl-l', l), bar, R); box.appendChild(r);
@@ -921,6 +1083,7 @@ function vsCard(c, el, a, b, title){
   return w;
 }
 function paintHud(c, el, d){
+  scoreTop.c=c; statRows.c=c; statRows.el=el;
   // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
   const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
   const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
@@ -952,7 +1115,7 @@ function paintHud(c, el, d){
         const r=h('div','hd-tr'+(p.alive===false?' dead':''));
         r.append(avatar(el, p, 'hd-tav'), h('span','hd-tn', p.name||'?'));
         const diff=(p.k??0)-(p.d??0);
-        for(const v of [p.k??0, p.d??0, p.a??0, (diff>0?'+':'')+diff, p.adr??0, (p.hsp??0)+'%', p.mvps??0, money(p.money)]) r.appendChild(h('b',null,String(v)));
+        [p.k??0, p.d??0, p.a??0, (diff>0?'+':'')+diff, p.adr??0, (p.hsp??0)+'%', p.mvps??0, money(p.money)].forEach((v,i)=>r.appendChild(fnum(c, el, 't'+(p.id||p.name)+i, String(v))));
         sec.appendChild(r);
       }
       t.appendChild(sec);

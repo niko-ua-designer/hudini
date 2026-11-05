@@ -31,6 +31,68 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await wid.$$eval('.poll', n => n.length)) === 1), 'poll on stream');
   });
 
+  await step('giveaway: entries from chat, sub-only and x2, case reel lands on the winner, confirm and reroll', async () => {
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=raffle]');
+    await mod.fill('#iRPrize', 'AK-47 | Redline'); await mod.dispatchEvent('#iRPrize', 'change');
+    await mod.fill('#rSecs', '60'); await mod.click('#rStart');
+    await irc('Alice', '!участвую'); await irc('Bob', 'привет'); await irc('Carl', '!участвую', 'subscriber/12'); await irc('Alice', '!участвую');
+    let r = await mod.evaluate(() => state.els.find(e => e.type === 'raffle'));
+    eq([r.phase, r.n], ['collect', 2], 'two entrants: keyword only, one entry per viewer');
+    check(await until(async () => (await wid.textContent('.raf')).includes('!участвую')), 'stream shows how to join');
+    await mod.click('label.tgl:has(#iRSubs)'); await irc('Dan', '!участвую'); await irc('Eve', '!участвую', 'subscriber/3');
+    eq(await mod.evaluate(() => [...rafEntries(state.els.find(e => e.type === 'raffle').id).keys()]), ['alice', 'carl', 'eve'], 'subscribers-only blocks Dan');
+    const wins = await mod.evaluate(() => { const el = state.els.find(e => e.type === 'raffle'); const c = {}; for (let i = 0; i < 3000; i++) { const w = rafPick(el).win[0]; c[w] = (c[w] || 0) + 1; } return c; });
+    check(wins.carl > wins.alice * 1.6 && wins.eve > wins.alice * 1.6, `subs win about twice as often (${JSON.stringify(wins)})`);
+    await mod.fill('#iRConfirm', '3'); await mod.dispatchEvent('#iRConfirm', 'change');
+    await mod.click('#rSpin');
+    r = await mod.evaluate(() => state.els.find(e => e.type === 'raffle'));
+    eq([r.phase, r.reel.length, r.reel[62][0]], ['spin', 72, r.winner], 'reel is built with the winner in the winning slot');
+    check(await until(() => wid.evaluate(() => !!document.querySelector('.raf.reveal')), 12000), 'stream reveals the winner after the case and the reel');
+    const pos = await wid.evaluate(() => { const m = document.querySelector('.rf-mark').getBoundingClientRect(), c = document.querySelector('.rf-card.win').getBoundingClientRect(); return [m.left, c.left, c.right]; });
+    check(pos[0] > pos[1] && pos[0] < pos[2], 'the marker stops on the winning card');
+    check((await wid.textContent('.rf-res')).includes(r.winner), 'winner name shown');
+    const first = r.winner;
+    await irc(first, 'я тут'); await sleep(150);
+    check(await mod.evaluate(() => state.els.find(e => e.type === 'raffle').ok), 'winner confirmed by writing in chat');
+    await mod.click('#rSpin'); r = await mod.evaluate(() => state.els.find(e => e.type === 'raffle'));
+    check(r.winner !== first && r.winners.includes(first), 'next winner: previous one drops out');
+    const second = r.winner;
+    check(await until(async () => (await mod.evaluate(() => state.els.find(e => e.type === 'raffle').winner)) !== second, 16000), 'no reply in time → spins again without them');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'raffle'); selectedId = null; commit(); });
+  });
+
+  await step('own fonts: dropped onto the stage, stored in Hudini Host, same line height as the built-in font', async () => {
+    await mod.click('[data-tab=add]'); await mod.fill('#newText', 'Шрифт 123'); await mod.click('#addText');
+    const box = () => wid.evaluate(() => [...document.querySelectorAll('.el')].find(n => n.textContent.includes('Шрифт 123'))?.querySelector('.content')?.getBoundingClientRect().height);
+    check(await until(box), 'text on stream');
+    const mont = await until(() => wid.evaluate(() => document.fonts.check('900 20px Montserrat')), 8000);
+    await sleep(300); const h0 = await box();
+    const font = fs.readFileSync(path.join(__dirname, 'fixtures', 'font.ttf'));
+    const dt = await mod.evaluateHandle(b64 => { const d = new DataTransfer(); const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); d.items.add(new File([bin], 'MyFont.ttf')); return d; }, font.toString('base64'));
+    await mod.dispatchEvent('#stage', 'drop', { dataTransfer: dt });
+    check(await until(() => mod.evaluate(() => (state.fonts || []).some(f => f.name === 'MyFont'))), 'font added to the room list');
+    const key = await mod.evaluate(() => state.els.find(e => e.type === 'text' && e.text === 'Шрифт 123').font);
+    check(/^u:/.test(key), 'selected element switched to the new font');
+    check(await mod.evaluate(() => [...I('iFont').options].some(o => o.textContent === 'MyFont')), 'font is in the font list');
+    check(await until(() => wid.evaluate(k => [...document.fonts].some(f => f.family.replace(/"/g, '') === 'hu-' + k.slice(2) && f.status === 'loaded'), key)), 'widget downloads and loads the font from Hudini Host');
+    await sleep(200); const h1 = await box();
+    if (mont) check(Math.abs(h1 - h0) < 1.5, `auto-fit keeps the height of Montserrat (${h0.toFixed(1)} → ${h1.toFixed(1)})`);
+    else check(Math.abs(h1 / (await wid.evaluate(() => parseFloat(getComputedStyle([...document.querySelectorAll('.el')].find(n => n.textContent.includes('Шрифт 123')).querySelector('.txt')).fontSize))) - 1.219) < 0.03, 'auto-fit: line height matches Montserrat proportions (web font offline here)');
+  });
+
+  await step('HUD styles and flip digits, line icons in the panel', async () => {
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'card');
+    await mod.selectOption('#iCsTheme', 'ko'); await mod.click('label.tgl:has(#iCsFlip)');
+    const el = await mod.evaluate(() => state.els.at(-1));
+    eq([el.theme, el.flip, el.font], ['ko', true, 'russo'], 'KO style, flip on, blocky font picked for it');
+    check(await until(() => wid.evaluate(() => [...document.querySelectorAll('.cs2')].some(c => c.dataset.theme === 'ko'))), 'style reaches the stream');
+    eq(await mod.evaluate(() => sanitizeEl({ id: 'x', type: 'cs2' }).theme), 'glass', 'glass is the default style');
+    const left = await mod.evaluate(() => { const re = /\p{Extended_Pictographic}/u, out = []; const w = document.createTreeWalker(document.querySelector('aside'), NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) if (re.test(n.data) && !n.parentElement.closest('[data-i18n-skip],#stage') && n.parentElement.offsetParent) out.push(n.data.trim()); return out; });
+    eq(left, [], 'no emoji left in the panel, only line icons');
+    check(await mod.evaluate(() => document.querySelectorAll('aside svg.ic').length > 20), 'icons are drawn');
+  });
+
   await step('chat commands for trusted people, timed poll, timer command', async () => {
     await mod.click('[data-tab=chat]');
     const poll = () => mod.evaluate(() => { const p = state.els.find(e => e.type === 'poll'); return { running:p.running, closeAt:p.closeAt }; });
@@ -100,6 +162,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'scorebar');
     eq(await until(() => wid.$$eval('.tm-row', n => n.length || 0)), 10, 'team panels list 10 players');
     eq(await wid.$$eval('.tm-row.dead', n => n.length), 1, 'dead player marked');
+    check(await until(() => wid.$('.sb-time')), 'score bar on stream');
     const t1 = await wid.$eval('.sb-time', x => x.textContent); await sleep(2100); const t2 = await wid.$eval('.sb-time', x => x.textContent);
     check(t1 !== t2, `bomb timer ticks ${t1} → ${t2}`);
     check((await mod.$eval('#iCsView option[value=teams]', o => o.textContent)).startsWith('α'), 'observer views carry the α mark');

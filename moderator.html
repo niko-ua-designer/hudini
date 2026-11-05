@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="core.css?v=11">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
 <script src="i18n.js?v=3"></script>
+<script src="icons.js?v=1"></script>
 <script src="core.js?v=15"></script>
 <script src="presets/animations.js?v=1"></script>
 <style>
@@ -259,7 +260,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <h2>Картинки, видео, сайты</h2>
     <input id="newUrl" type="url" placeholder="Ссылка: картинка, GIF, видео, YouTube, Twitch, сайт">
     <div class="row"><button id="addUrl" class="primary grow">➕ По ссылке</button><button id="pickFile">📁 Файл</button></div>
-    <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+    <input type="file" id="fileInput" accept="image/*,video/*,.ttf,.otf,.woff,.woff2" multiple hidden>
     <div class="hint">Файлы и картинки можно перетащить на холст или вставить через Ctrl+V.</div>
     <div class="row" id="storageRow" hidden><span id="storageInfo" class="hint grow" style="margin:0"></span><button id="cleanFiles" title="Удалить неиспользуемые файлы">🧹</button></div>
     <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
@@ -274,6 +275,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button data-add="chatcounter">💬 Счётчик чата</button>
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2">🎯 CS2</button>
+      <button data-add="raffle" style="grid-column:span 2">🎁 Розыгрыш с рулеткой</button>
       <button id="addCam" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
     </div>
 
@@ -524,6 +526,8 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
       <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
+      <div class="row"><span class="hint">Стиль</span><select id="iCsTheme" class="grow"><option value="classic">Классика</option><option value="glass">Киберспорт стекло</option><option value="ko">KO: фирменный сине-фиолетовый</option></select></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iCsFlip"><span class="tgl-k"></span><span>Флип-цифры в стате <span class="hint">(кроме HP)</span></span></label>
       <div id="csHud">
         <div class="row" id="csPickRow"><span class="hint">Игрок</span><select id="iCsPick" class="grow"></select></div>
         <div class="row" id="csCmpRow"><select id="iCsPa" class="grow"></select><span class="hint">vs</span><select id="iCsPb" class="grow"></select></div>
@@ -543,6 +547,35 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <input type="file" id="csAvFile" accept="image/*" hidden>
       </div>
       <div class="hint" id="csStatus"></div>
+    </div>
+
+    <!-- розыгрыш -->
+    <div data-for="raffle" class="box">
+      <div class="t">🎁 Розыгрыш</div>
+      <input type="text" id="iRTitle" placeholder="Заголовок, например: Розыгрыш скина">
+      <div class="row"><input type="text" id="iRPrize" class="grow" placeholder="Приз, например: AK-47 | Redline"><button id="rPimg" title="Картинка приза">🖼</button><button id="rPimgDel" title="Убрать картинку" hidden>🗑</button></div>
+      <div class="lbl">Как участвовать</div>
+      <div class="row"><select id="iREntry" class="grow"><option value="word">Написать слово</option><option value="any">Любое сообщение</option></select><input type="text" id="iRKw" placeholder="!участвую" style="width:120px"></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubs"><span class="tgl-k"></span><span>Только для подписчиков</span></label>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubx2"><span class="tgl-k"></span><span>Подписчикам шанс x2</span></label>
+      <div class="row" style="margin-top:8px"><span class="hint">Сбор</span><input type="number" id="rSecs" min="10" max="7200" value="120" style="width:70px"><span class="hint">сек</span>
+        <label class="tgl grow"><input type="checkbox" id="iRAuto"><span class="tgl-k"></span><span class="hint">Крутить сразу по концу</span></label></div>
+      <div class="row"><button id="rStart" class="go grow">▶ Начать сбор</button><button id="rStop" class="grow">⏹ Закрыть сбор</button></div>
+      <div class="row"><button id="rSpin" class="go grow">🎰 Крутить</button><button id="rReset" title="Новый розыгрыш: участники и победители обнулятся">↺ Сброс</button></div>
+      <div class="hint" id="rInfo"></div>
+      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
+      <div class="lbl">Победитель</div>
+      <div class="row"><span class="hint">Ответить в чат за</span><input type="number" id="iRConfirm" min="0" max="600" value="0" style="width:64px"><span class="hint">сек (0 = не ждать)</span></div>
+      <div class="hint">Не ответил вовремя: рулетка крутится заново без него. «Крутить» ещё раз даёт следующего победителя, прошлые выбывают.</div>
+      <div class="lbl">Эффект победы</div>
+      <div class="row"><button id="rSnd" class="grow">🔊 Свой звук</button><button id="rSndDel" title="Убрать свой звук" hidden>🗑</button></div>
+      <div class="row"><button id="rVfx" class="grow">🎞 Своё видео-эффект</button><button id="rVfxDel" title="Убрать видео" hidden>🗑</button></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRKey"><span class="tgl-k"></span><span>Гринскрин: вырезать фон видео</span></label>
+      <div class="row" id="rKeyRow"><span class="hint">Цвет фона</span><input type="color" id="iRKc"><span class="hint">Сила</span><input type="range" id="iRKsim" min="0.05" max="0.9" step="0.01" class="grow"></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRFxc"><span class="tgl-k"></span><span>Конфетти</span></label>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRTicks"><span class="tgl-k"></span><span>Щелчки ленты</span></label>
+      <div class="row" style="margin-top:8px"><span class="hint">Акцент</span><input type="color" id="iRAccent"><span class="hint">Фон</span><input type="color" id="iRCard"></div>
+      <input type="file" id="rFile" hidden>
     </div>
 
     <!-- голосование -->
@@ -570,16 +603,18 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter poll cs2 msg">
+    <div data-for="text timer counter poll cs2 msg raffle">
       <div class="lbl">Шрифт</div>
-      <select id="iFont">
+      <div class="row" style="margin:0"><select id="iFont" class="grow">
         <option value="montserrat">Montserrat (жирный)</option>
         <option value="russo">Russo One</option>
         <option value="impact">Impact (мемный)</option>
         <option value="pixel">Press Start 2P (пиксели)</option>
         <option value="comfortaa">Comfortaa</option>
         <option value="caveat">Caveat (рукописный)</option>
-      </select>
+      </select><button id="fontDel" title="Убрать свой шрифт из списка" hidden>🗑</button></div>
+      <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
+      <div class="hint" style="margin-top:4px">Свой шрифт: перетащи .ttf / .otf / .woff на экран. Размер подгоняется сам, чтобы рамка не поехала.</div>
       <div class="row" style="margin-top:8px">
         <span class="hint">Цвет</span><input type="color" id="iColor">
         <span data-for="timer counter" class="row" style="margin:0"><span class="hint">Карточки</span><input type="color" id="iCard"></span>

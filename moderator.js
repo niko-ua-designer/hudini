@@ -72,7 +72,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=14, widgets=new Map();
+const WIDGET_VER=15, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -249,7 +249,7 @@ function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
   STREAM_LANG=streamLang();
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, els:state.els };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, els:state.els, fonts:state.fonts||[] };
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
 function scheduleSend(){
@@ -368,6 +368,11 @@ function renderCsStatus(){
     : 'Нет данных. У стримера должна быть запущена программа Hudini Host и нажата кнопка «Подключить CS2».';
   if(cs2Fresh()) $('csStatus').textContent += CS2.spec ? ` · 👁 режим наблюдателя, игроков: ${CS2.players.length}` : ' · игрок (панели команд — только в режиме наблюдателя)';
 }
+function addRaffle(){
+  addEl({ type:'raffle', ...place(), x:50, y:45, fs:3, font:'montserrat', color:'#ffffff', card:'#141824', accent:'#7c5cff',
+    title:sT('Розыгрыш'), prize:'', kw:'!участвую', entry:'word', subx2:true, auto:true, phase:'idle' });
+  if(!chatWs) toast('Для розыгрыша подключи чат Twitch слева', 4000);
+}
 function addPoll(){
   addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
     title:sT('Что дальше?'), opts:[1,2,3].map(n=>sT('Вариант')+' '+n), votes:[0,0,0], running:false });
@@ -376,9 +381,9 @@ function addPoll(){
 
 // ---- язык надписей на стриме (по умолчанию как у пульта) ----
 const DEFAULT_TXT={
-  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option' },
-  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант' },
-  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option' },
+  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway' },
+  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш' },
+  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel' },
 };
 function streamLang(){ const r=curRoom(); return STREAM_LANGS.includes(r?.slang) ? r.slang : (STREAM_LANGS.includes(window.HudiniI18n?.lang) ? window.HudiniI18n.lang : 'ru'); }
 const sT=s=>DEFAULT_TXT[streamLang()]?.[s] ?? s;
@@ -443,8 +448,9 @@ async function refreshStorage(announce){
 // Файлы, которые нужны этой комнате: на экране, в сценах, библиотеке, сценариях и поле звука
 function usedAssets(){
   const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
-  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); for(const v of Object.values(e?.av||{})) add(v); };
+  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.snd); add(e?.vfx); for(const v of Object.values(e?.av||{})) add(v); };
   state.els.forEach(fromEl);
+  for(const f of state.fonts||[]) used.add(f.id);
   add($('soundUrl').value);
   for(const it of library) if(it.room===room) fromEl(it.el);
   for(const sc of scenes[room]||[]) (sc.els||[]).forEach(fromEl);
@@ -481,7 +487,42 @@ async function uploadBlob(blob, name){
   Assets.add(id, blob, name);
   return 'asset:'+id;
 }
+// ---------- свои шрифты: файл .ttf/.otf/.woff/.woff2 перетащить на экран или выбрать в инспекторе ----------
+const fontExt = f => FONT_EXT[(f.name.split('.').pop()||'').toLowerCase()];
+async function addFonts(files){
+  let last=null;
+  for(const file of files){
+    const type=fontExt(file); if(!type) continue;
+    try{
+      const buf=await file.arrayBuffer();
+      try{ await new FontFace('hu-check', buf.slice(0)).load(); }catch{ toast(`${file.name}: файл не открылся как шрифт`); continue; }
+      showUpload(`Загрузка шрифта ${file.name}…`, 0);
+      const id=assetId(await uploadBlob(new Blob([buf], { type }), file.name));
+      beginChange(); state.fonts=[...(state.fonts||[]).filter(f=>f.id!==id), { id, name:file.name.replace(/\.[^.]+$/,'').slice(0,60) }];
+      const el=byId(selectedId); if(el && 'font' in el) el.font='u:'+id;   // выбранному элементу сразу ставим новый шрифт
+      commit(); last=id;
+    }catch(e){ if(!e.shown) toast(`Шрифт не загрузился: ${e.message||e}`); }
+  }
+  hideUpload();
+  if(last) toast('Шрифт добавлен: он есть в списке «Шрифт» у всех элементов');
+}
+function fillFonts(){
+  const sel=I('iFont'); let g=sel.querySelector('optgroup[data-own]');
+  if(!g){ g=document.createElement('optgroup'); g.dataset.own=''; g.label='Свои шрифты'; sel.appendChild(g);
+    const add=document.createElement('option'); add.value='__add'; add.textContent='＋ Добавить свой шрифт…'; sel.appendChild(add); }
+  const want=(state.fonts||[]).map(f=>f.id+'|'+f.name).join(',');
+  if(g.dataset.sig===want) return; g.dataset.sig=want;
+  g.replaceChildren(...(state.fonts||[]).map(f=>{ const o=new Option(f.name, 'u:'+f.id); o.dataset.i18nSkip=''; return o; }));
+  g.hidden=!g.children.length;
+}
+function removeFont(id){
+  beginChange(); state.fonts=(state.fonts||[]).filter(f=>f.id!==id);
+  for(const e of state.els) if(e.font==='u:'+id) e.font='montserrat';
+  commit(); toast('Шрифт убран из списка. Файл удалит «Очистить файлы» в комнате.');
+}
+
 async function uploadFiles(files, x, y){
+  const fonts=files.filter(fontExt); if(fonts.length){ await addFonts(fonts); files=files.filter(f=>!fontExt(f)); if(!files.length) return; }
   for(const file of files){
     const kind=file.type.split('/')[0];
     if(kind!=='image' && kind!=='video'){ toast(`${file.name}: это не картинка и не видео`); continue; }
@@ -561,6 +602,7 @@ function elIcon(el){
   if(el.type==='counter') return el.cmode==='chat'?'💬':'🔢';
   if(el.type==='web') return KIND_NAME[parseEmbed(el.url).kind].split(' ')[0];
   if(el.type==='poll') return '📊';
+  if(el.type==='raffle') return '🎁';
   if(el.type==='cs2') return '🎯';
   if(el.type==='msg') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
@@ -572,6 +614,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
+  if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
   try{ const p=new URL(el.src).pathname.split('/').filter(Boolean).pop(); return decodeURIComponent(p||el.src); }catch{ return el.src; }
@@ -618,7 +661,8 @@ function renderInspector(){
   if(sizeTxt){
     Object.assign(I('iSize'), { min:1, max:40, step:0.5 }); setField(I('iSize'), String(el.fs));
     $('vSize').textContent=el.fs.toFixed(1)+'% высоты';
-    setField(I('iFont'), el.font); setField(I('iColor'), el.color);
+    fillFonts(); setField(I('iFont'), el.font); setField(I('iColor'), el.color);
+    $('fontDel').hidden=!String(el.font).startsWith('u:');
   } else {
     Object.assign(I('iSize'), { min:2, max:150, step:1 }); setField(I('iSize'), String(el.w));
     $('vSize').textContent=Math.round(el.w)+'% ширины';
@@ -650,6 +694,7 @@ function renderInspector(){
   if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
+  if(el.type==='raffle') renderRaffle(el);
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -862,6 +907,7 @@ $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''
 $('addCam').onclick=addCam;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
+  if(a==='raffle') return addRaffle();
   if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
 
@@ -1139,6 +1185,98 @@ function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($(
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
+// ---- розыгрыш: участники живут в пульте (и в localStorage, чтобы пережить перезагрузку вкладки) ----
+const rafPool=new Map();     // id розыгрыша → Map(login → { user, color, sub })
+const rafSkip=new Map();     // id → Set(login) не ответивших победителей
+function rafEntries(id){
+  if(!rafPool.has(id)){ const m=new Map(lsGet('hudini.raf.'+id, [])); rafPool.set(id, m); }
+  return rafPool.get(id);
+}
+let rafSaveT=null;
+function rafSave(id){ clearTimeout(rafSaveT); rafSaveT=setTimeout(()=>lsSet('hudini.raf.'+id, [...rafEntries(id)].slice(-20000)), 800); }
+function rafWanted(el, text, msg){
+  if(el.subs && !(msg?.sub || msg?.badge==='broadcaster')) return false;
+  if(el.entry==='any') return true;
+  const kw=el.kw.toLowerCase(), low=text.trim().toLowerCase();
+  return low===kw || low.startsWith(kw+' ');
+}
+function rafOnChat(user, text, msg){
+  let any=false;
+  for(const el of state.els){
+    if(el.type!=='raffle') continue;
+    if(el.phase==='collect' && rafWanted(el, text, msg)){
+      const m=rafEntries(el.id); if(m.has(user)) continue;
+      m.set(user, { user:msg?.user||user, color:msg?.color||'#ffffff', sub:!!(msg?.sub || msg?.badge==='broadcaster') });
+      el.n=m.size; rafSave(el.id); any=true;
+    }
+    // победитель отвечает в чат
+    if(el.phase==='spin' && el.confirm && !el.ok && user===el.wlogin && nowMs() > el.spinAt+RAFFLE_OPEN+RAFFLE_SPIN && Date.now() < el.cUntil){
+      el.ok=true; if(!el.winners.includes(el.winner)) el.winners.push(el.winner); any=true; toast(`✅ ${el.winner} на связи`);
+    }
+  }
+  return any;
+}
+function rafPick(el){
+  const skip=rafSkip.get(el.id)||new Set(), won=new Set(el.winners.map(w=>w.toLowerCase()));
+  const pool=[...rafEntries(el.id)].filter(([login, e])=>!skip.has(login) && !won.has(e.user.toLowerCase()));
+  if(!pool.length) return null;
+  const weight=e=>el.subx2 && e.sub ? 2 : 1;
+  const total=pool.reduce((a,[,e])=>a+weight(e),0);
+  const r=new Uint32Array(1); crypto.getRandomValues(r);
+  let x=r[0]/2**32*total;
+  for(const p of pool){ x-=weight(p[1]); if(x<0) return { pool, win:p }; }
+  return { pool, win:pool[pool.length-1] };
+}
+function rafSpin(el){
+  const got=rafPick(el);
+  if(!got){ toast(rafEntries(el.id).size ? 'Все участники уже выиграли или не ответили' : 'Участников пока нет'); return false; }
+  const { pool, win } = got;
+  const rar=()=>{ const x=Math.random(); return x<.6?0:x<.82?1:x<.92?2:x<.98?3:4; };
+  el.reel=Array.from({ length:RAFFLE_REEL }, (_, i)=>{
+    if(i===RAFFLE_WIN) return [win[1].user, Math.random()<.5?4:3];
+    const p=pool[Math.random()*pool.length|0][1]; return [p.user, rar()];
+  });
+  el.phase='spin'; el.spinAt=Date.now()+400; el.jit=(Math.random()-0.5)*0.8;
+  el.winner=win[1].user; el.wlogin=win[0]; el.ok=false;
+  el.cUntil = el.confirm ? el.spinAt+RAFFLE_OPEN+RAFFLE_SPIN+700+el.confirm*1000 : 0;
+  if(!el.confirm && !el.winners.includes(el.winner)) el.winners.push(el.winner);
+  el.hidden=false;
+  return true;
+}
+function rafTick(){
+  let any=false; const now=Date.now();
+  for(const el of state.els){
+    if(el.type!=='raffle') continue;
+    if(el.phase==='collect' && el.closeAt && now>=el.closeAt){ el.closeAt=0; el.phase='closed'; any=true; if(el.auto) rafSpin(el); }
+    // победитель не ответил: крутим снова без него
+    if(el.phase==='spin' && el.confirm && !el.ok && el.cUntil && now>=el.cUntil+1500){
+      let sk=rafSkip.get(el.id); if(!sk){ sk=new Set(); rafSkip.set(el.id, sk); } sk.add(el.wlogin);
+      toast(`⌛ ${el.winner} не ответил, перекручиваем`);
+      if(!rafSpin(el)){ el.phase='closed'; el.cUntil=0; }
+      any=true;
+    }
+  }
+  if(any){ renderAll(); publishNow(1); }
+}
+function renderRaffle(el){
+  setField(I('iRTitle'), el.title); setField(I('iRPrize'), el.prize); setField(I('iREntry'), el.entry); setField(I('iRKw'), el.kw);
+  $('iRKw').hidden = el.entry!=='word';
+  I('iRSubs').checked=el.subs; I('iRSubx2').checked=el.subx2; I('iRAuto').checked=el.auto;
+  setField(I('iRConfirm'), String(el.confirm)); I('iRKey').checked=el.key; setField(I('iRKc'), el.kc); setField(I('iRKsim'), String(el.ksim));
+  I('iRFxc').checked=el.fxc; I('iRTicks').checked=el.ticks; setField(I('iRAccent'), el.accent); setField(I('iRCard'), el.card);
+  $('rPimgDel').hidden=!el.pimg; $('rSndDel').hidden=!el.snd; $('rVfxDel').hidden=!el.vfx; $('rKeyRow').hidden=!el.key;
+  $('rSnd').textContent = el.snd ? '🔊 Звук выбран ✓' : '🔊 Свой звук'; $('rVfx').textContent = el.vfx ? '🎞 Видео выбрано ✓' : '🎞 Своё видео-эффект';
+  $('rStart').disabled = el.phase==='collect'; $('rStop').disabled = el.phase!=='collect';
+  $('rSpin').textContent = el.phase==='spin' ? '🎰 Ещё победитель' : '🎰 Крутить';
+  const m=rafEntries(el.id);
+  $('rInfo').textContent = `Участников: ${m.size}` + (el.winners.length ? ` · победители: ${el.winners.join(', ')}` : '') + (chatWs ? '' : ' · чат Twitch не подключён');
+  const list=$('rList'); list.dataset.i18nSkip=''; list.textContent=[...m.values()].slice(-300).map(e=>(e.sub?'★ ':'')+e.user).join(', ') || '—';
+}
+let rafFileFor='';
+function rafUpload(kind){
+  rafFileFor=kind; const f=$('rFile');
+  f.accept = kind==='snd' ? 'audio/*' : kind==='vfx' ? 'video/*' : 'image/*'; f.click();
+}
 // ---- команды в чате для доверенных: !опрос, !таймер ----
 let cmdCfg=lsGet('overlay.cmd', null); if(!cmdCfg || typeof cmdCfg!=='object') cmdCfg={ mode:'mods', list:'' };
 const CMD_MODES=['off','broadcaster','mods','modslist','list'];
@@ -1162,9 +1300,18 @@ function parseDur(a, unitMs){
   return null;
 }
 function chatCommand(text, msg){
-  const m=text.trim().match(/^!(опрос|poll|голосование|таймер|timer)(?:\s+(.*))?$/i); if(!m || !trusted(msg)) return false;
+  const m=text.trim().match(/^!(опрос|poll|голосование|таймер|timer|розыгрыш|giveaway)(?:\s+(.*))?$/i); if(!m || !trusted(msg)) return false;
   const cmd=m[1].toLowerCase(), arg=(m[2]||'').trim().toLowerCase();
   const STOP=/^(стоп|stop|конец|end)$/, START=/^(старт|start|go)?$/, RESET=/^(сброс|reset)$/;
+  if(cmd==='розыгрыш' || cmd==='giveaway'){
+    const el=state.els.find(e=>e.type==='raffle' && !e.hidden) || state.els.find(e=>e.type==='raffle'); if(!el) return true;
+    if(STOP.test(arg)){ if(el.phase==='collect'){ el.phase='closed'; el.closeAt=0; } }
+    else if(/^(крути|крутить|spin|roll)$/.test(arg)){ rafSpin(el); }
+    else if(RESET.test(arg)){ rafReset(el); }
+    else if(START.test(arg)){ el.phase='collect'; el.closeAt=0; el.hidden=false; }
+    else { const d=parseDur(arg, 1000); if(d==null || d<10000 || d>7200000) return true; el.phase='collect'; el.closeAt=Date.now()+d; el.hidden=false; }
+    renderAll(); publishNow(1); return true;
+  }
   if(cmd==='опрос' || cmd==='poll' || cmd==='голосование'){
     const el=state.els.find(e=>e.type==='poll' && !e.hidden) || state.els.find(e=>e.type==='poll'); if(!el) return true;
     if(STOP.test(arg)){ el.running=false; el.closeAt=0; }
@@ -1187,6 +1334,7 @@ $('cmdList').onchange=e=>{ cmdCfg.list=e.target.value.slice(0,2000); lsSet('over
 renderCmd();
 function onChat(user, text, msg){
   if(chatCommand(text, msg)) return;
+  const rafAny=rafOnChat(user, text, msg);
   if(msg) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
@@ -1206,7 +1354,7 @@ function onChat(user, text, msg){
     if(el.uniq){ let s=chatSeen.get(el.id); if(!s){ s=new Set(); chatSeen.set(el.id,s); } if(s.has(user)) continue; s.add(user); }
     el.value+=el.step; any=true;
   }
-  if(any){ renderAll(); scheduleSend(); }
+  if(any || rafAny){ renderAll(); scheduleSend(); }
 }
 
 // ================== СЛОИ ==================
@@ -1266,7 +1414,9 @@ function bindInput(id, apply, evt='input'){
   f.addEventListener('change', ()=>{ if(byId(selectedId)) commit(); });
 }
 bindInput('iText',   (el,f)=>el.text=f.value.slice(0,500));
-bindInput('iFont',   (el,f)=>el.font=f.value);
+bindInput('iFont',   (el,f)=>{ if(f.value==='__add'){ f.value=el.font; $('fontInput').click(); return; } el.font=f.value; });
+$('fontInput').onchange=e=>{ addFonts([...e.target.files]); e.target.value=''; };
+$('fontDel').onclick=()=>{ const el=byId(selectedId); const m=/^u:(.+)$/.exec(el?.font||''); if(m && confirm('Убрать этот шрифт из списка у всех элементов?')) removeFont(m[1]); };
 bindInput('iColor',  (el,f)=>el.color=f.value);
 bindInput('iStroke', (el,f)=>el.stroke=f.value);
 bindInput('iSw',     (el,f)=>el.sw=Number(f.value));
@@ -1325,7 +1475,7 @@ function renderCsHud(el){
   if(document.activeElement!==$('iCsPick')) fillSel($('iCsPick'), el.pick, 'Свой игрок / наблюдаемый');
   if(document.activeElement!==$('iCsPa')) fillSel($('iCsPa'), el.pa, 'Игрок 1');
   if(document.activeElement!==$('iCsPb')) fillSel($('iCsPb'), el.pb, 'Игрок 2');
-  setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx);
+  setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx); setField(I('iCsTheme'), el.theme); I('iCsFlip').checked=el.flip;
   setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
   const list=$('csAvList'); list.replaceChildren();
   const names=[...new Set([...csNames().map(n=>n.toLowerCase()), ...Object.keys(el.av)])];
@@ -1368,6 +1518,8 @@ bindInput('iCsCt', (el,f)=>el.ctc=f.value);
 bindInput('iCsT', (el,f)=>el.tc=f.value);
 bindInput('iCsGlow', (el,f)=>el.glow=f.checked, 'change');
 bindInput('iCsFx', (el,f)=>el.fx=f.value, 'change');
+bindInput('iCsTheme', (el,f)=>{ el.theme=f.value; if(el.theme==='ko' && el.font==='montserrat') el.font='russo'; }, 'change');   // к пиксельному стилю подходит рубленый шрифт
+bindInput('iCsFlip', (el,f)=>el.flip=f.checked, 'change');
 bindInput('iCsTnCT', (el,f)=>el.tnCT=f.value.slice(0,30));
 bindInput('iCsTnT', (el,f)=>el.tnT=f.value.slice(0,30));
 bindInput('iCsSeries', (el,f)=>el.series=f.value.slice(0,120));
@@ -1426,6 +1578,35 @@ $('cToggle').onclick=()=>act(counterToggle);
 $('pToggle').onclick=()=>act(el=>{ pollToggle(el); el.closeAt=0; });
 $('pTimed').onclick=()=>act(el=>{ el.running=true; el.closeAt=Date.now()+num($('pSecs').value,60,5,3600)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000); });
 $('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
+function rafReset(el){ el.phase='idle'; el.closeAt=0; el.n=0; el.reel=[]; el.winner=''; el.wlogin=''; el.winners=[]; el.ok=false; el.cUntil=0;
+  rafPool.set(el.id, new Map()); rafSkip.delete(el.id); try{ localStorage.removeItem('hudini.raf.'+el.id); }catch{} }
+bindInput('iRTitle', (el,f)=>el.title=f.value.slice(0,80));
+bindInput('iRPrize', (el,f)=>el.prize=f.value.slice(0,120));
+bindInput('iREntry', (el,f)=>el.entry=f.value, 'change');
+bindInput('iRKw', (el,f)=>el.kw=f.value.slice(0,30));
+bindInput('iRSubs', (el,f)=>el.subs=f.checked, 'change');
+bindInput('iRSubx2', (el,f)=>el.subx2=f.checked, 'change');
+bindInput('iRAuto', (el,f)=>el.auto=f.checked, 'change');
+bindInput('iRConfirm', (el,f)=>el.confirm=Math.round(num(f.value,0,0,600)));
+bindInput('iRKey', (el,f)=>el.key=f.checked, 'change');
+bindInput('iRKc', (el,f)=>el.kc=f.value);
+bindInput('iRKsim', (el,f)=>el.ksim=Number(f.value));
+bindInput('iRFxc', (el,f)=>el.fxc=f.checked, 'change');
+bindInput('iRTicks', (el,f)=>el.ticks=f.checked, 'change');
+bindInput('iRAccent', (el,f)=>el.accent=f.value);
+bindInput('iRCard', (el,f)=>el.card=f.value);
+$('rStart').onclick=()=>act(el=>{ el.phase='collect'; el.hidden=false; el.closeAt=Date.now()+num($('rSecs').value,120,10,7200)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе участники не придут', 4000); });
+$('rStop').onclick=()=>act(el=>{ if(el.phase==='collect'){ el.phase='closed'; el.closeAt=0; } });
+$('rSpin').onclick=()=>act(el=>{ if(el.phase==='collect'){ el.closeAt=0; } rafSpin(el); });
+$('rReset').onclick=()=>{ const el=byId(selectedId); if(el && (!el.n || confirm('Начать новый розыгрыш? Участники и победители обнулятся.'))) act1(el, rafReset); };
+$('rPimg').onclick=()=>rafUpload('pimg'); $('rSnd').onclick=()=>rafUpload('snd'); $('rVfx').onclick=()=>rafUpload('vfx');
+$('rPimgDel').onclick=()=>act(el=>el.pimg=''); $('rSndDel').onclick=()=>act(el=>el.snd=''); $('rVfxDel').onclick=()=>act(el=>el.vfx='');
+$('rFile').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return; const kind=rafFileFor;
+  try{ showUpload(`Загрузка ${f.name}…`, 0); const blob = kind==='pimg' ? await shrinkImage(f) : f; const src=await uploadBlob(blob, f.name); act(el=>{ el[kind]=src; }); }
+  catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
+  hideUpload();
+};
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
 $('bRatio').onclick=()=>act(el=>el.hh=0);
@@ -1606,6 +1787,7 @@ setInterval(()=>{
   const due=state.els.filter(e=>e.type==='poll' && e.running && e.closeAt && Date.now()>=e.closeAt);
   if(due.length){ due.forEach(e=>{ e.running=false; e.closeAt=0; }); renderAll(); publishNow(1); }
   checkTwTriggers(now);
+  rafTick();
 }, 100);
 setInterval(()=>{ // подписи в слоях и инспекторе (цифры таймеров)
   if(!state.els.some(e=>e.type==='timer'||e.type==='counter')) return;

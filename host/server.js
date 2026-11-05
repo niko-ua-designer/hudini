@@ -22,6 +22,7 @@ import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' }
 import UI_HTML from './ui.html' with { type: 'text' };
 import DOCK_HTML from './dock.html' with { type: 'text' };
 import I18N_JS from '../i18n.js' with { type: 'text' };
+import ICONS_JS from '../icons.js' with { type: 'text' };
 
 const VERSION = '1.0.0-rc.2';
 const PREFIX = 'stream-overlay/v1';
@@ -743,6 +744,7 @@ const local = http.createServer(async (req, res) => {
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
     if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');
     if(p==='/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
+    if(p==='/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
     send(res, 404, 'not found');
   }catch(e){ errOut(res, e); }
