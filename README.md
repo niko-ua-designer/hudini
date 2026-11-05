@@ -1,6 +1,6 @@
 # 🎩 Hudini: a stream overlay run by your moderator
 
-**Site:** https://niko-ua-designer.github.io/overlay/ · **Panel:** [moderator.html](https://niko-ua-designer.github.io/overlay/moderator.html) · **Help (EN/RU/UK/DE):** [help.html](https://niko-ua-designer.github.io/overlay/help.html) · **Download Hudini Host:** [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1)
+**Site:** https://niko-ua-designer.github.io/hudini/ · **Panel:** [moderator.html](https://niko-ua-designer.github.io/hudini/moderator.html) · **Help (EN/RU/UK/DE):** [help.html](https://niko-ua-designer.github.io/hudini/help.html) · **Download Hudini Host:** [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2)
 
 [English](#english) · [Русский](#русский)
 
@@ -22,11 +22,11 @@ The public MQTT server is used only for an encrypted announcement of the Host's 
 
 ### Quick start
 
-1. **Streamer:** download Hudini Host from [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1), unzip, run. On first start it asks how much space to give moderators' files (100 MB per file, 2 GB, 300 files by default).
-2. **Moderator:** open the [panel](https://niko-ua-designer.github.io/overlay/moderator.html), press **📋 Copy** and send the link to the streamer.
+1. **Streamer:** download Hudini Host from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2), unzip, run. On first start it asks how much space to give moderators' files (100 MB per file, 2 GB, 300 files by default).
+2. **Moderator:** open the [panel](https://niko-ua-designer.github.io/hudini/moderator.html), press **📋 Copy** and send the link to the streamer.
 3. **Streamer:** paste the link into Hudini Host, copy the OBS link it shows, add it in OBS as a Browser source with **1920×1080**, press `Ctrl+F`.
 
-The panel finds the Host by itself and shows a short tour on first use. Full guide: [help.html](https://niko-ua-designer.github.io/overlay/help.html).
+The panel finds the Host by itself and shows a short tour on first use. Full guide: [help.html](https://niko-ua-designer.github.io/hudini/help.html).
 
 ### Features
 
@@ -59,7 +59,7 @@ The Host runs from source with Bun: `cd host && npm ci && bun run server.js`. Re
 
 The code is licensed under **AGPL-3.0** ([LICENSE](LICENSE)). Ready-made animations in [`presets/`](presets/) are under **MIT** ([presets/LICENSE](presets/LICENSE)), so you can reuse them anywhere.
 
-Problems and ideas: [Issues](https://github.com/niko-ua-designer/overlay/issues).
+Problems and ideas: [Issues](https://github.com/niko-ua-designer/hudini/issues).
 
 ---
 
@@ -79,11 +79,11 @@ Hudini позволяет модератору показывать на экр�
 
 ### Быстрый старт
 
-1. **Стример:** скачай Hudini Host со страницы [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1), распакуй и запусти. При первом запуске программа спросит, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ, 300 файлов).
-2. **Модератор:** открой [пульт](https://niko-ua-designer.github.io/overlay/moderator.html), нажми **📋 Копировать** и отправь ссылку стримеру.
+1. **Стример:** скачай Hudini Host со страницы [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2), распакуй и запусти. При первом запуске программа спросит, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ, 300 файлов).
+2. **Модератор:** открой [пульт](https://niko-ua-designer.github.io/hudini/moderator.html), нажми **📋 Копировать** и отправь ссылку стримеру.
 3. **Стример:** вставь ссылку в Hudini Host, скопируй ссылку для OBS, добавь в OBS источник «Браузер» **1920×1080** и нажми `Ctrl+F`.
 
-Пульт сам находит программу и при первом входе показывает короткое обучение. Подробная справка: [help.html](https://niko-ua-designer.github.io/overlay/help.html).
+Пульт сам находит программу и при первом входе показывает короткое обучение. Подробная справка: [help.html](https://niko-ua-designer.github.io/hudini/help.html).
 
 ### Возможности
 
@@ -116,4 +116,4 @@ node run.js update       # автообновление на двух собра
 
 Код под лицензией **AGPL-3.0** ([LICENSE](LICENSE)). Готовые анимации в [`presets/`](presets/) под **MIT** ([presets/LICENSE](presets/LICENSE)): их можно брать куда угодно.
 
-Проблемы и идеи: [Issues](https://github.com/niko-ua-designer/overlay/issues).
+Проблемы и идеи: [Issues](https://github.com/niko-ua-designer/hudini/issues).

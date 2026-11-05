@@ -12,4 +12,4 @@ RU
 - Чтобы удалить Hudini полностью, закрой программу и удали эту папку целиком. Больше программа ничего никуда не ставит.
 - Чтобы перенести на другой ПК, скопируй папку целиком.
 
-Guide / Инструкция: https://niko-ua-designer.github.io/overlay/help.html
+Guide / Инструкция: https://niko-ua-designer.github.io/hudini/help.html

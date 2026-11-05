@@ -14,7 +14,7 @@ ru: {
 <p>Работает с Twitch, YouTube и любой платформой, где стримят через OBS.</p>`],
 ['streamer', 'Стример: первый запуск', `
 <ol>
-<li>Скачай <b>Hudini Host</b> со страницы <a href="https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), распакуй в отдельную папку и запусти.</li>
+<li>Скачай <b>Hudini Host</b> со страницы <a href="https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), распакуй в отдельную папку и запусти.</li>
 <li>Откроется страница программы. При первом запуске она спросит, сколько места дать файлам модераторов (обычно 100 МБ на файл, 2 ГБ всего, 300 файлов).</li>
 <li>Модератор присылает тебе ссылку из пульта. Вставь её в шаг 1 и нажми «Сохранить».</li>
 <li>Скопируй ссылку для OBS из шага 2. В OBS: Источники → <b>+</b> → <b>Браузер</b>, вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>.</li>
@@ -76,7 +76,7 @@ ru: {
 <li><b>Не грузится файл</b>: проверь место (под кнопкой «Файл») и лимит на один файл.</li>
 <li><b>Пропали комнаты</b>: браузер очистил данные сайта. Восстанови из бэкапа (Комната → ⬆ Из бэкапа) и включи 💾 Надёжное хранение.</li>
 </ul>
-<p>Не помогло? <a href="https://github.com/niko-ua-designer/overlay/issues" target="_blank" rel="noopener">Напиши о проблеме</a>.</p>`],
+<p>Не помогло? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Напиши о проблеме</a>.</p>`],
 ['keys', 'Клавиши', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> отменить · <kbd>Del</kbd> удалить · <kbd>Esc</kbd> снять выделение</li>
@@ -101,7 +101,7 @@ en: {
 <p>Works with Twitch, YouTube and any platform you stream to with OBS.</p>`],
 ['streamer', 'Streamer: first start', `
 <ol>
-<li>Download <b>Hudini Host</b> from <a href="https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), unzip it into its own folder and run it.</li>
+<li>Download <b>Hudini Host</b> from <a href="https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), unzip it into its own folder and run it.</li>
 <li>The app's page opens. On the first start it asks how much space to give the moderators' files (usually 100 MB per file, 2 GB in total, 300 files).</li>
 <li>Your moderator sends you a link from the panel. Paste it into step 1 and press Save.</li>
 <li>Copy the OBS link from step 2. In OBS: Sources → <b>+</b> → <b>Browser</b>, paste the link, width <b>1920</b>, height <b>1080</b>.</li>
@@ -163,7 +163,7 @@ en: {
 <li><b>A file won't upload</b>: check the space (under the File button) and the per-file limit.</li>
 <li><b>Rooms are gone</b>: the browser cleared the site data. Restore from a backup (Room → ⬆ From backup) and turn on 💾 Reliable storage.</li>
 </ul>
-<p>Still stuck? <a href="https://github.com/niko-ua-designer/overlay/issues" target="_blank" rel="noopener">Report a problem</a>.</p>`],
+<p>Still stuck? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Report a problem</a>.</p>`],
 ['keys', 'Shortcuts', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> undo · <kbd>Del</kbd> delete · <kbd>Esc</kbd> deselect</li>
@@ -188,7 +188,7 @@ uk: {
 <p>Працює з Twitch, YouTube і будь-якою платформою, куди стримлять через OBS.</p>`],
 ['streamer', 'Стример: перший запуск', `
 <ol>
-<li>Завантаж <b>Hudini Host</b> зі сторінки <a href="https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), розпакуй в окрему папку й запусти.</li>
+<li>Завантаж <b>Hudini Host</b> зі сторінки <a href="https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2" target="_blank" rel="noopener">Releases</a> (Windows: <code>HudiniHost-windows.exe.zip</code>), розпакуй в окрему папку й запусти.</li>
 <li>Відкриється сторінка програми. Під час першого запуску вона спитає, скільки місця дати файлам модераторів (зазвичай 100 МБ на файл, 2 ГБ загалом, 300 файлів).</li>
 <li>Модератор надсилає тобі посилання з пульта. Встав його в крок 1 і натисни «Зберегти».</li>
 <li>Скопіюй посилання для OBS із кроку 2. В OBS: Джерела → <b>+</b> → <b>Браузер</b>, встав посилання, ширина <b>1920</b>, висота <b>1080</b>.</li>
@@ -250,7 +250,7 @@ uk: {
 <li><b>Не вантажиться файл</b>: перевір місце (під кнопкою «Файл») і ліміт на один файл.</li>
 <li><b>Зникли кімнати</b>: браузер очистив дані сайту. Віднови з бекапу (Кімната → ⬆ З бекапу) й увімкни 💾 Надійне зберігання.</li>
 </ul>
-<p>Не допомогло? <a href="https://github.com/niko-ua-designer/overlay/issues" target="_blank" rel="noopener">Напиши про проблему</a>.</p>`],
+<p>Не допомогло? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Напиши про проблему</a>.</p>`],
 ['keys', 'Клавіші', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> скасувати · <kbd>Del</kbd> видалити · <kbd>Esc</kbd> зняти виділення</li>
@@ -275,7 +275,7 @@ de: {
 <p>Funktioniert mit Twitch, YouTube und jeder Plattform, auf die du mit OBS streamst.</p>`],
 ['streamer', 'Streamer: erster Start', `
 <ol>
-<li>Lade <b>Hudini Host</b> unter <a href="https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1" target="_blank" rel="noopener">Releases</a> herunter (Windows: <code>HudiniHost-windows.exe.zip</code>), entpacke es in einen eigenen Ordner und starte es.</li>
+<li>Lade <b>Hudini Host</b> unter <a href="https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2" target="_blank" rel="noopener">Releases</a> herunter (Windows: <code>HudiniHost-windows.exe.zip</code>), entpacke es in einen eigenen Ordner und starte es.</li>
 <li>Die Seite des Programms öffnet sich. Beim ersten Start fragt es, wie viel Platz die Dateien der Mods bekommen (meist 100 MB pro Datei, 2 GB insgesamt, 300 Dateien).</li>
 <li>Dein Mod schickt dir einen Link aus dem Pult. Füge ihn in Schritt 1 ein und klicke auf Speichern.</li>
 <li>Kopiere den OBS-Link aus Schritt 2. In OBS: Quellen → <b>+</b> → <b>Browser</b>, Link einfügen, Breite <b>1920</b>, Höhe <b>1080</b>.</li>
@@ -337,7 +337,7 @@ de: {
 <li><b>Eine Datei lädt nicht hoch</b>: Prüfe den Platz (unter dem Datei-Knopf) und das Limit pro Datei.</li>
 <li><b>Räume sind weg</b>: Der Browser hat die Website-Daten gelöscht. Stell sie aus dem Backup wieder her (Raum → ⬆ Aus Backup) und schalte 💾 Zuverlässige Speicherung ein.</li>
 </ul>
-<p>Hilft nichts? <a href="https://github.com/niko-ua-designer/overlay/issues" target="_blank" rel="noopener">Problem melden</a>.</p>`],
+<p>Hilft nichts? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Problem melden</a>.</p>`],
 ['keys', 'Tastenkürzel', `
 <ul>
 <li><kbd>Strg+Z</kbd> rückgängig · <kbd>Entf</kbd> löschen · <kbd>Esc</kbd> Auswahl aufheben</li>
