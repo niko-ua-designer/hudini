@@ -347,18 +347,39 @@
   function ac(vol){
     if(!A.ctx){
       try{ A.ctx = new AudioContext(); }catch{ return null; }
-      const x = A.ctx;
+      chain(A.ctx);
+    }
+    if(A.ctx.state === 'suspended') A.ctx.resume();
+    A.out.gain.value = vol * 0.62;
+    return A.ctx;
+  }
+  function chain(x){
       A.out = x.createGain(); A.comp = x.createDynamicsCompressor(); A.comp.threshold.value = -14; A.comp.ratio.value = 3.5; A.comp.attack.value = 0.004; A.comp.release.value = 0.18;
-      A.out.connect(A.comp).connect(x.destination);
+      // мягкий потолок (tanh), чтобы удары не хрипели в OBS: пик не выше −1.3 дБ
+      A.lim = x.createWaveShaper(); const cv = new Float32Array(2049); for(let i = 0; i < cv.length; i++){ const v = i / 1024 - 1; cv[i] = Math.tanh(v * 1.4) / Math.tanh(1.4) * 0.86; } A.lim.curve = cv; A.lim.oversample = '2x';
+      A.post = x.createGain(); A.post.gain.value = 0.6;   // компрессор сам добавляет громкости: снимаем её до лимитера
+      A.out.connect(A.comp).connect(A.post).connect(A.lim).connect(x.destination);
       // стерео-импульс зала: шум с затуханием и потемнением хвоста
       const len = x.sampleRate * 2.6 | 0, ir = x.createBuffer(2, len, x.sampleRate);
       for(let ch = 0; ch < 2; ch++){ const d = ir.getChannelData(ch); let lp = 0; for(let i = 0; i < len; i++){ const k = i / len; lp += ((Math.random() * 2 - 1) - lp) * (0.9 - k * 0.75); d[i] = lp * Math.pow(1 - k, 3.2) * (i < 80 ? i / 80 : 1); } }
       A.rev = x.createConvolver(); A.rev.buffer = ir; A.revIn = x.createGain(); A.revIn.gain.value = 0.9; A.revIn.connect(A.rev).connect(A.out);
       const nb = x.createBuffer(1, x.sampleRate * 2, x.sampleRate), nd = nb.getChannelData(0); for(let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; A.noise = nb;
-    }
-    if(A.ctx.state === 'suspended') A.ctx.resume();
-    A.out.gain.value = vol;
-    return A.ctx;
+  }
+  // Прослушка без стрима: вся звуковая дорожка открытия в WAV (для проверки и для пульта)
+  async function renderWav(el){
+    const ct = T(), sr = 44100, dur = (ct.reveal + 5000) / 1000, x = new OfflineAudioContext(2, sr * dur | 0, sr), keep = A.ctx;
+    A.ctx = x; chain(x); A.out.gain.value = (el.vol ?? 0.8) * 0.62;
+    const r = el.items?.[el.win]?.r ?? 2;
+    SFX.in(0); SFX.tense((ct.land + 150) / 1000, (ct.open - ct.land - 150) / 1000); SFX.lock(ct.lock1 / 1000, 1); SFX.lock(ct.lock2 / 1000, 1.12); SFX.open(ct.open / 1000);
+    let last = -1; for(let ms = 0; ms < ct.reelDur; ms += 4){ const xx = caseReelX(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== last){ if(last >= 0) SFX.tick((ct.reel + ms) / 1000, ms / ct.reelDur); last = idx; } }
+    SFX.creep((ct.reel + ct.reelDur * 0.78) / 1000); SFX.win(ct.reveal / 1000, r);
+    const buf = await x.startRendering(); A.ctx = keep; if(keep) chain(keep); else { A.out = null; }
+    const n = buf.length, out = new DataView(new ArrayBuffer(44 + n * 4)), L = buf.getChannelData(0), R = buf.getChannelData(1);
+    const w = (o, str) => { for(let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, 'RIFF'); out.setUint32(4, 36 + n * 4, true); w(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 2, true);
+    out.setUint32(24, sr, true); out.setUint32(28, sr * 4, true); out.setUint16(32, 4, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * 4, true);
+    for(let i = 0; i < n; i++){ out.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); out.setInt16(46 + i * 4, clamp(R[i], -1, 1) * 32767, true); }
+    return new Blob([out.buffer], { type:'audio/wav' });
   }
   function voice(dest, send){ const x = A.ctx, g = x.createGain(); g.connect(dest || A.out); if(send){ const s = x.createGain(); s.gain.value = send; g.connect(s).connect(A.revIn); } return g; }
   function env(g, t0, a, peak, d, curve){ const p = g.gain; p.cancelScheduledValues(t0); p.setValueAtTime(0.0001, t0); p.linearRampToValueAtTime(peak, t0 + a); p.exponentialRampToValueAtTime(0.0001, t0 + a + d); }
@@ -474,5 +495,6 @@
     tick(el, p){ if(!FX().audio) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
     stop(c){ dispose(c); },
     preload: load,
+    renderWav,
   };
 })();
