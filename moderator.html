@@ -15,8 +15,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="core.css?v=10">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="i18n.js?v=2"></script>
+<script src="i18n.js?v=3"></script>
 <script src="core.js?v=14"></script>
+<script src="presets/animations.js?v=1"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
@@ -217,6 +218,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 
 #fatal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100001;padding:30px;text-align:center;font-size:16px}
 </style>
+<link rel="stylesheet" href="ui.css?v=1">
 </head>
 <body>
 
@@ -330,6 +332,10 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <input type="file" id="roomFile" accept=".json,application/json" hidden>
     <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта. «Бэкап» сохраняет всё (комнаты, сцены, библиотеку, анимации, сценарии) в файл под паролем.</div>
 
+    <h2>Надписи на стриме</h2>
+    <div class="row"><span class="hint">Язык</span><select id="slang" class="grow"><option value="">Как в пульте</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option><option value="de">Deutsch</option></select></div>
+    <div class="hint">На этом языке зрители видят служебные надписи: голосование, CS2, таймеры. Твои тексты не переводятся.</div>
+
     <h2>Файлы у стримера</h2>
     <div class="row"><button id="cleanFiles2" class="grow" title="Удалить из Hudini Host файлы, которых нет на экране, в сценах, библиотеке и сценариях">🧹 Удалить неиспользуемые файлы</button></div>
 
@@ -357,7 +363,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <kbd>Ctrl</kbd> при перетаскивании — за край и без магнита<br>
       <kbd>Стрелки</kbd> сдвиг (<kbd>Shift</kbd> сильнее) · <kbd>H</kbd> скрыть/показать<br>
       <kbd>F</kbd> показать на N сек · <kbd>1</kbd>…<kbd>9</kbd> слой с этим номером<br>
-      <kbd>Ctrl+D</kbd> копия · <kbd>Del</kbd> удалить · <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение<br>
+      <kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd> копировать и вставить (и в другую комнату) · <kbd>Ctrl+X</kbd> вырезать · <kbd>Ctrl+D</kbd> копия рядом<br><kbd>Del</kbd> удалить · <kbd>Ctrl+Z</kbd> отменить · <kbd>Esc</kbd> снять выделение<br>
       <kbd>Пробел</kbd> таймер · <kbd>+</kbd>/<kbd>−</kbd> счётчик · <kbd>P</kbd> анимация
     </div>
   </section>
@@ -673,5 +679,6 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 <div id="fatal"></div>
 
 <script src="moderator.js?v=1"></script>
+<script src="ui.js?v=1"></script>
 </body>
 </html>

@@ -2,12 +2,42 @@
 
 // Эмодзи рисуем одним шрифтом (Noto Color Emoji) у всех: системные шрифты в старых Windows/OBS
 // не знают новые эмодзи (например 🪖) и показывают пустой квадрат
-const EMOJI_FONT = "'Noto Color Emoji'";
+// Обычный шрифт стоит перед шрифтом эмодзи: если веб-шрифт не загрузился, пробелы и цифры
+// иначе берутся из шрифта эмодзи (он их тоже содержит) и текст разъезжается
+const EMOJI_FONT = "'Noto Color Emoji'", TEXT_FB = "Arial,'Liberation Sans','Segoe UI'";
 const FONTS = {
-  montserrat:`'Montserrat',${EMOJI_FONT},sans-serif`, russo:`'Russo One',${EMOJI_FONT},sans-serif`,
-  impact:`Impact,'Anton','Arial Black',${EMOJI_FONT},sans-serif`, pixel:`'Press Start 2P',${EMOJI_FONT},monospace`,
-  comfortaa:`'Comfortaa',${EMOJI_FONT},sans-serif`, caveat:`'Caveat',${EMOJI_FONT},cursive`
+  montserrat:`'Montserrat',${TEXT_FB},${EMOJI_FONT},sans-serif`, russo:`'Russo One',${TEXT_FB},${EMOJI_FONT},sans-serif`,
+  impact:`Impact,'Anton','Arial Black',${TEXT_FB},${EMOJI_FONT},sans-serif`, pixel:`'Press Start 2P','Courier New',${EMOJI_FONT},monospace`,
+  comfortaa:`'Comfortaa',${TEXT_FB},${EMOJI_FONT},sans-serif`, caveat:`'Caveat',${TEXT_FB},${EMOJI_FONT},cursive`
 };
+// ---------- надписи на стриме ----------
+// Язык выбирает модератор (Комната → «Язык надписей на стриме»), он приходит в состоянии экрана.
+const STREAM_LANGS = ['ru', 'en', 'uk', 'de'];
+let STREAM_LANG = 'ru';
+const STREAM_TXT = {
+  en:{ 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
+    'Нож':'Knife', 'Флешка':'Flashbang', 'Дым':'Smoke', 'Молотов':'Molotov', 'Зажигалка':'Incendiary', 'Ложная':'Decoy',
+    'заложена':'planted', 'разминируют':'defusing', 'разминирована':'defused', 'взорвалась':'exploded',
+    'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
+    'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
+    '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
+    'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
+  uk:{ 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
+    'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
+    'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
+    'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
+    'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
+    '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
+    'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
+  de:{ 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
+    'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
+    'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
+    'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
+    'смотрит':'schaut', 'мёртв':'tot', 'раунд':'Runde', 'Раунд':'Runde', '👁 Наблюдатель: выбери игрока':'👁 Zuschauer: Spieler wählen',
+    '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team-Panels funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt (GOTV / Observer)',
+    'Спецназ':'Antiterroreinheit', 'Террористы':'Terroristen', 'в голову':'Kopfschuss', 'Зритель':'Zuschauer', 'д':'T' },
+};
+const st = s => STREAM_TXT[STREAM_LANG]?.[s] ?? s;
 const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
@@ -175,38 +205,11 @@ function animApply(node, el, now){
   node.style.opacity = (node._vis ?? 1) * el.op * (st.done && kf.end==='hide' ? 0 : st.o);
   return true;
 }
-// Готовые анимации. Строятся от текущего положения элемента.
-const SPEED = 0.025; // % экрана за мс для «пролётов»
-function kfPreset(name, el){
-  const x=el.x, y=el.y, r=el.rot, F=(o)=>({ x, y, r, s:1, o:1, d:800, e:'inout', ...o });
-  const dist=(a,b)=>Math.hypot(b.x-a.x, (b.y-a.y)*9/16);
-  switch(name){
-    case 'flyLR': return { mode:'once', end:'hide', f:[F({ x:-30, d:4500, e:'linear' }), F({ x:130 })] };
-    case 'flyRL': return { mode:'once', end:'hide', f:[F({ x:130, d:4500, e:'linear' }), F({ x:-30 })] };
-    case 'flyUp': return { mode:'once', end:'hide', f:[F({ y:130, d:6000, e:'linear' }), F({ y:-30 })] };
-    case 'slideIn': return { mode:'once', end:'hide', f:[F({ x:-30, d:700, e:'out' }), F({ d:3000, e:'linear' }), F({ d:600, e:'in' }), F({ x:130 })] };
-    case 'drop': return { mode:'once', end:'stay', f:[F({ y:-30, d:1100, e:'bounce' }), F({})] };
-    case 'zoom': return { mode:'once', end:'hide', f:[F({ s:0, d:450, e:'back' }), F({ d:2500, e:'linear' }), F({ d:300, e:'in' }), F({ s:0 })] };
-    case 'spinIn': return { mode:'once', end:'stay', f:[F({ s:0, r:r-360, o:0, d:900, e:'out' }), F({})] };
-    case 'orbit': return { mode:'loop', end:'stay', f:Array.from({ length:12 }, (_,i)=>{ const a=i/12*Math.PI*2; return F({ x:x+Math.cos(a)*6, y:y+Math.sin(a)*6*16/9, d:250, e:'linear' }); }) };
-    case 'zigzag': return { mode:'pingpong', end:'stay', f:[-2,-1,0,1,2].map(i=>F({ x:x+i*8, y:y-(i%2?7:0), d:450, e:'inout' })) };
-    case 'swing': return { mode:'pingpong', end:'stay', f:[F({ r:r-15, d:900 }), F({ r:r+15 })] };
-    case 'heart': return { mode:'loop', end:'stay', f:[F({ d:500, e:'out' }), F({ s:1.25, d:200, e:'in' }), F({ d:300, e:'out' }), F({ s:1.15, d:150, e:'in' })] };
-    case 'dvd': {
-      const pts=[[8,12],[70,88],[92,40],[30,10],[8,55],[50,88],[92,70],[60,12]].map(([px,py])=>F({ x:px, y:py, e:'linear' }));
-      pts.forEach((p,i)=>p.d=dist(p, pts[(i+1)%pts.length])/SPEED*1.6);
-      return { mode:'loop', end:'stay', f:pts };
-    }
-  }
-  return null;
-}
-const KF_PRESETS = { flyLR:'➡ Пролёт слева направо', flyRL:'⬅ Пролёт справа налево', flyUp:'⬆ Титры снизу вверх',
-  slideIn:'↔ Въехал, постоял, уехал', drop:'⬇ Падение с отскоком', zoom:'💥 Зум-удар', spinIn:'🌀 Влёт с вращением',
-  orbit:'⭕ По кругу', zigzag:'〰 Зигзаг', swing:'🎐 Маятник', heart:'💓 Сердцебиение', dvd:'📀 DVD-заставка' };
+// Готовые анимации (kfPreset, KF_PRESETS) лежат в presets/animations.js: они под лицензией MIT.
 
 function sanitizeState(m){
   const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
-  return { visible: m?.visible !== false, els };
+  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null };
 }
 
 // ---------- время ----------
@@ -215,7 +218,7 @@ function fmtDur(ms, roundUp){
   let s = Math.max(0, roundUp ? Math.ceil(ms/1000) : Math.floor(ms/1000));
   const d = Math.floor(s/86400); s -= d*86400;
   const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
-  if(d) return `${d}д ${pad(h)}:${pad(m)}:${pad(x)}`;
+  if(d) return `${d}${st('д')} ${pad(h)}:${pad(m)}:${pad(x)}`;
   if(h) return `${h}:${pad(m)}:${pad(x)}`;
   return `${pad(m)}:${pad(x)}`;
 }
@@ -387,7 +390,7 @@ function paintNode(node, el, z){
       r.querySelector('.pv').textContent=`${pct}% · ${v}`;
       r.classList.toggle('win', !el.running && total>0 && v===max);
     });
-    foot.textContent = el.running ? `Пиши в чат цифру 1–${el.opts.length} · голосов: ${total}` : (total ? `Голосование закрыто · голосов: ${total}` : 'Голосование скоро начнётся');
+    foot.textContent = el.running ? `${st('Пиши в чат цифру')} 1–${el.opts.length} · ${st('голосов')}: ${total}` : (total ? `${st('Голосование закрыто')} · ${st('голосов')}: ${total}` : st('Голосование скоро начнётся'));
   } else if(el.type==='web'){
     node.style.width=el.w+'%';
     c.style.aspectRatio = el.shape==='circle' ? '1 / 1' : ASPECTS[el.ar];
@@ -676,11 +679,11 @@ const WEAPONS = { ak47:'AK-47', m4a1:'M4A4', m4a1_silencer:'M4A1-S', awp:'AWP', 
   mac10:'MAC-10', mp9:'MP9', mp7:'MP7', mp5sd:'MP5-SD', ump45:'UMP-45', p90:'P90', bizon:'PP-Bizon', nova:'Nova', xm1014:'XM1014',
   mag7:'MAG-7', sawedoff:'Sawed-Off', negev:'Negev', m249:'M249', taser:'Zeus', c4:'C4', hegrenade:'HE', flashbang:'Флешка',
   smokegrenade:'Дым', molotov:'Молотов', incgrenade:'Зажигалка', decoy:'Ложная' };
-function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? 'Нож' : (WEAPONS[id] || id.toUpperCase()); }
+function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? st('Нож') : st(WEAPONS[id] || id.toUpperCase()); }
 function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
-function bombText(d){ const b=d.bomb; return b==='planted'?' · 💣 заложена':b==='defusing'?' · 🔧 разминируют':b==='defused'?' · ✅ разминирована':b==='exploded'?' · 💥 взорвалась':''; }
+function bombText(d){ const b=d.bomb; return b==='planted'?' · 💣 '+st('заложена'):b==='defusing'?' · 🔧 '+st('разминируют'):b==='defused'?' · ✅ '+st('разминирована'):b==='exploded'?' · 💥 '+st('взорвалась'):''; }
 // Таймер фазы: сколько осталось (по времени программы стримера)
 function cs2Timer(){
   const d=CS2; if(!d?.pend) return '';
@@ -700,13 +703,13 @@ function paintCs2(c, el){
     const last=list[list.length-1];
     if(c._seen==null) c._seen = last ? last.s : 0;          // старые события при подключении не показываем
     else if(last && last.s>c._seen){ c._seen=last.s; if(Date.now()-(last.t+(d._skew||0)) < 8000) cs2Popup(c, last); }
-    if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub','появится само при мульти-килле'));
+    if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub',st('появится само при мульти-килле')));
     return;
   }
   c.classList.toggle('nodata', !d);
-  if(!d){ c.replaceChildren(h('div','c-none','🎯 CS2: ждём данные из игры')); return; }
+  if(!d){ c.replaceChildren(h('div','c-none',st('🎯 CS2: ждём данные из игры'))); return; }
   const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
-  const name = el.label || d.name || 'Игрок';
+  const name = el.label || d.name || st('Игрок');
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
   const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(h('b',null,String(v??0)), h('i',null,l)); } r.append(h('span','c-kd','K/D '+kd)); return r; };
   const parts=[];
@@ -714,7 +717,7 @@ function paintCs2(c, el){
     case 'card': {
       const top=h('div','c-top'); top.append(h('span','c-name', name), h('span','c-map', `${mapName(d.map)}${d.round!=null?' · R'+(d.round+1):''}`));
       const bars=h('div','c-hprow');
-      if(d.alive===false){ bars.append(h('span','c-dead', d.spectating ? `💀 смотрит ${d.spectating}` : '💀 мёртв')); }
+      if(d.alive===false){ bars.append(h('span','c-dead', d.spectating ? `💀 ${st('смотрит')} ${d.spectating}` : '💀 '+st('мёртв'))); }
       else { bars.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0))); }
       const bot=h('div','c-bot'); bot.append(h('span','c-money', money(d.money)), h('span','c-weap', d.weapon ? `${weaponName(d.weapon)}${d.ammoMax>0?` ${d.ammo}/${d.reserve}`:''}` : ''));
       parts.push(top, kdaRow(), bars, bot); break;
@@ -728,13 +731,13 @@ function paintCs2(c, el){
     }
     case 'score': {
       const r=h('div','c-score'); r.append(h('span','c-ct','CT'), h('b',null,String(d.ct??0)), h('span','c-sep',':'), h('b',null,String(d.tt??0)), h('span','c-t','T'));
-      parts.push(r, h('div','c-map', `${mapName(d.map)}${d.round!=null?' · раунд '+(d.round+1):''}`)); break;
+      parts.push(r, h('div','c-map', `${mapName(d.map)}${d.round!=null?' · '+st('раунд')+' '+(d.round+1):''}`)); break;
     }
     case 'money': parts.push(h('div','c-big c-money', money(d.money))); break;
     case 'observed': {
       const o = d.observed || (d.spec ? null : { ...d, alive:d.alive!==false });
-      if(!o){ parts.push(h('div','c-none','👁 Наблюдатель: выбери игрока')); break; }
-      const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||'Игрок'}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
+      if(!o){ parts.push(h('div','c-none',st('👁 Наблюдатель: выбери игрока'))); break; }
+      const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||st('Игрок')}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
       const okd = o.d ? (o.k/o.d).toFixed(2) : (o.k||0).toFixed(2);
       const kr=h('div','c-kda'); for(const [v,l] of [[o.k,'K'],[o.d,'D'],[o.a,'A']]) kr.append(h('b',null,String(v??0)), h('i',null,l)); kr.append(h('span','c-kd','K/D '+okd));
       const hr=h('div','c-hprow');
@@ -745,12 +748,12 @@ function paintCs2(c, el){
       parts.push(top, kr, hr, bot); break;
     }
     case 'teams': {
-      if(!d.players?.length){ parts.push(h('div','c-none','👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)')); break; }
+      if(!d.players?.length){ parts.push(h('div','c-none',st('👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)'))); break; }
       const sides = el.side==='both' ? ['CT','T'] : [el.side.toUpperCase()];
       const wrap=h('div','tm-wrap');
       for(const side of sides){
         const col=h('div','tm-col tm-'+side.toLowerCase());
-        const head=h('div','tm-head'); head.append(h('span',null, (side==='CT'?d.ctName:d.tName) || (side==='CT'?'Спецназ':'Террористы')), h('b',null,String(side==='CT'?d.ct??0:d.tt??0)));
+        const head=h('div','tm-head'); head.append(h('span',null, (side==='CT'?d.ctName:d.tName) || st(side==='CT'?'Спецназ':'Террористы')), h('b',null,String(side==='CT'?d.ct??0:d.tt??0)));
         col.appendChild(head);
         const list=d.players.filter(p=>p.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99));
         for(const p of list){
@@ -768,7 +771,7 @@ function paintCs2(c, el){
     case 'scorebar': {
       const r=h('div','sb');
       r.append(h('span','sb-team sb-ct', d.ctName||'CT'), h('b','sb-s',String(d.ct??0)));
-      const mid=h('div','sb-mid'); mid.append(h('div','sb-time', cs2Timer()), h('div','sb-round', `Раунд ${(d.round??0)+1}${bombText(d)}`));
+      const mid=h('div','sb-mid'); mid.append(h('div','sb-time', cs2Timer()), h('div','sb-round', `${st('Раунд')} ${(d.round??0)+1}${bombText(d)}`));
       r.append(mid, h('b','sb-s',String(d.tt??0)), h('span','sb-team sb-t', d.tName||'T'));
       parts.push(r, h('div','c-map sb-map', mapName(d.map))); break;
     }
@@ -778,7 +781,7 @@ function paintCs2(c, el){
 }
 
 function cs2Popup(c, ev){
-  const sub=[ev.me?null:ev.name, ev.hs?`${ev.hs} в голову`:null, ev.weapon?weaponName(ev.weapon):null].filter(Boolean).join(' · ');
+  const sub=[ev.me?null:ev.name, ev.hs?`${ev.hs} ${st('в голову')}`:null, ev.weapon?weaponName(ev.weapon):null].filter(Boolean).join(' · ');
   c.replaceChildren(h('div','c-streak', STREAK[Math.min(ev.n,5)] || (ev.n+' KILLS')), h('div','c-sub', sub));
   c._until=Date.now()+3800; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); c.classList.add('on');
 }
@@ -787,7 +790,7 @@ const BADGE = { mod:'🛡', vip:'💎', sub:'⭐', broadcaster:'🎥' };
 function paintMsg(c, el){
   const head=h('div','m-head');
   if(el.badge) head.append(h('span','m-badge', BADGE[el.badge]));
-  const nm=h('span','m-user', el.user||'Зритель'); nm.style.color=el.ucolor; head.append(nm);
+  const nm=h('span','m-user', el.user||st('Зритель')); nm.style.color=el.ucolor; head.append(nm);
   const body=h('div','m-text');
   const cp=Array.from(el.text);                       // Twitch считает позиции эмоутов по символам
   const em=[...el.emotes].sort((a,b)=>a[1]-b[1]); let i=0;

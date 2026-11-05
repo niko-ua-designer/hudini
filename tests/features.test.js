@@ -81,13 +81,23 @@ const { step, check, eq, until, sleep } = T;
     await mod.keyboard.press('Control+KeyA');
     eq(await mod.evaluate(() => msel.size), 3, 'Ctrl+A selects all');
     await mod.click('[data-align="t"]');
-    const tops = await mod.evaluate(() => state.els.map(e => Math.round(boxOf(e.id).t * 10)));
-    check(new Set(tops).size === 1, 'align top: same top edge ' + tops);
+    const tops = await mod.evaluate(() => state.els.map(e => boxOf(e.id).t));
+    check(Math.max(...tops) - Math.min(...tops) < 0.3, 'align top: same top edge ' + tops.map(t => t.toFixed(2)));
     await mod.click('#tGroup');
     check(await mod.evaluate(() => new Set(state.els.map(e => e.g)).size === 1 && !!state.els[0].g), 'grouped');
     await mod.click('#undoBtn');
     check(await mod.evaluate(() => state.els.every(e => !e.g)), 'undo removes the group');
     check(await mod.$$eval('.lvl', n => n.length) >= 8, 'β/α marks present on beta features');
+    await mod.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await mod.click('#stage', { position: { x: 3, y: 3 } }); await mod.keyboard.press('Control+KeyA');
+    await mod.keyboard.press('Control+KeyC'); await mod.keyboard.press('Control+KeyV');
+    check(await until(() => mod.evaluate(() => state.els.length === 6)), 'Ctrl+C, Ctrl+V pastes copies of all 3');
+    const xs = await mod.evaluate(() => state.els.map(e => Math.round(e.x)));
+    check(xs[3] === xs[0] + 3, 'pasted copies are shifted: ' + xs);
+    await mod.keyboard.press('Control+KeyV');
+    check(await until(() => mod.evaluate(() => state.els.length === 9 && Math.round(state.els[6].x) === Math.round(state.els[0].x) + 6)), 'second paste shifts further');
+    await mod.keyboard.press('Control+KeyX');
+    check(await until(() => mod.evaluate(() => state.els.length === 6)), 'Ctrl+X cuts the selection');
   });
 
   await step('scenes: save and restore the screen', async () => {

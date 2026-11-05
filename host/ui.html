@@ -139,9 +139,9 @@ async function refresh(){
   st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), s.tunnel?'работает':(s.tunnelErr||'запускается…'));
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
   st('sBr', s.bridge?'ok':'warn', s.bridge?'работает':'нет связи (пульт попробует последний адрес)');
-  const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0);
-  st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} из ${L.totalMB} МБ · ${g.files||0} из ${L.files}`);
-  $('limUsed').textContent = `Сейчас занято ${mb(g.used||0)} МБ, файлов ${g.files||0}.`;
+  const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0), U=['ru','uk'].includes(window.HudiniI18n?.lang||'ru')?'МБ':'MB';
+  st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} / ${L.totalMB} ${U} · файлов: ${g.files||0} / ${L.files}`);
+  $('limUsed').textContent = `Сейчас занято: ${mb(g.used||0)} ${U} · файлов: ${g.files||0}`;
   if(!limFilled || !g.limitsSet){
     if(!['limFile','limTotal','limFiles'].includes(document.activeElement?.id)){ $('limFile').value=L.fileMB; $('limTotal').value=L.totalMB; $('limFiles').value=L.files; limFilled=true; }
   }

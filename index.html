@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Hudini · stream overlay run by your moderator</title>
+<meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from a web panel. Text, pictures, GIFs, timers, polls, Twitch chat, CS2. Encrypted, files stay on the streamer's PC.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="site.css?v=1">
+<script src="site.js?v=1" defer></script>
+</head>
+<body data-page="home">
+<div class="top">
+  <a class="logo" href="index.html"><img src="icons/icon-192.png" alt="">Hudini</a>
+  <nav><a href="#features" data-t="features"></a><a href="#how" data-t="how"></a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
+  <a class="btn small primary" href="moderator.html" data-t="open"></a>
+  <select class="lang" aria-label="Language"></select>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1 data-t="h1"></h1>
+    <p data-t="sub"></p>
+    <div class="cta">
+      <a class="btn primary" href="moderator.html" data-t="open"></a>
+      <a class="btn" data-dl data-t="download" target="_blank" rel="noopener"></a>
+    </div>
+    <small data-t="free"></small>
+    <img class="shot" src="img/panel.png" alt="Hudini panel" width="1440" height="810">
+  </div>
+
+  <section class="block" id="features">
+    <h2 data-t="fTitle"></h2><p class="lead" data-t="fLead"></p>
+    <div class="cards" data-cards="f1,f2,f3,f4,f5,f6"></div>
+  </section>
+
+  <section class="block" id="how">
+    <h2 data-t="hTitle"></h2><p class="lead" data-t="hLead"></p>
+    <ol class="steps" data-steps="h1s,h2s,h3s"></ol>
+    <img class="shot" src="img/stream.png" alt="Overlay on stream" width="1440" height="810">
+  </section>
+
+  <section class="block" id="privacy">
+    <h2 data-t="pTitle"></h2><p class="lead" data-t="pLead"></p>
+    <div class="cards" data-cards="p1,p2,p3,p4"></div>
+  </section>
+
+  <section class="block">
+    <h2 data-t="lTitle"></h2><p data-t="lText"></p>
+  </section>
+</div>
+
+<footer><div class="wrap">
+  <span>🎩 Hudini 1.0</span>
+  <span><a href="help.html" data-help data-t="helpLink"></a> · <a href="https://github.com/niko-ua-designer/overlay/issues" target="_blank" rel="noopener" data-t="issues"></a> · <a href="https://github.com/niko-ua-designer/overlay" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/niko-ua-designer/overlay/blob/main/LICENSE" target="_blank" rel="noopener" data-t="license"></a> AGPL-3.0 / MIT</span>
+</div></footer>
+</body>
+</html>

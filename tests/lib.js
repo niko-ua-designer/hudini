@@ -71,13 +71,13 @@ function startHost(env = {}){
 // ---------- browser ----------
 let browser = null;
 const pageErrors = [];
-async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false } = {}){
+async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false } = {}){
   browser ||= await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.route('https://unpkg.com/**', r => r.fulfill({ body: MQTT_JS, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
-  await ctx.addInitScript(l => { try{ localStorage.setItem('hudini.lang', l); }catch{} }, lang);
+  await ctx.addInitScript(([l, tour]) => { try{ localStorage.setItem('hudini.lang', l); if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() })); }catch{} }, [lang, tour]);
   await ctx.route(/jtvnw\.net/, r => r.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/img.png')), contentType: 'image/png' }));
   // Twitch chat without the network: window.__irc(line) feeds a raw IRC line to the panel
   if(irc) await ctx.addInitScript(() => { const Real = window.WebSocket; window.WebSocket = function(url, p){ if(!String(url).includes('irc-ws')) return new Real(url, p);
@@ -92,10 +92,10 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false } = {
 async function closeBrowser(){ await browser?.close(); browser = null; }
 
 // Panel + Host + widget wired together, as on a real stream
-async function stack({ hostEnv, irc = false } = {}){
+async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = {}){
   const pub = await publicBroker(), web = await webServer();
   const host = startHost(hostEnv); await host.ready();
-  const panel = await newPage('panel', { irc });
+  const panel = await newPage('panel', { irc, lang, w, h });
   await panel.goto(`${web.url}/moderator.html?broker=${encodeURIComponent(pub.url)}`);
   await panel.waitForFunction(() => document.getElementById('link').value.includes('#k='));
   const link = await panel.inputValue('#link');

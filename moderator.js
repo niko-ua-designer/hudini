@@ -45,7 +45,7 @@ function saveRooms(){
 const cleanAddr = h => h && typeof h.url==='string' && /^wss?:\/\/[^\s/]+\/mqtt$/.test(h.url) && typeof h.pass==='string' && h.pass.length<200 ? { url:h.url, pass:h.pass } : undefined;
 function cleanRoom(r){
   return r && validCode(r.code) && typeof r.k==='string' && typeof r.p==='string' && r.s && typeof r.s==='object'
-    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, home:cleanAddr(r.home), manual:cleanAddr(r.manual) } : null;
+    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, home:cleanAddr(r.home), manual:cleanAddr(r.manual), slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined } : null;
 }
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
 // Комнаты из старых версий (без ключей). Их коды были видны на брокере всем, поэтому выдаём новые.
@@ -110,7 +110,8 @@ function hostStatus(){
   if(client?.connected) return;
   const pill=$('status');
   if(homeClient){ setPill(pill, 'warn', 'подключаюсь к Hudini Host…'); pill.title='Адрес программы стримера: '+(homeInfo?.url||''); return; }
-  setPill(pill, 'bad', hostNote || 'нет Hudini Host');
+  // без программы пульт работает: всё уйдёт стримеру при подключении, поэтому это ожидание, а не ошибка
+  setPill(pill, /пароль/.test(hostNote) ? 'bad' : 'warn', hostNote || '⏳ Ждём Hudini Host');
   pill.title='Экран стримера меняется только через программу Hudini Host на его компьютере.\nНажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.';
 }
 function useMain(c){
@@ -210,7 +211,7 @@ async function onMessage(topic, payload, packet){
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
   if(msg.from===clientId && !packet.retain) return;   // своё эхо
   if(drag) return;                                 // не мешаем, пока тащим
-  state=sanitizeState(msg);
+  state=sanitizeState(msg); if(state.lang) STREAM_LANG=state.lang;
   if(selectedId && !byId(selectedId)) selectedId=null;
   renderAll();
 }
@@ -239,7 +240,8 @@ let sendTimer=null, lastSend=0;
 function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:state.visible, els:state.els };
+  STREAM_LANG=streamLang();
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, els:state.els };
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
 function scheduleSend(){
@@ -260,7 +262,7 @@ async function switchRoom(code){
   state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
   Assets.reset();
   if(pubClient?.connected) pubClient.subscribe(topics(room).base+'/srv', { qos:1 });
-  tryHome(); renderHostAdv();
+  tryHome(); renderHostAdv(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());
   renderRooms(); renderScenes(); renderScn(); $('scnEdit').hidden=true; lastEvSeq=null; updateLink(); renderAll();
 }
@@ -330,15 +332,15 @@ const TW_BASE={ fs:10, font:'montserrat', color:'#ffffff', card:'#1d1d24', style
 function addTimer(mode){
   const now=Date.now();
   const base={ type:'timer', mode, ...place(), ...TW_BASE, label:'', running:false };
-  if(mode==='countdown') Object.assign(base, { dur:300000, left:300000, endText:'ВРЕМЯ!', endBlink:true });
+  if(mode==='countdown') Object.assign(base, { dur:300000, left:300000, endText:sT('ВРЕМЯ!'), endBlink:true });
   if(mode==='stopwatch') Object.assign(base, { acc:0 });
-  if(mode==='until') Object.assign(base, { target:nextNewYear(), label:'До Нового года', fs:8, endText:'С НОВЫМ ГОДОМ!', endConfetti:true, endBlink:true });
+  if(mode==='until') Object.assign(base, { target:nextNewYear(), label:sT('До Нового года'), fs:8, endText:sT('С НОВЫМ ГОДОМ!'), endConfetti:true, endBlink:true });
   if(mode==='clock') Object.assign(base, { secs:true, tz:'', fs:8 });
   addEl(base);
 }
 function addCounter(chat){
   addEl({ type:'counter', ...place(), ...TW_BASE, fs:9, value:0, step:1,
-    label: chat ? 'F в чат' : 'Смертей', cmode: chat?'chat':'manual', kw: chat?'F':'', uniq:false,
+    label: chat ? sT('F в чат') : sT('Смертей'), cmode: chat?'chat':'manual', kw: chat?'F':'', uniq:false,
     every:60, goal:0, running: !!chat, startAt:Date.now() });
   if(chat && !chatWs) toast('Подключи чат Twitch слева, чтобы счётчик заработал', 4000);
 }
@@ -360,9 +362,20 @@ function renderCsStatus(){
 }
 function addPoll(){
   addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
-    title:'Что дальше?', opts:['Вариант 1','Вариант 2','Вариант 3'], votes:[0,0,0], running:false });
+    title:sT('Что дальше?'), opts:[1,2,3].map(n=>sT('Вариант')+' '+n), votes:[0,0,0], running:false });
   if(!chatWs) toast('Для голосования подключи чат Twitch слева', 4000);
 }
+
+// ---- язык надписей на стриме (по умолчанию как у пульта) ----
+const DEFAULT_TXT={
+  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option' },
+  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант' },
+  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option' },
+};
+function streamLang(){ const r=curRoom(); return STREAM_LANGS.includes(r?.slang) ? r.slang : (STREAM_LANGS.includes(window.HudiniI18n?.lang) ? window.HudiniI18n.lang : 'ru'); }
+const sT=s=>DEFAULT_TXT[streamLang()]?.[s] ?? s;
+function renderSlang(){ const r=curRoom(); $('slang').value = STREAM_LANGS.includes(r?.slang) ? r.slang : ''; }
+$('slang').onchange=e=>{ const r=curRoom(); if(e.target.value) r.slang=e.target.value; else delete r.slang; saveRooms(); STREAM_LANG=streamLang(); renderAll(); publishNow(1); toast('Надписи на стриме: '+e.target.selectedOptions[0].textContent); };
 
 // ================== ФАЙЛЫ С КОМПЬЮТЕРА ==================
 function showUpload(text, p){ $('upload').hidden=false; $('upText').textContent=text; $('upBar').style.width=Math.round(p*100)+'%'; }
@@ -396,14 +409,15 @@ async function shrinkImage(file){
 }
 // ---- место для файлов в программе стримера ----
 let storage=null, storageToast=false;
-const fmtBytes=b=>{ const nf=new Intl.NumberFormat(window.HudiniI18n?.lang||'ru', { maximumFractionDigits:1 });
-  return b>=1073741824 ? nf.format(b/1073741824)+' ГБ' : b>=1048576 ? nf.format(Math.round(b/1048576))+' МБ' : nf.format(Math.round(b/1024))+' КБ'; };
+const fmtBytes=b=>{ const lang=window.HudiniI18n?.lang||'ru', nf=new Intl.NumberFormat(lang, { maximumFractionDigits:1 });
+  const [k,m,g] = lang==='ru'||lang==='uk' ? ['КБ','МБ','ГБ'] : ['KB','MB','GB'];
+  return b>=1073741824 ? nf.format(b/1073741824)+' '+g : b>=1048576 ? nf.format(Math.round(b/1048576))+' '+m : nf.format(Math.round(b/1024))+' '+k; };
 function renderStorage(){
   const el=$('storageInfo'), row=$('storageRow');
   if(!storage){ row.hidden=true; return; }
   row.hidden=false;
   const full=storage.used>=storage.limitBytes*0.9 || storage.files>=storage.maxFiles;
-  el.textContent=`Место: ${fmtBytes(storage.used)} из ${fmtBytes(storage.limitBytes)} · файлов ${storage.files} из ${storage.maxFiles}`;
+  el.textContent=`Место: ${fmtBytes(storage.used)} / ${fmtBytes(storage.limitBytes)} · файлов: ${storage.files} / ${storage.maxFiles}`;
   el.title=`Файлы хранятся у стримера в программе Hudini Host. Один файл до ${fmtBytes(storage.maxFileBytes)}. Лимиты меняет стример на странице программы.`;
   el.classList.toggle('warnText', full);
 }
@@ -449,7 +463,10 @@ async function uploadBlob(blob, name){
       headers:{ authorization:h.auth, 'content-type':'application/octet-stream' }, body:box.subarray(i*PART_BYTES, (i+1)*PART_BYTES) });
     const j=await r.json().catch(()=>({}));
     if(j.storage) setStorage(j.storage);
-    if(r.status===413){ showHostTip(`Не загрузилось «${name}»: ${j.error||'нет места'}`, true); const e=new Error('нет места'); e.shown=true; throw e; }
+    if(r.status===413){
+      const why={ file:'файл больше, чем разрешил стример', count:'файлов уже столько, сколько разрешил стример', space:'место для файлов кончилось' }[j.reason] || 'место для файлов кончилось';
+      showHostTip(`«${name}» не загрузился: ${why}`, true); const e=new Error('нет места'); e.shown=true; throw e;
+    }
     if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
     showUpload(`Загрузка ${name}: ${Math.round((i+1)/n*100)}%`, (i+1)/n);
   }
@@ -1268,7 +1285,7 @@ $('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=n
 $('tToggle').onclick=()=>act(timerToggle);
 $('tReset').onclick=()=>act(timerReset);
 document.querySelectorAll('[data-tadd]').forEach(b=>b.onclick=()=>act(el=>timerAdd(el, Number(b.dataset.tadd))));
-$('tNY').onclick=()=>act(el=>{ el.target=nextNewYear(); if(!el.label) el.label='До Нового года'; });
+$('tNY').onclick=()=>act(el=>{ el.target=nextNewYear(); if(!el.label) el.label=sT('До Нового года'); });
 $('tHour').onclick=()=>act(el=>el.target=Date.now()+3600000);
 $('cPlus').onclick=()=>act(el=>el.value+=el.step);
 $('cMinus').onclick=()=>act(el=>el.value-=el.step);
@@ -1385,8 +1402,60 @@ function htmlMediaUrl(html){
   const m=(html||'').match(/<(?:img|video|source)[^>]+src=["']([^"']+)["']/i);
   return m ? safeUrl(m[1].replace(/&amp;/g,'&')) : null;
 }
+// ---- Ctrl+C / Ctrl+X / Ctrl+V для элементов ----
+// В буфер уходит текст с меткой, поэтому можно вставить и в другую вкладку или комнату (файлы скопируются сами).
+const CLIP_MARK='hudini-elements:';
+let pasteSeq={ key:'', n:0 };
+function copySel(e, cut){
+  if(typing(e.target) || String(window.getSelection?.()||'')) return;
+  const list=selList(); if(!list.length) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', CLIP_MARK+JSON.stringify({ v:1, room, els:list }));
+  pasteSeq={ key:'', n:0 };
+  if(cut){ remove(); toast(`✂ Вырезано: ${list.length}. Ctrl+V — вставить`); }
+  else toast(`📋 Скопировано: ${list.length}. Ctrl+V — вставить`);
+}
+document.addEventListener('copy', e=>copySel(e, false));
+document.addEventListener('cut', e=>copySel(e, true));
+async function pasteEls(text){
+  let data; try{ data=JSON.parse(text.slice(CLIP_MARK.length)); }catch{ return toast('В буфере повреждённые элементы'); }
+  const src=(Array.isArray(data?.els) ? data.els : []).slice(0, 60);
+  if(!src.length) return;
+  const same=data.room===room;
+  // каждая следующая вставка того же самого сдвигается, чтобы копии не легли друг на друга
+  pasteSeq = pasteSeq.key===text ? { key:text, n:pasteSeq.n+1 } : { key:text, n:1 };
+  const d = same ? 3*pasteSeq.n : 0;
+  const els=[];
+  for(const raw of src){
+    const c=sanitizeEl(JSON.parse(JSON.stringify(raw))); if(!c) continue;
+    if(!same){
+      for(const k of ['src','endSound']){
+        const aid=assetId(c[k]); if(!aid) continue;
+        try{ showUpload('Копирую файл в эту комнату…', 0.3); c[k]=await uploadBlob(await getAssetBlob(data.room, aid), 'copy'); }
+        catch(err){ hideUpload(); if(!err.shown) toast('Файл не скопировался: '+(err.message||err)); return; }
+      }
+      hideUpload();
+    }
+    els.push(c);
+  }
+  const free=MAX_ELS-state.els.length;
+  if(free<=0) return toast('Слишком много элементов');
+  if(els.length>free){ els.length=free; toast('Вставлены не все: на экране максимум '+MAX_ELS+' элементов'); }
+  beginChange();
+  const gmap=new Map(), ids=[];
+  for(const c of els){
+    c.id=rid(10); c.x=num(c.x+d,50,0,100); c.y=num(c.y+d,50,0,100); delete c.ttl;
+    if(c.g){ if(!gmap.has(c.g)) gmap.set(c.g, rid(6)); c.g=gmap.get(c.g); }
+    if(c.kf) c.kf.start=Date.now();
+    state.els.push(c); ids.push(c.id);
+  }
+  msel.clear(); ids.forEach(i=>msel.add(i)); selectedId=ids.at(-1)||null; commit();
+  toast(`📋 Вставлено: ${ids.length}`);
+}
 document.addEventListener('paste', e=>{
   if(typing(e.target)) return;
+  const clipText=e.clipboardData?.getData('text/plain')||'';
+  if(clipText.startsWith(CLIP_MARK)){ e.preventDefault(); pasteEls(clipText); return; }
   const orig=htmlMediaUrl(e.clipboardData?.getData('text/html'));
   if(orig){ e.preventDefault(); addUrl(orig); return; }
   const files=[...(e.clipboardData?.files||[])].filter(f=>/^(image|video)\//.test(f.type));
@@ -1883,7 +1952,7 @@ async function boot(){
   const cur=lsGet('overlay.current', null);
   if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
   saveRooms();
-  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderHostAdv();
+  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderHostAdv(); renderSlang(); STREAM_LANG=streamLang();
   applyBg($('bgInput').value);
   setPill($('status'), 'warn', 'подключение…');
   connect();
@@ -1891,6 +1960,7 @@ async function boot(){
   if(!rooms.length){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); saveRooms(); renderRooms(); }
   updateLink(); renderAll();
   { const ch=lsGet('overlay.chat',''); if(ch) chatConnect(ch); }
+  window.hudiniReady=true;
   if(migrated) setTimeout(()=>alert('🔐 Защита обновлена.\n\nТеперь все команды на экран подписываются твоим ключом, а чужие отбрасываются. Старые ссылки для OBS больше не работают: нажми «📋 Копировать» и отправь стримеру НОВУЮ ссылку.'), 300);
 }
 // Пульт можно установить как приложение (PWA)
