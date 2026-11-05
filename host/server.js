@@ -26,7 +26,7 @@ import ICONS_JS from '../icons.js' with { type: 'text' };
 import CASE3D_JS from '../case3d.js' with { type: 'text' };
 import THREE_JS from '../vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.0.0-rc.2';
+const VERSION = '1.0.0-rc.3';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';

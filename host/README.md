@@ -10,7 +10,7 @@ The app for the streamer's PC. Since Hudini 1.0 it is required: it serves the ov
 
 ### How to use
 
-1. Download the app from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2). For Windows that's `HudiniHost-windows.exe.zip`.
+1. Download the app from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.3). For Windows that's `HudiniHost-windows.exe.zip`.
 2. Unzip it and run the app from the **Hudini Host** folder. It's portable: settings, files, cache and cloudflared live in `data/` next to it. To remove Hudini completely, delete the folder.
    Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). If Windows asks about network access, allow private networks.
 3. The control page `http://localhost:7777` opens:
@@ -74,7 +74,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 
 ### Как пользоваться
 
-1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2): для Windows это `HudiniHost-windows.exe.zip`.
+1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.3): для Windows это `HudiniHost-windows.exe.zip`.
 2. Распакуй и запусти программу из папки **Hudini Host**. Она портативная: настройки, файлы, кэш и cloudflared лежат в `data/` рядом с ней. Чтобы удалить Hudini полностью, удали папку.
    Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Если Windows спросит про доступ к сети, разреши для частных сетей.
 3. Откроется страница управления `http://localhost:7777`:
