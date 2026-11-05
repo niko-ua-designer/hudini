@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const KEY = 'hudini.ui', BAK = 'hudini.ui.bak';
   const HELP_URL = 'help.html';
-  const ISSUES_URL = 'https://github.com/niko-ua-designer/overlay/issues';
+  const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
   const TABS = ['add', 'scenes', 'chat', 'auto', 'room'];
   const DEF = { v:1, lw:300, rw:310, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
   // Ready layouts: one click, then everything can still be tuned by hand

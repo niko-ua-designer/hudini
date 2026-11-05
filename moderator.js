@@ -7,7 +7,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
 const PART_BYTES = 8*1048576;           // файлы уходят в программу кусками (туннель Cloudflare берёт до 100 МБ за раз)
-const HOST_DL = 'https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1';
+const HOST_DL = 'https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2';
 // ===============================================
 
 const $ = id => document.getElementById(id);
@@ -2026,7 +2026,7 @@ async function boot(){
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 // ================== МЕТКИ β / α ==================
 // Стабильное в 1.0 без меток. Бета: работает, но мало проверено на разных ПК. Альфа: экспериментально.
-const ISSUES='https://github.com/niko-ua-designer/overlay/issues';
+const ISSUES='https://github.com/niko-ua-designer/hudini/issues';
 const LEVELS={
   beta:{ mark:'β', name:'Бета', say:'Работает, но мало проверено на разных компьютерах. Если сбоит, напиши.' },
   alpha:{ mark:'α', name:'Альфа', say:'Экспериментально: может ломаться и измениться без предупреждения.' },

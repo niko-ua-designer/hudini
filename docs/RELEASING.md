@@ -1,10 +1,10 @@
 # Releasing Hudini
 
-## 1.0.0-rc.1 (ready on branch `v1`)
+## 1.0.0-rc.2 (ready on branch `v1`)
 
 1. Merge `v1` into `main`. GitHub Pages publishes the new site in 1–2 minutes.
    From that moment Overlay Host 1.4 stops showing uploaded files: the streamer installs rc.1.
-2. Push the tag: `git tag v1.0.0-rc.1 && git push origin v1.0.0-rc.1`. The "Hudini Host release" workflow builds
+2. Push the tag: `git tag v1.0.0-rc.2 && git push origin v1.0.0-rc.2`. The "Hudini Host release" workflow builds
    Windows, Linux and macOS binaries and publishes a pre-release.
 3. Live test with [rc-checklist.md](rc-checklist.md).
 

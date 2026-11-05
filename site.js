@@ -11,7 +11,7 @@
     return 'en';
   }
   let lang = pick();
-  const DL = 'https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1';
+  const DL = 'https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.2';
 
   // Landing texts. Values are trusted HTML written here, never user input.
   const T = {

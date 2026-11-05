@@ -23,10 +23,10 @@ import UI_HTML from './ui.html' with { type: 'text' };
 import DOCK_HTML from './dock.html' with { type: 'text' };
 import I18N_JS from '../i18n.js' with { type: 'text' };
 
-const VERSION = '1.0.0-rc.1';
+const VERSION = '1.0.0-rc.2';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
-const SITE = 'https://niko-ua-designer.github.io/overlay/';
+const SITE = 'https://niko-ua-designer.github.io/hudini/';
 const NO_TUNNEL = !!process.env.OVERLAY_NO_TUNNEL;
 const NO_OPEN = !!process.env.OVERLAY_NO_OPEN;
 
@@ -451,7 +451,7 @@ function widgetHtml(){
 // ---------- автообновление программы ----------
 // Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
 // Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
-const REPO = 'niko-ua-designer/overlay';
+const REPO = 'niko-ua-designer/hudini';
 const ASSET = { win32:'HudiniHost-windows.exe', linux:'HudiniHost-linux', darwin: os.arch()==='arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel' }[process.platform];
 const startedAt = Date.now();
 const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false };
