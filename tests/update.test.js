@@ -1,5 +1,5 @@
 // Self-update of Hudini Host: a compiled rc build updates to the stable release from a fake GitHub,
-// verifies SHA-256, ignores old host-v tags, refuses a tampered download, and a stable build ignores rc releases.
+// verifies SHA-256, ignores old host-v tags and v0.x betas, refuses a tampered download, and a stable build ignores rc releases.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
@@ -48,7 +48,7 @@ function zipOne(file, name){   // minimal stored zip with one entry
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
   await step('rc build updates to the stable release', async () => {
-    list = [{ tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v1.1.0', draft: true, assets }];
+    list = [{ tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v0.5.0', prerelease: true, assets }, { tag_name: 'v1.1.0', draft: true, assets }];
     fs.writeFileSync(path.join(app, 'overlay-host.json'), JSON.stringify({ modPass: 'legacy-pass-123' }));   // settings of a pre-1.0 install
     run();
     check(await until(async () => (await status())?.version === '1.0.0-rc.1', 10000) || (await status())?.version === '1.0.0', 'rc build started');

@@ -490,7 +490,7 @@ const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpda
 // Версии вида 1.0.0 и 1.0.0-rc.1 (rc раньше готовой версии)
 const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? [+m[1], +m[2], +m[3], m[4]==null ? Infinity : +m[4]] : null; };
 const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
-// Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые теги host-v… не смотрим.
+// Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
 function pickRelease(list){
   const beta = VERSION.includes('-');
   return (Array.isArray(list) ? list : [list]).filter(x => x && !x.draft && /^v\d+\.\d+\.\d+(-rc\.\d+)?$/.test(x.tag_name||'') && (beta || (!x.prerelease && !x.tag_name.includes('-'))))

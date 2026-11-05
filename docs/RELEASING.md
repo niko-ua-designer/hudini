@@ -22,5 +22,5 @@
 2. Point the download links back to `releases/latest`
    (`site.js`, `help-content.js`, `moderator.html`, `moderator.js`, `README.md`, `host/README.md`).
 3. Commit to `main`, then `git tag v1.0.0 && git push origin v1.0.0`.
-   The workflow publishes the release as latest and marks the old `host-v…` releases as old pre-releases.
+   The workflow publishes the release as latest. The old Overlay Host betas (v0.1.0–v0.5.0) are pre-releases.
    rc builds update themselves to 1.0.0.

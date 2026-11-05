@@ -55,11 +55,3 @@ jobs:
           files: |
             host/dist/*.zip
             host/dist/SHA256SUMS.txt
-      # Releases before 1.0 (host-v…) become old pre-releases, so "latest" always points to Hudini 1.x
-      - name: Retire old releases
-        if: steps.v.outputs.pre == 'false'
-        env: { GH_TOKEN: '${{ github.token }}' }
-        run: |
-          for t in $(gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[].tagName' | grep '^host-v'); do
-            gh release edit "$t" -R "$GITHUB_REPOSITORY" --prerelease --latest=false --title "Old Overlay Host ${t#host-v} (before Hudini 1.0)"
-          done
