@@ -31,6 +31,38 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await wid.$$eval('.poll', n => n.length)) === 1), 'poll on stream');
   });
 
+  await step('chat commands for trusted people, timed poll, timer command', async () => {
+    await mod.click('[data-tab=chat]');
+    const poll = () => mod.evaluate(() => { const p = state.els.find(e => e.type === 'poll'); return { running:p.running, closeAt:p.closeAt }; });
+    await mod.evaluate(() => { const p = state.els.find(e => e.type === 'poll'); p.running = false; changed(); });
+    await irc('Viewer', '!опрос 30');
+    eq((await poll()).running, false, 'a viewer can not start the poll');
+    await irc('ModGuy', '!опрос 30', 'moderator/1');
+    const p1 = await poll();
+    check(p1.running && p1.closeAt > Date.now() + 25000, 'a chat mod starts it with auto-close in 30 s');
+    check(await until(async () => /⏳ 0:[23]\d/.test((await wid.$$eval('.poll', n => n.map(x => x.textContent)))[0] || '')), 'countdown on stream');
+    await irc('ModGuy', '!опрос стоп', 'moderator/1');
+    eq((await poll()).running, false, '!опрос стоп closes it');
+    await mod.selectOption('#cmdMode', 'broadcaster');
+    await irc('ModGuy', '!poll', 'moderator/1');
+    eq((await poll()).running, false, 'mode "only the streamer" ignores mods');
+    await irc('Streamer', '!poll', 'broadcaster/1');
+    eq((await poll()).running, true, 'the streamer can');
+    await mod.selectOption('#cmdMode', 'list'); await mod.fill('#cmdList', 'Friend1, Other'); await mod.dispatchEvent('#cmdList', 'change');
+    await irc('Friend1', '!poll stop');
+    eq((await poll()).running, false, 'a nick from my list can');
+    await mod.evaluate(() => { const p = state.els.find(e => e.type === 'poll'); p.running = true; p.closeAt = Date.now() + 1500; changed(); });
+    check(await until(async () => !(await poll()).running, 5000), 'poll closes by itself at the time');
+    await mod.selectOption('#cmdMode', 'mods');
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=countdown]'); await mod.click('[data-tab=chat]');
+    await irc('ModGuy', '!таймер 2м', 'moderator/1');
+    const t = await mod.evaluate(() => { const x = state.els.find(e => e.type === 'timer'); return { running:x.running, dur:x.dur }; });
+    check(t.running && t.dur === 120000, '!таймер 2м runs a 2 minute countdown');
+    await irc('ModGuy', '!таймер стоп', 'moderator/1');
+    eq(await mod.evaluate(() => state.els.find(e => e.type === 'timer').running), false, '!таймер стоп pauses it');
+    await mod.click('[data-tab=add]');
+  });
+
   await step('scenario: chat command → flash + confetti, with cooldown', async () => {
     await mod.fill('#newText', 'КРИНЖ'); await mod.click('#addText');
     const id = await mod.evaluate(() => state.els.find(e => e.text === 'КРИНЖ').id);

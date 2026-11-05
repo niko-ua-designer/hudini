@@ -99,9 +99,9 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     const atk = mqtt.connect(`ws://localhost:${host.port}/mqtt`); await new Promise(r => atk.on('connect', r));
     const cap = {};
     atk.subscribe(P + '/#'); atk.on('message', (t, p) => { if(p.length) cap[t] = Buffer.from(p); });
-    await sleep(500);
+    await until(() => cap[P + '/state'], 3000);
     const before = await texts(widget);
-    check(cap[P + '/state'] && !cap[P + '/state'].includes(Buffer.from('ПРИВЕТ')), 'local snooper sees ciphertext only');
+    check(cap[P + '/state'] && !cap[P + '/state'].includes(Buffer.from('ПРИВЕТ')), 'local snooper sees ciphertext only', Object.keys(cap));
     atk.publish(P + '/state', JSON.stringify({ visible: true, els: [{ id: 'evil', type: 'text', text: 'ВЗЛОМ', x: 50, y: 50 }] }), { retain: true });
     const fake = Buffer.alloc(140); fake[0] = 1; fake[1] = 1; crypto.randomFillSync(fake, 2); atk.publish(P + '/state', fake);
     atk.publish(P + '/state', '', { retain: true });
@@ -155,6 +155,26 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     await w.goto(S.obsLink.replace(host.base, S.web.url).replace(/&broker=[^&#]+/, ''));
     check(await until(() => w.isVisible('#need')), 'old link shows "Нужна программа Hudini Host"');
     await w.context().close();
+  });
+
+  await step('OBS dock: hide overlay, stop sounds, pause moderators', async () => {
+    const dock = await T.newPage('dock', { w: 320, h: 500 });
+    await dock.goto(host.base + '/dock');
+    check(await until(async () => /виджет работает/.test(await dock.textContent('#rows'))), 'dock shows the OBS widget status');
+    await dock.click('#hide');
+    check(await until(() => widget.evaluate(() => document.body.classList.contains('host-hidden'))), 'widget hides the overlay');
+    check(await until(async () => /спрятано стримером/.test(await panel.textContent('#obsStatus'))), 'panel says the streamer hid it');
+    await dock.click('#hide');
+    check(await until(() => widget.evaluate(() => !document.body.classList.contains('host-hidden'))), 'overlay back');
+    const atk = mqtt.connect(`ws://localhost:${host.port}/mqtt`); await new Promise(r => atk.on('connect', r));
+    let dropped = false; atk.on('close', () => { dropped = true; });
+    atk.publish(P + '/host', 'x'); await sleep(500); atk.end(true);
+    check(dropped, 'nobody but the app may publish dock commands');
+    await dock.click('#pause');
+    check(await until(async () => /паузу/.test(await panel.textContent('#status')), 10000), 'panel shows the pause: ' + await panel.textContent('#status'));
+    await dock.click('#pause');
+    check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 25000), 'panel reconnects after the pause');
+    await dock.context().close();
   });
 
   await step('rekey: Host rotates the password and drops old moderators', async () => {

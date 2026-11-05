@@ -299,6 +299,13 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
     <div class="row"><input id="chatChan" type="text" class="grow" placeholder="ник канала"><button id="chatBtn">Подключить</button></div>
     <div class="hint">Только читает чат, без входа в аккаунт. Нужен для ленты, счётчиков, голосований и сценариев. Подключай в одном пульте, иначе всё посчитается дважды.</div>
+    <h2>Команды в чате</h2>
+    <div class="row"><span class="hint">Кто может</span><select id="cmdMode" class="grow">
+      <option value="off">Никто (выключено)</option><option value="broadcaster">Только стример</option><option value="mods">Стример и модеры чата</option>
+      <option value="modslist">Стример, модеры и мой список</option><option value="list">Только мой список</option></select></div>
+    <div class="row" id="cmdListRow"><input type="text" id="cmdList" class="grow" placeholder="Ники через запятую"></div>
+    <div class="hint"><code>!опрос</code> начать · <code>!опрос 60</code> закрыть через 60 с · <code>!опрос стоп</code><br><code>!таймер 5м</code> запустить на 5 минут · <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code><br>Работает в пульте, где подключён чат. От остальных зрителей команды не действуют.</div>
+
     <h2>Показ сообщений</h2>
     <div class="row"><span class="hint">Держать</span><input type="number" id="msgSecs" min="0" max="600" value="8" style="width:60px"><span class="hint">сек (0 = пока не скрою)</span></div>
     <label class="chk"><input type="checkbox" id="msgReplace" checked> Новое сообщение заменяет предыдущее</label>
@@ -519,6 +526,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="lbl">Варианты (каждый с новой строки, до 6)</div>
       <textarea id="iPOpts" rows="4"></textarea>
       <div class="row"><button id="pToggle" class="go grow">▶ Начать</button><button id="pReset">↺ Обнулить</button></div>
+      <div class="row"><span class="hint">Закрыть само через</span><input type="number" id="pSecs" min="5" max="3600" value="60" style="width:64px"><span class="hint">сек</span><button id="pTimed" class="grow" title="Начать и закрыть через N секунд, на стриме идёт обратный отсчёт">▶ С отсчётом</button></div>
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iAccent"><span class="hint">Фон</span><input type="color" id="iPCard"></div>
       <div class="hint">Зрители пишут в чат цифру (1, 2…) или !1, !2. Один голос на зрителя, передумать можно. Нужен подключённый чат Twitch.</div>
     </div>

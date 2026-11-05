@@ -20,6 +20,7 @@ import CORE_JS from '../core.js' with { type: 'text' };
 import CORE_CSS from '../core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
+import DOCK_HTML from './dock.html' with { type: 'text' };
 import I18N_JS from '../i18n.js' with { type: 'text' };
 
 const VERSION = '1.0.0-rc.1';
@@ -86,7 +87,7 @@ async function setRoom(link){
   }
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
   log('Комната:', r.room);
-  restartBridge(); announce();
+  restartBridge(); announce(); publishCtl();
 }
 function kickMods(why){
   let n = 0;
@@ -106,6 +107,12 @@ const inRoom = topic => ROOM && topic.startsWith(`${PREFIX}/${ROOM.room}/`);
 // ---------- брокер ----------
 const aedes = createAedes();
 const status = { mods:0, obs:0, obsSeen:0, tunnel:null, tunnelErr:'', bridge:false, cs2Seen:0, cs2:null, gsiPath:'' };
+// Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
+const ctl = { hidden:false, paused:false, stop:0 };
+async function publishCtl(){
+  if(!ROOM || !AES) return;
+  aedes.publish({ cmd:'publish', topic:T('host'), payload:await sealAES({ ...ctl, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
+}
 // Защита пароля от перебора: 5 ошибок подряд с одного адреса → пауза 1 мин, потом 2, 4… до 30 мин
 const fails = new Map();
 function locked(ip){ const f = fails.get(ip), u = Math.max(f?.until||0, globalUntil); return u > Date.now() ? Math.ceil((u-Date.now())/1000) : 0; }
@@ -127,11 +134,17 @@ function passOk(ip, pass){
 }
 const ipOf = req => String(req.headers['cf-connecting-ip'] || req.socket?.remoteAddress || '?').slice(0, 64);
 aedes.authenticate = (client, user, pass, cb) => {
-  if(!client.conn?._tunnel) return cb(null, true);   // локальные (OBS) без пароля: сервер слушает только этот ПК
+  if(!client.conn?._tunnel) return cb(null, true);
+  if(ctl.paused) return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false);   // стример поставил модераторов на паузу   // локальные (OBS) без пароля: сервер слушает только этот ПК
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
-aedes.authorizePublish = (client, packet, cb) => cb(inRoom(packet.topic) ? null : new Error('чужая тема'));
+// Тема host (кнопки стримера в доке OBS) пишет только сама программа: клиентам туда нельзя
+aedes.authorizePublish = (client, packet, cb) => {
+  if(!inRoom(packet.topic) || packet.topic.endsWith('/host')) return cb(new Error('чужая тема'));
+  if(ctl.paused && client?.conn?._tunnel) return cb(new Error('пауза'));
+  cb(null);
+};
 aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub : null);
 aedes.on('client', c => { if(c.conn?._tunnel){ status.mods++; log('👤 Модератор подключился'); } else status.obs++; });
 aedes.on('clientDisconnect', c => { if(c.conn?._tunnel){ status.mods=Math.max(0,status.mods-1); log('👤 Модератор отключился'); } else status.obs=Math.max(0,status.obs-1); });
@@ -168,7 +181,7 @@ const modUrl = () => fixedUrl() || (status.tunnel ? `wss://${status.tunnel}/mqtt
 async function announce(opt={}){
   if(!ROOM || !AES) return;
   const url = opt.off ? null : modUrl();
-  const info = { ver:2, url, user:'mod', pass: url ? cfg.modPass : null, t:Date.now() };
+  const info = { ver:2, url, user:'mod', pass: url ? cfg.modPass : null, paused:ctl.paused, t:Date.now() };
   const box = await sealAES(info);
   // и в свой брокер: пульт, уже подключённый к программе, узнает о смене адреса или пароля
   aedes.publish({ cmd:'publish', topic:T('srv'), payload:box, qos:1, retain:true, dup:false }, ()=>{});
@@ -676,10 +689,19 @@ const local = http.createServer(async (req, res) => {
         cfg.fixedUrl = v; saveCfg(); log(v ? 'Свой адрес: '+v : 'Свой адрес убран, возвращаю туннель Cloudflare'); applyFixedUrl();
         return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
       }
+      if(req.method==='POST' && p==='/api/control'){
+        const { action } = JSON.parse(await readBody(req, 1024));
+        if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
+        else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
+        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('пауза модераторов'); log(ctl.paused ? '⏸ Модераторы на паузе' : '▶ Модераторы снова могут менять экран'); await announce(); }
+        else throw new HttpErr(400, 'неизвестное действие');
+        await publishCtl();
+        return send(res, 200, JSON.stringify({ ok:true, ctl }), 'application/json');
+      }
       if(p==='/api/modpass') return send(res, 200, JSON.stringify({ ok:true, url:modUrl(), pass:cfg.modPass }), 'application/json');
       if(req.method==='POST' && p==='/api/modpass/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('новый пароль модераторов'); await announce(); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, room:ROOM?.room||null, obsLink:obsLink(),
-        storage:storage(ROOM?.room), limits:cfg.limits, tport:TPORT, fixedUrl:fixedUrl(), fixedEnv:!!process.env.OVERLAY_TUNNEL_URL,
+        storage:storage(ROOM?.room), limits:cfg.limits, tport:TPORT, ctl, fixedUrl:fixedUrl(), fixedEnv:!!process.env.OVERLAY_TUNNEL_URL,
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
@@ -687,6 +709,7 @@ const local = http.createServer(async (req, res) => {
       return send(res, 404, 'not found');
     }
     if(p==='/' || p==='/index.html') return send(res, 200, UI_HTML, 'text/html; charset=utf-8');
+    if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8');
     if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
     if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');

@@ -119,7 +119,7 @@ function sanitizeEl(e){
     o.opts=(Array.isArray(e.opts)?e.opts:[]).slice(0,6).map(x=>str(x,40));
     if(o.opts.length<2) o.opts=['Да','Нет'];
     o.votes=o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));
-    o.running=!!e.running;
+    o.running=!!e.running; o.closeAt=num(e.closeAt,0,0,1e15);   // закрыть само в это время (0 = вручную)
   } else {
     o.fs=num(e.fs,10,0.5,100); o.font=FONTS[e.font]?e.font:'montserrat';
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24');
@@ -390,7 +390,8 @@ function paintNode(node, el, z){
       r.querySelector('.pv').textContent=`${pct}% · ${v}`;
       r.classList.toggle('win', !el.running && total>0 && v===max);
     });
-    foot.textContent = el.running ? `${st('Пиши в чат цифру')} 1–${el.opts.length} · ${st('голосов')}: ${total}` : (total ? `${st('Голосование закрыто')} · ${st('голосов')}: ${total}` : st('Голосование скоро начнётся'));
+    foot._base = el.running ? `${st('Пиши в чат цифру')} 1–${el.opts.length} · ${st('голосов')}: ${total}` : (total ? `${st('Голосование закрыто')} · ${st('голосов')}: ${total}` : st('Голосование скоро начнётся'));
+    pollFoot(foot, el, nowMs());
   } else if(el.type==='web'){
     node.style.width=el.w+'%';
     c.style.aspectRatio = el.shape==='circle' ? '1 / 1' : ASPECTS[el.ar];
@@ -413,7 +414,14 @@ function paintNode(node, el, z){
   }
 }
 // Обновить цифры таймера/счётчика. Вызывается часто (10 раз в секунду).
+// подпись голосования с обратным отсчётом до автозакрытия
+function pollFoot(foot, el, now){
+  const left = el.running && el.closeAt ? Math.max(0, Math.ceil((el.closeAt - now)/1000)) : 0;
+  const t = (foot._base||'') + (left ? ` · ⏳ ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}` : '');
+  if(foot.textContent !== t) foot.textContent = t;
+}
 function tickNode(node, el, now){
+  if(el.type==='poll'){ const f=node.querySelector('.poll')?.children[2]; if(f) pollFoot(f, el, now); return null; }
   if(el.type==='cs2'){
     const c=node.querySelector('.cs2'); if(!c) return null;
     if(el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0));

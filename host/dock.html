@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hudini</title>
+<script src="/i18n.js"></script>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:8px}
+.st{display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid var(--line)}
+.st b{font-weight:500;color:var(--muted);flex:1}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.bad .dot{background:var(--bad)}
+.btns{display:grid;gap:6px;margin-top:10px}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s,transform .08s}
+button:hover{border-color:var(--acc)}
+button:active{transform:scale(.98)}
+button.on{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
+button.danger.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.foot{margin-top:10px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+a{color:#b9a8ff}
+#banner{display:none;margin-top:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
+</style>
+</head>
+<body>
+<div id="rows"></div>
+<div class="btns">
+  <button id="hide">🙈 Спрятать оверлей</button>
+  <button id="stop">⏹ Остановить звуки</button>
+  <button id="pause" class="danger">⏸ Пауза модераторов</button>
+</div>
+<div id="banner"></div>
+<div class="foot"><span>🎩 Hudini <span id="ver"></span></span><a href="/" target="_blank" rel="noopener">⚙ Настройки</a></div>
+<script>
+const $=id=>document.getElementById(id);
+let s=null;
+async function api(p, body){
+  const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
+  const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
+}
+function row(cls, label, value){
+  const d=document.createElement('div'); d.className='st '+cls;
+  const dot=document.createElement('span'); dot.className='dot';
+  const b=document.createElement('b'); b.textContent=label;
+  const v=document.createElement('span'); v.textContent=value;
+  d.append(dot, b, v); return d;
+}
+async function refresh(){
+  try{ s=await api('/api/status'); }catch{ $('rows').replaceChildren(row('bad', 'Hudini Host', 'не отвечает')); return; }
+  const g=s.storage||{}, mb=b=>Math.round((b||0)/1048576);
+  $('rows').replaceChildren(
+    row(s.obsOnline?'ok':'bad', 'OBS', s.obsOnline?'виджет работает':(s.room?'виджет не подключён':'вставь ссылку в настройках')),
+    row(s.ctl?.paused?'warn':(s.mods?'ok':'warn'), 'Модераторы', s.ctl?.paused?'пауза':(s.mods?'онлайн: '+s.mods:'пока никого')),
+    row(s.tunnel?'ok':'warn', 'Туннель', s.tunnel?'работает':'запускается…'),
+    row(s.cs2Online?'ok':'warn', 'CS2', s.cs2Online?'данные идут':'нет данных'),
+    row(g.used>0.9*g.limitBytes?'warn':'ok', 'Файлы', `${mb(g.used)} / ${mb(g.limitBytes)} MB`),
+  );
+  $('ver').textContent='v'+s.version;
+  const c=s.ctl||{};
+  $('hide').classList.toggle('on', !!c.hidden); $('hide').textContent = c.hidden ? '👁 Вернуть оверлей' : '🙈 Спрятать оверлей';
+  $('pause').classList.toggle('on', !!c.paused); $('pause').textContent = c.paused ? '▶ Снять паузу модераторов' : '⏸ Пауза модераторов';
+  const warn = c.hidden ? 'Оверлей спрятан: зрители его не видят.' : c.paused ? 'Модераторы не могут менять экран.' : '';
+  $('banner').textContent=warn; $('banner').style.display=warn?'block':'none';
+}
+const act=a=>async()=>{ try{ await api('/api/control', { action:a() }); }catch(e){ $('banner').textContent=e.message; $('banner').style.display='block'; } refresh(); };
+$('hide').onclick=act(()=>s?.ctl?.hidden?'show':'hide');
+$('stop').onclick=act(()=>'stopsounds');
+$('pause').onclick=act(()=>s?.ctl?.paused?'resume':'pause');
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>
