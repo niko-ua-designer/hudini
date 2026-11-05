@@ -72,7 +72,7 @@ function byId(id){ return state.els.find(e=>e.id===id); }
 // ================== СВЯЗЬ ==================
 let client=null, pendingOffline=false;
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=13, widgets=new Map();
+const WIDGET_VER=14, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -443,7 +443,7 @@ async function refreshStorage(announce){
 // Файлы, которые нужны этой комнате: на экране, в сценах, библиотеке, сценариях и поле звука
 function usedAssets(){
   const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
-  const fromEl=e=>{ add(e?.src); add(e?.endSound); };
+  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); for(const v of Object.values(e?.av||{})) add(v); };
   state.els.forEach(fromEl);
   add($('soundUrl').value);
   for(const it of library) if(it.room===room) fromEl(it.el);
@@ -649,7 +649,7 @@ function renderInspector(){
   }
   if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
-  if(el.type==='cs2'){ $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
+  if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -1293,7 +1293,68 @@ bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.no
 bindInput('iCsView',   (el,f)=>{ el.view=f.value;
   if(el.view==='teams' && el.fs>2.6) el.fs=2.4;            // панели команд крупные — сразу поменьше
   if(el.view==='scorebar'){ el.x=50; el.y=7; }
-  if(el.view==='streak'){ el.x=50; el.y=32; if(el.fs<5) el.fs=5; } });
+  if(el.view==='streak'){ el.x=50; el.y=32; if(el.fs<5) el.fs=5; }
+  if(CS2_FULL.has(el.view)){ el.x=50; el.y=50; el.rot=0; el.fs=4; } });
+// ---- HUD CS2: цвета, эффекты, команды, аватарки, выбор игроков ----
+function csNames(){ return [...new Set([...(CS2?.players||[]).map(p=>p.name), CS2?.name].filter(Boolean))]; }
+function fillSel(sel, val, first){
+  const names=csNames(); if(val && !names.includes(val)) names.unshift(val);
+  sel.replaceChildren(new Option(first, ''), ...names.map(n=>new Option(n, n))); sel.value=val||'';
+}
+function renderCsHud(el){
+  const full=CS2_FULL.has(el.view);
+  $('csFullBox').hidden=!full; $('csAvBox').hidden=!(full || el.view==='card');
+  $('csPickRow').hidden=!['card','kda','hp','money','weapon'].includes(el.view);
+  $('csCmpRow').hidden=el.view!=='compare';
+  if(document.activeElement!==$('iCsPick')) fillSel($('iCsPick'), el.pick, 'Свой игрок / наблюдаемый');
+  if(document.activeElement!==$('iCsPa')) fillSel($('iCsPa'), el.pa, 'Игрок 1');
+  if(document.activeElement!==$('iCsPb')) fillSel($('iCsPb'), el.pb, 'Игрок 2');
+  setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx);
+  setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
+  const list=$('csAvList'); list.replaceChildren();
+  const names=[...new Set([...csNames().map(n=>n.toLowerCase()), ...Object.keys(el.av)])];
+  for(const n of names){
+    const r=document.createElement('div'); r.className='row';
+    const nm=document.createElement('span'); nm.className='grow hint'; nm.textContent=(csNames().find(x=>x.toLowerCase()===n)||n)+(el.av[n]?' ✓':''); nm.dataset.i18nSkip='';
+    const b=document.createElement('button'); b.textContent=el.av[n]?'🗑':'📁'; b.title=el.av[n]?'Убрать аватарку':'Выбрать картинку';
+    b.onclick=()=>{ if(el.av[n]) setAvatar(n, null); else { $('csAvName').value=n; $('csAvFile').click(); } };
+    r.append(nm, b); list.appendChild(r);
+  }
+}
+function setAvatar(name, src){
+  const key=String(name||'').trim().toLowerCase().slice(0,40); if(!key) return toast('Впиши ник игрока');
+  beginChange();
+  for(const x of state.els) if(x.type==='cs2'){ if(src) x.av[key]=src; else delete x.av[key]; }
+  commit(); const el=byId(selectedId); if(el?.type==='cs2') renderCsHud(el);
+}
+let avTarget='';
+$('csAvAdd').onclick=()=>{ avTarget=$('csAvName').value; if(!avTarget.trim()) return toast('Впиши ник игрока'); $('csAvFile').click(); };
+$('csAvFile').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  const name=avTarget||$('csAvName').value; avTarget='';
+  try{ showUpload('Загрузка аватарки…', 0); const src=await uploadBlob(await shrinkImage(f), f.name); setAvatar(name, src); $('csAvName').value=''; }
+  catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
+  hideUpload();
+};
+$('csAvUrl').onclick=()=>{ const n=$('csAvName').value; if(!n.trim()) return toast('Впиши ник игрока'); const u=safeUrl(prompt('Ссылка на картинку:', '')||''); if(u){ setAvatar(n, u); $('csAvName').value=''; } };
+async function pickLogo(side){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return;
+    try{ showUpload('Загрузка лого…', 0); const src=await uploadBlob(await shrinkImage(f), f.name); act(el=>{ el[side]=src; }); }
+    catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); } hideUpload(); };
+  inp.click();
+}
+$('csLgCT').onclick=()=>pickLogo('lgCT'); $('csLgT').onclick=()=>pickLogo('lgT');
+bindInput('iCsPick', (el,f)=>el.pick=f.value, 'change');
+bindInput('iCsPa', (el,f)=>el.pa=f.value, 'change');
+bindInput('iCsPb', (el,f)=>el.pb=f.value, 'change');
+bindInput('iCsCt', (el,f)=>el.ctc=f.value);
+bindInput('iCsT', (el,f)=>el.tc=f.value);
+bindInput('iCsGlow', (el,f)=>el.glow=f.checked, 'change');
+bindInput('iCsFx', (el,f)=>el.fx=f.value, 'change');
+bindInput('iCsTnCT', (el,f)=>el.tnCT=f.value.slice(0,30));
+bindInput('iCsTnT', (el,f)=>el.tnT=f.value.slice(0,30));
+bindInput('iCsSeries', (el,f)=>el.series=f.value.slice(0,120));
 bindInput('iCsSide',   (el,f)=>el.side=f.value);
 bindInput('iMaxw',      (el,f)=>el.maxw=Number(f.value));
 bindInput('iMsgAccent', (el,f)=>el.accent=f.value);
@@ -2064,7 +2125,7 @@ function markLevels(){
     n.classList.add('lvl-host'); n.appendChild(b);
   }
   // режим наблюдателя CS2: метка прямо в списке видов
-  for(const v of ['teams','scorebar','observed']){ const o=document.querySelector(`#iCsView option[value="${v}"]`); if(o) o.textContent='α '+o.textContent; }
+  for(const v of ['teams','scorebar','observed','hud_tour','table','duel','compare']){ const o=document.querySelector(`#iCsView option[value="${v}"]`); if(o) o.textContent='α '+o.textContent; }
 }
 markLevels();
 boot();

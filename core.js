@@ -15,21 +15,21 @@ const FONTS = {
 const STREAM_LANGS = ['ru', 'en', 'uk', 'de'];
 let STREAM_LANG = 'ru';
 const STREAM_TXT = {
-  en:{ 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
+  en:{ 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
     'Нож':'Knife', 'Флешка':'Flashbang', 'Дым':'Smoke', 'Молотов':'Molotov', 'Зажигалка':'Incendiary', 'Ложная':'Decoy',
     'заложена':'planted', 'разминируют':'defusing', 'разминирована':'defused', 'взорвалась':'exploded',
     'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
     'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
     'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
-  uk:{ 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
+  uk:{ 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
     'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
     'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
     'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
     'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
     'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
-  de:{ 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
+  de:{ 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
     'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
     'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
     'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
@@ -43,7 +43,9 @@ const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
 const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg'];
-const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed'];
+const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare'];
+// Виды на весь экран: своя сетка на 16:9, двигать их нельзя, чтобы ничего не съезжало
+const CS2_FULL = new Set(['hud_solo','hud_tour','table','duel','compare']);
 // Живые данные из CS2 (приходят от программы стримера Hudini Host)
 let CS2 = null;
 const ASPECTS = { '16:9':'16 / 9', '4:3':'4 / 3', '1:1':'1 / 1', '9:16':'9 / 16', '21:9':'21 / 9' };
@@ -105,6 +107,12 @@ function sanitizeEl(e){
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#ffb020');
     o.label=str(e.label,40); o.side=['both','ct','t'].includes(e.side)?e.side:'both';
     o.minK=Math.round(num(e.minK,2,1,5));
+    // вид HUD: цвета, эффекты, аватарки, команды, серия, выбранные игроки
+    o.ctc=hex(e.ctc,'#5d9cec'); o.tc=hex(e.tc,'#e0a030'); o.glow=e.glow!==false; o.fx=['none','soft','bright'].includes(e.fx)?e.fx:'soft';
+    o.av={}; if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
+    o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
+    o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
+    if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
   } else if(type==='msg'){
     o.user=str(e.user,40); o.ucolor=hex(e.ucolor,'#a78bfa'); o.text=str(e.text,500);
     o.emotes=(Array.isArray(e.emotes)?e.emotes:[]).slice(0,80).map(x=>[str(x?.[0],40).replace(/[^A-Za-z0-9_]/g,''), Math.round(num(x?.[1],0,0,600)), Math.round(num(x?.[2],0,0,600))]).filter(x=>x[0] && x[2]>=x[1]);
@@ -360,8 +368,11 @@ function paintNode(node, el, z){
     const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.badge]);
     if(c._sig!==sig){ const had=!!c._sig; c._sig=sig; paintMsg(c, el); if(had){ c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); } }
   } else if(el.type==='cs2'){
-    node.style.width='';
-    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
+    const full=CS2_FULL.has(el.view);
+    node.style.width = full ? '100%' : ''; node.classList.toggle('full', full);
+    c.classList.toggle('full', full); c.classList.toggle('glow', full && el.glow); c.dataset.fx = el.fx;
+    c.style.setProperty('--ct', el.ctc); c.style.setProperty('--tt', el.tc);
+    c.style.fontSize = full ? `calc(var(--u) * ${(el.fs/4*1.6).toFixed(3)})` : `calc(var(--u) * ${el.fs})`; c.style.fontFamily=FONTS[el.font]; c.style.color=el.color;
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     c.dataset.view=el.view;
     paintCs2(c, el);
@@ -426,6 +437,11 @@ function tickNode(node, el, now){
     const c=node.querySelector('.cs2'); if(!c) return null;
     if(el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0));
     if(el.view==='scorebar'){ const t=c.querySelector('.sb-time'); if(t) t.textContent=cs2Timer(); }
+    if(CS2_FULL.has(el.view)){
+      const t=c.querySelector('.hd-time'); if(t){ const v=cs2Timer(); if(t.textContent!==v) t.textContent=v; }
+      if(el.view==='duel' && c._duel && Date.now()>(c._duntil||0) && c.querySelector('.hd-vs')){ c._sig=null; paintCs2(c, el); }
+      if(c._feedT!==Math.floor(Date.now()/1000)){ c._feedT=Math.floor(Date.now()/1000); if(c.querySelector('.hd-kill')){ c._sig=null; paintCs2(c, el); } }
+    }
     return null;
   }
   if(el.type!=='timer' && el.type!=='counter') return null;
@@ -703,7 +719,7 @@ function cs2Timer(){
 function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 function paintCs2(c, el){
-  const d = cs2Fresh() ? CS2 : null;
+  let d = cs2Fresh() ? CS2 : null;
   if(c._view!==el.view){ c.replaceChildren(); c._view=el.view; c._seen=null; c.classList.remove('nodata','on','pop'); }
   if(el.view==='streak'){
     // всплывашка по событиям от программы стримера: свои мульти-киллы и (в режиме наблюдателя) любого игрока
@@ -714,8 +730,11 @@ function paintCs2(c, el){
     if(!c.firstChild) c.replaceChildren(h('div','c-streak','TRIPLE KILL'), h('div','c-sub',st('появится само при мульти-килле')));
     return;
   }
+  if(CS2_FULL.has(el.view)){ paintHud(c, el, d); return; }
   c.classList.toggle('nodata', !d);
   if(!d){ c.replaceChildren(h('div','c-none',st('🎯 CS2: ждём данные из игры'))); return; }
+  // выбранный игрок по нику (в режиме наблюдателя есть все игроки)
+  if(el.pick && d.players){ const p=d.players.find(x=>String(x.name||'').toLowerCase()===el.pick.toLowerCase()); if(p) d={ ...d, ...p, name:p.name, spectating:null }; }
   const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
   const name = el.label || d.name || st('Игрок');
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
@@ -784,6 +803,163 @@ function paintCs2(c, el){
       parts.push(r, h('div','c-map sb-map', mapName(d.map))); break;
     }
     case 'weapon': parts.push(h('div','c-big', d.weapon ? weaponName(d.weapon) : '—'), h('div','c-map', d.ammoMax>0 ? `${d.ammo} / ${d.reserve}` : '')); break;
+  }
+  c.replaceChildren(...parts);
+}
+
+// ---------- турнирный и соло HUD, таблица, дуэль, сравнение ----------
+const NADE_IC = { he:'💥', flash:'⚡', smoke:'☁', molly:'🔥', decoy:'🎯' };
+function avatar(el, p, cls){
+  const box=h('div', cls||'hd-av'), src=el.av[String(p?.name||'').toLowerCase()];
+  const team=p?.team==='T'?'t':'ct'; box.classList.add('tm-'+team);
+  if(src){ const img=document.createElement('img'); img.alt=''; img.src=resolveSrc(src); img.draggable=false; box.appendChild(img); }
+  else box.textContent=String(p?.name||'?').replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase() || '?';
+  return box;
+}
+function hpColor(hp){ return hp>50 ? '#3ddc84' : hp>20 ? '#ffb020' : '#ff4d5e'; }
+// сколько урона получил игрок с прошлой отрисовки: всплывает «-27» над карточкой
+function hpDrop(c, p, card){
+  c._hp ||= {}; const prev=c._hp[p.id||p.name]; c._hp[p.id||p.name]=p.hp;
+  if(prev!=null && p.hp<prev && c.dataset.fx!=='none'){
+    const n=h('div','hd-drop','-'+(prev-p.hp)); card.appendChild(n); setTimeout(()=>n.remove(), 1400);
+    card.classList.remove('hit'); void card.offsetWidth; card.classList.add('hit');
+  }
+}
+function playerCard(c, el, p, obs){
+  const team=p.team==='T'?'t':'ct';
+  const card=h('div', `hd-card tm-${team}${p.alive===false?' dead':''}${obs?' obs':''}${p.alive!==false&&(p.hp||0)<=20?' low':''}`);
+  const top=h('div','hd-ctop'); top.append(avatar(el, p));
+  const hp=h('div','hd-hp'); hp.append(h('b',null, p.alive===false?'💀':String(p.hp??0)), h('i',null, p.armor>0 ? (p.helmet?'🪖':'🛡') : ''));
+  top.append(hp); if(p.slot!=null) top.append(h('span','hd-slot', String(p.slot)));
+  card.appendChild(top);
+  const bar=h('div','hd-bar'), f=h('div','hd-fill'); f.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; f.style.background=hpColor(p.hp||0); bar.appendChild(f);
+  card.append(bar, h('div','hd-name', p.name||'?'));
+  const row=h('div','hd-row'); row.append(h('span',null,`${p.k??0} / ${p.d??0}`), h('span','hd-money', money(p.money)));
+  card.appendChild(row);
+  const low=h('div','hd-low');
+  if(p.alive===false) low.append(h('span','hd-dmgl', st('урон за раунд')), h('b',null, String(p.dmg||0)));
+  else low.append(h('span','hd-w', weaponName(p.main||p.weapon)), h('span','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join('')));
+  card.appendChild(low);
+  hpDrop(c, p, card);
+  return card;
+}
+function bigCard(c, el, p){
+  const team=p.team==='T'?'t':'ct';
+  const card=h('div', `hd-big tm-${team}${p.alive===false?' dead':''}${p.alive!==false&&(p.hp||0)<=20?' low':''}`);
+  card.appendChild(avatar(el, p, 'hd-bav'));
+  const mid=h('div','hd-bmid');
+  mid.append(h('div','hd-bname', p.name||st('Игрок')));
+  const bars=h('div','hd-bbars');
+  const hb=h('div','hd-bar'), hf=h('div','hd-fill'); hf.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; hf.style.background=hpColor(p.hp||0); hb.appendChild(hf);
+  bars.append(h('b','hd-bhp', p.alive===false?'💀':String(p.hp??0)), hb, h('span','hd-bar-ar', (p.helmet?'🪖 ':'🛡 ')+(p.armor??0)));
+  mid.appendChild(bars);
+  const stats=h('div','hd-bstats');
+  for(const [l,v] of [['K',p.k??0],['D',p.d??0],['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), h('b',null,String(v)));
+  mid.appendChild(stats);
+  const right=h('div','hd-bright');
+  right.append(h('div','hd-money', money(p.money)), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), h('div','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join(' ')));
+  card.append(mid, right);
+  hpDrop(c, p, card);
+  return card;
+}
+function scoreTop(el, d, withSeries){
+  const top=h('div','hd-score');
+  const team=(side)=>{ const b=h('div','hd-team tm-'+side); const lg=side==='ct'?el.lgCT:el.lgT;
+    if(lg){ const i=document.createElement('img'); i.src=resolveSrc(lg); i.alt=''; b.appendChild(i); }
+    b.appendChild(h('span','hd-tname', (side==='ct'?(el.tnCT||d.ctName):(el.tnT||d.tName)) || (side==='ct'?'CT':'T'))); return b; };
+  const mid=h('div','hd-mid');
+  mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), h('div','hd-time'+(d.pphase==='bomb'?' bomb':''), cs2Timer()));
+  top.append(team('ct'), h('b','hd-n tm-ct', String(d.ct??0)), mid, h('b','hd-n tm-t', String(d.tt??0)), team('t'));
+  const wrap=h('div','hd-top'); wrap.appendChild(top);
+  if(withSeries && el.series) wrap.appendChild(h('div','hd-series', el.series));
+  return wrap;
+}
+function killfeed(d, el){
+  const box=h('div','hd-feed'), now=Date.now()-(d._skew||0);
+  killfeed.seen ||= new Set();
+  for(const e of (d.evs||[]).filter(x=>x.k==='frag' && now-x.t<9000).slice(-5)){
+    const r=h('div','hd-kill'+(killfeed.seen.has(e.s)?'':' new')); killfeed.seen.add(e.s);
+    r.append(h('span','tm-'+(e.kteam==='T'?'t':'ct'), e.killer||'?'), h('span','hd-kw', weaponName(e.weapon)+(e.hs?' 🎯':'')));
+    if(e.victim) r.append(h('span','tm-'+(e.vteam==='T'?'t':'ct'), e.victim));
+    box.appendChild(r);
+  }
+  return box;
+}
+function statRows(a, b){
+  const rows=[['K', a.k??0, b.k??0], ['D', a.d??0, b.d??0, true], ['A', a.a??0, b.a??0], ['ADR', a.adr??0, b.adr??0], ['HS%', a.hsp??0, b.hsp??0], ['MVP', a.mvps??0, b.mvps??0], ['$', a.money??0, b.money??0]];
+  const box=h('div','hd-cmp');
+  for(const [l, x, y, lowGood] of rows){
+    const r=h('div','hd-crow'), tot=Math.max(1, x+y);
+    const better = x===y ? 0 : ((x>y) !== !!lowGood ? -1 : 1);
+    const L=h('div','hd-cl'+(better<0?' win':'')), R=h('div','hd-cr'+(better>0?' win':''));
+    L.append(h('b',null, l==='$'?money(x):String(x))); R.append(h('b',null, l==='$'?money(y):String(y)));
+    const bar=h('div','hd-cbar'), fl=h('i','tm-'+(a.team==='T'?'t':'ct')), fr=h('i','tm-'+(b.team==='T'?'t':'ct'));
+    fl.style.width=(x/tot*100)+'%'; fr.style.width=(y/tot*100)+'%'; bar.append(fl, fr);
+    r.append(L, h('span','hd-cl-l', l), bar, R); box.appendChild(r);
+  }
+  return box;
+}
+function vsCard(c, el, a, b, title){
+  const w=h('div','hd-vs'); if(title) w.appendChild(h('div','hd-vtitle', title));
+  const heads=h('div','hd-vheads');
+  const side=(p)=>{ const x=h('div','hd-vside tm-'+(p.team==='T'?'t':'ct')); x.append(avatar(el, p, 'hd-vav'), h('div','hd-vname', p.name||'?')); return x; };
+  heads.append(side(a), h('div','hd-vvs','VS'), side(b));
+  w.append(heads, statRows(a, b));
+  return w;
+}
+function paintHud(c, el, d){
+  // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
+  const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
+  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
+  if(c._sig===sig) return; c._sig=sig;
+  if(!d){ c.replaceChildren(h('div','hd-wait', st('🎯 CS2: ждём данные из игры'))); return; }
+  const players=d.players||[], byName=n=>players.find(x=>String(x.name||'').toLowerCase()===String(n||'').toLowerCase());
+  const me={ ...d, id:d.id||'me', team:d.team };
+  const parts=[];
+  if(el.view==='hud_solo'){
+    parts.push(scoreTop(el, d, false), killfeed(d, el));
+    const b=h('div','hd-bottom solo'); b.appendChild(bigCard(c, el, me)); parts.push(b);
+  } else if(el.view==='hud_tour'){
+    if(!players.length){ c.replaceChildren(h('div','hd-wait', st('👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)'))); return; }
+    parts.push(scoreTop(el, d, true), killfeed(d, el));
+    const bot=h('div','hd-bottom');
+    const col=side=>{ const g=h('div','hd-side tm-'+side.toLowerCase()); for(const p of players.filter(x=>x.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99)).slice(0,5)) g.appendChild(playerCard(c, el, p, d.obs===p.id)); return g; };
+    const ob=d.observed ? { ...d.observed, ...(players.find(x=>x.id===d.observed.id)||{}) } : null;
+    const center=h('div','hd-center'); if(ob) center.appendChild(bigCard(c, el, ob));
+    bot.append(col('CT'), center, col('T')); parts.push(bot);
+  } else if(el.view==='table'){
+    const t=h('div','hd-table');
+    t.appendChild(scoreTop(el, d, true));
+    const list = players.length ? players : [me];
+    for(const side of ['CT','T']){
+      const ps=list.filter(p=>p.team===side).sort((a,b)=>(b.adr??0)-(a.adr??0) || (b.k??0)-(a.k??0)); if(!ps.length) continue;
+      const sec=h('div','hd-tsec tm-'+side.toLowerCase());
+      const head=h('div','hd-tr hd-th'); for(const x of ['', st('Игрок'), 'K','D','A','+/−','ADR','HS%','MVP','$']) head.appendChild(h('span',null,x)); sec.appendChild(head);
+      for(const p of ps){
+        const r=h('div','hd-tr'+(p.alive===false?' dead':''));
+        r.append(avatar(el, p, 'hd-tav'), h('span','hd-tn', p.name||'?'));
+        const diff=(p.k??0)-(p.d??0);
+        for(const v of [p.k??0, p.d??0, p.a??0, (diff>0?'+':'')+diff, p.adr??0, (p.hsp??0)+'%', p.mvps??0, money(p.money)]) r.appendChild(h('b',null,String(v)));
+        sec.appendChild(r);
+      }
+      t.appendChild(sec);
+    }
+    parts.push(t);
+  } else if(el.view==='duel'){
+    // после килла на 4 секунды: убийца против жертвы (нужен режим наблюдателя)
+    const now=Date.now()-(d._skew||0);
+    const e=(d.evs||[]).filter(x=>x.k==='frag' && x.victim).slice(-1)[0];
+    if(c._dseen==null) c._dseen = e ? e.s : 0;
+    if(e && e.s>c._dseen && now-e.t<6000){ c._dseen=e.s; c._duntil=Date.now()+4200; c._duel=e; }
+    if(c._duel && Date.now()<(c._duntil||0)){
+      const a=byName(c._duel.killer)||{ name:c._duel.killer, team:c._duel.kteam }, b=byName(c._duel.victim)||{ name:c._duel.victim, team:c._duel.vteam };
+      const v=vsCard(c, el, a, b, `${weaponName(c._duel.weapon)}${c._duel.hs?' 🎯':''}`); v.classList.add('show'); parts.push(v);
+    } else if(!c._duel && !c.closest('#elLayer')) parts.push(h('div'));
+    else if(c.closest('#elLayer')) parts.push(h('div','hd-hint', st('Дуэль появится сама после килла (режим наблюдателя)')));
+  } else if(el.view==='compare'){
+    const a=byName(el.pa) || (players.length?null:me), b=byName(el.pb);
+    if(!a || !b) parts.push(h('div','hd-wait', st('Выбери двух игроков в пульте')));
+    else parts.push(vsCard(c, el, a, b, ''));
   }
   c.replaceChildren(...parts);
 }

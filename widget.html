@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="core.css?v=10">
+<link rel="stylesheet" href="core.css?v=11">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="core.js?v=14"></script>
+<script src="core.js?v=15"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -64,7 +64,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // ===============================================
 
-const WIDGET_VER=13;
+const WIDGET_VER=14;
 // Подсказки на самом виджете: на языке системы (OBS не знает язык пульта)
 const MSG={
   ru:{ size:(w,h)=>`⚠ Источник «Браузер» ${w}×${h}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`,

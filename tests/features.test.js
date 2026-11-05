@@ -105,6 +105,27 @@ const { step, check, eq, until, sleep } = T;
     check((await mod.$eval('#iCsView option[value=teams]', o => o.textContent)).startsWith('α'), 'observer views carry the α mark');
   });
 
+  await step('CS2 HUD: tournament, ADR, kill feed, table, compare', async () => {
+    const names = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b3', 'b4', 'b5'];
+    const P = (hp, k, dmg) => { const o = {}; names.forEach((n, i) => o['9' + i] = { name:n, observer_slot:i, team:i < 5 ? 'CT' : 'T', state:{ health:hp[i], armor:50, money:2000, round_kills:0, round_totaldmg:dmg[i] }, match_stats:{ kills:k[i], deaths:1, assists:0 }, weapons:{ w:{ name:'weapon_ak47', type:'Rifle', state:'active' } } }); return o; };
+    const G = (players, phase, round) => ({ provider:{ steamid:'999' }, map:{ name:'de_nuke', round, team_ct:{ score:1 }, team_t:{ score:2 } }, round:{ phase }, player:{ steamid:'90', name:'a1', team:'CT', state:{ health:100 } }, allplayers:players });
+    const full = Array(10).fill(100), z = Array(10).fill(0);
+    await gsi(G(P(full, z, z), 'live', 0));
+    await gsi(G(P(full, z, [100, 50, 0, 0, 0, 0, 0, 0, 0, 0]), 'over', 0));
+    await gsi(G(P(full, z, z), 'live', 1));
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'hud_tour');
+    await gsi(G(P([100, 100, 100, 100, 100, 0, 100, 100, 100, 100], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0], z), 'live', 1));
+    eq(await until(() => wid.$$eval('.hd-card', n => n.length || 0)), 10, 'tournament HUD shows 10 player cards');
+    check(await until(async () => (await wid.$$eval('.hd-kill', n => n.map(x => x.textContent))).some(t => t.includes('a1') && t.includes('b1'))), 'kill feed: a1 killed b1');
+    check(await until(async () => /ADR\s*100/.test(await wid.$eval('.hd-big', x => x.textContent).catch(() => ''))), 'observed card shows ADR 100 after one round');
+    await mod.selectOption('#iCsView', 'table');
+    eq(await until(() => wid.$$eval('.hd-tr:not(.hd-th)', n => n.length || 0)), 10, 'table lists 10 players');
+    await mod.selectOption('#iCsView', 'compare'); await mod.selectOption('#iCsPa', 'a1'); await mod.selectOption('#iCsPb', 'b2');
+    check(await until(async () => /a1[\s\S]*b2/.test(await wid.$eval('.hd-vs', x => x.textContent).catch(() => ''))), 'compare shows the two chosen players');
+    check(await mod.evaluate(() => { const e = state.els.at(-1); return e.x === 50 && e.y === 50; }), 'full-screen HUD is pinned to the screen');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
+  });
+
   await step('editor: multi-select, align, group, undo', async () => {
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
     for(const t of ['А', 'Б', 'В']){ await mod.fill('#newText', t); await mod.click('#addText'); }

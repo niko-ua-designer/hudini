@@ -13,10 +13,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="core.css?v=10">
+<link rel="stylesheet" href="core.css?v=11">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
 <script src="i18n.js?v=3"></script>
-<script src="core.js?v=14"></script>
+<script src="core.js?v=15"></script>
 <script src="presets/animations.js?v=1"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
@@ -212,6 +212,8 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 #selRect{position:absolute;border:1px solid var(--acc);background:#7c5cff22;pointer-events:none;display:none;z-index:99997}
 .el.msel{outline:2px dashed #b9a8ff;outline-offset:4px}
 .el.msel .h{display:none!important}
+.el.full .h,.el.full .tag{display:none!important}
+.el.full.sel{outline:2px dashed var(--acc);outline-offset:-2px}
 .layer.msel{border-color:#b9a8ff;background:#211c3c}
 .layer .grp{font-size:10px;color:#b9a8ff}
 #multiBanner{background:#211c3c;border:1px solid #b9a8ff;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:6px}
@@ -511,11 +513,34 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <option value="teams">👁 Наблюдатель: панели команд</option>
         <option value="scorebar">👁 Наблюдатель: счёт-бар с таймером</option>
         <option value="observed">👁 Наблюдатель: за кем смотрим</option>
+        <option value="hud_solo">🖥 HUD: соло (весь экран)</option>
+        <option value="hud_tour">🏆 HUD: турнир, кастинг (весь экран)</option>
+        <option value="table">📋 Таблица всех игроков (весь экран)</option>
+        <option value="duel">⚔ Дуэль после килла (весь экран)</option>
+        <option value="compare">⚖ Сравнение двух игроков (весь экран)</option>
       </select>
       <div class="row" id="csStreakRow"><span class="hint">Показывать</span><select id="iCsMinK" class="grow"><option value="2">от DOUBLE</option><option value="3">от TRIPLE</option><option value="4">от QUAD</option><option value="5">только ACE</option></select><button id="csTest" title="Показать пример на стриме, чтобы поставить на место">▶ Пример</button></div>
       <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
       <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
+      <div id="csHud">
+        <div class="row" id="csPickRow"><span class="hint">Игрок</span><select id="iCsPick" class="grow"></select></div>
+        <div class="row" id="csCmpRow"><select id="iCsPa" class="grow"></select><span class="hint">vs</span><select id="iCsPb" class="grow"></select></div>
+        <div id="csFullBox">
+          <div class="row"><span class="hint">CT</span><input type="color" id="iCsCt"><span class="hint">T</span><input type="color" id="iCsT"><label class="chk"><input type="checkbox" id="iCsGlow"> Свечение</label></div>
+          <div class="row"><span class="hint">Эффекты</span><select id="iCsFx" class="grow"><option value="soft">Мягкие</option><option value="bright">Яркие</option><option value="none">Без анимаций</option></select></div>
+          <div class="row"><input type="text" id="iCsTnCT" class="grow" placeholder="Команда CT"><input type="text" id="iCsTnT" class="grow" placeholder="Команда T"></div>
+          <div class="row"><button id="csLgCT" class="grow">🖼 Лого CT</button><button id="csLgT" class="grow">🖼 Лого T</button></div>
+          <input type="text" id="iCsSeries" placeholder="Серия, например: Dust2 13:9 · Train · Mirage" style="margin-top:6px">
+          <div class="hint" style="margin-top:6px">HUD на весь экран стоит на месте сам: его не двигают, чтобы ничего не съехало. Выбирай его в слоях.</div>
+        </div>
+        <details id="csAvBox" style="margin-top:6px"><summary class="hint" style="cursor:pointer">🖼 Аватарки игроков</summary>
+          <div id="csAvList"></div>
+          <div class="row"><input type="text" id="csAvName" class="grow" placeholder="Ник игрока"><button id="csAvAdd" title="Картинка с компьютера">📁</button><button id="csAvUrl" title="Ссылка на картинку">🔗</button></div>
+          <div class="hint">Аватарка ставится всем CS2-элементам. Без неё будут инициалы в цвет команды.</div>
+        </details>
+        <input type="file" id="csAvFile" accept="image/*" hidden>
+      </div>
       <div class="hint" id="csStatus"></div>
     </div>
 

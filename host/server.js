@@ -277,6 +277,12 @@ let lastOwn = null, cs2Local = 0, cs2Pending = null, cs2Timer = null;
 // События игры: считаем здесь, по каждому пакету от CS2, чтобы пульт и виджет получали готовое и ничего не пропускали
 let evSeq = Date.now() % 1e9, evs = [], prevOwn = null, prevAll = {}, prevBomb = null, prevRPhase = null;
 function addEv(k, extra){ evs.push({ s:++evSeq, k, t:Date.now(), ...extra }); if(evs.length>20) evs.shift(); }
+// Статистика за матч для ADR и HS%: урон и хедшоты копятся в конце каждого раунда
+let mstats = {}, mKey = '';
+function statFor(id){ return mstats[id] ||= { dmg:0, hs:0, kills:0, rounds:0 }; }
+const adrOf = id => { const x = mstats[id]; return x && x.rounds ? Math.round(x.dmg / x.rounds) : 0; };
+const hspOf = (id, k) => { const x = mstats[id]; return x && k ? Math.round(x.hs / Math.max(1, k) * 100) : 0; };
+const NADE = { weapon_hegrenade:'he', weapon_flashbang:'flash', weapon_smokegrenade:'smoke', weapon_molotov:'molly', weapon_incgrenade:'molly', weapon_decoy:'decoy' };
 function shortPlayer(p, id){
   const st=p.state||{}, ms=p.match_stats||{};
   const ws=Object.values(p.weapons||{}).filter(Boolean);
@@ -284,14 +290,23 @@ function shortPlayer(p, id){
   const main=ws.find(x=>/Rifle|SniperRifle|Submachine Gun|Shotgun|Machine Gun/.test(x.type||'')) || ws.find(x=>x.type==='Pistol') || {};
   return { id, name:p.name, team:p.team, slot:p.observer_slot, hp:st.health, armor:st.armor, helmet:!!st.helmet, money:st.money,
     rk:st.round_kills, k:ms.kills, d:ms.deaths, a:ms.assists, mvps:ms.mvps, weapon:w.name, main:main.name, ammo:w.ammo_clip, reserve:w.ammo_reserve, ammoMax:w.ammo_clip_max,
-    kit:!!st.defusekit, bomb:ws.some(x=>x.name==='weapon_c4'), alive:(st.health??0)>0 };
+    kit:!!st.defusekit, bomb:ws.some(x=>x.name==='weapon_c4'), alive:(st.health??0)>0,
+    dmg:st.round_totaldmg||0, rhs:st.round_killhs||0, equip:st.equip_value, flashed:st.flashed||0,
+    pistol:(ws.find(x=>x.type==='Pistol')||{}).name, nades:ws.filter(x=>NADE[x.name]).map(x=>NADE[x.name]),
+    adr:adrOf(id), hsp:hspOf(id, ms.kills) };
 }
 function compactGsi(g){
   const me = g.provider?.steamid, p = g.player || {}, own = !!me && p.steamid === me;
   const st = p.state || {}, ms = p.match_stats || {};
   const w = Object.values(p.weapons || {}).find(x => x && x.state === 'active') || {};
   const map = g.map || {};
+  // новый матч или карта: обнуляем ADR
+  const key = (map.name||'') + '|' + (map.mode||'');
+  if(key !== mKey || (map.round ?? 0) < (compactGsi.lastRound ?? 0)){ mstats = {}; mKey = key; }
+  compactGsi.lastRound = map.round ?? 0;
   const mine = own ? {
+    dmg:st.round_totaldmg||0, adr:adrOf(me), hsp:hspOf(me, ms.kills), id:me,
+    nades:Object.values(p.weapons||{}).filter(x=>x && NADE[x.name]).map(x=>NADE[x.name]), kit:!!st.defusekit, bomb:Object.values(p.weapons||{}).some(x=>x?.name==='weapon_c4'),
     name:p.name, team:p.team, hp:st.health, armor:st.armor, helmet:!!st.helmet, money:st.money,
     rk:st.round_kills, rhs:st.round_killhs, equip:st.equip_value, k:ms.kills, a:ms.assists, d:ms.deaths,
     mvps:ms.mvps, score:ms.score, weapon:w.name, ammo:w.ammo_clip, ammoMax:w.ammo_clip_max, reserve:w.ammo_reserve, alive:(st.health??0)>0,
@@ -316,6 +331,7 @@ function compactGsi(g){
   if(own){
     if(prevOwn){
       const dk=(mine.k||0)-(prevOwn.k||0);
+      if(dk>0 && dk<6 && !g.allplayers) addEv('frag', { killer:mine.name, kid:me, kteam:mine.team, victim:null, weapon:mine.weapon, hs:(mine.rhs||0)>(prevOwn.rhs||0), me:true });
       if(dk>0 && dk<6) addEv('kill', { n:dk, name:mine.name, team:mine.team, hs:(mine.rhs||0)>(prevOwn.rhs||0), weapon:mine.weapon, rk:mine.rk||0 });
       if((mine.rk||0)>=2 && (mine.rk||0)>(prevOwn.rk||0)) addEv('multikill', { n:mine.rk, name:mine.name, team:mine.team, hs:mine.rhs||0, weapon:mine.weapon, me:true });
       if((mine.mvps||0)>(prevOwn.mvps||0)) addEv('mvp', { name:mine.name });
@@ -324,21 +340,34 @@ function compactGsi(g){
     prevOwn = mine;
   } else if(prevOwn?.alive && lastOwn){ addEv('death', { name:lastOwn.name }); prevOwn = { ...prevOwn, alive:false }; }
   if(out.players){
+    // кто кого убил: у кого выросли киллы и кто только что умер (в одном пакете от CS2)
+    const killers=[], victims=[];
     for(const pl of out.players){
       const pv=prevAll[pl.id];
       if(pv && (pl.rk||0)>=2 && (pl.rk||0)>(pv.rk||0)) addEv('multikill', { n:pl.rk, name:pl.name, team:pl.team, weapon:pl.weapon });
+      if(pv){
+        for(let i=0;i<Math.min(5,(pl.k||0)-(pv.k||0));i++) killers.push({ pl, hs:(pl.rhs||0)>(pv.rhs||0) });
+        if(pv.alive && !pl.alive) victims.push(pl);
+      }
       prevAll[pl.id]=pl;
+    }
+    for(const kl of killers){
+      const i=victims.findIndex(v=>v.team!==kl.pl.team); const v = i>=0 ? victims.splice(i,1)[0] : null;
+      addEv('frag', { killer:kl.pl.name, kid:kl.pl.id, kteam:kl.pl.team, victim:v?.name||null, vid:v?.id||null, vteam:v?.team||null, weapon:kl.pl.weapon, hs:kl.hs });
     }
   }
   if(out.bomb && out.bomb!==prevBomb && ['planted','defused','exploded'].includes(out.bomb)) addEv('bomb_'+out.bomb, {});
   prevBomb = out.bomb;
   const rp = g.round?.phase;
   if(rp==='over' && prevRPhase && prevRPhase!=='over'){
+    // раунд закончился: урон и хедшоты раунда в статистику матча
+    const list = out.players || (own ? [{ id:me, dmg:mine.dmg, rhs:mine.rhs }] : []);
+    for(const pl of list){ const x=statFor(pl.id); x.dmg+=pl.dmg||0; x.hs+=pl.rhs||0; x.rounds++; }
     const win=g.round?.win_team, my=(own?mine.team:lastOwn?.team)||null;
     addEv('round_end', { win, my, ct:out.ct, tt:out.tt });
   }
   if(rp) prevRPhase = rp;
-  out.evs = evs.slice(-10);
+  out.evs = evs.slice(-14);
   return out;
 }
 async function pushCs2(data){
