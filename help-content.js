@@ -20,6 +20,7 @@ ru: {
 <li>Скопируй ссылку для OBS из шага 2. В OBS: Источники → <b>+</b> → <b>Браузер</b>, вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>.</li>
 <li>Выдели источник и нажми <kbd>Ctrl+F</kbd>, чтобы он занял весь экран.</li>
 </ol>
+<p><b>Панель в OBS:</b> меню Доки → Пользовательские доки браузера, адрес <code>http://localhost:7777/dock</code>. Там статус и кнопки «Спрятать оверлей», «Остановить звуки», «Пауза модераторов».</p>
 <p>Не закрывай окно программы, пока идёт стрим. Windows может спросить про доступ к сети: разреши для частных сетей.</p>`],
 ['mod', 'Модератор: первый запуск', `
 <ol>
@@ -44,7 +45,8 @@ ru: {
 ['chat', 'Чат, голосования, счётчики β', `
 <p>Вкладка 💬 Чат читает чат Twitch без входа в аккаунт. Клик по сообщению показывает его на стриме.</p>
 <p><b>Голосование</b>: зрители пишут цифру варианта. Один зритель — один голос, засчитывается последний выбор. <b>Счётчик чата</b> считает команду или слово (например, «F»).</p>
-<p>Подключай чат только в одном пульте, иначе всё посчитается дважды.</p>`],
+<p>Подключай чат только в одном пульте, иначе всё посчитается дважды.</p>
+<p><b>Команды в чате</b> (Чат → «Команды в чате», выбери, кому можно): <code>!опрос</code>, <code>!опрос 60</code> — закрыть само через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
 ['scenarios', 'Сценарии β', `
 <p>«Если… → то…»: например, кто-то написал <code>!кринж</code> → показать картинку на 5 секунд и запустить конфетти. Условия: команда в чате, событие CS2, конец таймера, цель счётчика или кнопка.</p>
 <p>Сценарии выполняет открытый пульт. Если пульт открыт у двух модераторов, включи «Выполнять сценарии» только у одного.</p>`],
@@ -105,6 +107,7 @@ en: {
 <li>Copy the OBS link from step 2. In OBS: Sources → <b>+</b> → <b>Browser</b>, paste the link, width <b>1920</b>, height <b>1080</b>.</li>
 <li>Select the source and press <kbd>Ctrl+F</kbd> so it fills the screen.</li>
 </ol>
+<p><b>Panel inside OBS:</b> menu Docks → Custom Browser Docks, URL <code>http://localhost:7777/dock</code>. It shows the status and has “Hide overlay”, “Stop sounds” and “Pause moderators”.</p>
 <p>Keep the app window open while you stream. If Windows asks about network access, allow it for private networks.</p>`],
 ['mod', 'Moderator: first start', `
 <ol>
@@ -129,7 +132,8 @@ en: {
 ['chat', 'Chat, polls, counters β', `
 <p>The 💬 Chat tab reads Twitch chat without logging in. Click a message to show it on stream.</p>
 <p><b>Poll</b>: viewers type the number of an option. One viewer, one vote; the last choice counts. The <b>chat counter</b> counts a command or a word (for example "F").</p>
-<p>Connect the chat in one panel only, otherwise everything is counted twice.</p>`],
+<p>Connect the chat in one panel only, otherwise everything is counted twice.</p>
+<p><b>Chat commands</b> (Chat → “Chat commands”, choose who may use them): <code>!poll</code>, <code>!poll 60</code> to close by itself in 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
 ['scenarios', 'Scenarios β', `
 <p>"If… → then…": for example, someone types <code>!cringe</code> → show a picture for 5 seconds and fire confetti. Triggers: a chat command, a CS2 event, a timer ending, a counter goal or a button.</p>
 <p>Scenarios run in an open panel. If two moderators have the panel open, turn on "Run scenarios" in only one of them.</p>`],
@@ -190,6 +194,7 @@ uk: {
 <li>Скопіюй посилання для OBS із кроку 2. В OBS: Джерела → <b>+</b> → <b>Браузер</b>, встав посилання, ширина <b>1920</b>, висота <b>1080</b>.</li>
 <li>Виділи джерело й натисни <kbd>Ctrl+F</kbd>, щоб воно зайняло весь екран.</li>
 </ol>
+<p><b>Панель в OBS:</b> меню Доки → Користувацькі доки браузера, адреса <code>http://localhost:7777/dock</code>. Там статус і кнопки «Сховати оверлей», «Зупинити звуки», «Пауза модераторів».</p>
 <p>Не закривай вікно програми, поки йде стрим. Якщо Windows спитає про доступ до мережі, дозволь для приватних мереж.</p>`],
 ['mod', 'Модератор: перший запуск', `
 <ol>
@@ -214,7 +219,8 @@ uk: {
 ['chat', 'Чат, голосування, лічильники β', `
 <p>Вкладка 💬 Чат читає чат Twitch без входу в акаунт. Клік по повідомленню показує його на стримі.</p>
 <p><b>Голосування</b>: глядачі пишуть цифру варіанта. Один глядач — один голос, зараховується останній вибір. <b>Лічильник чату</b> рахує команду чи слово (наприклад, «F»).</p>
-<p>Підключай чат лише в одному пульті, інакше все порахується двічі.</p>`],
+<p>Підключай чат лише в одному пульті, інакше все порахується двічі.</p>
+<p><b>Команди в чаті</b> (Чат → «Команди в чаті», вибери, кому можна): <code>!опрос</code>, <code>!опрос 60</code> — закрити саме через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
 ['scenarios', 'Сценарії β', `
 <p>«Якщо… → то…»: наприклад, хтось написав <code>!крінж</code> → показати картинку на 5 секунд і запустити конфеті. Умови: команда в чаті, подія CS2, кінець таймера, мета лічильника або кнопка.</p>
 <p>Сценарії виконує відкритий пульт. Якщо пульт відкритий у двох модераторів, увімкни «Виконувати сценарії» лише в одного.</p>`],
@@ -275,6 +281,7 @@ de: {
 <li>Kopiere den OBS-Link aus Schritt 2. In OBS: Quellen → <b>+</b> → <b>Browser</b>, Link einfügen, Breite <b>1920</b>, Höhe <b>1080</b>.</li>
 <li>Markiere die Quelle und drücke <kbd>Strg+F</kbd>, damit sie den ganzen Bildschirm füllt.</li>
 </ol>
+<p><b>Panel in OBS:</b> Menü Docks → Benutzerdefinierte Browser-Docks, URL <code>http://localhost:7777/dock</code>. Dort siehst du den Status und hast „Overlay verstecken“, „Töne stoppen“ und „Mods pausieren“.</p>
 <p>Lass das Programmfenster offen, solange du streamst. Wenn Windows nach Netzwerkzugriff fragt, erlaube ihn für private Netzwerke.</p>`],
 ['mod', 'Moderator: erster Start', `
 <ol>
@@ -299,7 +306,8 @@ de: {
 ['chat', 'Chat, Umfragen, Zähler β', `
 <p>Der Tab 💬 Chat liest den Twitch-Chat ohne Anmeldung. Ein Klick auf eine Nachricht zeigt sie im Stream.</p>
 <p><b>Umfrage</b>: Zuschauer schreiben die Nummer einer Option. Ein Zuschauer, eine Stimme; die letzte Wahl zählt. Der <b>Chat-Zähler</b> zählt einen Befehl oder ein Wort (zum Beispiel „F“).</p>
-<p>Verbinde den Chat nur in einem Pult, sonst wird alles doppelt gezählt.</p>`],
+<p>Verbinde den Chat nur in einem Pult, sonst wird alles doppelt gezählt.</p>
+<p><b>Chat-Befehle</b> (Chat → „Chat-Befehle“, wähle, wer sie nutzen darf): <code>!poll</code>, <code>!poll 60</code> schließt nach 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
 ['scenarios', 'Szenarien β', `
 <p>„Wenn… → dann…“: Zum Beispiel schreibt jemand <code>!cringe</code> → ein Bild 5 Sekunden zeigen und Konfetti starten. Auslöser: ein Chat-Befehl, ein CS2-Ereignis, ein abgelaufener Timer, ein Zählerziel oder ein Knopf.</p>
 <p>Szenarien laufen in einem offenen Pult. Haben zwei Mods das Pult offen, schalte „Szenarien ausführen“ nur bei einem ein.</p>`],
