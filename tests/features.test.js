@@ -89,6 +89,23 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'case'); selectedId = null; commit(); });
   });
 
+  await step('webcam via VDO.Ninja: sender capped at 720p/30fps, viewer asks for H.264 with the same bitrate ceiling', async () => {
+    const r = await mod.evaluate(() => {
+      const opened = []; const real = window.open; window.open = u => { opened.push(u); };
+      const before = state.els.length; addCam(); window.open = real;
+      return { opened, el: state.els.at(-1), added: state.els.length - before };
+    });
+    eq(r.added, 1, 'camera added to the stage');
+    const push = new URL(r.opened[0]), view = new URL(r.el.url), id = view.searchParams.get('view');
+    eq([push.host, push.searchParams.get('push'), push.searchParams.has('webcam')], ['vdo.ninja', id, true], 'sender link matches the viewer link');
+    eq(['width', 'height', 'maxframerate', 'maxvideobitrate'].map(k => push.searchParams.get(k)), ['1280', '720', '30', '2500'], 'sender capped (resolution, frame rate, bitrate)');
+    eq([view.searchParams.get('codec'), view.searchParams.get('videobitrate'), view.searchParams.has('cleanoutput'), view.searchParams.has('transparent')], ['h264', '2500', true, true], 'viewer asks for H.264 and the bitrate ceiling, output stays clean and transparent');
+    check(await until(async () => (await wid.$$eval('iframe', n => n.map(x => x.src))).some(s => s.includes(`view=${id}`)), 8000), 'camera frame appears on stream');
+    const again = await mod.evaluate(() => { const opened = []; const real = window.open; window.open = u => { opened.push(u); }; selectedId = state.els.at(-1).id; renderInspector(); document.getElementById('openCam').click(); window.open = real; return opened[0]; });
+    check(again && new URL(again).searchParams.get('maxvideobitrate') === '2500', '«open camera» for an existing camera uses the same sender link');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !String(e.url || '').includes('vdo.ninja')); selectedId = null; commit(); });
+  });
+
   await step('own fonts: dropped onto the stage, stored in Hudini Host, same line height as the built-in font', async () => {
     await mod.click('[data-tab=add]'); await mod.fill('#newText', 'Шрифт 123'); await mod.click('#addText');
     const box = () => wid.evaluate(() => [...document.querySelectorAll('.el')].find(n => n.textContent.includes('Шрифт 123'))?.querySelector('.content')?.getBoundingClientRect().height);

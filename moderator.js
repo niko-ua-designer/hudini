@@ -329,10 +329,15 @@ async function addUrl(url, x, y){
     return addEl({ type:'image', src, ...place(x,y), w:25 });
   addWeb(src, x, y);
 }
+// Вебка через VDO.Ninja. Отправитель ограничивает поток (720p, 30 кадров/с, до 2,5 Мбит/с): кружок на стриме маленький,
+// а лишний поток нагружает канал и OBS. Зритель просит H.264 (аппаратное кодирование) с тем же потолком по битрейту.
+const CAM_BITRATE=2500;
+const camPushUrl=id=>`https://vdo.ninja/?push=${id}&webcam&label=moderator&width=1280&height=720&maxframerate=30&maxvideobitrate=${CAM_BITRATE}`;
+const camViewUrl=id=>`https://vdo.ninja/?view=${id}&cleanoutput&transparent&cover&codec=h264&videobitrate=${CAM_BITRATE}`;
 function addCam(){
   const id=rid(12);
-  window.open(`https://vdo.ninja/?push=${id}&webcam&label=moderator`, '_blank');
-  addWeb(`https://vdo.ninja/?view=${id}&cleanoutput&transparent&cover`, 82, 75, { w:22, ar:'1:1', shape:'circle', sound:false, bw:0.6, bc:'#7c5cff' });
+  window.open(camPushUrl(id), '_blank');
+  addWeb(camViewUrl(id), 82, 75, { w:22, ar:'1:1', shape:'circle', sound:false, bw:0.6, bc:'#7c5cff' });
   toast('Во вкладке VDO.Ninja выбери камеру и нажми старт', 5000);
 }
 function nextNewYear(){ const d=new Date(); return new Date(d.getFullYear()+1, 0, 1).getTime(); }
@@ -1658,7 +1663,7 @@ function seekPlayer(d){
 }
 $('plBack').onclick=()=>seekPlayer(-10);
 $('plFwd').onclick=()=>seekPlayer(10);
-$('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(`https://vdo.ninja/?push=${id}&webcam&label=moderator`, '_blank'); };
+$('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(camPushUrl(id), '_blank'); };
 $('tToggle').onclick=()=>act(timerToggle);
 $('tReset').onclick=()=>act(timerReset);
 document.querySelectorAll('[data-tadd]').forEach(b=>b.onclick=()=>act(el=>timerAdd(el, Number(b.dataset.tadd))));
