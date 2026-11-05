@@ -368,6 +368,10 @@ function renderCsStatus(){
     : 'Нет данных. У стримера должна быть запущена программа Hudini Host и нажата кнопка «Подключить CS2».';
   if(cs2Fresh()) $('csStatus').textContent += CS2.spec ? ` · 👁 режим наблюдателя, игроков: ${CS2.players.length}` : ' · игрок (панели команд — только в режиме наблюдателя)';
 }
+function addCase(){
+  const items=[['Наклейка',2,50],['Скин на пистолет',3,25],['Скин на винтовку',4,15],['AK-47 | Redline',5,8],['Нож',6,2]].map(([n,r,p])=>({ n:sT(n), r, p, img:'' }));
+  addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8 });
+}
 function addRaffle(){
   addEl({ type:'raffle', ...place(), x:50, y:45, fs:3, font:'montserrat', color:'#ffffff', card:'#141824', accent:'#7c5cff',
     title:sT('Розыгрыш'), prize:'', kw:'!участвую', entry:'word', subx2:true, auto:true, phase:'idle' });
@@ -381,9 +385,9 @@ function addPoll(){
 
 // ---- язык надписей на стриме (по умолчанию как у пульта) ----
 const DEFAULT_TXT={
-  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway' },
-  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш' },
-  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel' },
+  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistol skin', 'Скин на винтовку':'Rifle skin', 'Нож':'Knife', 'Предмет':'Item' },
+  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш', 'Наклейка':'Наліпка', 'Скин на пистолет':'Скін на пістолет', 'Скин на винтовку':'Скін на гвинтівку', 'Нож':'Ніж', 'Предмет':'Предмет' },
+  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistolen-Skin', 'Скин на винтовку':'Gewehr-Skin', 'Нож':'Messer', 'Предмет':'Gegenstand' },
 };
 function streamLang(){ const r=curRoom(); return STREAM_LANGS.includes(r?.slang) ? r.slang : (STREAM_LANGS.includes(window.HudiniI18n?.lang) ? window.HudiniI18n.lang : 'ru'); }
 const sT=s=>DEFAULT_TXT[streamLang()]?.[s] ?? s;
@@ -448,7 +452,8 @@ async function refreshStorage(announce){
 // Файлы, которые нужны этой комнате: на экране, в сценах, библиотеке, сценариях и поле звука
 function usedAssets(){
   const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
-  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.snd); add(e?.vfx); for(const v of Object.values(e?.av||{})) add(v); };
+  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.vfx); add(e?.logo); for(const it of e?.items||[]) add(it?.img);
+    if(e?.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e?.snd); for(const v of Object.values(e?.av||{})) add(v); };
   state.els.forEach(fromEl);
   for(const f of state.fonts||[]) used.add(f.id);
   add($('soundUrl').value);
@@ -603,6 +608,7 @@ function elIcon(el){
   if(el.type==='web') return KIND_NAME[parseEmbed(el.url).kind].split(' ')[0];
   if(el.type==='poll') return '📊';
   if(el.type==='raffle') return '🎁';
+  if(el.type==='case') return '📦';
   if(el.type==='cs2') return '🎯';
   if(el.type==='msg') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
@@ -614,6 +620,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
+  if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+CASE_T.reveal ? ' · открывается' : '');
   if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
@@ -695,6 +702,7 @@ function renderInspector(){
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='raffle') renderRaffle(el);
+  if(el.type==='case') renderCase(el);
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -908,6 +916,7 @@ $('addCam').onclick=addCam;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
   if(a==='raffle') return addRaffle();
+  if(a==='case') return addCase();
   if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
 
@@ -1272,6 +1281,90 @@ function renderRaffle(el){
   $('rInfo').textContent = `Участников: ${m.size}` + (el.winners.length ? ` · победители: ${el.winners.join(', ')}` : '') + (chatWs ? '' : ' · чат Twitch не подключён');
   const list=$('rList'); list.dataset.i18nSkip=''; list.textContent=[...m.values()].slice(-300).map(e=>(e.sub?'★ ':'')+e.user).join(', ') || '—';
 }
+// ---- кейс за донат ----
+const CASE_SND=[['in','Подлёт и посадка'],['tense','Нарастание'],['lock','Защёлки'],['open','Открытие'],['tick','Щелчок ленты'],['win','Выпадение']];
+function casePick(el){
+  const pool=el.items.map((it,i)=>[i,it.p]).filter(([,p])=>p>0); if(!pool.length) return -1;
+  const total=pool.reduce((a,[,p])=>a+p,0), r=new Uint32Array(1); crypto.getRandomValues(r);
+  let x=r[0]/2**32*total; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[pool.length-1][0];
+}
+function caseOpen(el, donor, amount){
+  if(!el.items.some(it=>it.p>0)) return toast('Добавь предметы с шансом больше 0'), false;
+  const win=casePick(el), rnd=()=>{ const pool=el.items.map((it,i)=>[i,it.p]).filter(([,p])=>p>0); const tot=pool.reduce((a,[,p])=>a+p,0); let x=Math.random()*tot; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[0][0]; };
+  const reel=Array.from({ length:CASE_REEL }, ()=> Math.random()<0.18 ? Math.random()*el.items.length|0 : rnd());
+  reel[CASE_WIN]=win;
+  // «почти-почти»: перед выигрышем стоит самый редкий предмет (если выпало не самое редкое) — лента притормозит на нём
+  const rarest=el.items.reduce((b,it,i)=> it.r>el.items[b].r ? i : b, 0);
+  reel[CASE_WIN-1] = el.items[win].r < el.items[rarest].r ? rarest : rnd();
+  reel[CASE_WIN+1] = rnd();
+  el.reel=reel; el.win=win; el.jit=(Math.random()-0.5)*0.6;
+  el.donor=String(donor||'').slice(0,40); el.amount=String(amount||'').slice(0,24);
+  el.openAt=Date.now()+500; el.hidden=false; el.ttl=el.openAt+CASE_T.reveal+el.hideAfter*1000;
+  const h=lsGet('hudini.caseHist', []); h.unshift({ t:Date.now(), d:el.donor, n:el.items[win].n, r:el.items[win].r, c:el.name }); lsSet('hudini.caseHist', h.slice(0,100));
+  return true;
+}
+function renderCase(el){
+  setField(I('iKName'), el.name); setField(I('iKColor'), el.cc); setField(I('iKVol'), String(el.vol)); setField(I('iKHide'), String(el.hideAfter)); I('iKLow').checked=el.q==='low';
+  $('kLogoDel').hidden=!el.logo;
+  const sum=el.items.reduce((a,it)=>a+it.p,0);
+  $('kSum').textContent=`· ${el.items.length} · шансы: ${+sum.toFixed(2)}%`; $('kSum').style.color = Math.abs(sum-100)<0.01 ? '' : 'var(--warn)';
+  $('kFix').hidden = Math.abs(sum-100)<0.01 || !sum;
+  const busy = el.openAt && nowMs() < el.openAt+CASE_T.reveal;
+  $('kOpen').disabled=!!busy; $('kTest').disabled=!!busy;
+  $('kInfo').textContent = busy ? 'Кейс открывается на стриме…' : Math.abs(sum-100)>=0.01 && sum ? 'Шансы в сумме не 100%: при открытии они считаются пропорционально.' : '';
+  const box=$('kItems');
+  if(document.activeElement?.closest('#kItems')) return;   // не перерисовывать, пока печатают
+  box.replaceChildren(...el.items.map((it,i)=>{
+    const r=document.createElement('div'); r.className='row kit'; r.dataset.i=i; r.style.borderLeft=`3px solid ${RARITY7[it.r]}`; r.style.paddingLeft='6px';
+    const pic=document.createElement('button'); pic.className='kpic'; pic.title='Картинка предмета'; pic.dataset.act='img';
+    if(it.img){ const im=document.createElement('img'); im.src=resolveSrc(it.img); im.style.cssText='width:26px;height:20px;object-fit:contain'; pic.appendChild(im); } else pic.textContent='🖼';
+    const nm=document.createElement('input'); nm.type='text'; nm.className='grow'; nm.value=it.n; nm.placeholder='Предмет'; nm.dataset.f='n'; nm.style.minWidth='60px';
+    const rr=document.createElement('select'); rr.dataset.f='r'; rr.style.width='84px'; RARITY_NAME.forEach((n,k)=>{ const o=new Option(n,k); o.style.color=RARITY7[k]; rr.appendChild(o); }); rr.value=String(it.r);
+    const pp=document.createElement('input'); pp.type='number'; pp.min='0'; pp.max='100'; pp.step='0.1'; pp.value=String(it.p); pp.dataset.f='p'; pp.style.width='58px'; pp.title='Шанс, %';
+    const del=document.createElement('button'); del.textContent='✕'; del.title='Убрать предмет'; del.dataset.act='del';
+    r.append(pic, nm, rr, pp, del); return r;
+  }));
+  const sb=$('kSnd'); if(!sb.children.length) sb.append(...CASE_SND.map(([k,n])=>{ const r=document.createElement('div'); r.className='row'; r.dataset.k=k;
+    const l=document.createElement('span'); l.className='hint grow'; l.textContent=n; const b=document.createElement('button'); b.dataset.act='snd'; const d=document.createElement('button'); d.dataset.act='sdel'; d.textContent='🗑'; d.title='Вернуть встроенный звук';
+    r.append(l,b,d); return r; }));
+  for(const r of sb.children){ const k=r.dataset.k; r.querySelector('[data-act=snd]').textContent = el.snd[k] ? '🔊 ✓' : '📁'; r.querySelector('[data-act=sdel]').hidden=!el.snd[k]; }
+  const h=lsGet('hudini.caseHist', []); const hb=$('kHist'); hb.dataset.i18nSkip='';
+  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} ${x.d||'тест'} → ${x.n}`).join('\n') : '—'; hb.style.whiteSpace='pre-line';
+}
+let kFileFor=null;
+function caseUpload(target, accept){ kFileFor=target; $('kFile').accept=accept||'image/*'; $('kFile').click(); }
+async function caseSetFile(f, target){
+  if(!f) return; const el=byId(selectedId); if(el?.type!=='case') return;
+  try{ showUpload(`Загрузка ${f.name}…`, 0); const blob = f.type.startsWith('image/') ? await shrinkImage(f) : f; const src=await uploadBlob(blob, f.name);
+    act(e=>{ if(target.kind==='logo') e.logo=src; else if(target.kind==='snd') e.snd[target.k]=src; else if(e.items[target.i]) e.items[target.i].img=src; }); }
+  catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
+  hideUpload();
+}
+$('kFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; caseSetFile(f, kFileFor); };
+bindInput('iKName', (el,f)=>el.name=f.value.slice(0,40)||'HUDINI CASE');
+bindInput('iKColor', (el,f)=>el.cc=f.value);
+bindInput('iKVol', (el,f)=>el.vol=Number(f.value));
+bindInput('iKHide', (el,f)=>el.hideAfter=num(f.value,12,3,120));
+bindInput('iKLow', (el,f)=>el.q=f.checked?'low':'high', 'change');
+$('kLogo').onclick=()=>caseUpload({ kind:'logo' }); $('kLogoDel').onclick=()=>act(el=>el.logo='');
+$('kAdd').onclick=()=>act(el=>{ if(el.items.length<40) el.items.push({ n:sT('Предмет'), r:2, p:0, img:'' }); });
+$('kFix').onclick=()=>act(el=>{ const s=el.items.reduce((a,it)=>a+it.p,0); if(s>0) el.items.forEach(it=>it.p=Math.round(it.p/s*10000)/100); });
+$('kOpen').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; if(!$('kDonor').value.trim()) return toast('Впиши ник донатера'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
+$('kTest').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; beginChange(); if(caseOpen(el, '', '')) commit(); };
+$('kItems').addEventListener('change', e=>{
+  const row=e.target.closest('.kit'); if(!row) return; const i=+row.dataset.i, f=e.target.dataset.f; if(!f) return;
+  act(el=>{ const it=el.items[i]; if(!it) return; if(f==='n') it.n=e.target.value.slice(0,40); else if(f==='r') it.r=Math.round(num(e.target.value,2,0,6)); else if(f==='p') it.p=num(e.target.value,0,0,100); });
+  e.target.blur?.();
+});
+$('kItems').addEventListener('click', e=>{
+  const b=e.target.closest('button'); const row=e.target.closest('.kit'); if(!b || !row) return; const i=+row.dataset.i;
+  if(b.dataset.act==='del') act(el=>el.items.splice(i,1));
+  if(b.dataset.act==='img') caseUpload({ kind:'item', i });
+});
+$('kItems').addEventListener('dragover', e=>{ if(e.target.closest('.kit')) e.preventDefault(); });
+$('kItems').addEventListener('drop', e=>{ const row=e.target.closest('.kit'); const f=e.dataTransfer?.files?.[0]; if(!row || !f || !f.type.startsWith('image/')) return; e.preventDefault(); caseSetFile(f, { kind:'item', i:+row.dataset.i }); });
+$('kSnd').addEventListener('click', e=>{ const b=e.target.closest('button'); const r=e.target.closest('[data-k]'); if(!b || !r) return; const k=r.dataset.k;
+  if(b.dataset.act==='snd') caseUpload({ kind:'snd', k }, 'audio/*'); else if(b.dataset.act==='sdel') act(el=>{ delete el.snd[k]; }); });
 let rafFileFor='';
 function rafUpload(kind){
   rafFileFor=kind; const f=$('rFile');

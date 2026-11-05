@@ -45,21 +45,21 @@ const FONT_EXT = { ttf:'font/ttf', otf:'font/otf', woff:'font/woff', woff2:'font
 const STREAM_LANGS = ['ru', 'en', 'uk', 'de'];
 let STREAM_LANG = 'ru';
 const STREAM_TXT = {
-  en:{ "Розыгрыш":"Giveaway", "только подписчики":"subscribers only", "Пиши в чат":"Type in chat", "Пиши в чат что угодно, чтобы участвовать":"Type anything in chat to join", "Сбор закрыт, сейчас крутим!":"Entries closed, spinning now!", "Розыгрыш скоро начнётся":"Giveaway starts soon", "У подписчиков шанс x2":"Subscribers have x2 chance", "выигрывает":"wins", "Победители":"Winners", "на связи":"is here", "Напиши в чат за":"Reply in chat within", "Не ответил, перекручиваем…":"No reply, spinning again…", 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
+  en:{ "открывает":"opens", "выбил":"unboxed", "Ширпотреб":"Consumer Grade", "Промышленное":"Industrial Grade", "Армейское":"Mil-Spec", "Запрещённое":"Restricted", "Засекреченное":"Classified", "Тайное":"Covert", "Редкое":"Rare Special", "Розыгрыш":"Giveaway", "только подписчики":"subscribers only", "Пиши в чат":"Type in chat", "Пиши в чат что угодно, чтобы участвовать":"Type anything in chat to join", "Сбор закрыт, сейчас крутим!":"Entries closed, spinning now!", "Розыгрыш скоро начнётся":"Giveaway starts soon", "У подписчиков шанс x2":"Subscribers have x2 chance", "выигрывает":"wins", "Победители":"Winners", "на связи":"is here", "Напиши в чат за":"Reply in chat within", "Не ответил, перекручиваем…":"No reply, spinning again…", 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
     'Нож':'Knife', 'Флешка':'Flashbang', 'Дым':'Smoke', 'Молотов':'Molotov', 'Зажигалка':'Incendiary', 'Ложная':'Decoy',
     'заложена':'planted', 'разминируют':'defusing', 'разминирована':'defused', 'взорвалась':'exploded',
     'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
     'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
     'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
-  uk:{ "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
+  uk:{ "открывает":"відкриває", "выбил":"вибив", "Ширпотреб":"Ширвжиток", "Промышленное":"Промислове", "Армейское":"Армійське", "Запрещённое":"Заборонене", "Засекреченное":"Засекречене", "Тайное":"Таємне", "Редкое":"Рідкісне", "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
     'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
     'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
     'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
     'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
     'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
-  de:{ "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
+  de:{ "открывает":"öffnet", "выбил":"hat gezogen", "Ширпотреб":"Verbraucherklasse", "Промышленное":"Industriequalität", "Армейское":"Militärstandard", "Запрещённое":"Limitiert", "Засекреченное":"Geheim", "Тайное":"Verdeckt", "Редкое":"Selten", "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
     'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
     'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
     'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
@@ -72,7 +72,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','raffle'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','raffle','case'];
 const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare'];
 // Виды на весь экран: своя сетка на 16:9, двигать их нельзя, чтобы ничего не съезжало
 const CS2_FULL = new Set(['hud_solo','hud_tour','table','duel','compare']);
@@ -113,6 +113,11 @@ function outline(color, wEm){
 const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg']);
 // Розыгрыш: сбор → (закрыт) → лента. Время ленты общее для пульта и виджета, поэтому все видят одно и то же
 const RAFFLE_PHASES = ['idle','collect','closed','spin'];
+// Кейс за донат: время сцены от openAt, одинаковое у пульта и виджета
+const CASE_T = { land:1300, lock1:3300, lock2:3650, open:4000, reel:4800, reelDur:8200, reveal:13200 };
+const CASE_REEL = 60, CASE_WIN = 52, CASE_STEP = 10.8;   // карточка 10em + зазор .8em
+const RARITY7 = ['#b0c3d9','#5e98d9','#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
+const RARITY_NAME = ['Ширпотреб','Промышленное','Армейское','Запрещённое','Засекреченное','Тайное','Редкое'];
 const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
@@ -156,6 +161,15 @@ function sanitizeEl(e){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
     o.maxw=num(e.maxw,38,10,100);
+  } else if(type==='case'){
+    o.x=50; o.y=50; o.rot=0; o.fs=num(e.fs,4,1,12); o.font=fontOf(e.font); o.color=hex(e.color,'#ffffff');
+    o.name=str(e.name,40)||'HUDINI CASE'; o.logo=safeSrc(e.logo)||''; o.cc=hex(e.cc,'#7c5cff');
+    o.items=(Array.isArray(e.items)?e.items:[]).slice(0,40).map(x=>({ n:str(x?.n,40), img:safeSrc(x?.img)||'', r:Math.round(num(x?.r,2,0,6)), p:num(x?.p,0,0,100) }));
+    o.openAt=num(e.openAt,0,0,1e15); o.donor=str(e.donor,40); o.amount=str(e.amount,24);
+    o.win=Math.round(num(e.win,-1,-1,39)); o.jit=num(e.jit,0,-0.4,0.4);
+    o.reel=(Array.isArray(e.reel)?e.reel:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
+    o.hideAfter=num(e.hideAfter,12,3,120); o.vol=num(e.vol,0.8,0,1); o.q=e.q==='low'?'low':'high';
+    o.snd={}; for(const k of ['in','lock','open','tick','win']){ const v=safeSrc(e.snd?.[k]); if(v) o.snd[k]=v; }
   } else if(type==='raffle'){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');
@@ -395,6 +409,103 @@ function rafFrame(c, el, now){
   if(idx!==c._lastIdx){ if(c._lastIdx>=0 && p>0 && p<1) RaffleFx.tick(el); c._lastIdx=idx; }
 }
 
+// ---------- кейс за донат: 3D-открытие (case3d.js), лента с «почти-почти», взрыв цвета редкости ----------
+// Звуки и 3D рисует case3d.js. В пульте сцена тише и легче: CaseFx.audio включает только виджет.
+const CaseFx = { audio:false, low:false };
+// Предмет без картинки: огранённый кристалл в цвет редкости
+function gemSvg(){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('viewBox','0 0 64 64'); const id='gm'+(gemSvg.n=(gemSvg.n||0)+1);
+  s.innerHTML='<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".45" stop-color="currentColor"/><stop offset="1" stop-color="currentColor" stop-opacity=".55"/></linearGradient></defs>'+
+    '<path d="M20 8h24l14 16-26 32L6 24z" fill="url(#'+id+')"/><path d="M6 24h52M20 8l-4 16 16 32 16-32-4-16M32 8l-16 16M32 8l16 16" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>';
+  return s;
+}
+function itemCard(it, cls){
+  const c=rh('div','cs-card'+(cls?' '+cls:'')); c.style.setProperty('--r', RARITY7[it?.r??2]);
+  const pic=rh('div','cs-pic');
+  if(it?.img){ const im=rh('img'); im.alt=''; im.draggable=false; im.src=resolveSrc(it.img); pic.appendChild(im); }
+  else pic.appendChild(gemSvg());
+  c.append(pic, rh('div','cs-nm', it?.n||'?'));
+  return c;
+}
+function paintCase(c, el){
+  for(const it of el.items) if(it.img) resolveSrc(it.img);
+  for(const v of Object.values(el.snd)) resolveSrc(v);
+  const sig=JSON.stringify([el.openAt, el.items, el.reel, el.win, el.donor, el.amount, el.name, el.cc, el.logo && resolveSrc(el.logo), STREAM_LANG]);
+  if(c._sig!==sig){
+    c._sig=sig; c.replaceChildren(); c._t0=el.openAt;
+    const g=rh('div','cs-3d'); c.appendChild(g); c._gl=g;
+    const top=rh('div','cs-top'); top.append(rh('b','cs-donor', el.donor||st('Зритель')), rh('span',null,' '+st('открывает')+' '), rh('b','cs-cname', el.name));
+    if(el.amount) top.appendChild(rh('span','cs-amt', el.amount));
+    c.appendChild(top);
+    const reel=rh('div','cs-reel'), strip=rh('div','cs-strip');
+    el.reel.forEach((ix,i)=>strip.appendChild(itemCard(el.items[ix], i===CASE_WIN?'win':'')));
+    reel.append(strip, rh('div','cs-mark')); c.appendChild(reel);
+    const w=el.items[el.win];
+    const rev=rh('div','cs-rev'+(w?.r===6?' gold':'')); if(w) rev.style.setProperty('--r', RARITY7[w.r]);
+    rev.append(rh('div','cs-rays'), rh('canvas','cs-sparks'));
+    const card=rh('div','cs-big'); const pic=rh('div','cs-bpic');
+    if(w?.img){ const im=rh('img'); im.alt=''; im.src=resolveSrc(w.img); pic.appendChild(im); } else pic.appendChild(gemSvg());
+    card.append(pic, rh('div','cs-rar', w ? st(RARITY_NAME[w.r]) : ''), rh('div','cs-bname', w?.n||''), rh('div','cs-who', (el.donor||st('Зритель'))+' '+st('выбил')));
+    rev.appendChild(card); c.appendChild(rev);
+    c._strip=strip; c._last=-1; c._sparks=null;
+  }
+  caseKick(c, el);
+}
+// Положение ленты: разгон, долгое торможение на соседней карточке и медленный дотяг до выигрыша
+function caseReelX(el, t){
+  const p=Math.min(1, Math.max(0, t/CASE_T.reelDur));
+  const target=(CASE_WIN+0.5+el.jit)*CASE_STEP - 0.4, gap=CASE_STEP*(0.5+el.jit)+1.2;   // стоп: над прошлой карточкой
+  const x1=target-gap;
+  if(p<0.8){ const q=p/0.8; return x1*(1-Math.pow(1-q,3.2)); }
+  const q=(p-0.8)/0.2; return x1 + gap*(q*q*(3-2*q));
+}
+function caseKick(c, el){
+  if(c._loop || !el.openAt) return;
+  const end=el.openAt+CASE_T.reveal+el.hideAfter*1000+1500;
+  if(nowMs()>end) { c.dataset.ph='gone'; return; }
+  c._loop=true;
+  const step=()=>{
+    const now = window.__caseFreeze!=null ? el.openAt+window.__caseFreeze : nowMs();   // __caseFreeze: стоп-кадр для тестов и скриншотов
+    if(!c.isConnected || now>end || c._t0!==el.openAt){ c._loop=false; if(now>end) c.dataset.ph='gone'; window.Case3D?.stop(c); return; }
+    caseFrame(c, el, now-el.openAt);
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function caseFrame(c, el, t){
+  const ph = t<0 ? 'wait' : t<CASE_T.reel ? 'open' : t<CASE_T.reveal ? 'reel' : 'reveal';
+  if(c.dataset.ph!==ph) c.dataset.ph=ph;
+  window.Case3D?.frame(c, el, t);
+  if(t>=CASE_T.reel-300 && c._strip){
+    const x=caseReelX(el, t-CASE_T.reel);
+    c._strip.style.transform=`translate3d(${(-x).toFixed(3)}em,0,0)`;
+    const idx=Math.floor((x+0.4)/CASE_STEP);
+    if(idx!==c._last){ if(c._last>=0 && t<CASE_T.reel+CASE_T.reelDur) window.Case3D?.tick(el, Math.min(1,(t-CASE_T.reel)/CASE_T.reelDur)); c._last=idx; }
+  }
+  if(ph==='reveal') caseSparks(c, el, t-CASE_T.reveal);
+}
+// Искры в цвет редкости при выпадении (2D-холст поверх)
+function caseSparks(c, el, t){
+  const cv=c.querySelector('.cs-sparks'); if(!cv) return;
+  const w=el.items[el.win]; if(!w) return;
+  if(!c._sparks){
+    const W=cv.width=Math.max(320, c.clientWidth|0), H=cv.height=Math.max(180, c.clientHeight|0), n = w.r>=5 ? 260 : w.r>=3 ? 160 : 90;
+    c._sparks=Array.from({ length:n }, ()=>{ const a=Math.random()*Math.PI*2, v=(0.25+Math.random())*H*0.012*(w.r>=5?1.5:1); return { x:W/2, y:H*0.46, vx:Math.cos(a)*v, vy:Math.sin(a)*v-H*0.004, s:1+Math.random()*2.6, l:0.7+Math.random()*1.3 }; });
+    c._spT=t;
+  }
+  const ctx=cv.getContext('2d'), dt=Math.min(50, t-c._spT)/16.7; c._spT=t;
+  ctx.clearRect(0,0,cv.width,cv.height); ctx.globalCompositeOperation='lighter';
+  const col=RARITY7[w.r];
+  for(const p of c._sparks){
+    const age=t/1000; if(age>p.l*2.2) continue;
+    p.vy+=cv.height*0.00022*dt; p.vx*=Math.pow(0.985,dt); p.vy*=Math.pow(0.985,dt); p.x+=p.vx*dt; p.y+=p.vy*dt;
+    const a=Math.max(0, 1-age/(p.l*2.2));
+    ctx.globalAlpha=a; ctx.fillStyle = Math.random()<0.25 ? '#fff' : col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.s*(0.6+a), 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
 // ---------- флип-цифры ----------
 function makeCard(c){
   const card = document.createElement('span'); card.className = 'fc';
@@ -450,6 +561,7 @@ function buildNode(el){
   else if(el.type==='cs2'){ c=document.createElement('div'); c.className='cs2'; }
   else if(el.type==='msg'){ c=document.createElement('div'); c.className='msg'; }
   else if(el.type==='raffle'){ c=document.createElement('div'); c.className='raf'; }
+  else if(el.type==='case'){ c=document.createElement('div'); c.className='case'; }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -516,6 +628,11 @@ function paintNode(node, el, z){
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     c.dataset.view=el.view;
     paintCs2(c, el);
+  } else if(el.type==='case'){
+    node.style.width='100%'; node.classList.add('full');
+    c.style.fontSize=`calc(var(--u) * ${(el.fs/4*1.7).toFixed(3)})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
+    c.style.setProperty('--cc', el.cc);
+    paintCase(c, el);
   } else if(el.type==='raffle'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
@@ -586,6 +703,7 @@ function pollFoot(foot, el, now){
   if(foot.textContent !== t) foot.textContent = t;
 }
 function tickNode(node, el, now){
+  if(el.type==='case'){ const c=node.querySelector('.case'); if(c) caseKick(c, el); return null; }
   if(el.type==='raffle'){ const c=node.querySelector('.raf'); if(c) raffleTick(c, el, now); return null; }
   if(el.type==='poll'){ const f=node.querySelector('.poll')?.children[2]; if(f) pollFoot(f, el, now); return null; }
   if(el.type==='cs2'){

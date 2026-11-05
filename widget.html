@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="core.css?v=11">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
 <script src="core.js?v=15"></script>
+<script src="case3d.js?v=1"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -232,6 +233,7 @@ function blip(freq, dur, vol, type){
   o.type=type||'square'; o.frequency.setValueAtTime(freq, t); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.02);
 }
+CaseFx.audio=true;
 RaffleFx.tick=el=>{ if(el.ticks && visible && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08, 'square'); };
 RaffleFx.open=el=>{ if(!visible || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12, 'sine'), 1050); };
 RaffleFx.win=el=>{

@@ -61,12 +61,40 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'raffle'); selectedId = null; commit(); });
   });
 
+  await step('donation case: items with chances, 3D opening, near-miss reel, reveal by rarity', async () => {
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
+    const el0 = await mod.evaluate(() => state.els.at(-1));
+    eq([el0.type, el0.items.length, el0.items.reduce((a, it) => a + it.p, 0)], ['case', 5, 100], 'case with 5 default items, chances add up to 100%');
+    await mod.evaluate(() => { const el = state.els.at(-1); el.hideAfter = 60; el.items[0].p = 30; changed(); renderInspector(); });
+    check(!(await mod.isHidden('#kFix')), '«To 100%» offered when chances do not add up');
+    await mod.click('#kFix'); eq(Math.round(await mod.evaluate(() => state.els.at(-1).items.reduce((a, it) => a + it.p, 0))), 100, 'chances scaled back to 100%');
+    const odds = await mod.evaluate(() => { const el = state.els.at(-1); const c = [0, 0, 0, 0, 0]; for (let i = 0; i < 20000; i++) c[casePick(el)]++; return c.map(x => x / 200); });
+    check(Math.abs(odds[0] - 37.5) < 2 && Math.abs(odds[4] - 2.5) < 0.8, `weighted drop matches the chances (${odds.map(x => x.toFixed(1)).join(' / ')})`);
+    await mod.click('#kOpen'); check(await mod.evaluate(() => !state.els.at(-1).openAt), 'opening needs a donor nickname');
+    await mod.fill('#kDonor', 'etsuitoku'); await mod.fill('#kAmount', '500 ₽'); await mod.click('#kOpen');
+    const el = await mod.evaluate(() => state.els.at(-1));
+    eq([el.reel.length, el.reel[52]], [60, el.win], 'reel built with the dropped item in the winning slot');
+    const rarest = el.items.reduce((b, it, i) => it.r > el.items[b].r ? i : b, 0);
+    if (el.win !== rarest) eq(el.reel[51], rarest, 'near-miss: the rarest item sits right before the winner');
+    check(await until(() => wid.evaluate(() => !!document.querySelector('.case .cs-3d canvas')), 8000), '3D scene runs on stream (WebGL)');
+    check((await wid.textContent('.cs-top')).includes('etsuitoku'), 'donor shown');
+    await wid.evaluate(() => { window.__caseFreeze = 12950; }); await sleep(600);
+    const pos = await wid.evaluate(() => { const m = document.querySelector('.cs-mark').getBoundingClientRect(), c = document.querySelectorAll('.cs-card')[52].getBoundingClientRect(); return [m.left, c.left, c.right]; });
+    check(pos[0] > pos[1] && pos[0] < pos[2], 'reel stops on the dropped item');
+    await wid.evaluate(() => { window.__caseFreeze = 14500; }); await sleep(500);
+    eq(await wid.evaluate(() => document.querySelector('.case').dataset.ph), 'reveal', 'reveal phase');
+    check((await wid.textContent('.cs-bname')) === el.items[el.win].n, 'dropped item named on stream');
+    eq(await mod.evaluate(() => lsGet('hudini.caseHist', [])[0]?.d), 'etsuitoku', 'opening saved to history');
+    await wid.evaluate(() => { window.__caseFreeze = null; });
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'case'); selectedId = null; commit(); });
+  });
+
   await step('own fonts: dropped onto the stage, stored in Hudini Host, same line height as the built-in font', async () => {
     await mod.click('[data-tab=add]'); await mod.fill('#newText', 'Шрифт 123'); await mod.click('#addText');
     const box = () => wid.evaluate(() => [...document.querySelectorAll('.el')].find(n => n.textContent.includes('Шрифт 123'))?.querySelector('.content')?.getBoundingClientRect().height);
     check(await until(box), 'text on stream');
     const mont = await until(() => wid.evaluate(() => document.fonts.check('900 20px Montserrat')), 8000);
-    await sleep(300); const h0 = await box();
+    await sleep(1000); const h0 = await box();
     const font = fs.readFileSync(path.join(__dirname, 'fixtures', 'font.ttf'));
     const dt = await mod.evaluateHandle(b64 => { const d = new DataTransfer(); const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); d.items.add(new File([bin], 'MyFont.ttf')); return d; }, font.toString('base64'));
     await mod.dispatchEvent('#stage', 'drop', { dataTransfer: dt });

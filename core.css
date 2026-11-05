@@ -396,3 +396,66 @@
 @keyframes rf-winpop{0%{transform:scale(1)}50%{transform:scale(1.14)}100%{transform:scale(1.08)}}
 @keyframes rf-in{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 @keyframes rf-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 60%,transparent)}50%{box-shadow:0 0 0 .3em transparent}}
+
+/* ---------- кейс за донат ---------- */
+.case,.case *{box-sizing:border-box}
+.case{position:relative;width:100%;aspect-ratio:16/9;line-height:1.15;text-align:center;overflow:hidden;pointer-events:none}
+.case[data-ph="wait"],.case[data-ph="gone"],.case:not([data-ph]){opacity:0}
+.case{transition:opacity .6s}
+.cs-3d{position:absolute;inset:0}
+.cs-3d canvas{width:100%!important;height:100%!important;display:block}
+.cs-top{position:absolute;left:50%;top:5%;transform:translateX(-50%);padding:.5em 1.4em;border-radius:2em;white-space:nowrap;font-size:1.3em;letter-spacing:.02em;
+  background:linear-gradient(180deg,#ffffff26,#ffffff08),rgba(12,14,24,.62);border:1px solid #ffffff38;box-shadow:inset 0 1px 0 #ffffff40,0 .5em 1.4em #0009;text-shadow:0 .05em .2em #000;
+  opacity:0;transition:opacity .5s,transform .5s}
+.case[data-ph="open"] .cs-top,.case[data-ph="reel"] .cs-top{opacity:1;transform:translateX(-50%) translateY(0)}
+.cs-donor{color:#ffe08a}.cs-cname{color:color-mix(in srgb,var(--cc) 55%,#fff)}
+.cs-amt{margin-left:.6em;padding:.1em .55em;border-radius:1em;background:color-mix(in srgb,var(--cc) 60%,#0008);font-weight:800}
+/* лента */
+.cs-reel{position:absolute;left:6%;right:6%;top:52%;height:15.4em;margin-top:-7.7em;border-radius:.7em;overflow:hidden;opacity:0;transform:scale(.92);transition:opacity .45s,transform .6s cubic-bezier(.2,1.3,.4,1);
+  background:linear-gradient(180deg,#07080ce8,#11131bf0 50%,#07080ce8);border-top:1px solid #e9c46a66;border-bottom:1px solid #e9c46a66;box-shadow:0 1.2em 3em #000c,inset 0 0 2.5em #000;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.case[data-ph="reel"] .cs-reel{opacity:1;transform:none}
+.cs-strip{position:absolute;left:50%;top:50%;margin-top:-6.5em;display:flex;gap:.8em;will-change:transform}
+.cs-card{flex:none;width:10em;height:13em;border-radius:.5em;display:flex;flex-direction:column;overflow:hidden;
+  background:linear-gradient(180deg,#2b2f40,#171a26 62%,color-mix(in srgb,var(--r) 38%,#171a26));border-bottom:.32em solid var(--r);box-shadow:inset 0 1px 0 #ffffff1f}
+.cs-pic{flex:1;display:flex;align-items:center;justify-content:center;padding:.5em;background:radial-gradient(circle at 50% 60%,color-mix(in srgb,var(--r) 35%,transparent),transparent 70%)}
+.cs-pic img{max-width:100%;max-height:8.6em;object-fit:contain;filter:drop-shadow(0 .2em .4em #000c)}
+.cs-pic span{font-size:3em;font-weight:900;opacity:.85;color:var(--r)}
+.cs-nm{padding:.45em .5em .6em;font-size:.82em;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-mark{position:absolute;left:50%;top:0;bottom:0;width:.2em;margin-left:-.1em;background:#ffd76a;box-shadow:0 0 .8em #ffd76a,0 0 2em #ffb300}
+.cs-mark::before,.cs-mark::after{content:"";position:absolute;left:50%;transform:translateX(-50%);border:.6em solid transparent}
+.cs-mark::before{top:0;border-top-color:#ffd76a}.cs-mark::after{bottom:0;border-bottom-color:#ffd76a}
+/* выпадение */
+.cs-rev{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;--r:#4b69ff}
+.case[data-ph="reveal"] .cs-rev{opacity:1;transition:opacity .25s}
+.cs-rays{position:absolute;left:50%;top:46%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;border-radius:50%;opacity:.55;
+  background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--r) 70%,transparent) 0 5deg,transparent 5deg 15deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0,#0008 18%,transparent 42%);mask-image:radial-gradient(circle,#000 0,#0008 18%,transparent 42%)}
+.case[data-ph="reveal"] .cs-rays{animation:cs-spin 14s linear infinite,cs-raysin .9s ease-out}
+.cs-sparks{position:absolute;inset:0;width:100%;height:100%}
+.cs-big{position:relative;display:flex;flex-direction:column;align-items:center;gap:.25em;padding:1.1em 2.2em 1.2em;border-radius:1em;
+  background:radial-gradient(120% 90% at 50% 20%,color-mix(in srgb,var(--r) 45%,#14172299),#0d0f19e8 70%);border:1px solid color-mix(in srgb,var(--r) 70%,#fff);
+  box-shadow:0 0 3em color-mix(in srgb,var(--r) 60%,transparent),0 1.5em 3em #000c,inset 0 1px 0 #ffffff40;text-shadow:0 .06em .25em #000}
+.case[data-ph="reveal"] .cs-big{animation:cs-pop .9s cubic-bezier(.16,1.4,.3,1) both}
+.cs-bpic{width:16em;height:11em;display:flex;align-items:center;justify-content:center}
+.cs-bpic img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 0 1.2em color-mix(in srgb,var(--r) 70%,transparent)) drop-shadow(0 .4em .6em #000)}
+.case[data-ph="reveal"] .cs-bpic img{animation:cs-float 3.2s ease-in-out .9s infinite}
+.cs-bpic span{font-size:7em;font-weight:900;color:var(--r)}
+.cs-rar{font-size:.8em;letter-spacing:.22em;text-transform:uppercase;color:var(--r);font-weight:900;filter:brightness(1.35)}
+.cs-bname{font-size:2em;font-weight:900}
+.cs-who{font-size:.95em;opacity:.9}
+.cs-rev.gold .cs-big{border-color:#ffe7a3;box-shadow:0 0 4em #e4ae39cc,0 0 9em #ffcc4d66,0 1.5em 3em #000c,inset 0 1px 0 #fff8}
+.cs-rev.gold .cs-bname{background:linear-gradient(90deg,#fff3c4,#ffcf4d,#fff3c4,#e4ae39,#fff3c4);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:cs-sheen 2.4s linear infinite;text-shadow:none;filter:drop-shadow(0 .06em .2em #000)}
+.cs-rev.gold .cs-rays{opacity:.8}
+@keyframes cs-spin{to{transform:rotate(360deg)}}
+@keyframes cs-raysin{from{opacity:0;transform:scale(.3)}}
+@keyframes cs-pop{0%{opacity:0;transform:scale(.3) translateY(2em)}60%{opacity:1}100%{opacity:1;transform:none}}
+@keyframes cs-float{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-.35em) rotate(1.5deg)}}
+@keyframes cs-sheen{to{background-position:300% 0}}
+/* без WebGL: плоский кейс вместо 3D */
+.cs-3d.nogl::before{content:"";position:absolute;left:50%;top:40%;width:22em;height:13em;margin:-6.5em 0 0 -11em;border-radius:1.2em;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--cc) 55%,#222),#111420);border:.25em solid #c9ced8;box-shadow:0 0 3em color-mix(in srgb,var(--cc) 60%,transparent),0 2em 3em #000c}
+.case[data-ph="open"] .cs-3d.nogl::before{animation:cs-shake .5s ease-in-out 4}
+@keyframes cs-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+.cs-pic svg{width:5em;height:5em;color:var(--r);filter:drop-shadow(0 0 .6em color-mix(in srgb,var(--r) 70%,transparent))}
+.cs-bpic svg{width:9em;height:9em;color:var(--r);filter:drop-shadow(0 0 1.4em color-mix(in srgb,var(--r) 80%,transparent))}

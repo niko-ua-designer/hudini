@@ -23,6 +23,8 @@ import UI_HTML from './ui.html' with { type: 'text' };
 import DOCK_HTML from './dock.html' with { type: 'text' };
 import I18N_JS from '../i18n.js' with { type: 'text' };
 import ICONS_JS from '../icons.js' with { type: 'text' };
+import CASE3D_JS from '../case3d.js' with { type: 'text' };
+import THREE_JS from '../vendor/three.module.min.js' with { type: 'text' };
 
 const VERSION = '1.0.0-rc.2';
 const PREFIX = 'stream-overlay/v1';
@@ -452,7 +454,7 @@ async function installGsi(){
 
 // ---------- файлы виджета: свежие с сайта, запасные встроены в программу ----------
 const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
-const EMBED = { 'widget.html':WIDGET_HTML, 'core.js':CORE_JS, 'core.css':CORE_CSS };
+const EMBED = { 'widget.html':WIDGET_HTML, 'core.js':CORE_JS, 'core.css':CORE_CSS, 'case3d.js':CASE3D_JS };
 const files = { ...EMBED };
 for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, f), 'utf8'); }catch{}
 async function refreshSite(){
@@ -743,6 +745,8 @@ const local = http.createServer(async (req, res) => {
     if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
     if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');
+    if(p==='/case3d.js') return send(res, 200, files['case3d.js'], 'application/javascript; charset=utf-8');
+    if(p==='/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
     if(p==='/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
     if(p==='/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
