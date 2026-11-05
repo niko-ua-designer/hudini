@@ -515,7 +515,7 @@ $('cleanFiles2').onclick=cleanFiles;
 // ================== ОТРИСОВКА ==================
 const nodes=new Map();
 function addHandles(node){
-  for(const h of ['size','rot','sw','shh']){ const d=document.createElement('div'); d.className='h h-'+h; d.dataset.h=h; node.appendChild(d); }
+  for(const h of ['size','rot','sw','shh']){ const d=document.createElement('div'); d.className='h h-'+h; d.dataset.h=h; if(h==='sw'||h==='shh') d.title='Потяни: своя ширина или высота рамки · двойной клик: снова по содержимому'; node.appendChild(d); }
   const t=document.createElement('div'); t.className='tag'; node.appendChild(t);
   const c=node.querySelector('.content');
   if(c.tagName==='IMG' || c.tagName==='VIDEO'){
@@ -703,6 +703,7 @@ function fit(){
 new ResizeObserver(fit).observe(stageBox);
 
 function scaleEl(el,k){ if('fs' in el) el.fs=num(el.fs*k,el.fs,0.5,100); else { el.w=num(el.w*k,el.w,1,200); if(el.hh) el.hh=num(el.hh*k,el.hh,0.5,300); } }
+let lastHandle={};   // для двойного клика по ручке рамки
 function centerPx(el){ const r=stage.getBoundingClientRect(); return { cx:r.left+el.x/100*r.width, cy:r.top+el.y/100*r.height, r }; }
 const angleOf=(e,cx,cy)=>Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI;
 
@@ -726,6 +727,7 @@ stage.addEventListener('pointerdown', e=>{
   beginChange();
   const { cx, cy, r }=centerPx(el);
   const media = el.type==='image' || el.type==='video';
+  const prevHandle = lastHandle; lastHandle={ t:Date.now(), h, id:el.id }; void prevHandle;
   if(media && (h==='sw' || h==='shh' || (h==='size' && e.shiftKey))){
     // растягивание: считаем по осям самого элемента (с учётом поворота)
     const c=node.querySelector('.content'), a=el.rot*Math.PI/180;
@@ -733,6 +735,14 @@ stage.addEventListener('pointerdown', e=>{
     const p0=loc(e.clientX, e.clientY);
     drag={ mode:'stretch', axis: h==='sw'?'x':h==='shh'?'y':'xy', loc, u0:Math.max(4,Math.abs(p0.u)), v0:Math.max(4,Math.abs(p0.v)),
       w0:el.w, hh0: el.hh || c.offsetHeight/r.height*100 };
+  } else if(BOXABLE.has(el.type) && (h==='sw' || h==='shh') && Date.now()-(prevHandle.t||0)<400 && prevHandle.h===h && prevHandle.id===el.id){
+    // двойной клик по ручке рамки: снова размер по содержимому
+    if(h==='sw') el.bw=0; else el.bh=0; commit(); toast('Размер снова по содержимому'); return;
+  } else if(BOXABLE.has(el.type) && (h==='sw' || h==='shh')){
+    // своя рамка: тянем ширину или высоту, содержимое подстраивается внутри
+    const c=node.querySelector('.content');
+    drag={ mode:'box', axis:h==='sw'?'x':'y', cx, cy, x0:e.clientX, y0:e.clientY, a:el.rot*Math.PI/180, sw:r.width, sh:r.height,
+      bw0: el.bw || node.offsetWidth/r.width*100, bh0: el.bh || c.offsetHeight/r.height*100 };
   } else if(h==='size'){
     drag={ mode:'size', cx, cy, d0:Math.max(5, Math.hypot(e.clientX-cx, e.clientY-cy)), fs0:el.fs, w0:el.w, hh0:el.hh };
   } else if(h==='rot' || e.altKey){
@@ -782,6 +792,12 @@ stage.addEventListener('pointermove', e=>{
     if(drag.axis!=='y') el.w=num(drag.w0*Math.abs(p.u)/drag.u0, 25, 1, 200);
     if(drag.axis!=='x') el.hh=num(drag.hh0*Math.abs(p.v)/drag.v0, 10, 0.5, 300);
     else if(!el.hh) el.hh=num(drag.hh0, 10, 0.5, 300);   // высоту фиксируем, иначе картинка поедет пропорционально
+  } else if(drag.mode==='box'){
+    // смещение мыши в осях элемента; рамка растёт в обе стороны от центра
+    const dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
+    const du=dx*Math.cos(drag.a)+dy*Math.sin(drag.a), dv=-dx*Math.sin(drag.a)+dy*Math.cos(drag.a);
+    if(drag.axis==='x') el.bw=num(drag.bw0 + 2*du/drag.sw*100, 10, 2, 100);
+    else el.bh=num(drag.bh0 + 2*dv/drag.sh*100, 10, 2, 100);
   } else if(drag.mode==='size'){
     const k=Math.hypot(e.clientX-drag.cx, e.clientY-drag.cy)/drag.d0;
     if('fs' in el) el.fs=num(drag.fs0*k,8,0.5,100);

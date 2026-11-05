@@ -270,3 +270,9 @@
 .cs2 .c-hp,.cs2 .c-ar{flex:none;min-width:3.2em}
 .cs2 .c-bar{flex:1 1 auto;width:auto}
 .tw .disp,.cs2,.poll{font-variant-numeric:tabular-nums}
+
+/* ---------- своя рамка (модератор растянул элемент): размер не зависит от данных ---------- */
+.content.boxed{width:100%;overflow:hidden}
+.content.boxed>*{width:100%!important;max-width:none!important;min-width:0!important;height:100%;box-sizing:border-box;overflow:hidden}
+.content.boxed .c-name,.content.boxed .c-cap,.content.boxed .tm-name,.content.boxed .m-user,.content.boxed .ptitle,.content.boxed .pl,.content.boxed .c-weap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.content.boxed .tw{display:flex;flex-direction:column;justify-content:center;align-items:center}

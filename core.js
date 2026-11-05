@@ -79,6 +79,8 @@ function outline(color, wEm){
   return s.join(',');
 }
 
+// Элементы, у которых размер можно задать рамкой: тогда они не прыгают от данных
+const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg']);
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
   const type = TYPES.includes(e.type) ? e.type : null;
@@ -149,6 +151,8 @@ function sanitizeEl(e){
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
   if(e.g) o.g=str(e.g,12).replace(/[^a-z0-9]/gi,'');
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
+  // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
+  if(BOXABLE.has(o.type)){ o.bw=num(e.bw,0,0,100); o.bh=num(e.bh,0,0,100); }
   return o;
 }
 // ---------- анимация движения по ключевым кадрам ----------
@@ -422,6 +426,15 @@ function paintNode(node, el, z){
     const cap=c.querySelector('.cap');
     if(cap.textContent!==el.label) cap.textContent=el.label;
     cap.hidden=!el.label;
+  }
+  // рамка, которую модератор растянул руками: содержимое живёт внутри неё
+  if(BOXABLE.has(el.type) && !(el.type==='cs2' && CS2_FULL.has(el.view))){
+    const box=node.querySelector('.content');
+    if(box){
+      box.classList.toggle('boxed', el.bw>0 || el.bh>0);
+      if(el.bw>0) node.style.width=el.bw+'%';
+      box.style.height = el.bh>0 ? `calc(var(--u) * ${el.bh})` : '';
+    }
   }
 }
 // Обновить цифры таймера/счётчика. Вызывается часто (10 раз в секунду).
