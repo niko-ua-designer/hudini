@@ -11,7 +11,7 @@ The app for the streamer's PC. Since Hudini 1.0 it is required: it serves the ov
 ### How to use
 
 1. Download the app from [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1). For Windows that's `HudiniHost-windows.exe.zip`.
-2. Unzip it **into its own folder** (settings and files are saved there) and run it.
+2. Unzip it and run the app from the **Hudini Host** folder. It's portable: settings, files, cache and cloudflared live in `data/` next to it. To remove Hudini completely, delete the folder.
    Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). If Windows asks about network access, allow private networks.
 3. The control page `http://localhost:7777` opens:
    - **First start:** choose how much space the moderators' files get (100 MB per file, 2 GB in total, 300 files by default).
@@ -24,7 +24,7 @@ The panel finds the app by itself and shows **online · Hudini Host**.
 
 ### Files
 
-Pictures, GIFs, videos and sounds uploaded by moderators are stored in `files/` next to the app, **encrypted with the room key**: the app keeps bytes it can't read, the widget decrypts them and checks the moderator's signature. When the space or file limit is reached, uploads are refused; the panel offers to delete files nobody uses. The app never deletes files by itself. Limits can be changed on the control page at any time.
+Pictures, GIFs, videos and sounds uploaded by moderators are stored in `data/files/` next to the app, **encrypted with the room key**: the app keeps bytes it can't read, the widget decrypts them and checks the moderator's signature. When the space or file limit is reached, uploads are refused; the panel offers to delete files nobody uses. The app never deletes files by itself. Limits can be changed on the control page at any time.
 
 ### CS2
 
@@ -75,7 +75,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 ### Как пользоваться
 
 1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/overlay/releases/tag/v1.0.0-rc.1): для Windows это `HudiniHost-windows.exe.zip`.
-2. Распакуй **в отдельную папку** (там хранятся настройки и файлы) и запусти.
+2. Распакуй и запусти программу из папки **Hudini Host**. Она портативная: настройки, файлы, кэш и cloudflared лежат в `data/` рядом с ней. Чтобы удалить Hudini полностью, удали папку.
    Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Если Windows спросит про доступ к сети, разреши для частных сетей.
 3. Откроется страница управления `http://localhost:7777`:
    - **Первый запуск:** выбери, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ всего, 300 файлов).
@@ -88,7 +88,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 
 ### Файлы
 
-Картинки, GIF, видео и звуки от модераторов лежат в папке `files/` рядом с программой, **зашифрованными ключом комнаты**: программа хранит байты, которые не может прочитать, а виджет расшифровывает их и проверяет подпись модератора. Когда место или лимит файлов кончились, загрузка не проходит, и пульт предлагает удалить неиспользуемые файлы. Сама программа ничего не удаляет. Лимиты можно поменять на странице управления в любой момент.
+Картинки, GIF, видео и звуки от модераторов лежат в папке `data/files/` рядом с программой, **зашифрованными ключом комнаты**: программа хранит байты, которые не может прочитать, а виджет расшифровывает их и проверяет подпись модератора. Когда место или лимит файлов кончились, загрузка не проходит, и пульт предлагает удалить неиспользуемые файлы. Сама программа ничего не удаляет. Лимиты можно поменять на странице управления в любой момент.
 
 ### CS2
 

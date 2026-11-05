@@ -31,8 +31,16 @@ const NO_OPEN = !!process.env.OVERLAY_NO_OPEN;
 
 // ---------- папка с настройками: рядом с .exe ----------
 const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes('~BUN');
-const BASE = process.env.OVERLAY_HOST_DIR || (compiled ? path.dirname(process.execPath) : path.join(import.meta.dir, 'data'));
+// Портативно: всё (настройки, файлы модераторов, кэш, cloudflared) лежит в папке data рядом с программой.
+// Удалил папку с программой, и на компьютере ничего не осталось.
+const APP_DIR = compiled ? path.dirname(process.execPath) : import.meta.dir;
+const BASE = process.env.OVERLAY_HOST_DIR || path.join(APP_DIR, 'data');
 fs.mkdirSync(BASE, { recursive: true });
+// Версии до 1.0 хранили всё прямо рядом с .exe: переносим в data
+if(compiled && !process.env.OVERLAY_HOST_DIR) for(const f of ['overlay-host.json', 'cache', 'files', 'cloudflared.exe', 'cloudflared']){
+  const from = path.join(APP_DIR, f), to = path.join(BASE, f);
+  try{ if(fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to); }catch{}
+}
 const CFG_FILE = path.join(BASE, 'overlay-host.json');
 const rnd = n => nodeCrypto.randomBytes(n).toString('base64url');
 let cfg = {};
@@ -453,7 +461,7 @@ function unzipSingle(buf, want){
     const method=buf.readUInt16LE(p+10), csize=buf.readUInt32LE(p+20), usize=buf.readUInt32LE(p+24);
     const nlen=buf.readUInt16LE(p+28), xlen=buf.readUInt16LE(p+30), clen=buf.readUInt16LE(p+32), lho=buf.readUInt32LE(p+42);
     const name=buf.toString('utf8', p+46, p+46+nlen);
-    if(name===want){
+    if(name===want || name.endsWith('/'+want)){
       const start=lho+30+buf.readUInt16LE(lho+26)+buf.readUInt16LE(lho+28), data=buf.subarray(start, start+csize);
       const out = method===0 ? Buffer.from(data) : method===8 ? zlib.inflateRawSync(data) : null;
       if(!out || out.length!==usize) throw new Error('не распаковался');

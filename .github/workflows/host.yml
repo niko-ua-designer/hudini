@@ -30,8 +30,15 @@ jobs:
         run: sh host/build.sh
       - name: Zip
         run: |
+          # Portable: each zip holds a "Hudini Host" folder with the app, an empty data/ folder and a short readme
           cd host/dist
-          for f in *; do zip -9 "$f.zip" "$f"; done
+          for f in HudiniHost-*; do
+            rm -rf pkg && mkdir -p "pkg/Hudini Host/data"
+            cp "$f" "pkg/Hudini Host/"
+            cp ../PORTABLE.txt "pkg/Hudini Host/README.txt"
+            (cd pkg && zip -9 -r "../$f.zip" "Hudini Host")
+          done
+          rm -rf pkg
           sha256sum *.zip > SHA256SUMS.txt
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
