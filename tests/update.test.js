@@ -30,7 +30,7 @@ function zipOne(file, name){   // minimal stored zip with one entry
   console.log('building two Host versions (takes a little while)…');
   build('1.0.0-rc.1', path.join(app, ASSET));
   build('1.0.0', path.join(rel, ASSET));
-  const zip = zipOne(path.join(rel, ASSET), ASSET);
+  const zip = zipOne(path.join(rel, ASSET), 'Hudini Host/' + ASSET);   // same layout as the portable release zip
   fs.writeFileSync(path.join(rel, ASSET + '.zip'), zip);
   let sums = crypto.createHash('sha256').update(zip).digest('hex') + '  ' + ASSET + '.zip\n';
   let list = [];
@@ -49,11 +49,14 @@ function zipOne(file, name){   // minimal stored zip with one entry
 
   await step('rc build updates to the stable release', async () => {
     list = [{ tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v1.1.0', draft: true, assets }];
+    fs.writeFileSync(path.join(app, 'overlay-host.json'), JSON.stringify({ modPass: 'legacy-pass-123' }));   // settings of a pre-1.0 install
     run();
     check(await until(async () => (await status())?.version === '1.0.0-rc.1', 10000) || (await status())?.version === '1.0.0', 'rc build started');
     const s = await until(async () => { const x = await status(); return x?.version === '1.0.0' && x; }, 30000);
     check(!!s, 'restarted as 1.0.0 (old host-v1.4.0 and drafts ignored)');
     check(!fs.existsSync(path.join(app, ASSET + '.new')), 'no leftover .new file');
+    const cfg = path.join(app, 'data', 'overlay-host.json');
+    check(fs.existsSync(cfg) && JSON.parse(fs.readFileSync(cfg, 'utf8')).modPass === 'legacy-pass-123' && !fs.existsSync(path.join(app, 'overlay-host.json')), 'portable: old settings moved into data/');
     await stopAll();
   });
 

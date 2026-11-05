@@ -1,0 +1,15 @@
+Hudini Host (portable)
+
+EN
+- Run HudiniHost-*.exe (Windows) or HudiniHost-* (Linux/macOS). The control page opens at http://localhost:7777
+- Everything the app keeps is in the "data" folder next to it: settings, moderators' files (encrypted), cache, cloudflared.
+- To remove Hudini completely, close the app and delete this whole folder. Nothing is installed anywhere else.
+- To move it to another PC, copy the whole folder.
+
+RU
+- Запусти HudiniHost-*.exe (Windows) или HudiniHost-* (Linux/macOS). Страница управления: http://localhost:7777
+- Всё, что хранит программа, лежит в папке «data» рядом с ней: настройки, файлы модераторов (зашифрованные), кэш, cloudflared.
+- Чтобы удалить Hudini полностью, закрой программу и удали эту папку целиком. Больше программа ничего никуда не ставит.
+- Чтобы перенести на другой ПК, скопируй папку целиком.
+
+Guide / Инструкция: https://niko-ua-designer.github.io/overlay/help.html
