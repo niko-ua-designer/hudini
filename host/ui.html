@@ -83,6 +83,17 @@ details[open] summary{margin-bottom:8px}
   </div>
 
   <div class="card">
+    <h2>🎛 Панель в OBS (по желанию)</h2>
+    <div class="hint" style="margin-top:0">Маленькая панель прямо в OBS: статус, кнопка «Спрятать оверлей», стоп звуков и пауза модераторов.</div>
+    <ol class="hint">
+      <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
+      <li>Имя: <code>Hudini</code>, адрес: <code>http://localhost:7777/dock</code> → <b>Применить</b></li>
+      <li>Перетащи появившуюся панель, куда удобно</li>
+    </ol>
+    <div class="row"><input id="dockUrl" readonly><button id="copyDock">📋 Копировать</button></div>
+  </div>
+
+  <div class="card">
     <h2>Обновления</h2>
     <div class="row" style="margin-top:0"><span id="updInfo" class="hint" style="flex:1;margin:0">—</span>
       <button id="updCheck">Проверить</button><button id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
@@ -173,6 +184,8 @@ $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
 $('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
 $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
+$('dockUrl').value=location.origin+'/dock';
+$('copyDock').onclick=async()=>{ try{ await navigator.clipboard.writeText($('dockUrl').value); }catch{ $('dockUrl').select(); document.execCommand('copy'); } toast('Скопировано: вставь в OBS → Доки'); };
 $('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('fixedSave').onclick=async()=>{ try{ await api('/api/fixedurl', { url:$('fixedUrl').value }); toast($('fixedUrl').value?'Свой адрес сохранён ✓':'Вернул обычный туннель ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('newPass').onclick=async()=>{ if(!confirm('Сменить пароль модераторов? Все модераторы отключатся на минуту.')) return; try{ await api('/api/modpass/new', {}); toast('Новый пароль ✓'); }catch(e){ toast(e.message); } };

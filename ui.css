@@ -123,3 +123,7 @@ body.bright section[data-pane]:not([hidden]){animation:paneIn .3s cubic-bezier(.
 #cheer{position:fixed;inset:0;pointer-events:none;z-index:100006}
 body.nomotion *,body.nomotion *::before,body.nomotion *::after{animation:none!important;transition:none!important}
 
+
+/* long labels (German, Ukrainian) wrap instead of sticking out of the panel */
+aside .grid2 button,aside .grid3 button,aside .row button.grow,#pTimed,#uiPersist{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
+aside .grid2,aside .grid3{min-width:0}

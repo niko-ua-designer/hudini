@@ -82,6 +82,7 @@ function renderObs(){
     pill.title='Виджет стримера не подключён к этой комнате.\n• Проверь, что у стримера ссылка именно этой комнаты (кнопка «Копировать»).\n• Источник «Браузер» должен быть включён (глазик) и в текущей сцене.\n• Если ссылка верная: в свойствах источника «Обновить кэш текущей страницы».';
     return;
   }
+  if(hostCtl?.hidden){ setPill(pill, 'warn', 'OBS: 🙈 спрятано стримером'); pill.title='Стример нажал «Спрятать оверлей» в доке OBS. Изменения сохраняются, на стриме их видно не будет, пока он не вернёт.'; return; }
   const h=list[0], old=list.some(x=>(x.ver||0)<WIDGET_VER), err=list.find(x=>x.err)?.err;
   const bad=list.find(x=>x.bad || (x.h>0 && Math.abs(x.w/x.h-16/9)>0.03));
   setPill(pill, err||old||bad ? 'warn' : 'ok', `OBS: ${list.length>1?list.length+' шт, ':''}${h.w}×${h.h}${bad?' ⚠ не 16:9':''}${err?' ⚠ ошибка':''}${old?' ⚠ старая версия':''}`);
@@ -100,7 +101,8 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/srv'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/srv', topics(room).base+'/host'];
+let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же туннель, только https и с паролем в заголовке
 function homeHttp(){
   if(!homeInfo || !client?.connected) return null;
@@ -170,7 +172,10 @@ function openHome(info){
     const r=curRoom();
     if(r && !r.manual && (r.home?.url!==info.url || r.home?.pass!==info.pass)){ r.home={ url:info.url, pass:info.pass }; saveRooms(); }
   });
-  c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){ hostNote='Hudini Host не принял пароль'; dropHome(); } });
+  c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
+    if(!hostCtl?.paused) hostNote='Hudini Host не принял пароль';
+    dropHome(); setTimeout(()=>{ if(!homeClient) tryHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
+  } });
 }
 // ---- свой адрес (для продвинутых) ----
 function renderHostAdv(){
@@ -191,6 +196,8 @@ async function onSrv(payload){
   if(!payload.length || !KEYS) return;
   const info=await unsealJSON(KEYS, payload, false); if(!info) return;
   if(Number(info.ver)<2){ hostNote='Hudini Host устарел: нужна версия 1.0'; if(!homeClient) hostStatus(); return; }
+  if(info.paused){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; if(homeClient) dropHome(); else hostStatus(); return; }
+  if(hostCtl?.paused){ hostCtl.paused=false; hostNote=''; }
   if(curRoom()?.manual) return;
   const fresh = typeof info.url==='string' && /^wss?:\/\/[^\s/]+\/mqtt$/.test(info.url) && typeof info.pass==='string' && Math.abs(Date.now()-Number(info.t)) < 3*60*1000;
   if(info.url===null && Math.abs(Date.now()-Number(info.t)) < 3*60*1000){ hostNote='Hudini Host выключен'; if(homeClient) dropHome('Программа стримера выключилась'); return; }
@@ -205,6 +212,7 @@ async function onMessage(topic, payload, packet){
     const h=await unsealJSON(keys, payload, false); if(!h) return;
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
+  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
@@ -1115,7 +1123,54 @@ function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($(
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
+// ---- команды в чате для доверенных: !опрос, !таймер ----
+let cmdCfg=lsGet('overlay.cmd', null); if(!cmdCfg || typeof cmdCfg!=='object') cmdCfg={ mode:'mods', list:'' };
+const CMD_MODES=['off','broadcaster','mods','modslist','list'];
+function trusted(msg){
+  if(!msg) return false;
+  const m=CMD_MODES.includes(cmdCfg.mode) ? cmdCfg.mode : 'mods';
+  const inList=String(cmdCfg.list||'').toLowerCase().split(/[\s,;]+/).filter(Boolean).includes(String(msg.login||'').toLowerCase());
+  if(m==='off') return false;
+  if(m==='broadcaster') return msg.badge==='broadcaster';
+  if(m==='mods') return msg.badge==='broadcaster' || msg.badge==='mod';
+  if(m==='modslist') return msg.badge==='broadcaster' || msg.badge==='mod' || inList;
+  return inList;
+}
+// 90, 90с, 2м, 1:30 → мс; без единицы: секунды для голосования, минуты для таймера
+function parseDur(a, unitMs){
+  const t=String(a||'').toLowerCase().trim(); let m;
+  if((m=t.match(/^(\d{1,3}):(\d{2})$/))) return (+m[1]*60 + +m[2])*1000;
+  if((m=t.match(/^(\d{1,4})\s*(с|сек|s|sec)?$/)) && m[2]) return +m[1]*1000;
+  if((m=t.match(/^(\d{1,4})\s*(м|мин|m|min)$/))) return +m[1]*60000;
+  if((m=t.match(/^(\d{1,4})$/))) return +m[1]*unitMs;
+  return null;
+}
+function chatCommand(text, msg){
+  const m=text.trim().match(/^!(опрос|poll|голосование|таймер|timer)(?:\s+(.*))?$/i); if(!m || !trusted(msg)) return false;
+  const cmd=m[1].toLowerCase(), arg=(m[2]||'').trim().toLowerCase();
+  const STOP=/^(стоп|stop|конец|end)$/, START=/^(старт|start|go)?$/, RESET=/^(сброс|reset)$/;
+  if(cmd==='опрос' || cmd==='poll' || cmd==='голосование'){
+    const el=state.els.find(e=>e.type==='poll' && !e.hidden) || state.els.find(e=>e.type==='poll'); if(!el) return true;
+    if(STOP.test(arg)){ el.running=false; el.closeAt=0; }
+    else if(START.test(arg)){ el.running=true; el.closeAt=0; }
+    else { const d=parseDur(arg, 1000); if(d==null || d<5000 || d>3600000) return true; el.running=true; el.closeAt=Date.now()+d; }
+  } else {
+    const el=state.els.find(e=>e.type==='timer' && e.mode==='countdown' && !e.hidden) || state.els.find(e=>e.type==='timer' && e.mode==='countdown'); if(!el) return true;
+    const now=Date.now();
+    if(STOP.test(arg)){ if(el.running){ el.left=Math.max(0, el.endAt-now); el.running=false; } }
+    else if(RESET.test(arg)){ el.running=false; el.left=el.dur; }
+    else if(START.test(arg)){ if(!el.running){ if(el.left<=0) el.left=el.dur; el.endAt=now+el.left; el.running=true; } }
+    else { const d=parseDur(arg, 60000); if(d==null || d<1000 || d>86400000) return true; el.dur=d; el.left=d; el.endAt=now+d; el.running=true; el.hidden=false; }
+  }
+  renderAll(); publishNow(1);
+  return true;
+}
+function renderCmd(){ $('cmdMode').value=CMD_MODES.includes(cmdCfg.mode)?cmdCfg.mode:'mods'; $('cmdList').value=cmdCfg.list||''; $('cmdListRow').hidden=!['modslist','list'].includes($('cmdMode').value); }
+$('cmdMode').onchange=e=>{ cmdCfg.mode=e.target.value; lsSet('overlay.cmd', cmdCfg); renderCmd(); };
+$('cmdList').onchange=e=>{ cmdCfg.list=e.target.value.slice(0,2000); lsSet('overlay.cmd', cmdCfg); };
+renderCmd();
 function onChat(user, text, msg){
+  if(chatCommand(text, msg)) return;
   if(msg) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
@@ -1291,7 +1346,8 @@ $('cPlus').onclick=()=>act(el=>el.value+=el.step);
 $('cMinus').onclick=()=>act(el=>el.value-=el.step);
 $('cReset').onclick=()=>act(el=>{ el.value=0; el.startAt=Date.now(); chatSeen.delete(el.id); });
 $('cToggle').onclick=()=>act(counterToggle);
-$('pToggle').onclick=()=>act(pollToggle);
+$('pToggle').onclick=()=>act(el=>{ pollToggle(el); el.closeAt=0; });
+$('pTimed').onclick=()=>act(el=>{ el.running=true; el.closeAt=Date.now()+num($('pSecs').value,60,5,3600)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000); });
 $('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
@@ -1468,7 +1524,10 @@ document.addEventListener('paste', e=>{
 // ================== ТИКИ ==================
 setInterval(()=>{
   const now=nowMs();
-  for(const el of state.els){ if(el.type==='timer'||el.type==='counter'||el.type==='cs2'){ const n=nodes.get(el.id); if(n) tickNode(n, el, now); } }
+  for(const el of state.els){ if(el.type==='timer'||el.type==='counter'||el.type==='cs2'||el.type==='poll'){ const n=nodes.get(el.id); if(n) tickNode(n, el, now); } }
+  // голосование с автозакрытием: закрывает любой открытый пульт, результат одинаковый
+  const due=state.els.filter(e=>e.type==='poll' && e.running && e.closeAt && Date.now()>=e.closeAt);
+  if(due.length){ due.forEach(e=>{ e.running=false; e.closeAt=0; }); renderAll(); publishNow(1); }
   checkTwTriggers(now);
 }, 100);
 setInterval(()=>{ // подписи в слоях и инспекторе (цифры таймеров)
