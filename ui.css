@@ -125,5 +125,5 @@ body.nomotion *,body.nomotion *::before,body.nomotion *::after{animation:none!im
 
 
 /* long labels (German, Ukrainian) wrap instead of sticking out of the panel */
-aside .grid2 button,aside .grid3 button,aside .row button.grow,#pTimed,#uiPersist{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
+aside button:not(#tabs button),#pTimed,#uiPersist{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
 aside .grid2,aside .grid3{min-width:0}
