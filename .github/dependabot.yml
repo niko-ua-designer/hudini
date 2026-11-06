@@ -1,0 +1,23 @@
+# Weekly update checks; security fixes arrive at once through Dependabot security updates.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ['*'] }
+  - package-ecosystem: npm
+    directory: /host
+    schedule: { interval: weekly }
+    groups:
+      host: { patterns: ['*'] }
+  - package-ecosystem: npm
+    directory: /tests
+    schedule: { interval: weekly }
+    groups:
+      tests: { patterns: ['*'] }
+  - package-ecosystem: cargo
+    directory: /host/app/src-tauri
+    schedule: { interval: weekly }
+    groups:
+      tauri: { patterns: ['*'] }
