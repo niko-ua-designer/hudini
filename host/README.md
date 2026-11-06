@@ -13,7 +13,7 @@ The app for the streamer's PC. Since Hudini 1.0 it is required: it serves the ov
 1. Download the app from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4). For Windows that's `HudiniHost-windows-1.0rc4.zip`.
 2. Unzip it and run the app from the **Hudini Host** folder. It's portable: settings, files, cache and cloudflared live in `data/` next to it. To remove Hudini completely, delete the folder.
    Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). If Windows asks about network access, allow private networks.
-3. The control page `http://localhost:7777` opens:
+3. The control page `http://127.0.0.1:7777` opens:
    - **First start:** choose how much space the moderators' files get (100 MB per file, 2 GB in total, 300 files by default).
    - **Step 1:** paste the link from your moderator (panel button **📋 Copy**). One time only.
    - **Step 2:** copy the **OBS link** and paste it into the URL of an OBS Browser Source (**1920×1080**, then `Ctrl+F`).
@@ -77,7 +77,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4): для Windows это `HudiniHost-windows-1.0rc4.zip`.
 2. Распакуй и запусти программу из папки **Hudini Host**. Она портативная: настройки, файлы, кэш и cloudflared лежат в `data/` рядом с ней. Чтобы удалить Hudini полностью, удали папку.
    Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Если Windows спросит про доступ к сети, разреши для частных сетей.
-3. Откроется страница управления `http://localhost:7777`:
+3. Откроется страница управления `http://127.0.0.1:7777`:
    - **Первый запуск:** выбери, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ всего, 300 файлов).
    - **Шаг 1:** вставь ссылку от модератора (кнопка в пульте **📋 Копировать**). Один раз.
    - **Шаг 2:** скопируй **ссылку для OBS** и вставь в URL источника «Браузер» (**1920×1080**, потом `Ctrl+F`).

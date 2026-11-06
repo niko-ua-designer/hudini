@@ -59,13 +59,13 @@ Asset name: `HudiniHost-<os>-<prettyVer>.zip`, `os` ∈ `windows`, `linux`, `mac
 `prettyVer`: `1.0.0-rc.4` → `1.0rc4`, `1.0.0` → `1.0`, `1.0.2` → `1.0.2`. Add every zip to `SHA256SUMS.txt`
 (the updater refuses a zip whose hash is missing or different).
 
-Every zip holds one folder `Hudini Host/`:
+Every zip holds one folder `HudiniHost/` (no spaces: the Windows autostart entry written by the autostart plugin is not quoted):
 
 ```
-Hudini Host/
-  Hudini Host.exe        (Windows: target/release/hudini-host.exe renamed)
+HudiniHost/
+  HudiniHost.exe         (Windows: target/release/hudini-host.exe renamed)
   hudini-server.exe      (Windows)
-  Hudini Host            (Linux: target/release/hudini-host renamed, chmod +x)
+  HudiniHost             (Linux: target/release/hudini-host renamed, chmod +x)
   hudini-server          (Linux, chmod +x)
   Hudini Host.app/       (macOS: the whole bundle, the server is inside it)
   README.txt
@@ -79,22 +79,22 @@ Packing:
 
 ```sh
 # Linux (keeps the executable bits)
-mkdir -p "pkg/Hudini Host/data"
-cp target/release/hudini-host "pkg/Hudini Host/Hudini Host"; cp target/release/hudini-server README.txt "pkg/Hudini Host/"
-(cd pkg && zip -9 -r "../HudiniHost-linux-1.0rc4.zip" "Hudini Host")
+mkdir -p "pkg/HudiniHost/data"
+cp target/release/hudini-host "pkg/HudiniHost/HudiniHost"; cp target/release/hudini-server README.txt "pkg/HudiniHost/"
+(cd pkg && zip -9 -r "../HudiniHost-linux-1.0rc4.zip" "HudiniHost")
 
 # macOS (ditto keeps permissions and symlinks inside the .app)
-mkdir -p "pkg/Hudini Host/data"
-cp -R "target/release/bundle/macos/Hudini Host.app" README.txt "pkg/Hudini Host/"
-ditto -c -k --keepParent "pkg/Hudini Host" HudiniHost-mac-arm64-1.0rc4.zip
+mkdir -p "pkg/HudiniHost/data"
+cp -R "target/release/bundle/macos/Hudini Host.app" README.txt "pkg/HudiniHost/"
+ditto -c -k --keepParent "pkg/HudiniHost" HudiniHost-mac-arm64-1.0rc4.zip
 ```
 
 ```powershell
 # Windows
-New-Item -ItemType Directory -Force "pkg/Hudini Host/data" | Out-Null
-Copy-Item target/release/hudini-host.exe "pkg/Hudini Host/Hudini Host.exe"
-Copy-Item target/release/hudini-server.exe, README.txt "pkg/Hudini Host/"
-Push-Location pkg; tar -a -c -f ../HudiniHost-windows-1.0rc4.zip "Hudini Host"; Pop-Location
+New-Item -ItemType Directory -Force "pkg/HudiniHost/data" | Out-Null
+Copy-Item target/release/hudini-host.exe "pkg/HudiniHost/HudiniHost.exe"
+Copy-Item target/release/hudini-server.exe, README.txt "pkg/HudiniHost/"
+Push-Location pkg; tar -a -c -f ../HudiniHost-windows-1.0rc4.zip "HudiniHost"; Pop-Location
 ```
 
 (`Compress-Archive` from Windows PowerShell 5 writes `\` in entry names; the updater accepts that too, but

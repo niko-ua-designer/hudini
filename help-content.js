@@ -20,7 +20,7 @@ ru: {
 <li>Скопируй ссылку для OBS из шага 2. В OBS: Источники → <b>+</b> → <b>Браузер</b>, вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>.</li>
 <li>Выдели источник и нажми <kbd>Ctrl+F</kbd>, чтобы он занял весь экран.</li>
 </ol>
-<p><b>Панель в OBS:</b> меню Доки → Пользовательские доки браузера, адрес <code>http://localhost:7777/dock</code>. Там статус и кнопки «Спрятать оверлей», «Остановить звуки», «Пауза модераторов».</p>
+<p><b>Панель в OBS:</b> меню Доки → Пользовательские доки браузера, адрес <code>http://127.0.0.1:7777/dock</code>. Там статус и кнопки «Спрятать оверлей», «Остановить звуки», «Пауза модераторов».</p>
 <p>Не закрывай окно программы, пока идёт стрим. Windows может спросить про доступ к сети: разреши для частных сетей.</p>`],
 ['mod', 'Модератор: первый запуск', `
 <ol>
@@ -107,7 +107,7 @@ en: {
 <li>Copy the OBS link from step 2. In OBS: Sources → <b>+</b> → <b>Browser</b>, paste the link, width <b>1920</b>, height <b>1080</b>.</li>
 <li>Select the source and press <kbd>Ctrl+F</kbd> so it fills the screen.</li>
 </ol>
-<p><b>Panel inside OBS:</b> menu Docks → Custom Browser Docks, URL <code>http://localhost:7777/dock</code>. It shows the status and has “Hide overlay”, “Stop sounds” and “Pause moderators”.</p>
+<p><b>Panel inside OBS:</b> menu Docks → Custom Browser Docks, URL <code>http://127.0.0.1:7777/dock</code>. It shows the status and has “Hide overlay”, “Stop sounds” and “Pause moderators”.</p>
 <p>Keep the app window open while you stream. If Windows asks about network access, allow it for private networks.</p>`],
 ['mod', 'Moderator: first start', `
 <ol>
@@ -194,7 +194,7 @@ uk: {
 <li>Скопіюй посилання для OBS із кроку 2. В OBS: Джерела → <b>+</b> → <b>Браузер</b>, встав посилання, ширина <b>1920</b>, висота <b>1080</b>.</li>
 <li>Виділи джерело й натисни <kbd>Ctrl+F</kbd>, щоб воно зайняло весь екран.</li>
 </ol>
-<p><b>Панель в OBS:</b> меню Доки → Користувацькі доки браузера, адреса <code>http://localhost:7777/dock</code>. Там статус і кнопки «Сховати оверлей», «Зупинити звуки», «Пауза модераторів».</p>
+<p><b>Панель в OBS:</b> меню Доки → Користувацькі доки браузера, адреса <code>http://127.0.0.1:7777/dock</code>. Там статус і кнопки «Сховати оверлей», «Зупинити звуки», «Пауза модераторів».</p>
 <p>Не закривай вікно програми, поки йде стрим. Якщо Windows спитає про доступ до мережі, дозволь для приватних мереж.</p>`],
 ['mod', 'Модератор: перший запуск', `
 <ol>
@@ -281,7 +281,7 @@ de: {
 <li>Kopiere den OBS-Link aus Schritt 2. In OBS: Quellen → <b>+</b> → <b>Browser</b>, Link einfügen, Breite <b>1920</b>, Höhe <b>1080</b>.</li>
 <li>Markiere die Quelle und drücke <kbd>Strg+F</kbd>, damit sie den ganzen Bildschirm füllt.</li>
 </ol>
-<p><b>Panel in OBS:</b> Menü Docks → Benutzerdefinierte Browser-Docks, URL <code>http://localhost:7777/dock</code>. Dort siehst du den Status und hast „Overlay verstecken“, „Töne stoppen“ und „Mods pausieren“.</p>
+<p><b>Panel in OBS:</b> Menü Docks → Benutzerdefinierte Browser-Docks, URL <code>http://127.0.0.1:7777/dock</code>. Dort siehst du den Status und hast „Overlay verstecken“, „Töne stoppen“ und „Mods pausieren“.</p>
 <p>Lass das Programmfenster offen, solange du streamst. Wenn Windows nach Netzwerkzugriff fragt, erlaube ihn für private Netzwerke.</p>`],
 ['mod', 'Moderator: erster Start', `
 <ol>
