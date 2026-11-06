@@ -510,7 +510,7 @@ fn main() {
                         DownloadEvent::Requested { url, destination } => {
                             // скачивать можно только с нашего сервера (файл для CS2)
                             let port = dl.state::<Server>().port.load(Ordering::SeqCst);
-                            if !is_server_url(url, port) {
+                            if !is_server_url(&url, port) {
                                 return false;
                             }
                             if let Ok(dir) = dl.path().download_dir() {
