@@ -6,54 +6,83 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini · stream overlay run by your moderator</title>
 <meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from a web panel. Text, pictures, GIFs, timers, polls, Twitch chat, CS2. Encrypted, files stay on the streamer's PC.">
+<meta name="theme-color" content="#08090f">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="site.css?v=1">
-<script src="site.js?v=1" defer></script>
+<link rel="preload" href="fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css?v=2">
+<script src="site.js?v=2" defer></script>
 </head>
 <body data-page="home">
-<div class="top">
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="top">
   <a class="logo" href="index.html"><img src="icons/icon-192.png" alt="">Hudini</a>
-  <nav><a href="#features" data-t="features"></a><a href="#how" data-t="how"></a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
+  <nav><a href="#features" data-t="features"></a><a href="#how" data-t="how"></a><a href="#cs2">CS2</a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
   <a class="btn small primary" href="moderator.html" data-t="open"></a>
   <select class="lang" aria-label="Language"></select>
-</div>
+</header>
 
-<div class="wrap">
-  <div class="hero">
+<main>
+  <section class="hero wrap">
+    <span class="pill"><b></b><span data-t="badge"></span></span>
     <h1 data-t="h1"></h1>
-    <p data-t="sub"></p>
+    <p class="sub" data-t="sub"></p>
     <div class="cta">
-      <a class="btn primary" href="moderator.html" data-t="open"></a>
-      <a class="btn" data-dl data-t="download" target="_blank" rel="noopener"></a>
+      <a class="btn primary shine" href="moderator.html" data-t="open"></a>
+      <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
     </div>
-    <small data-t="free"></small>
-    <img class="shot" src="img/panel.png" alt="Hudini panel" width="1440" height="810">
-  </div>
+    <small class="free" data-t="free"></small>
+    <div class="demo-wrap"><div class="demo" id="demo" role="img" data-t-aria="demoAria"></div></div>
+  </section>
 
-  <section class="block" id="features">
+  <section class="block wrap reveal" id="features">
     <h2 data-t="fTitle"></h2><p class="lead" data-t="fLead"></p>
-    <div class="cards" data-cards="f1,f2,f3,f4,f5,f6"></div>
+    <div class="cards glow c3" data-cards="f1,f2,f3,f4,f5,f6"></div>
   </section>
 
-  <section class="block" id="how">
+  <section class="block wrap reveal" id="how">
     <h2 data-t="hTitle"></h2><p class="lead" data-t="hLead"></p>
+    <div class="flow" id="flow"></div>
     <ol class="steps" data-steps="h1s,h2s,h3s"></ol>
-    <img class="shot" src="img/stream.png" alt="Overlay on stream" width="1440" height="810">
   </section>
 
-  <section class="block" id="privacy">
+  <section class="block wrap reveal" id="cs2">
+    <div class="cs2-grid">
+      <div class="cs2-text">
+        <span class="tag" data-t="csTag"></span>
+        <h2 data-t="csTitle"></h2>
+        <p class="lead" data-t="csLead"></p>
+        <ul class="ticks" id="csList"></ul>
+      </div>
+      <div class="cs2-mini" id="csMini" role="img" data-t-aria="csAria"></div>
+    </div>
+  </section>
+
+  <section class="block wrap reveal" id="privacy">
     <h2 data-t="pTitle"></h2><p class="lead" data-t="pLead"></p>
-    <div class="cards" data-cards="p1,p2,p3,p4"></div>
+    <div class="cards glow" data-cards="p1,p2,p3,p4"></div>
   </section>
 
-  <section class="block">
+  <section class="block wrap reveal legend">
     <h2 data-t="lTitle"></h2><p data-t="lText"></p>
   </section>
-</div>
+
+  <section class="wrap reveal">
+    <div class="band">
+      <h2 data-t="ctaTitle"></h2>
+      <p data-t="ctaText"></p>
+      <div class="cta">
+        <a class="btn primary shine" href="moderator.html" data-t="open"></a>
+        <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
+      </div>
+    </div>
+  </section>
+</main>
 
 <footer><div class="wrap">
-  <span>🎩 Hudini 1.0</span>
+  <span class="flogo"><img src="icons/icon-192.png" alt="">Hudini 1.0</span>
   <span><a href="help.html" data-help data-t="helpLink"></a> · <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener" data-t="issues"></a> · <a href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener" data-t="license"></a> AGPL-3.0 / MIT</span>
 </div></footer>
 </body>
