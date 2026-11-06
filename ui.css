@@ -114,10 +114,20 @@ button:active:not(:disabled){transform:scale(.97)}
 #tabs button{transition:color .15s,background-color .15s}
 #upBar{transition:width .2s}
 /* предупреждение: ключи комнат без пароля */
-#vaultWarn{position:fixed;left:16px;bottom:16px;z-index:2147483000;isolation:isolate;opacity:1;max-width:380px;background:#2a1d0c;border:1px solid #f5a623;border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px #000a;color:#ffe2b0;font-size:13px;line-height:1.45}
-#vaultWarn b{display:block;color:#ffc35c;font-size:14px;margin-bottom:4px}
-#vaultWarn p{margin:0 0 10px}
-#vaultWarn .row{display:flex;gap:8px;flex-wrap:wrap}
+#vaultWarn{position:fixed;left:16px;bottom:16px;z-index:2147483000;isolation:isolate;width:360px;max-width:calc(100vw - 32px);box-sizing:border-box;
+  background:linear-gradient(180deg,#2e2110,#21180c);border:1px solid #f5a62399;border-radius:14px;padding:14px 16px 12px;
+  box-shadow:0 14px 40px #000b,inset 0 1px 0 #ffffff14;color:#f3dcb4;font-size:13px;line-height:1.5;animation:vw-in .35s cubic-bezier(.2,.9,.3,1.1)}
+#vaultWarn b{display:flex;align-items:center;gap:6px;color:#ffc35c;font-size:14px;margin-bottom:6px}
+#vaultWarn p{margin:0 0 12px;color:#e9d3ad}
+#vaultWarn .vw-main{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 14px;border-radius:10px;border:0;cursor:pointer;
+  font:inherit;font-size:14px;font-weight:700;color:#1d1405;background:linear-gradient(180deg,#ffcf6b,#f5a623);box-shadow:0 4px 14px #f5a62340,inset 0 1px 0 #fff6;transition:transform .12s,filter .12s}
+#vaultWarn .vw-main:hover{filter:brightness(1.06);transform:translateY(-1px)}
+#vaultWarn .vw-main:active{transform:translateY(0)}
+#vaultWarn .vw-alt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+#vaultWarn .vw-alt button{padding:7px 8px;border-radius:8px;border:1px solid #ffffff1f;background:#ffffff08;color:#d9c39d;font:inherit;font-size:12.5px;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+#vaultWarn .vw-alt button:hover{background:#ffffff14;color:#fff;border-color:#ffffff38}
+#vaultWarn button:focus-visible{outline:2px solid #ffc35c;outline-offset:2px}
+@keyframes vw-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 #passBtn.warn{border-color:#f5a623;color:#ffc35c;background:#f5a62322}
 #toast{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .25s}
 /* bright: a little more life */
