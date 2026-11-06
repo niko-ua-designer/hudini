@@ -509,7 +509,7 @@ const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v
 // Подпись обновлений: релиз несёт SHA256SUMS.txt.sig — подпись Ed25519 строки «hudini-update\n<версия>\n» + SHA256SUMS.txt.
 // Закрытый ключ есть только в секретах GitHub (HUDINI_SIGNING_KEY), здесь — публичный. Без верной подписи обновление не ставится,
 // поэтому подменённый релиз (даже с верными суммами) или старая версия под новым тегом не пройдут.
-const UPDATE_KEY = '';
+const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';
 function updateSigOk(ver, sums, sigB64){
   if(!UPDATE_KEY) return false;
   try{
