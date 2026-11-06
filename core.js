@@ -709,9 +709,9 @@ function tickNode(node, el, now){
   if(el.type==='cs2'){
     const c=node.querySelector('.cs2'); if(!c) return null;
     if(el.view==='streak') c.classList.toggle('on', Date.now() < (c._until||0));
-    if(el.view==='scorebar'){ const t=c.querySelector('.sb-time'); if(t) t.textContent=cs2Timer(); }
+    if(el.view==='scorebar'){ const t=c.querySelector('.sb-time'); if(t) timerSet(t, false); }
     if(CS2_FULL.has(el.view)){
-      const t=c.querySelector('.hd-time'); if(t){ const v=cs2Timer(); if(el.flip){ if(t._prev!==v){ flipFill(t, v, t._prev); t._prev=v; } } else if(t.textContent!==v) t.textContent=v; }
+      const t=c.querySelector('.hd-time'); if(t) timerSet(t, !!el.flip);
       if(el.view==='duel' && c._duel && Date.now()>(c._duntil||0) && c.querySelector('.hd-vs')){ c._sig=null; paintCs2(c, el); }
       if(c._feedT!==Math.floor(Date.now()/1000)){ c._feedT=Math.floor(Date.now()/1000); if(c.querySelector('.hd-kill')){ c._sig=null; paintCs2(c, el); } }
     }
@@ -980,14 +980,63 @@ function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,
 function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
-function bombText(d){ const b=d.bomb; return b==='planted'?' · 💣 '+st('заложена'):b==='defusing'?' · 🔧 '+st('разминируют'):b==='defused'?' · ✅ '+st('разминирована'):b==='exploded'?' · 💥 '+st('взорвалась'):''; }
-// Таймер фазы: сколько осталось (по времени программы стримера)
+// Линейные иконки HUD вместо эмодзи: эмодзи разного размера и сидят на разной высоте.
+// Контуры из Lucide (ISC, icons/LICENSE-lucide); каска, C4 и граната HE нарисованы свои в той же сетке 24×24
+const HUD_IC = {
+  heart:'<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  helmet:'<path d="M4 19c-1-7.5 3-13.5 8.5-13.5 4.7 0 8 3.7 8.5 9.5H9.5l-1.5 4z"/><path d="M21 15h1.5"/>',
+  skull:'<path d="m12.5 17-.5-1-.5 1h1z"/><path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="12" r="1"/>',
+  bomb:'<rect x="3" y="8" width="18" height="12" rx="1.5"/><rect x="6.5" y="11" width="7" height="4" rx=".5"/><path d="M17 11v1"/><path d="M17 15v1"/><path d="M7 8V5.5a1.5 1.5 0 0 1 1.5-1.5H11"/>',
+  kit:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/>',
+  hs:'<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>',
+  freeze:'<path d="m10 20-1.25-2.5L6 18"/><path d="M10 4 8.75 6.5 6 6"/><path d="m14 20 1.25-2.5L18 18"/><path d="m14 4 1.25 2.5L18 6"/><path d="m17 21-3-6h-4"/><path d="m17 3-3 6 1.5 3"/><path d="M2 12h6.5L10 9"/><path d="m20 10-1.5 2 1.5 2"/><path d="M22 12h-6.5L14 15"/><path d="m4 10 1.5 2L4 14"/><path d="m7 21 3-6-1.5-3"/><path d="m7 3 3 6h4"/>',
+  defused:'<circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/>',
+  boom:'<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/>',
+  he:'<path d="M6.5 14a5.5 5.5 0 0 1 11 0v2.5a5.5 5.5 0 0 1-11 0z"/><path d="M9.5 8.5V6h5v2.5"/><path d="M14.5 6.5 18 10"/><circle cx="8" cy="4" r="1.6"/>',
+  flash:'<path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>',
+  smoke:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  molly:'<path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"/>',
+  decoy:'<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>'
+};
+// <svg class="hi"> размером в строку текста; разметка контуров — константы выше, данные игры сюда не попадают
+function hudIc(name, cls){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('class', 'hi hi-'+name+(cls?' '+cls:'')); s.setAttribute('viewBox','0 0 24 24'); s.setAttribute('aria-hidden','true');
+  s.innerHTML=HUD_IC[name]||''; return s;
+}
+// иконка + текст в одном спане (❤ 64, 🛡 100)
+function icText(cls, name, text){ const e=h('span', cls); if(name) e.appendChild(hudIc(name)); if(text!=null) e.append(String(text)); return e; }
+function armorIc(p){ return p.armor>0 ? (p.helmet?'helmet':'shield') : null; }
+// снаряжение игрока: бомба, кусачки, гранаты — ряд одинаковых иконок
+function gearIcons(p, cls){
+  const box=h('span', cls||'hd-ic');
+  if(p.bomb) box.appendChild(hudIc('bomb','hi-c4'));
+  if(p.kit) box.appendChild(hudIc('kit'));
+  for(const n of (p.nades||[])) if(HUD_IC[n]) box.appendChild(hudIc(n));
+  return box;
+}
+// состояние бомбы для строки раунда: иконка + подпись
+function bombNode(d){
+  const b=d.bomb, m={ planted:['bomb','заложена'], defusing:['kit','разминируют'], defused:['defused','разминирована'], exploded:['boom','взорвалась'] }[b];
+  return m ? icText('sb-bomb sb-'+b, m[0], st(m[1])) : null;
+}
+// Таймер фазы: сколько осталось (по времени программы стримера). Только цифры: иконку фазы рисует cs2TimerIc
 function cs2Timer(){
   const d=CS2; if(!d?.pend) return '';
   const left=Math.max(0, Math.ceil((d.pend + (d._skew||0) - Date.now())/1000));
   const m=Math.floor(left/60), s=left%60;
-  const icon = d.pphase==='bomb' ? '💣 ' : d.pphase==='defuse' ? '🔧 ' : d.pphase==='freezetime' ? '❄ ' : '';
-  return icon + m + ':' + String(s).padStart(2,'0');
+  return m + ':' + String(s).padStart(2,'0');
+}
+function cs2TimerIc(){ const p=CS2?.pphase; return p==='bomb' ? 'bomb' : p==='defuse' ? 'kit' : p==='freezetime' ? 'freeze' : ''; }
+// узел таймера: иконка фазы отдельным элементом перед цифрами, цифры в .tv (флип-цифры перелистываются только при смене)
+function timerNode(cls, flip){ const t=h('div', cls); t.append(h('span','tic'), h('span', 'tv'+(flip?' flipn':''))); timerSet(t, flip); return t; }
+function timerSet(t, flip){
+  const icn=cs2TimerIc(), v=cs2Timer();
+  if(t._ic!==icn){ t._ic=icn; t.firstChild.replaceChildren(...(icn ? [hudIc(icn)] : [])); }
+  if(t._prev===v) return;
+  if(flip) flipFill(t.lastChild, v, t._prev); else t.lastChild.textContent=v;
+  t._prev=v;
 }
 function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
@@ -1011,22 +1060,25 @@ function paintCs2(c, el){
   const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
   const name = el.label || d.name || st('Игрок');
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
-  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(fnum(c, el, 'c'+l, String(v??0)), h('i',null,l)); } r.append(h('span','c-kd','K/D '+kd)); if(d.adr!=null){ r.append(h('i',null,'ADR')); r.append(fnum(c, el, 'cadr', String(d.adr))); } return r; };
+  // K/D и ADR — плашки справа, по центру строки цифр (а не по базовой линии мелкого шрифта)
+  const chip=(l, v)=>{ const s=h('span','c-kd'); s.append(h('i',null,l), v); return s; };
+  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(fnum(c, el, 'c'+l, String(v??0)), h('i',null,l)); }
+    const ch=h('span','c-chips'); ch.append(chip('K/D', h('b',null,kd))); if(d.adr!=null) ch.append(chip('ADR', fnum(c, el, 'cadr', String(d.adr)))); r.append(ch); return r; };
   const parts=[];
   switch(el.view){
     case 'card': {
       const top=h('div','c-top'); top.append(h('span','c-name', name), h('span','c-map', `${mapName(d.map)}${d.round!=null?' · R'+(d.round+1):''}`));
       const bars=h('div','c-hprow');
-      if(d.alive===false){ bars.append(h('span','c-dead', d.spectating ? `💀 ${st('смотрит')} ${d.spectating}` : '💀 '+st('мёртв'))); }
-      else { bars.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0))); }
+      if(d.alive===false){ bars.append(icText('c-dead', 'skull', d.spectating ? `${st('смотрит')} ${d.spectating}` : st('мёртв'))); }
+      else { bars.append(icText('c-hp','heart', d.hp??0), hpBar(), icText('c-ar', d.helmet?'helmet':'shield', d.armor??0)); }
       const bot=h('div','c-bot'); bot.append(fnum(c, el, 'c$', money(d.money), 'c-money'), h('span','c-weap', d.weapon ? `${weaponName(d.weapon)}${d.ammoMax>0?` ${d.ammo}/${d.reserve}`:''}` : ''));
       parts.push(top, kdaRow(), bars, bot); break;
     }
     case 'kda': parts.push(h('div','c-cap', name), kdaRow()); break;
     case 'hp': {
       const r=h('div','c-hprow big');
-      if(d.alive===false) r.append(h('span','c-dead','💀'));
-      else r.append(h('span','c-hp','❤ '+(d.hp??0)), hpBar(), h('span','c-ar',(d.helmet?'🪖 ':'🛡 ')+(d.armor??0)));
+      if(d.alive===false) r.append(icText('c-dead','skull'));
+      else r.append(icText('c-hp','heart', d.hp??0), hpBar(), icText('c-ar', d.helmet?'helmet':'shield', d.armor??0));
       parts.push(r); break;
     }
     case 'score': {
@@ -1039,11 +1091,12 @@ function paintCs2(c, el){
       if(!o){ parts.push(h('div','c-none',st('👁 Наблюдатель: выбери игрока'))); break; }
       const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||st('Игрок')}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
       const okd = o.d ? (o.k/o.d).toFixed(2) : (o.k||0).toFixed(2);
-      const kr=h('div','c-kda'); for(const [v,l] of [[o.k,'K'],[o.d,'D'],[o.a,'A']]) kr.append(h('b',null,String(v??0)), h('i',null,l)); kr.append(h('span','c-kd','K/D '+okd));
+      const kr=h('div','c-kda'); for(const [v,l] of [[o.k,'K'],[o.d,'D'],[o.a,'A']]) kr.append(h('b',null,String(v??0)), h('i',null,l));
+      const och=h('span','c-chips'); och.append(chip('K/D', h('b',null,okd))); kr.append(och);
       const hr=h('div','c-hprow');
-      if(o.alive===false) hr.append(h('span','c-dead','💀'));
+      if(o.alive===false) hr.append(icText('c-dead','skull'));
       else { const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,o.hp||0))+'%'; f.style.background=(o.hp||0)>50?'#3ddc84':(o.hp||0)>20?'#ffb020':'#ff4d5e'; b.appendChild(f);
-        hr.append(h('span','c-hp','❤ '+(o.hp??0)), b, h('span','c-ar',(o.helmet?'🪖 ':'🛡 ')+(o.armor??0))); }
+        hr.append(icText('c-hp','heart', o.hp??0), b, icText('c-ar', o.helmet?'helmet':'shield', o.armor??0)); }
       const bot=h('div','c-bot'); bot.append(h('span','c-money', money(o.money)), h('span','c-weap', o.weapon ? `${weaponName(o.weapon)}${o.ammoMax>0?` ${o.ammo}/${o.reserve}`:''}` : ''));
       parts.push(top, kr, hr, bot); break;
     }
@@ -1060,8 +1113,10 @@ function paintCs2(c, el){
           const r=h('div','tm-row'+(p.alive?'':' dead')+(d.obs===p.id?' obs':''));
           const hpw=h('div','tm-hp'), hf=h('div','tm-hpf'); hf.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; hpw.appendChild(hf);
           const nm=h('div','tm-name'); nm.append(h('span','tm-slot', p.slot!=null?String(p.slot):''), document.createTextNode(p.name||'?'));
-          const ic=p.alive ? (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.armor>0?(p.helmet?'🪖':'🛡'):'') : '';
-          const info=h('div','tm-info'); info.append(h('span','tm-hpn', p.alive?String(p.hp):'💀'), h('span','tm-ic', ic), h('span','tm-money', money(p.money)), h('span','tm-kd', `${p.k??0}/${p.d??0}`), h('span','tm-w', weaponName(p.main||p.weapon)));
+          // колонки фиксированной ширины: у всех строк цифры и иконки стоят друг под другом
+          const ic=h('span','tm-ic'); if(p.alive){ if(p.bomb) ic.appendChild(hudIc('bomb','hi-c4')); if(p.kit) ic.appendChild(hudIc('kit')); if(armorIc(p)) ic.appendChild(hudIc(armorIc(p))); }
+          const hpn=h('span','tm-hpn'); if(p.alive) hpn.textContent=String(p.hp); else hpn.appendChild(hudIc('skull'));
+          const info=h('div','tm-info'); info.append(hpn, ic, h('span','tm-money', money(p.money)), h('span','tm-kd', `${p.k??0}/${p.d??0}`), h('span','tm-w', weaponShort(p.main||p.weapon)));
           r.append(hpw, nm, info); col.appendChild(r);
         }
         wrap.appendChild(col);
@@ -1071,7 +1126,8 @@ function paintCs2(c, el){
     case 'scorebar': {
       const r=h('div','sb');
       r.append(h('span','sb-team sb-ct', d.ctName||'CT'), h('b','sb-s',String(d.ct??0)));
-      const mid=h('div','sb-mid'); mid.append(h('div','sb-time', cs2Timer()), h('div','sb-round', `${st('Раунд')} ${(d.round??0)+1}${bombText(d)}`));
+      const rnd=h('div','sb-round', `${st('Раунд')} ${(d.round??0)+1}`), bn=bombNode(d); if(bn) rnd.append(' · ', bn);
+      const mid=h('div','sb-mid'); mid.append(timerNode('sb-time', false), rnd);
       r.append(mid, h('b','sb-s',String(d.tt??0)), h('span','sb-team sb-t', d.tName||'T'));
       parts.push(r, h('div','c-map sb-map', mapName(d.map))); break;
     }
@@ -1100,7 +1156,9 @@ function fnum(c, el, key, text, cls){
 }
 
 // ---------- турнирный и соло HUD, таблица, дуэль, сравнение ----------
-const NADE_IC = { he:'💥', flash:'⚡', smoke:'☁', molly:'🔥', decoy:'🎯' };
+// короткие имена для узких карточек турнирного HUD
+const WSHORT = { deagle:'Deagle', galilar:'Galil', elite:'Berettas', bizon:'Bizon', fiveseven:'Five-7', usp_silencer:'USP-S', m4a1_silencer:'M4A1-S', mp5sd:'MP5', sawedoff:'Sawed-Off' };
+function weaponShort(w){ const id=String(w||'').replace(/^weapon_/,''); return WSHORT[id] || weaponName(w); }
 function avatar(el, p, cls){
   const box=h('div', cls||'hd-av'), src=el.av[String(p?.name||'').toLowerCase()];
   const team=p?.team==='T'?'t':'ct'; box.classList.add('tm-'+team);
@@ -1120,17 +1178,19 @@ function hpDrop(c, p, card){
 function playerCard(c, el, p, obs){
   const team=p.team==='T'?'t':'ct';
   const card=h('div', `hd-card tm-${team}${p.alive===false?' dead':''}${obs?' obs':''}${p.alive!==false&&(p.hp||0)<=20?' low':''}`);
+  // верх: аватар, HP, броня справа; номер слота — перед ником (как в панели команд), чтобы не налезал на HP
   const top=h('div','hd-ctop'); top.append(avatar(el, p));
-  const hp=h('div','hd-hp'); hp.append(h('b',null, p.alive===false?'💀':String(p.hp??0)), h('i',null, p.armor>0 ? (p.helmet?'🪖':'🛡') : ''));
-  top.append(hp); if(p.slot!=null) top.append(h('span','hd-slot', String(p.slot)));
+  const hp=h('b','hd-hpn'); if(p.alive===false) hp.appendChild(hudIc('skull')); else hp.textContent=String(p.hp??0);
+  top.append(hp); if(p.alive!==false && armorIc(p)) top.append(hudIc(armorIc(p), 'hd-arm'));
   card.appendChild(top);
   const bar=h('div','hd-bar'), f=h('div','hd-fill'); f.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; f.style.background=hpColor(p.hp||0); bar.appendChild(f);
-  card.append(bar, h('div','hd-name', p.name||'?'));
+  const nm=h('div','hd-name'); if(p.slot!=null) nm.appendChild(h('span','hd-slot', String(p.slot))); nm.append(p.name||'?');
+  card.append(bar, nm);
   const key=p.id||p.name, row=h('div','hd-row'); row.append(fnum(c, el, key+'kd', `${p.k??0}/${p.d??0}`), fnum(c, el, key+'$', money(p.money), 'hd-money'));
   card.appendChild(row);
   const low=h('div','hd-low');
   if(p.alive===false) low.append(h('span','hd-dmgl', st('урон за раунд')), h('b',null, String(p.dmg||0)));
-  else low.append(h('span','hd-w', weaponName(p.main||p.weapon)), h('span','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join('')));
+  else low.append(h('span','hd-w', weaponShort(p.main||p.weapon)), gearIcons(p));
   card.appendChild(low);
   hpDrop(c, p, card);
   return card;
@@ -1143,13 +1203,14 @@ function bigCard(c, el, p){
   mid.append(h('div','hd-bname', p.name||st('Игрок')));
   const bars=h('div','hd-bbars');
   const hb=h('div','hd-bar'), hf=h('div','hd-fill'); hf.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; hf.style.background=hpColor(p.hp||0); hb.appendChild(hf);
-  bars.append(h('b','hd-bhp', p.alive===false?'💀':String(p.hp??0)), hb, h('span','hd-bar-ar', (p.helmet?'🪖 ':'🛡 ')+(p.armor??0)));
+  const bhp=h('b','hd-bhp'); if(p.alive===false) bhp.appendChild(hudIc('skull')); else bhp.textContent=String(p.hp??0);
+  bars.append(bhp, hb, icText('hd-bar-ar', p.helmet?'helmet':'shield', p.armor??0));
   mid.appendChild(bars);
   const stats=h('div','hd-bstats');
   for(const [l,v] of [['K',p.k??0],['D',p.d??0],['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), fnum(c, el, 'big'+l, String(v)));
   mid.appendChild(stats);
   const right=h('div','hd-bright');
-  right.append(fnum(c, el, 'big$', money(p.money), 'hd-money'), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), h('div','hd-ic', (p.bomb?'💣':'')+(p.kit?'🔧':'')+(p.nades||[]).map(n=>NADE_IC[n]||'').join(' ')));
+  right.append(fnum(c, el, 'big$', money(p.money), 'hd-money'), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), gearIcons(p, 'hd-ic'));
   card.append(mid, right);
   hpDrop(c, p, card);
   return card;
@@ -1160,7 +1221,7 @@ function scoreTop(el, d, withSeries){
     if(lg){ const i=document.createElement('img'); i.src=resolveSrc(lg); i.alt=''; b.appendChild(i); }
     b.appendChild(h('span','hd-tname', (side==='ct'?(el.tnCT||d.ctName):(el.tnT||d.tName)) || (side==='ct'?'CT':'T'))); return b; };
   const mid=h('div','hd-mid');
-  const tm=h('div','hd-time'+(d.pphase==='bomb'?' bomb':'')+(el.flip?' flipn':'')); if(el.flip){ flipFill(tm, cs2Timer(), null); tm._prev=cs2Timer(); } else tm.textContent=cs2Timer();
+  const tm=timerNode('hd-time'+(d.pphase==='bomb'?' bomb':''), !!el.flip);
   mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), tm);
   top.append(team('ct'), fnum(scoreTop.c, el, 'sct', String(d.ct??0), 'hd-n tm-ct'), mid, fnum(scoreTop.c, el, 'stt', String(d.tt??0), 'hd-n tm-t'), team('t'));
   const wrap=h('div','hd-top'); wrap.appendChild(top);
@@ -1172,7 +1233,8 @@ function killfeed(d, el){
   killfeed.seen ||= new Set();
   for(const e of (d.evs||[]).filter(x=>x.k==='frag' && now-x.t<9000).slice(-5)){
     const r=h('div','hd-kill'+(killfeed.seen.has(e.s)?'':' new')); killfeed.seen.add(e.s);
-    r.append(h('span','tm-'+(e.kteam==='T'?'t':'ct'), e.killer||'?'), h('span','hd-kw', weaponName(e.weapon)+(e.hs?' 🎯':'')));
+    const kw=h('span','hd-kw', weaponName(e.weapon)); if(e.hs) kw.appendChild(hudIc('hs','hi-hs'));
+    r.append(h('span','tm-'+(e.kteam==='T'?'t':'ct'), e.killer||'?'), kw);
     if(e.victim) r.append(h('span','tm-'+(e.vteam==='T'?'t':'ct'), e.victim));
     box.appendChild(r);
   }
@@ -1192,8 +1254,8 @@ function statRows(a, b){
   }
   return box;
 }
-function vsCard(c, el, a, b, title){
-  const w=h('div','hd-vs'); if(title) w.appendChild(h('div','hd-vtitle', title));
+function vsCard(c, el, a, b, title, hs){
+  const w=h('div','hd-vs'); if(title){ const t=h('div','hd-vtitle', title); if(hs) t.appendChild(hudIc('hs','hi-hs')); w.appendChild(t); }
   const heads=h('div','hd-vheads');
   const side=(p)=>{ const x=h('div','hd-vside tm-'+(p.team==='T'?'t':'ct')); x.append(avatar(el, p, 'hd-vav'), h('div','hd-vname', p.name||'?')); return x; };
   heads.append(side(a), h('div','hd-vvs','VS'), side(b));
@@ -1247,7 +1309,7 @@ function paintHud(c, el, d){
     if(e && e.s>c._dseen && now-e.t<6000){ c._dseen=e.s; c._duntil=Date.now()+4200; c._duel=e; }
     if(c._duel && Date.now()<(c._duntil||0)){
       const a=byName(c._duel.killer)||{ name:c._duel.killer, team:c._duel.kteam }, b=byName(c._duel.victim)||{ name:c._duel.victim, team:c._duel.vteam };
-      const v=vsCard(c, el, a, b, `${weaponName(c._duel.weapon)}${c._duel.hs?' 🎯':''}`); v.classList.add('show'); parts.push(v);
+      const v=vsCard(c, el, a, b, weaponName(c._duel.weapon), c._duel.hs); v.classList.add('show'); parts.push(v);
     } else if(!c._duel && !c.closest('#elLayer')) parts.push(h('div'));
     else if(c.closest('#elLayer')) parts.push(h('div','hd-hint', st('Дуэль появится сама после килла (режим наблюдателя)')));
   } else if(el.view==='compare'){
