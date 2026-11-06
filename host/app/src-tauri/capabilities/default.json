@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local loading page of the main window: core events only.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

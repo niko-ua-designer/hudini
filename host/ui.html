@@ -6,50 +6,105 @@
 <script src="/i18n.js"></script>
 <script src="/icons.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <style>
-:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--acc2:#a78bfa;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e;--gap:12px}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:820px;margin:0 auto;padding:24px 18px 60px}
-h1{font-size:22px;margin:0 0 4px}
-.sub{color:var(--muted);margin-bottom:20px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:0 20px 48px}
+/* шапка */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin:0 -20px 4px;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,#2a2150,#171a21);border:1px solid #3a3160;display:flex;align-items:center;justify-content:center;flex:none}
+.brand b{display:block;font-size:16px;line-height:1.2}
+.brand small{display:block;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.lights{display:flex;gap:6px;flex-wrap:wrap}
+.light{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap}
+.light i{width:8px;height:8px;border-radius:50%;background:#4a5060;flex:none}
+.light.ok{color:var(--text)}.light.ok i{background:var(--ok);box-shadow:0 0 6px #2ecc7188}
+.light.warn i{background:var(--warn)}.light.bad i{background:var(--bad)}
+.sub{color:var(--muted);margin:14px 0 4px;font-size:13px}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:12px 16px;margin:14px 0 0}
+.banner span{flex:1;min-width:220px}
+.banner a{color:#fff;background:var(--acc);border-radius:8px;padding:7px 14px;text-decoration:none;white-space:nowrap}
+/* карточки */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:var(--gap) 0}
 .card.first{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
-.n{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:13px;flex:none}
-input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font:inherit;font-size:13px}
+.card h2 svg.ic{color:var(--acc2)}
+.n{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:12px;flex:none}
+input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font:inherit;font-size:13px;min-width:0}
 input:focus{outline:none;border-color:var(--acc)}
-button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--text);font:inherit;cursor:pointer;white-space:nowrap}
+input[readonly]{color:#c9cdd8}
+button{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--text);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:default}
 button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
-.row{display:flex;gap:8px;align-items:center;margin-top:8px}
+button.done{border-color:var(--ok);color:var(--ok)}
+button.primary.done{background:#1f6f45;border-color:#1f6f45;color:#fff}
+.row{display:flex;gap:8px;align-items:center;margin-top:10px}
 .row>input{flex:1}
 .hint{color:var(--muted);font-size:13px;margin-top:6px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.card>.hint:first-of-type{margin-top:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
 .st{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .st b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:2px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted)}
 .ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.bad .dot{background:var(--bad)}
-pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:220px;overflow:auto;white-space:pre-wrap;margin:0;color:#b9bfcc}
-ol{margin:6px 0 0 18px;padding:0}li{margin:3px 0}
-code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none}
+pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin:0;color:#b9bfcc}
+ol{margin:8px 0 0 18px;padding:0}li{margin:3px 0}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12.5px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:10}
 .cs2{display:flex;gap:16px;flex-wrap:wrap;font-variant-numeric:tabular-nums;margin-top:8px;color:var(--muted);font-size:13px}
 .cs2 span b{color:var(--text)}
 .lim{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 .lim label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
-details summary{cursor:pointer;font-weight:600;font-size:15px}
-details[open] summary{margin-bottom:8px}
+details summary{cursor:pointer;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+details[open] summary::after{transform:rotate(-135deg)}
+details[open] summary{margin-bottom:10px}
+/* переключатель */
+.tgl{display:flex;gap:12px;align-items:center;cursor:pointer;user-select:none}
+.tgl input{position:absolute;opacity:0;width:1px;height:1px}
+.tgl .sw{position:relative;width:38px;height:22px;border-radius:11px;background:#3a3f4c;transition:background .15s;flex:none}
+.tgl .sw::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.tgl input:checked+.sw{background:var(--acc)}
+.tgl input:checked+.sw::after{transform:translateX(16px)}
+.tgl input:focus-visible+.sw{outline:2px solid var(--acc2);outline-offset:2px}
+.check{display:flex;gap:8px;align-items:center;cursor:pointer}
+.check input{width:auto}
+@media (max-width:560px){ .lim{grid-template-columns:1fr} .row{flex-wrap:wrap} .row>input{flex-basis:100%} }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🎩 Hudini Host <span id="ver" class="hint"></span> <span data-i18n-switch></span></h1>
-  <div class="sub">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#a78bfa" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg></div>
+      <div><b>Hudini Host</b><small id="ver" data-i18n-skip>—</small></div>
+    </div>
+    <div class="lights">
+      <span class="light" id="lRoom"><i></i>Комната</span>
+      <span class="light" id="lObs"><i></i>OBS</span>
+      <span class="light" id="lTun"><i></i>Туннель</span>
+      <span class="light" id="lCs"><i></i>CS2</span>
+    </div>
+    <span data-i18n-switch></span>
+  </header>
+
+  <div class="banner" id="legacyBanner" hidden>
+    <span>Новая версия Hudini Host работает в своём окне и сворачивается в трей.</span>
+    <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">⬇ Скачать новую версию</a>
+  </div>
+  <div class="sub" id="subBrowser">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
+  <div class="sub" id="subApp" hidden>Сервер оверлея на этом компьютере. Если закрыть окно, программа продолжит работать в трее.</div>
 
   <div class="card" id="limCard">
     <h2>📁 Место для файлов модераторов</h2>
-    <div class="hint" style="margin-top:0" id="limAsk">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. Сколько места им дать?</div>
+    <div class="hint" id="limAsk">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. Сколько места им дать?</div>
     <div class="lim">
       <label>Один файл до, МБ<input type="number" id="limFile" min="1" max="4096"></label>
       <label>Всего места, МБ<input type="number" id="limTotal" min="10"></label>
@@ -60,7 +115,7 @@ details[open] summary{margin-bottom:8px}
 
   <div class="card">
     <h2><span class="n">1</span> Ссылка от модератора</h2>
-    <div class="hint" style="margin-top:0">Попроси модератора нажать в пульте «📋 Копировать» и вставь эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
+    <div class="hint">Попроси модератора нажать в пульте «📋 Копировать» и вставь эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
     <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
     <div class="hint" id="roomInfo"></div>
   </div>
@@ -77,28 +132,34 @@ details[open] summary{margin-bottom:8px}
 
   <div class="card">
     <h2><span class="n">3</span> CS2 на оверлее (по желанию)</h2>
-    <div class="hint" style="margin-top:0">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
-    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">Скачать файл вручную</button></div>
+    <div class="hint">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
+    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">⬇ Скачать файл вручную</button></div>
     <div class="hint" id="gsiInfo"></div>
     <div class="cs2" id="cs2"></div>
   </div>
 
   <div class="card">
     <h2>🎛 Панель в OBS (по желанию)</h2>
-    <div class="hint" style="margin-top:0">Маленькая панель прямо в OBS: статус, кнопка «Спрятать оверлей», стоп звуков и пауза модераторов.</div>
+    <div class="hint">Маленькая панель прямо в OBS: статус, кнопка «Спрятать оверлей», стоп звуков и пауза модераторов.</div>
     <ol class="hint">
       <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
-      <li>Имя: <code>Hudini</code>, адрес: <code>http://localhost:7777/dock</code> → <b>Применить</b></li>
+      <li>Имя: <code>Hudini</code>, адрес: <code id="dockCode">http://localhost:7777/dock</code> → <b>Применить</b></li>
       <li>Перетащи появившуюся панель, куда удобно</li>
     </ol>
     <div class="row"><input id="dockUrl" readonly><button id="copyDock">📋 Копировать</button></div>
   </div>
 
+  <div class="card" id="autoCard" hidden>
+    <h2>🚀 Автозапуск</h2>
+    <label class="tgl"><input type="checkbox" id="autoStart"><span class="sw"></span><span>Запускать вместе с системой</span></label>
+    <div class="hint">Программа запустится свёрнутой в трей, когда ты включишь компьютер.</div>
+  </div>
+
   <div class="card">
-    <h2>Обновления</h2>
+    <h2>🔄 Обновления</h2>
     <div class="row" style="margin-top:0"><span id="updInfo" class="hint" style="flex:1;margin:0">—</span>
       <button id="updCheck">Проверить</button><button id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
-    <label class="hint" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="updAuto"> Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)</label>
+    <label class="hint check" style="margin-top:10px"><input type="checkbox" id="updAuto"> Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)</label>
   </div>
 
   <div class="card">
@@ -106,15 +167,15 @@ details[open] summary{margin-bottom:8px}
       <summary>⚙ Для продвинутых</summary>
       <div class="hint" style="margin-top:0"><b>Свой адрес для модераторов.</b> Вместо бесплатного туннеля Cloudflare: Tailscale Funnel, свой туннель Cloudflare или свой домен. Направь его на <code id="tport">http://127.0.0.1:7778</code> и впиши адрес вида <code>wss://мой-адрес/mqtt</code>. Пусто = обычный туннель.</div>
       <div class="row"><input id="fixedUrl" placeholder="wss://my-pc.tailnet.ts.net/mqtt"><button id="fixedSave">Сохранить</button></div>
-      <div class="hint" style="margin-top:14px"><b>Адрес и пароль для пульта.</b> Обычно пульт находит программу сам. Если нет, модератор вписывает их в пульте: «Комната» → «Для продвинутых». Никому больше не показывай.</div>
+      <div class="hint" style="margin-top:16px"><b>Адрес и пароль для пульта.</b> Обычно пульт находит программу сам. Если нет, модератор вписывает их в пульте: «Комната» → «Для продвинутых». Никому больше не показывай.</div>
       <div class="row"><input id="modUrl" readonly placeholder="адрес появится, когда заработает туннель"><input id="modPass" type="password" readonly><button id="showPass">👁 Показать</button></div>
-      <div class="hint" style="margin-top:14px"><b>Новый пароль модераторов.</b> Все модераторы отключатся на пару секунд и подключатся снова сами. Чтобы закрыть доступ человеку насовсем, модератор нажимает в пульте «♻ Сменить ключи», а ты вставляешь новую ссылку в шаг 1.</div>
+      <div class="hint" style="margin-top:16px"><b>Новый пароль модераторов.</b> Все модераторы отключатся на пару секунд и подключатся снова сами. Чтобы закрыть доступ человеку насовсем, модератор нажимает в пульте «♻ Сменить ключи», а ты вставляешь новую ссылку в шаг 1.</div>
       <div class="row"><button id="newPass">🔑 Новый пароль</button></div>
     </details>
   </div>
 
   <div class="card">
-    <h2>Состояние</h2>
+    <h2>📊 Состояние</h2>
     <div class="grid">
       <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sTun"><b>Туннель для модераторов</b><span class="dot"></span><span class="v">—</span></div>
@@ -126,31 +187,53 @@ details[open] summary{margin-bottom:8px}
   </div>
 
   <div class="card">
-    <h2>Журнал</h2>
-    <pre id="logs"></pre>
+    <h2>📝 Журнал</h2>
+    <pre id="logs" data-i18n-skip></pre>
   </div>
 </div>
 <div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
+const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (host/app), а не в браузере
 function toast(t){ const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', 2600); }
 function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
+function light(id, cls, title){ const e=$(id); e.className='light '+cls; e.title=title; }
 async function api(p, body){
   const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
   const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
 }
+// Копирование с отметкой «Скопировано ✓» на самой кнопке
+async function copy(btn, input, msg){
+  const text=input.value; if(!text) return false;
+  try{ await navigator.clipboard.writeText(text); }catch{ input.select(); document.execCommand('copy'); }
+  if(!btn.dataset.html) btn.dataset.html=btn.innerHTML;
+  btn.textContent='Скопировано ✓'; btn.classList.add('done');
+  clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.innerHTML=btn.dataset.html; btn.classList.remove('done'); }, 1600);
+  if(msg) toast(msg);
+  return true;
+}
 let limFilled=false;
 const WEAP={ak47:'AK-47',m4a1:'M4A4',m4a1_silencer:'M4A1-S',awp:'AWP',deagle:'Desert Eagle',usp_silencer:'USP-S',glock:'Glock-18'};
 async function refresh(){
-  let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); return; }
+  let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); light('lObs','bad','программа не отвечает'); return; }
   $('ver').textContent='v'+s.version;
+  const app=!!(s.app || TAURI);
+  $('subApp').hidden=!app; $('subBrowser').hidden=app;
+  $('legacyBanner').hidden=!s.standalone;
   if(document.activeElement!==$('link') && !$('link').value && s.room) $('link').placeholder='сохранена (комната '+s.room+')';
   $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Ссылка ещё не сохранена';
   if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
-  st('sObs', s.obsOnline?'ok':'bad', s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1'));
-  st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), s.tunnel?'работает':(s.tunnelErr||'запускается…'));
+  const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1');
+  const tunTxt=s.tunnel?'работает':(s.tunnelErr||'запускается…');
+  const csTxt=s.cs2Online?'данные идут':'нет данных';
+  st('sObs', s.obsOnline?'ok':'bad', obsTxt);
+  st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), tunTxt);
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
   st('sBr', s.bridge?'ok':'warn', s.bridge?'работает':'нет связи (пульт попробует последний адрес)');
+  light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Ссылка ещё не сохранена');
+  light('lObs', s.obsOnline?'ok':(s.room?'warn':''), obsTxt);
+  light('lTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), tunTxt);
+  light('lCs', s.cs2Online?'ok':'', csTxt);
   const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0), U=['ru','uk'].includes(window.HudiniI18n?.lang||'ru')?'МБ':'MB';
   st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} / ${L.totalMB} ${U} · файлов: ${g.files||0} / ${L.files}`);
   $('limUsed').textContent = `Сейчас занято: ${mb(g.used||0)} ${U} · файлов: ${g.files||0}`;
@@ -161,7 +244,7 @@ async function refresh(){
   $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
   if(document.activeElement!==$('fixedUrl')) $('fixedUrl').value=s.fixedUrl||''; $('fixedUrl').disabled=$('fixedSave').disabled=!!s.fixedEnv;
   $('tport').textContent='http://127.0.0.1:'+(s.tport||7778);
-  st('sCs', s.cs2Online?'ok':'warn', s.cs2Online?'данные идут':'нет данных');
+  st('sCs', s.cs2Online?'ok':'warn', csTxt);
   if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
   const c=s.cs2;
   $('cs2').innerHTML='';
@@ -179,18 +262,38 @@ async function refresh(){
   $('logs').textContent=(s.logs||[]).join('\n'); $('logs').scrollTop=1e9;
 }
 $('saveLink').onclick=async()=>{ try{ await api('/api/link', { link:$('link').value }); $('link').value=''; toast('Сохранено ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('copyObs').onclick=async()=>{ if(!$('obs').value) return toast('Сначала шаг 1'); try{ await navigator.clipboard.writeText($('obs').value); }catch{ $('obs').select(); document.execCommand('copy'); } toast('Скопировано: вставь в OBS'); };
+$('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Сначала шаг 1'); };
 $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
-$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
+$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
 $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
-$('dockUrl').value=location.origin+'/dock';
-$('copyDock').onclick=async()=>{ try{ await navigator.clipboard.writeText($('dockUrl').value); }catch{ $('dockUrl').select(); document.execCommand('copy'); } toast('Скопировано: вставь в OBS → Доки'); };
+$('dockUrl').value=location.origin+'/dock'; $('dockCode').textContent=location.origin+'/dock';
+$('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
 $('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('fixedSave').onclick=async()=>{ try{ await api('/api/fixedurl', { url:$('fixedUrl').value }); toast($('fixedUrl').value?'Свой адрес сохранён ✓':'Вернул обычный туннель ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('newPass').onclick=async()=>{ if(!confirm('Сменить пароль модераторов? Все модераторы отключатся на минуту.')) return; try{ await api('/api/modpass/new', {}); toast('Новый пароль ✓'); }catch(e){ toast(e.message); } };
 $('showPass').onclick=async()=>{ try{ const r=await api('/api/modpass'); $('modUrl').value=r.url||''; $('modPass').value=r.pass; $('modPass').type=$('modPass').type==='password'?'text':'password'; }catch(e){ toast(e.message); } };
+
+// ---- только в окне программы: автозапуск и внешние ссылки ----
+if(TAURI){
+  const auto=cmd=>TAURI.core.invoke('plugin:autostart|'+cmd);
+  const readAuto=async()=>{ try{ if(document.activeElement!==$('autoStart')) $('autoStart').checked=!!await auto('is_enabled'); $('autoCard').hidden=false; }catch{ $('autoCard').hidden=true; } };
+  $('autoStart').onchange=async e=>{
+    try{ await auto(e.target.checked?'enable':'disable'); toast(e.target.checked?'Автозапуск включён':'Автозапуск выключен'); }catch(err){ toast(String(err?.message||err)); }
+    $('autoStart').blur(); readAuto();
+  };
+  readAuto();
+  // галочка в меню трея и здесь — одна и та же настройка: перечитываем, когда окно снова на экране
+  addEventListener('focus', readAuto);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) readAuto(); });
+  // Ссылки на другие сайты открываем в обычном браузере (окно программы их не показывает)
+  document.addEventListener('click', e=>{
+    const a=e.target.closest?.('a[href]'); if(!a) return;
+    const url=new URL(a.href, location.href);
+    if(url.origin!==location.origin){ e.preventDefault(); location.href=url.href; }
+  });
+}
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>

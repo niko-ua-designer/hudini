@@ -26,12 +26,17 @@ import ICONS_JS from '../icons.js' with { type: 'text' };
 import CASE3D_JS from '../case3d.js' with { type: 'text' };
 import THREE_JS from '../vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.0.0-rc.3';
+const VERSION = '1.0.0-rc.4';
 const PREFIX = 'stream-overlay/v1';
 const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 const NO_TUNNEL = !!process.env.OVERLAY_NO_TUNNEL;
 const NO_OPEN = !!process.env.OVERLAY_NO_OPEN;
+// Запуск из программы с окном и треем (host/app): она читает stdout и держит открытым stdin
+const APP = !!process.env.OVERLAY_APP;
+const APP_EXE = process.env.OVERLAY_APP_EXE || '';           // файл программы с окном (его перезапускаем после обновления)
+const APP_PID = Number(process.env.OVERLAY_APP_PID) || process.ppid;
+let appHidden = false;                                       // окно программы спрятано в трей
 
 // ---------- папка с настройками: рядом с .exe ----------
 const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes('~BUN');
@@ -483,43 +488,101 @@ function widgetHtml(){
 // ---------- автообновление программы ----------
 // Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
 // Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
+// Два вида сборок:
+// • старая (один файл, без окна): HudiniHost-windows.exe.zip и т.п., внутри один файл программы;
+// • программа с окном и треем (OVERLAY_APP): HudiniHost-<система>-<версия>.zip, внутри папка «Hudini Host/»
+//   с программой, этим сервером и README. Меняем всё, кроме data/, и запускаем программу с окном заново.
 const REPO = 'niko-ua-designer/hudini';
 const ASSET = { win32:'HudiniHost-windows.exe', linux:'HudiniHost-linux', darwin: os.arch()==='arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel' }[process.platform];
+const APP_OS = { win32:'windows', linux:'linux', darwin: os.arch()==='arm64' ? 'mac-arm64' : 'mac-intel' }[process.platform];
+// Программа с окном: на macOS это папка «Hudini Host.app», файл внутри неё; иначе сам файл программы
+const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(APP_EXE) || [])[1] || APP_EXE;
+const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
+const APP_ENTRY = APP_BUNDLE ? path.basename(APP_BUNDLE) : '';
 const startedAt = Date.now();
 const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false };
 // Версии вида 1.0.0 и 1.0.0-rc.1 (rc раньше готовой версии)
 const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? [+m[1], +m[2], +m[3], m[4]==null ? Infinity : +m[4]] : null; };
 const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
+// Версия в имени файла: 1.0.0-rc.4 → 1.0rc4, 1.0.0 → 1.0, 1.0.2 → 1.0.2
+const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? `${m[1]}.${m[2]}${m[3]!=='0' ? '.'+m[3] : ''}${m[4]!=null ? 'rc'+m[4] : ''}` : v; };
 // Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
 function pickRelease(list){
   const beta = VERSION.includes('-');
   return (Array.isArray(list) ? list : [list]).filter(x => x && !x.draft && /^v\d+\.\d+\.\d+(-rc\.\d+)?$/.test(x.tag_name||'') && (beta || (!x.prerelease && !x.tag_name.includes('-'))))
     .sort((a,b) => cmpVer(b.tag_name.slice(1), a.tag_name.slice(1)))[0] || null;
 }
-function unzipSingle(buf, want){
+function pickAsset(assets, ver){
+  assets = Array.isArray(assets) ? assets : [];
+  if(!APP) return assets.find(a => a.name===ASSET+'.zip');
+  const re = new RegExp('^HudiniHost-'+APP_OS+'-[\\w.]+\\.zip$');
+  return assets.find(a => a.name===`HudiniHost-${APP_OS}-${prettyVer(ver)}.zip`) || assets.find(a => re.test(a.name||''));
+}
+// Разбор .zip: список записей, данные распаковываются по запросу
+function unzipAll(buf){
   let eocd=-1;
   for(let i=buf.length-22; i>=Math.max(0, buf.length-65557); i--) if(buf.readUInt32LE(i)===0x06054b50){ eocd=i; break; }
   if(eocd<0) throw new Error('архив повреждён');
-  let p=buf.readUInt32LE(eocd+16); const count=buf.readUInt16LE(eocd+10);
+  let p=buf.readUInt32LE(eocd+16); const count=buf.readUInt16LE(eocd+10), out=[];
   for(let i=0;i<count;i++){
-    if(buf.readUInt32LE(p)!==0x02014b50) throw new Error('архив повреждён');
-    const method=buf.readUInt16LE(p+10), csize=buf.readUInt32LE(p+20), usize=buf.readUInt32LE(p+24);
-    const nlen=buf.readUInt16LE(p+28), xlen=buf.readUInt16LE(p+30), clen=buf.readUInt16LE(p+32), lho=buf.readUInt32LE(p+42);
-    const name=buf.toString('utf8', p+46, p+46+nlen);
-    if(name===want || name.endsWith('/'+want)){
+    if(p+46>buf.length || buf.readUInt32LE(p)!==0x02014b50) throw new Error('архив повреждён');
+    const madeBy=buf.readUInt16LE(p+4)>>8, method=buf.readUInt16LE(p+10), csize=buf.readUInt32LE(p+20), usize=buf.readUInt32LE(p+24);
+    const nlen=buf.readUInt16LE(p+28), xlen=buf.readUInt16LE(p+30), clen=buf.readUInt16LE(p+32), attr=buf.readUInt32LE(p+38), lho=buf.readUInt32LE(p+42);
+    const name=buf.toString('utf8', p+46, p+46+nlen).replace(/\\/g, '/');   // Compress-Archive из PowerShell 5 пишет обратные слеши
+    out.push({ name, dir:name.endsWith('/'), mode: madeBy===3 ? attr>>>16 : 0, data(){
       const start=lho+30+buf.readUInt16LE(lho+26)+buf.readUInt16LE(lho+28), data=buf.subarray(start, start+csize);
-      const out = method===0 ? Buffer.from(data) : method===8 ? zlib.inflateRawSync(data) : null;
-      if(!out || out.length!==usize) throw new Error('не распаковался');
-      return out;
-    }
+      const o = method===0 ? Buffer.from(data) : method===8 ? zlib.inflateRawSync(data) : null;
+      if(!o || o.length!==usize) throw new Error('не распаковался '+name);
+      return o;
+    } });
     p+=46+nlen+xlen+clen;
   }
-  throw new Error('в архиве нет '+want);
+  return out;
+}
+function unzipSingle(buf, want){
+  const e = unzipAll(buf).find(e => !e.dir && (e.name===want || e.name.endsWith('/'+want)));
+  if(!e) throw new Error('в архиве нет '+want);
+  return e.data();
+}
+// Распаковать архив программы с окном в dest. Общую папку («Hudini Host/») убираем, data/ не трогаем.
+function extractApp(zip, dest){
+  const list = unzipAll(zip).filter(e => e.name && !e.name.startsWith('__MACOSX/'));
+  const top = list[0]?.name.split('/')[0];
+  const strip = list.every(e => e.name.includes('/') && e.name.split('/')[0]===top) ? top+'/' : '';
+  fs.rmSync(dest, { recursive:true, force:true }); fs.mkdirSync(dest, { recursive:true });
+  let n = 0;
+  for(const e of list){
+    const rel = e.name.slice(strip.length);
+    const parts = rel.split('/').filter(Boolean);
+    if(!parts.length || parts[0]==='data') continue;   // настройки и файлы стримера остаются как есть
+    if(rel.startsWith('/') || /^[a-z]:/i.test(rel) || parts.some(x => x==='..' || x==='.')) throw new Error('архив повреждён: '+e.name);
+    const to = path.join(dest, ...parts);
+    if(e.dir){ fs.mkdirSync(to, { recursive:true }); continue; }
+    fs.mkdirSync(path.dirname(to), { recursive:true });
+    const data = e.data();
+    if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app)
+      const target = data.toString('utf8');
+      if(path.isAbsolute(target)) throw new Error('архив повреждён: '+e.name);
+      fs.symlinkSync(target, to); n++; continue;
+    }
+    fs.writeFileSync(to, data); n++;
+    if(process.platform!=='win32'){
+      const m = e.mode & 0o777;
+      fs.chmodSync(to, m || (/\.[a-z0-9]{1,5}$/i.test(parts.at(-1)) ? 0o644 : 0o755));
+    }
+  }
+  if(!n) throw new Error('архив пустой');
+  return dest;
+}
+// Переместить файл или папку; если data на другом диске (macOS: папка в Application Support), копируем
+function moveSync(from, to){
+  try{ fs.renameSync(from, to); }
+  catch(e){ if(e.code!=='EXDEV') throw e; fs.cpSync(from, to, { recursive:true, verbatimSymlinks:true }); fs.rmSync(from, { recursive:true, force:true }); }
 }
 let checking=null;
 function checkUpdate(applyIfIdle){ return checking ||= doCheck(applyIfIdle).finally(()=>{ checking=null; }); }
 async function doCheck(applyIfIdle){
-  if(!compiled || process.env.OVERLAY_NO_UPDATE || !ASSET) { upd.state='off'; return; }
+  if(!compiled || process.env.OVERLAY_NO_UPDATE || !ASSET || (APP && !APP_EXE)) { upd.state='off'; return; }
   try{
     upd.state='checking'; upd.err='';
     const r=await fetch(process.env.OVERLAY_RELEASES_API || `https://api.github.com/repos/${REPO}/releases?per_page=30`, { headers:{ accept:'application/vnd.github+json', 'user-agent':'HudiniHost' }, signal:AbortSignal.timeout(15000) });
@@ -528,7 +591,7 @@ async function doCheck(applyIfIdle){
     upd.latest=ver;
     if(!rel || cmpVer(ver, VERSION)<=0){ upd.state='latest'; return; }
     if(upd.staged?.ver!==ver){
-      const zipA=rel.assets?.find(a=>a.name===ASSET+'.zip'), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt');
+      const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt');
       if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
       upd.state='downloading'; log('⬇ Скачиваю обновление', ver, '…');
       const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
@@ -537,9 +600,16 @@ async function doCheck(applyIfIdle){
       const zip=Buffer.from(await (await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) })).arrayBuffer());
       const got=nodeCrypto.createHash('sha256').update(zip).digest('hex');
       if(!want || got!==want) throw new Error('контрольная сумма не совпала, обновление отменено');
-      const staged=process.execPath+'.new';
-      fs.writeFileSync(staged, unzipSingle(zip, ASSET)); fs.chmodSync(staged, 0o755);
-      upd.staged={ ver, path:staged }; log('✓ Обновление', ver, 'скачано и проверено');
+      if(APP){
+        const dir = extractApp(zip, path.join(BASE, 'update', ver));
+        if(!fs.existsSync(path.join(dir, APP_ENTRY))) throw new Error('в архиве нет '+APP_ENTRY);
+        upd.staged={ ver, dir };
+      } else {
+        const staged=process.execPath+'.new';
+        fs.writeFileSync(staged, unzipSingle(zip, ASSET)); fs.chmodSync(staged, 0o755);
+        upd.staged={ ver, path:staged };
+      }
+      log('✓ Обновление', ver, 'скачано и проверено');
     }
     upd.state='ready';
     if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
@@ -547,23 +617,61 @@ async function doCheck(applyIfIdle){
 }
 // «Простой»: OBS-виджет не подключён и модераторов нет
 function isIdle(){ return status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
+function stopForRestart(){
+  shuttingDown=true;
+  try{ tunnelProc?.kill(); }catch{}
+  try{ pub?.end(true); }catch{}
+  try{ local.closeAllConnections?.(); local.close(); tunnelSrv.closeAllConnections?.(); tunnelSrv.close(); }catch{}
+}
+// Программа с окном: старые файлы → *.old (работающие файлы переименовать можно), новые на их место,
+// потом запускаем новую программу с окном. Она ждёт, пока старая закроется, и поднимает новый сервер.
+function applyAppUpdate(){
+  const src = upd.staged.dir, moved = [];
+  const names = fs.readdirSync(src);
+  try{
+    for(const n of names){
+      const dst = path.join(APP_ROOT, n);
+      let old = dst+'.old';
+      try{ fs.rmSync(old, { recursive:true, force:true }); }catch{ old = dst+'.old'+Date.now(); }   // Windows: прошлый .old ещё занят
+      const had = fs.existsSync(dst);
+      if(had) fs.renameSync(dst, old);
+      moved.push({ dst, old:had ? old : null });
+      moveSync(path.join(src, n), dst);
+    }
+  }catch(e){
+    // откатываем всё, что успели поменять
+    for(const m of moved.reverse()){ try{ fs.rmSync(m.dst, { recursive:true, force:true }); }catch{} try{ if(m.old) fs.renameSync(m.old, m.dst); }catch{} }
+    upd.staged=null; upd.state='error'; upd.err='не смог заменить файлы программы: '+e.message; log('⚠ Обновление:', upd.err);
+    return;
+  }
+  try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
+  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
+  stopForRestart();
+  const args = ['--updated', '--wait-pid', String(APP_PID), ...(appHidden ? ['--minimized'] : [])];
+  const child=spawn(APP_EXE, args, { cwd:APP_ROOT, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
+  child.on('error', e => log('⚠ Не запустилась новая версия:', e.message));
+  child.unref();
+  appSay('RESTART');   // программа с окном закрывается сама
+  setTimeout(()=>process.exit(0), 400);
+}
 async function applyUpdate(){
   if(!upd.staged) return;
+  if(APP) return applyAppUpdate();
   log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
   const exe=process.execPath, old=exe+'.old';
   try{ fs.rmSync(old, { force:true }); }catch{}
   fs.renameSync(exe, old);               // работающий файл можно переименовать, но не перезаписать
   fs.renameSync(upd.staged.path, exe);
-  shuttingDown=true;
-  try{ tunnelProc?.kill(); }catch{}
-  try{ pub?.end(true); }catch{}
-  try{ local.closeAllConnections?.(); local.close(); tunnelSrv.closeAllConnections?.(); tunnelSrv.close(); }catch{}
+  stopForRestart();
   const child=spawn(exe, [], { cwd:BASE, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
   child.unref();
   setTimeout(()=>process.exit(0), 400);
 }
 // при старте убираем старую версию, проверяем обновление; потом раз в 3 часа
-try{ fs.rmSync(process.execPath+'.old', { force:true }); fs.rmSync(process.execPath+'.new', { force:true }); }catch{}
+if(APP){
+  try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
+  if(APP_ROOT) try{ for(const n of fs.readdirSync(APP_ROOT)) if(/\.old\d*$/.test(n) && fs.existsSync(path.join(APP_ROOT, n.replace(/\.old\d*$/, '')))) fs.rmSync(path.join(APP_ROOT, n), { recursive:true, force:true }); }catch{}
+} else try{ fs.rmSync(process.execPath+'.old', { force:true }); fs.rmSync(process.execPath+'.new', { force:true }); }catch{}
 setTimeout(()=>checkUpdate(true), 4000);
 setInterval(()=>checkUpdate(true), 3*60*60*1000);
 setInterval(()=>{ if(upd.state==='ready' && upd.auto && isIdle() && Date.now()-startedAt>10*60*1000) applyUpdate(); }, 5*60*1000);
@@ -732,7 +840,7 @@ const local = http.createServer(async (req, res) => {
       }
       if(p==='/api/modpass') return send(res, 200, JSON.stringify({ ok:true, url:modUrl(), pass:cfg.modPass }), 'application/json');
       if(req.method==='POST' && p==='/api/modpass/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('новый пароль модераторов'); await announce(); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, room:ROOM?.room||null, obsLink:obsLink(),
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, tport:TPORT, ctl, fixedUrl:fixedUrl(), fixedEnv:!!process.env.OVERLAY_TUNNEL_URL,
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
@@ -765,7 +873,7 @@ const tunnelSrv = http.createServer(async (req, res) => {
 tunnelSrv.on('upgrade', wsServer(true));
 
 function openBrowser(u){
-  if(NO_OPEN) return;
+  if(NO_OPEN || APP) return;
   if(process.platform==='win32') exec(`cmd /c start "" "${u}"`);
   else exec(`${process.platform==='darwin'?'open':'xdg-open'} "${u}"`);
 }
@@ -780,6 +888,27 @@ async function shutdown(){
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
+// ---------- связь с программой с окном (host/app) ----------
+// stdout: строки «READY <порт>», «RESTART», «FAIL <причина>». stdin: «VISIBLE 0/1», «QUIT».
+// Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
+function appSay(line){ if(APP) try{ process.stdout.write(line+'\n'); }catch{} }
+if(APP){
+  process.stdout.on?.('error', ()=>{});
+  let buf = '';
+  process.stdin.setEncoding?.('utf8');
+  process.stdin.on('data', d => {
+    buf += d; let i;
+    while((i = buf.indexOf('\n')) >= 0){
+      const l = buf.slice(0, i).trim(); buf = buf.slice(i+1);
+      if(l==='VISIBLE 0') appHidden = true;
+      else if(l==='VISIBLE 1') appHidden = false;
+      else if(l==='QUIT') shutdown();
+    }
+  });
+  process.stdin.on('end', shutdown); process.stdin.on('close', shutdown); process.stdin.on('error', shutdown);
+  process.stdin.resume();
+}
+
 local.listen(PORT, '127.0.0.1', async () => {
   tunnelSrv.listen(TPORT, '127.0.0.1');
   console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini Host ${VERSION}                           ║\n  ║  Управление:  http://localhost:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
@@ -788,11 +917,12 @@ local.listen(PORT, '127.0.0.1', async () => {
   // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
   if(cfg.gsiFile && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
   startTunnel();
+  appSay('READY '+PORT);
   if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
   else openBrowser(`http://localhost:${PORT}/`);
 });
 let portTries=0;
 local.on('error', e => {
   if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
-  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); openBrowser(`http://localhost:${PORT}/`); setTimeout(()=>process.exit(1), 4000);
+  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); openBrowser(`http://localhost:${PORT}/`); setTimeout(()=>process.exit(1), 4000);
 });
