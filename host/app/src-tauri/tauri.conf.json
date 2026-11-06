@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     }
   },
   "bundle": {
@@ -20,7 +20,9 @@
     "shortDescription": "Overlay server for OBS",
     "longDescription": "Hudini Host runs the Hudini overlay server on the streamer's computer: OBS connects to it locally, moderators through a tunnel.",
     "copyright": "niko-ua-designer",
-    "externalBin": ["binaries/hudini-server"],
+    "externalBin": [
+      "binaries/hudini-server"
+    ],
     "icon": [
       "icons/128x128@2x.png",
       "icons/128x128.png",

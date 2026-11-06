@@ -58,11 +58,13 @@ function startHost(env = {}){
   const base = `http://localhost:${port}`;
   const host = {
     proc, dir, port, base, tunnel: `http://127.0.0.1:${port + 1}`, log: () => log,
+    admin: `http://127.0.0.1:${port}`,   // страница управления и /api: отдельный origin от виджета (localhost)
     async api(p, body){
+      const base = `http://127.0.0.1:${port}`;
       const r = await fetch(base + p, body === undefined ? {} : { method:'POST', headers:{ 'content-type':'application/json', origin: base }, body: JSON.stringify(body) });
       return r.json();
     },
-    async ready(){ return until(async () => (await fetch(base + '/api/status')).ok, 15000); },
+    async ready(){ return until(async () => (await fetch(`http://127.0.0.1:${port}/api/status`)).ok, 15000); },
     async stop(){ if(proc.exitCode !== null) return; proc.kill('SIGTERM'); await until(() => proc.exitCode !== null, 3000); if(proc.exitCode === null) proc.kill('SIGKILL'); },
   };
   return host;

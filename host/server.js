@@ -44,7 +44,7 @@ const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes(
 // Удалил папку с программой, и на компьютере ничего не осталось.
 const APP_DIR = compiled ? path.dirname(process.execPath) : import.meta.dir;
 const BASE = process.env.OVERLAY_HOST_DIR || path.join(APP_DIR, 'data');
-fs.mkdirSync(BASE, { recursive: true });
+fs.mkdirSync(BASE, { recursive: true, mode:0o700 });
 // Версии до 1.0 хранили всё прямо рядом с .exe: переносим в data
 if(compiled && !process.env.OVERLAY_HOST_DIR) for(const f of ['overlay-host.json', 'cache', 'files', 'cloudflared.exe', 'cloudflared']){
   const from = path.join(APP_DIR, f), to = path.join(BASE, f);
@@ -58,11 +58,13 @@ cfg = { port:7777, link:'', modPass:rnd(18), gsiToken:rnd(18), fixedUrl:'', ...c
 // Лимиты для файлов модераторов: при первом запуске программа предлагает их поменять (страница управления)
 const LIMIT_DEFAULTS = { fileMB:100, totalMB:2048, files:300 };
 cfg.limits = { ...LIMIT_DEFAULTS, ...(cfg.limits||{}) };
-const saveCfg = () => fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2));
+// в настройках пароль модераторов, токен CS2 и ключи комнаты: файл читает только владелец
+const saveCfg = () => { fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2), { mode:0o600 }); try{ fs.chmodSync(CFG_FILE, 0o600); }catch{} };
 saveCfg();
 // Свой адрес вместо Cloudflare (Tailscale Funnel, свой домен): из настроек или переменной окружения
 const fixedUrl = () => process.env.OVERLAY_TUNNEL_URL || cfg.fixedUrl || '';
-const PORT = Number(process.env.OVERLAY_PORT) || cfg.port, TPORT = PORT + 1;
+const okPort = v => { const n = Number(v); return Number.isInteger(n) && n>=1024 && n<=65534 ? n : 0; };
+const PORT = okPort(process.env.OVERLAY_PORT) || okPort(cfg.port) || 7777, TPORT = PORT + 1;
 
 // ---------- журнал ----------
 const logs = [];
@@ -113,7 +115,7 @@ const T = s => `${PREFIX}/${ROOM.room}/${s}`;
 const inRoom = topic => ROOM && topic.startsWith(`${PREFIX}/${ROOM.room}/`);
 
 // ---------- брокер ----------
-const aedes = await Aedes.createBroker();   // aedes 1.x: брокер запускается асинхронно
+const aedes = await Aedes.createBroker({ connectTimeout:10000 });   // aedes 1.x: брокер запускается асинхронно
 const status = { mods:0, obs:0, obsSeen:0, tunnel:null, tunnelErr:'', bridge:false, cs2Seen:0, cs2:null, gsiPath:'' };
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 const ctl = { hidden:false, paused:false, stop:0 };
@@ -123,10 +125,10 @@ async function publishCtl(){
 }
 // Защита пароля от перебора: 5 ошибок подряд с одного адреса → пауза 1 мин, потом 2, 4… до 30 мин
 const fails = new Map();
-function locked(ip){ const f = fails.get(ip), u = Math.max(f?.until||0, globalUntil); return u > Date.now() ? Math.ceil((u-Date.now())/1000) : 0; }
-let globalFails = [], globalUntil = 0;
+// Общей блокировки для всех нет: пароль — 18 случайных байт, подобрать его нельзя, а общий замок позволял кому угодно запереть всех модераторов
+function locked(ip){ const f = fails.get(ip), u = f?.until||0; return u > Date.now() ? Math.ceil((u-Date.now())/1000) : 0; }
 function passOk(ip, pass){
-  if(locked(ip) || globalUntil > Date.now()) return false;
+  if(locked(ip)) return false;
   const a = Buffer.from(String(pass||'')), b = Buffer.from(cfg.modPass);
   const ok = a.length===b.length && nodeCrypto.timingSafeEqual(a, b);
   if(ok){ fails.delete(ip); return true; }
@@ -134,9 +136,6 @@ function passOk(ip, pass){
   if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; log('⚠ Подбор пароля с', ip, '— пауза', f.lock, 'с'); }
   else log('⚠ Отклонено подключение с неверным паролем');
   fails.set(ip, f);
-  // и общий предел: заголовок с адресом можно подделать, поэтому больше 50 ошибок в минуту → пауза для всех новых входов
-  const now = Date.now(); globalFails = globalFails.filter(t => now-t < 60000); globalFails.push(now);
-  if(globalFails.length > 50){ globalUntil = now + 60000; globalFails = []; log('⚠ Слишком много неверных паролей: новые входы закрыты на 1 мин'); }
   if(fails.size > 1000) for(const [k,v] of fails) if(v.until < Date.now()) fails.delete(k);
   return false;
 }
@@ -148,8 +147,12 @@ aedes.authenticate = (client, user, pass, cb) => {
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
 // Тема host (кнопки стримера в доке OBS) пишет только сама программа: клиентам туда нельзя
+// Кто что пишет: модераторы (через туннель) — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
+// srv (адрес и пароль), cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
+const PUB_TUNNEL = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
 aedes.authorizePublish = (client, packet, cb) => {
-  if(!inRoom(packet.topic) || packet.topic.endsWith('/host')) return cb(new Error('чужая тема'));
+  const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
+  if(!(client?.conn?._tunnel ? PUB_TUNNEL : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
   if(ctl.paused && client?.conn?._tunnel) return cb(new Error('пауза'));
   cb(null);
 };
@@ -157,10 +160,15 @@ aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub
 aedes.on('client', c => { if(c.conn?._tunnel){ status.mods++; log('👤 Модератор подключился'); } else status.obs++; });
 aedes.on('clientDisconnect', c => { if(c.conn?._tunnel){ status.mods=Math.max(0,status.mods-1); log('👤 Модератор отключился'); } else status.obs=Math.max(0,status.obs-1); });
 
+// Самое большое сообщение — состояние экрана; файлы идут отдельно через /files
+const WS_MAX = 16*1048576, TUNNEL_CONNS = 64;
 function wsServer(tunnel){
-  const wss = new WebSocketServer({ noServer:true, handleProtocols: p => p.has('mqtt') ? 'mqtt' : false });
+  const wss = new WebSocketServer({ noServer:true, maxPayload:WS_MAX, handleProtocols: p => p.has('mqtt') ? 'mqtt' : false });
   return (req, socket, head) => {
     if(new URL(req.url, 'http://x').pathname !== '/mqtt'){ socket.destroy(); return; }
+    // локально подключается только виджет OBS с этого же адреса: чужой сайт в браузере стримера сюда не пустим
+    if(!tunnel && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin)))){ socket.destroy(); return; }
+    if(tunnel && wss.clients.size >= TUNNEL_CONNS){ socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, ws => {
       const stream = createWebSocketStream(ws); stream._tunnel = tunnel; stream._ip = ipOf(req);
       stream.on('error', ()=>{});
@@ -721,9 +729,12 @@ function scanFiles(){
   return out;
 }
 let fileIndex = scanFiles();
+// Незаконченные загрузки: «комната/id» → { bytes, at }. Они тоже занимают место, иначе квоту обходят параллельными .part
+const uploads = new Map(), UPLOADS_MAX = 4;
 function storage(room){
   let used = 0, n = 0, roomUsed = 0, roomN = 0;
   for(const f of fileIndex.values()){ used += f.size; n++; if(f.room===room){ roomUsed += f.size; roomN++; } }
+  for(const u of uploads.values()) used += u.bytes;
   const L = cfg.limits;
   return { used, files:n, roomUsed, roomFiles:roomN, limitBytes:L.totalMB*MB, maxFiles:L.files, maxFileBytes:L.fileMB*MB, limitsSet:!!cfg.limitsSet };
 }
@@ -735,15 +746,21 @@ function putPart(room, id, part, last, buf){
   const L = cfg.limits, st = storage(room);
   const tmp = filePath(room, id)+'.part';
   fs.mkdirSync(path.join(FILES, room), { recursive:true });
-  if(part===0) fs.rmSync(tmp, { force:true });
-  else if(!fs.existsSync(tmp)) throw new HttpErr(409, 'начало файла потерялось, загрузи заново');
+  const key = room+'/'+id;
+  if(part===0){ fs.rmSync(tmp, { force:true }); uploads.delete(key);
+    if([...uploads.keys()].filter(k => k.startsWith(room+'/')).length >= UPLOADS_MAX) throw new HttpErr(429, 'слишком много загрузок сразу, подожди');
+  }
+  else if(!fs.existsSync(tmp) || !uploads.has(key)) throw new HttpErr(409, 'начало файла потерялось, загрузи заново');
   const have = part===0 ? 0 : fs.statSync(tmp).size;
+  uploads.delete(key);   // своя загрузка не считается дважды в проверке места
   const size = have + buf.length;
   const full = (why, code='full') => { fs.rmSync(tmp, { force:true }); return new HttpErr(413, why, { reason:code, storage:storage(room) }); };
+  const st2 = storage(room);
   if(size > L.fileMB*MB + 65536) throw full(`файл больше ${L.fileMB} МБ`, 'file');
   if(st.files >= L.files) throw full(`уже ${st.files} файлов из ${L.files}`, 'count');
-  if(st.used + size > L.totalMB*MB) throw full(`место кончилось: занято ${(st.used/MB).toFixed(0)} из ${L.totalMB} МБ`, 'space');
+  if(st2.used + size > L.totalMB*MB) throw full(`место кончилось: занято ${(st.used/MB).toFixed(0)} из ${L.totalMB} МБ`, 'space');
   fs.appendFileSync(tmp, buf);
+  if(!last) uploads.set(key, { bytes:size, at:Date.now() });
   if(last){
     fs.renameSync(tmp, filePath(room, id));
     fileIndex.set(room+'/'+id, { room, id, size, at:Date.now() });
@@ -751,6 +768,10 @@ function putPart(room, id, part, last, buf){
   }
   return { ok:true, size, storage:storage(room) };
 }
+// брошенные загрузки (оборвалась связь) удаляем через час, не дожидаясь перезапуска
+setInterval(() => {
+  for(const [k, u] of uploads) if(Date.now()-u.at > 3600e3){ uploads.delete(k); const [r, i] = k.split('/'); try{ fs.rmSync(filePath(r, i)+'.part', { force:true }); }catch{} }
+}, 10*60*1000);
 function delFile(room, id){
   if(!okRoom(room) || !okId(id)) return false;
   fs.rmSync(filePath(room, id), { force:true });
@@ -773,6 +794,10 @@ function setLimits(l){
 // ---------- HTTP ----------
 const okHost = h => h===`localhost:${PORT}` || h===`127.0.0.1:${PORT}`;
 const okOrigin = o => o===`http://localhost:${PORT}` || o===`http://127.0.0.1:${PORT}`;
+// Страница управления живёт на http://127.0.0.1:<порт>, виджет OBS — на http://localhost:<порт>. Это разные origin:
+// код оверлея (он приходит с сайта) не может читать пароль модераторов и менять настройки.
+const ADMIN = () => `http://127.0.0.1:${PORT}`;
+const isAdmin = req => req.headers.host===`127.0.0.1:${PORT}`;
 function send(res, code, body, type='text/plain; charset=utf-8', extra={}){
   res.writeHead(code, { 'content-type':type, 'cache-control':'no-store', 'x-content-type-options':'nosniff', ...extra }); res.end(body);
 }
@@ -796,6 +821,7 @@ async function filesApi(req, res, url, tunnel){
   const room = url.searchParams.get('room') || ROOM.room;
   // Виджет на этом же компьютере читает файлы текущей комнаты без пароля, всё остальное только с паролем модераторов
   if(!(!tunnel && req.method==='GET' && id && room===ROOM.room)){
+    if(!tunnel && req.headers.origin && !okOrigin(req.headers.origin)) return j(403, { ok:false, error:'чужой сайт' });
     const ip = tunnel ? ipOf(req) : 'local', wait = locked(ip);
     if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
     if(!passOk(ip, bearer(req))) return j(401, { ok:false, error:'неверный пароль' });
@@ -835,9 +861,16 @@ const local = http.createServer(async (req, res) => {
     if(p==='/files' || p.startsWith('/files/')) return await filesApi(req, res, url, false);
     if(req.method==='POST' && p==='/gsi'){
       const g = JSON.parse(await readBody(req, 512*1024));
-      if(g?.auth?.token !== cfg.gsiToken) return send(res, 403, 'bad token');
+      const tok = Buffer.from(String(g?.auth?.token||'')), want = Buffer.from(cfg.gsiToken);
+      if(tok.length!==want.length || !nodeCrypto.timingSafeEqual(tok, want)) return send(res, 403, 'bad token');
       pushCs2(compactGsi(g));
       return send(res, 200, 'ok');
+    }
+    if(p.startsWith('/api/') && !isAdmin(req)){
+      // со стороны виджета (localhost) — только то, что нужно доку в OBS: краткий статус и кнопки стримера
+      if(req.method==='GET' && p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods, tunnel:status.tunnel ? true : null,
+        obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
+      if(!(req.method==='POST' && p==='/api/control' && req.headers.origin===`http://localhost:${PORT}`)) return send(res, 403, 'open the management page at '+ADMIN()+'/');
     }
     if(p.startsWith('/api/')){
       if(req.method==='POST' && !okOrigin(req.headers.origin)) return send(res, 403, 'bad origin');   // защита от чужих сайтов
@@ -871,7 +904,10 @@ const local = http.createServer(async (req, res) => {
       if(p==='/api/gsi/cfg') return send(res, 200, gsiCfgText(), 'application/octet-stream', { 'content-disposition':'attachment; filename="gamestate_integration_streamoverlay.cfg"' });
       return send(res, 404, 'not found');
     }
-    if(p==='/' || p==='/index.html') return send(res, 200, UI_HTML, 'text/html; charset=utf-8');
+    if(p==='/' || p==='/index.html'){
+      if(!isAdmin(req)) return send(res, 302, '', 'text/plain', { location:ADMIN()+'/' });   // старые закладки на localhost
+      return send(res, 200, UI_HTML, 'text/html; charset=utf-8', { 'x-frame-options':'DENY', 'content-security-policy':"frame-ancestors 'none'" });
+    }
     if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8');
     if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
@@ -897,8 +933,10 @@ tunnelSrv.on('upgrade', wsServer(true));
 
 function openBrowser(u){
   if(NO_OPEN || APP) return;
-  if(process.platform==='win32') exec(`cmd /c start "" "${u}"`);
-  else exec(`${process.platform==='darwin'?'open':'xdg-open'} "${u}"`);
+  if(!/^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(u)) return;
+  const cb = () => {};
+  if(process.platform==='win32') execFile('cmd', ['/c', 'start', '', u], cb);
+  else execFile(process.platform==='darwin' ? 'open' : 'xdg-open', [u], cb);
 }
 
 let shuttingDown = false;
@@ -914,7 +952,9 @@ process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 // ---------- связь с программой с окном (host/app) ----------
 // stdout: строки «READY <порт>», «RESTART», «FAIL <причина>». stdin: «VISIBLE 0/1», «QUIT».
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
-function appSay(line){ if(APP) try{ process.stdout.write(line+'\n'); }catch{} }
+// Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
+const APP_TOKEN = process.env.OVERLAY_APP_TOKEN || ''; delete process.env.OVERLAY_APP_TOKEN;
+function appSay(line){ if(APP) try{ process.stdout.write((APP_TOKEN ? APP_TOKEN+' ' : '')+line+'\n'); }catch{} }
 if(APP){
   process.stdout.on?.('error', ()=>{});
   let buf = '';
@@ -934,18 +974,18 @@ if(APP){
 
 local.listen(PORT, '127.0.0.1', async () => {
   tunnelSrv.listen(TPORT, '127.0.0.1');
-  console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini Host ${VERSION}                           ║\n  ║  Управление:  http://localhost:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
+  console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini Host ${VERSION}                           ║\n  ║  Управление:  http://127.0.0.1:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
   log('Папка настроек:', BASE);
   if(cfg.link){ try{ await setRoom(cfg.link); }catch(e){ log('⚠', e.message); } }
   // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
-  if(cfg.gsiFile && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
+  if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
   startTunnel();
   appSay('READY '+PORT);
   if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
-  else openBrowser(`http://localhost:${PORT}/`);
+  else openBrowser(ADMIN()+'/');
 });
 let portTries=0;
 local.on('error', e => {
   if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
-  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); openBrowser(`http://localhost:${PORT}/`); setTimeout(()=>process.exit(1), 4000);
+  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); openBrowser(ADMIN()+'/'); setTimeout(()=>process.exit(1), 4000);
 });

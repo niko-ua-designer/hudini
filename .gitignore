@@ -1,0 +1,7 @@
+# Secrets and local data never go into the repository
+*.key
+*.pem
+.env
+.env.*
+hudini-signing.*
+data/

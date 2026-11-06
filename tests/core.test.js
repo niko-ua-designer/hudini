@@ -70,8 +70,16 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq((await fetch(`${host.base}/files`)).status, 401, 'listing on this PC needs the password');
     const rebound = await new Promise(r => require('http').get({ host: '127.0.0.1', port: host.port, path: '/files/' + ids[0], headers: { host: 'evil.example:' + host.port } }, res => { res.resume(); r(res.statusCode); }).on('error', () => r(0)));
     eq(rebound, 421, 'wrong Host header (DNS rebinding) → 421');
-    const r = await fetch(`${host.base}/api/link`, { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: '{}' });
+    const r = await fetch(`${host.admin}/api/link`, { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: '{}' });
     eq(r.status, 403, 'control API from another site → 403');
+    eq((await fetch(`${host.base}/api/modpass`)).status, 403, 'widget origin (localhost) cannot read the moderators password');
+    const dockSt = await (await fetch(`${host.base}/api/status`)).json();
+    check(dockSt.ctl && !('logs' in dockSt) && !('obsLink' in dockSt) && !('fixedUrl' in dockSt), 'widget origin gets only the short dock status');
+    eq((await fetch(`${host.base}/`, { redirect: 'manual' })).headers.get('location'), `${host.admin}/`, 'management page moves to 127.0.0.1');
+    eq((await fetch(`${host.base}/files`, { headers: { origin: 'https://evil.example' } })).status, 403, 'another site cannot hit the files API on this PC');
+    const wsFrom = origin => new Promise(res => { const w = new (require('ws'))(`ws://localhost:${host.port}/mqtt`, 'mqtt', { origin }); w.on('open', () => { w.close(); res('open'); }); w.on('error', () => res('refused')); });
+    eq(await wsFrom('https://evil.example'), 'refused', 'local MQTT refuses a WebSocket from another site');
+    eq(await wsFrom(`http://localhost:${host.port}`), 'open', 'local MQTT accepts the widget origin');
     const codes = [];
     for(let i = 0; i < 6; i++) codes.push((await fetch(tun + '/files', { headers: { authorization: 'Bearer wrong' + i, 'cf-connecting-ip': '203.0.113.9' } })).status);
     eq(codes, [401, 401, 401, 401, 401, 429], 'five wrong passwords from one address → pause');

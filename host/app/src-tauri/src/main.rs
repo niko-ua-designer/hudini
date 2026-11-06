@@ -136,8 +136,23 @@ struct Paths {
     data: PathBuf,
 }
 
+// Случайный префикс служебных строк сервера (READY/RESTART/FAIL): строки журнала не могут ими притвориться
+fn new_token() -> String {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    let mut out = String::new();
+    for i in 0..2u64 {
+        let mut h = RandomState::new().build_hasher();
+        h.write_u64(i ^ std::process::id() as u64);
+        h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+        out.push_str(&format!("{:016x}", h.finish()));
+    }
+    out
+}
+
 #[derive(Default)]
 struct Server {
+    token: Mutex<String>,
     child: Mutex<Option<Child>>,
     stdin: Mutex<Option<ChildStdin>>,
     port: AtomicU16,
@@ -233,6 +248,11 @@ fn spawn_server(app: &AppHandle) -> Result<(), String> {
         .env("OVERLAY_HOST_DIR", &paths.data)
         .env("OVERLAY_APP_EXE", &paths.exe)
         .env("OVERLAY_APP_PID", std::process::id().to_string())
+        .env("OVERLAY_APP_TOKEN", {
+            let t = new_token();
+            *app.state::<Server>().token.lock().unwrap() = t.clone();
+            t
+        })
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -266,14 +286,17 @@ fn spawn_server(app: &AppHandle) -> Result<(), String> {
 
 fn read_server(app: AppHandle, out: ChildStdout) {
     let mut restart = false;
+    let mut ready = false;
     let mut fail = String::new();
+    let token = format!("{} ", app.state::<Server>().token.lock().unwrap());
     // stdout читаем до конца: если перестать, сервер заблокируется на записи в журнал
     for chunk in BufReader::new(out).split(b'\n') {
         let Ok(bytes) = chunk else { break };
         let line = String::from_utf8_lossy(&bytes);
-        let line = line.trim();
+        let Some(line) = line.trim().strip_prefix(token.as_str()) else { continue };
         if let Some(p) = line.strip_prefix("READY ") {
-            if let Ok(port) = p.trim().parse::<u16>() {
+            if let (false, Ok(port)) = (ready, p.trim().parse::<u16>()) {
+                ready = true; // порт сервера задаётся один раз за запуск
                 on_ready(&app, port);
             }
         } else if line == "RESTART" {
@@ -324,7 +347,7 @@ fn on_ready(app: &AppHandle, port: u16) {
     let server = app.state::<Server>();
     server.port.store(port, Ordering::SeqCst);
     server.crashes.store(0, Ordering::SeqCst);
-    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://localhost:{port}/"))) {
+    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/"))) {
         let _ = w.navigate(url);
     }
 }

@@ -87,7 +87,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   });
   await new Promise(r => srv.listen(port, r));
   const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_TUNNEL: '1', OVERLAY_NO_OPEN: '1', OVERLAY_SITE: 'off', OVERLAY_PUBLIC_BROKER: 'ws://localhost:1', OVERLAY_PORT: '17830' };
-  const status = async () => { try{ return await (await fetch('http://localhost:17830/api/status')).json(); }catch{ return null; } };
+  const status = async () => { try{ return await (await fetch('http://127.0.0.1:17830/api/status')).json(); }catch{ return null; } };
   const run = () => { const p = spawn(path.join(app, ASSET), [], { cwd: app, env, detached: true }); p.unref(); return p; };
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
