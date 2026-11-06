@@ -1,0 +1,52 @@
+# Renames the old Overlay Host releases (before Hudini 1.0) to betas and marks them as pre-releases,
+# so they don't look like newer versions next to Hudini 1.x. Tags and files are never touched.
+#
+# Naming: host-vX.Y.Z -> "Overlay Host beta 0.(Y+1).Z (host-vX.Y.Z)", i.e.
+#   host-v1.0.0 -> beta 0.1.0, host-v1.0.1 -> beta 0.1.1, host-v1.1.0 -> beta 0.2.0, host-v1.2.0 -> beta 0.3.0,
+#   host-v1.3.0 -> beta 0.4.0, host-v1.3.1 -> beta 0.4.1, host-v1.4.0 -> beta 0.5.0.
+# A tag v0.Y.Z becomes "Overlay Host beta 0.Y.Z"; any other old tag becomes "Overlay Host beta (<tag>)".
+# Hudini releases (v1.0.0-rc.N and finals v1.x.y and later) are left alone.
+#
+# Run it from the Actions tab: first with apply unchecked to see the list, then with apply checked.
+name: Rename old Overlay Host releases
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the changes (unchecked = only print what would change)
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APPLY: ${{ inputs.apply }}
+    steps:
+      - name: Rename
+        run: |
+          set -euo pipefail
+          gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,name,isPrerelease \
+            -q '.[] | [.tagName, (.isPrerelease|tostring), .name] | @tsv' | sort -V > releases.tsv
+          changed=0
+          while IFS=$'\t' read -r tag pre name; do
+            if [[ "$tag" =~ ^v1\.0\.0-rc\. ]] || [[ "$tag" =~ ^v([1-9][0-9]*)\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+              echo "keep  $tag  ($name)"; continue
+            fi
+            if [[ "$tag" =~ ^host-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              new="Overlay Host beta 0.$((BASH_REMATCH[2] + 1)).${BASH_REMATCH[3]} ($tag)"
+            elif [[ "$tag" =~ ^v(0\.[0-9]+\.[0-9]+.*)$ ]]; then
+              new="Overlay Host beta ${BASH_REMATCH[1]}"
+            else
+              new="Overlay Host beta ($tag)"
+            fi
+            if [ "$name" = "$new" ] && [ "$pre" = true ]; then echo "ok    $tag  ($name)"; continue; fi
+            echo "edit  $tag  \"$name\" -> \"$new\" (pre-release)"
+            changed=$((changed + 1))
+            if [ "$APPLY" = true ]; then
+              gh release edit "$tag" -R "$GITHUB_REPOSITORY" --title "$new" --prerelease --latest=false
+            fi
+          done < releases.tsv
+          if [ "$APPLY" = true ]; then echo "Edited $changed release(s)."; else echo "Dry run: $changed release(s) would change. Run again with apply checked."; fi

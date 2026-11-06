@@ -1,6 +1,6 @@
 # 🎩 Hudini: a stream overlay run by your moderator
 
-**Site:** https://niko-ua-designer.github.io/hudini/ · **Panel:** [moderator.html](https://niko-ua-designer.github.io/hudini/moderator.html) · **Help (EN/RU/UK/DE):** [help.html](https://niko-ua-designer.github.io/hudini/help.html) · **Download Hudini Host:** [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.3)
+**Site:** https://niko-ua-designer.github.io/hudini/ · **Panel:** [moderator.html](https://niko-ua-designer.github.io/hudini/moderator.html) · **Help (EN/RU/UK/DE):** [help.html](https://niko-ua-designer.github.io/hudini/help.html) · **Download Hudini Host:** [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4)
 
 [English](#english) · [Русский](#русский)
 
@@ -22,7 +22,7 @@ The public MQTT server is used only for an encrypted announcement of the Host's 
 
 ### Quick start
 
-1. **Streamer:** download Hudini Host from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.3), unzip, run. On first start it asks how much space to give moderators' files (100 MB per file, 2 GB, 300 files by default).
+1. **Streamer:** download Hudini Host from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4), unzip, run. On first start it asks how much space to give moderators' files (100 MB per file, 2 GB, 300 files by default).
 2. **Moderator:** open the [panel](https://niko-ua-designer.github.io/hudini/moderator.html), press **📋 Copy** and send the link to the streamer.
 3. **Streamer:** paste the link into Hudini Host, copy the OBS link it shows, add it in OBS as a Browser source with **1920×1080**, press `Ctrl+F`.
 
@@ -79,7 +79,7 @@ Hudini позволяет модератору показывать на экр�
 
 ### Быстрый старт
 
-1. **Стример:** скачай Hudini Host со страницы [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.3), распакуй и запусти. При первом запуске программа спросит, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ, 300 файлов).
+1. **Стример:** скачай Hudini Host со страницы [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4), распакуй и запусти. При первом запуске программа спросит, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ, 300 файлов).
 2. **Модератор:** открой [пульт](https://niko-ua-designer.github.io/hudini/moderator.html), нажми **📋 Копировать** и отправь ссылку стримеру.
 3. **Стример:** вставь ссылку в Hudini Host, скопируй ссылку для OBS, добавь в OBS источник «Браузер» **1920×1080** и нажми `Ctrl+F`.
 

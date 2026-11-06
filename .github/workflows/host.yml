@@ -1,23 +1,33 @@
-# Builds Hudini Host and publishes it to Releases when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed.
-# The tag must match `const VERSION` in host/server.js.
+# Builds Hudini Host (Tauri desktop app + Bun server sidecar) and publishes it to Releases
+# when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed. The tag must match `const VERSION` in host/server.js.
+# Manual run (workflow_dispatch): builds everything; publishes only from a tag ref with dry_run unchecked.
 name: Hudini Host release
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build only, do not publish a release
+        type: boolean
+        default: true
 permissions: {}
+defaults:
+  run:
+    shell: bash
 jobs:
-  build:
+  version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # only to publish the release
+      contents: read
+    outputs:
+      ver: ${{ steps.v.outputs.ver }}
+      pre: ${{ steps.v.outputs.pre }}
+      pretty: ${{ steps.v.outputs.pretty }}
+      title: ${{ steps.v.outputs.title }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { persist-credentials: false }
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with: { bun-version: 1.4.4 }
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with: { node-version: 24 }
       - name: Version
         id: v
         run: |
@@ -26,11 +36,110 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$ver" ]; then echo "tag $GITHUB_REF_NAME does not match VERSION $ver"; exit 1; fi
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
           case "$ver" in *-*) echo "pre=true" >> "$GITHUB_OUTPUT";; *) echo "pre=false" >> "$GITHUB_OUTPUT";; esac
+          # Short version for file names and the release title: 1.0.0-rc.4 -> 1.0rc4 / "1.0 RC4", 1.0.0 -> 1.0, 1.0.2 -> 1.0.2
+          IFS=. read -r major minor patch <<< "${ver%%-*}"
+          base="$major.$minor"; [ "$patch" = 0 ] || base="$base.$patch"
+          case "$ver" in
+            *-rc.*) rc=${ver##*-rc.}; pretty="${base}rc$rc"; title="$base RC$rc";;
+            *) pretty="$base"; title="$base";;
+          esac
+          echo "pretty=$pretty" >> "$GITHUB_OUTPUT"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "version $ver -> files $pretty, title \"Hudini $title\""
+
+  # Desktop app: Tauri window + tray, the Bun server runs next to it as a sidecar
+  build:
+    needs: version
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-latest, os: windows, triple: x86_64-pc-windows-msvc, bun: bun-windows-x64, ext: .exe }
+          - { runner: ubuntu-22.04, os: linux, triple: x86_64-unknown-linux-gnu, bun: bun-linux-x64, ext: '' }
+          - { runner: macos-latest, os: mac-arm64, triple: aarch64-apple-darwin, bun: bun-darwin-arm64, ext: '' }
+          - { runner: macos-latest, os: mac-intel, triple: x86_64-apple-darwin, bun: bun-darwin-x64, ext: '' }
+    runs-on: ${{ matrix.runner }}
+    env:
+      TRIPLE: ${{ matrix.triple }}
+      EXT: ${{ matrix.ext }}
+      ZIP: HudiniHost-${{ matrix.os }}-${{ needs.version.outputs.pretty }}.zip
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 24 }
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: ${{ matrix.triple }}
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libxdo-dev pkg-config patchelf
+      - name: Server sidecar
+        run: |
+          cd host && npm ci --ignore-scripts --no-audit --no-fund
+          mkdir -p app/src-tauri/binaries
+          bun build --compile --minify --target=${{ matrix.bun }} server.js --outfile "app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
+      - name: Tauri build
+        working-directory: host/app
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            npx -y @tauri-apps/cli@2.12.4 build --target "$TRIPLE" --bundles app --config "{\"version\":\"${{ needs.version.outputs.ver }}\"}"
+          else
+            npx -y @tauri-apps/cli@2.12.4 build --target "$TRIPLE" --no-bundle --config "{\"version\":\"${{ needs.version.outputs.ver }}\"}"
+          fi
+      - name: Zip
+        run: |
+          # Paths from the Tauri project (host/app/src-tauri, productName "Hudini Host", binary "hudini-host"); adjust here if they change
+          REL="host/app/src-tauri/target/$TRIPLE/release"
+          APP_EXE="$REL/hudini-host$EXT"                       # Windows / Linux app binary
+          MAC_APP="$REL/bundle/macos/Hudini Host.app"           # macOS app bundle (sidecar is inside it)
+          SIDECAR="host/app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
+          # Portable: a "Hudini Host" folder with the app, the server next to it, an empty data/ folder and a short readme
+          rm -rf pkg && mkdir -p "pkg/Hudini Host/data"
+          if [ "$RUNNER_OS" = macOS ]; then
+            cp -R "$MAC_APP" "pkg/Hudini Host/"
+          else
+            cp "$APP_EXE" "pkg/Hudini Host/Hudini Host$EXT"
+            cp "$SIDECAR" "pkg/Hudini Host/hudini-server$EXT"
+          fi
+          cp host/PORTABLE.txt "pkg/Hudini Host/README.txt"
+          mkdir -p out
+          if [ "$RUNNER_OS" = Windows ]; then
+            (cd pkg && 7z a -tzip -mx=9 "../out/$ZIP" "Hudini Host")
+          else
+            (cd pkg && zip -9 -r -y "../out/$ZIP" "Hudini Host")
+          fi
+          ls -l out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zip-${{ matrix.os }}
+          path: out/*.zip
+          if-no-files-found: error
+
+  # Single-file builds with the same names as before, so rc.3 and older installs can update themselves
+  legacy:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 24 }
       - name: Build
         run: sh host/build.sh
       - name: Zip
         run: |
-          # Portable: each zip holds a "Hudini Host" folder with the app, an empty data/ folder and a short readme
+          # Each zip holds a "Hudini Host" folder with the app, an empty data/ folder and a short readme
           cd host/dist
           for f in HudiniHost-*; do
             rm -rf pkg && mkdir -p "pkg/Hudini Host/data"
@@ -39,19 +148,46 @@ jobs:
             (cd pkg && zip -9 -r "../$f.zip" "Hudini Host")
           done
           rm -rf pkg
+          ls -l *.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zip-legacy
+          path: host/dist/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: [version, build, legacy]
+    if: github.ref_type == 'tag' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only to publish the release
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: zip-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
           sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          tag_name: v${{ steps.v.outputs.ver }}
-          name: Hudini ${{ steps.v.outputs.ver }}
-          prerelease: ${{ steps.v.outputs.pre }}
-          make_latest: ${{ steps.v.outputs.pre == 'false' }}
+          tag_name: v${{ needs.version.outputs.ver }}
+          name: Hudini ${{ needs.version.outputs.title }}
+          prerelease: ${{ needs.version.outputs.pre }}
+          make_latest: ${{ needs.version.outputs.pre == 'false' }}
           body: |
-            **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Windows: download `HudiniHost-windows.exe.zip`, unzip it into its own folder and run it.
-            **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Windows: скачай `HudiniHost-windows.exe.zip`, распакуй в отдельную папку и запусти.
+            **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Download the zip for your system: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) or `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Unzip it into its own folder and run "Hudini Host". It lives in the tray (next to the clock) and can start with your computer.
+            **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Скачай zip для своей системы: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) или `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Распакуй в отдельную папку и запусти «Hudini Host». Программа живёт в трее (у часов) и может запускаться вместе с компьютером.
+            **UK:** Hudini Host, програма для стрімера. Завантаж zip для своєї системи (Windows: `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`), розпакуй в окрему папку й запусти «Hudini Host». Програма живе в треї та може запускатися разом із комп'ютером.
+            **DE:** Hudini Host, die App für den Streamer. Lade die Zip-Datei für dein System herunter (Windows: `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`), entpacke sie in einen eigenen Ordner und starte „Hudini Host“. Die App sitzt im Infobereich (Tray) und kann mit dem Computer starten.
+
+            The `HudiniHost-windows.exe.zip`, `HudiniHost-linux.zip`, `HudiniHost-mac-arm64.zip`, `HudiniHost-mac-intel.zip` files are for automatic updates of older versions. / Эти файлы нужны для автообновления старых версий, скачивать их не надо.
 
             Panel / Пульт: https://niko-ua-designer.github.io/hudini/
             Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
           files: |
-            host/dist/*.zip
-            host/dist/SHA256SUMS.txt
+            dist/*.zip
+            dist/SHA256SUMS.txt
