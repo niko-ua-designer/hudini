@@ -9,8 +9,13 @@ const { step, check, eq, until } = T;
 const HOST = path.join(T.ROOT, 'host');
 const ASSET = { linux:'HudiniHost-linux', darwin: os.arch() === 'arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel', win32:'HudiniHost-windows.exe' }[process.platform];
 
+// Test signing key: builds get its public half instead of the real one, the fake GitHub signs with the private half
+const KEYS = crypto.generateKeyPairSync('ed25519');
+const PUB = KEYS.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
+const signFor = (ver, sums) => crypto.sign(null, Buffer.from(`hudini-update\n${ver}\n${sums}`), KEYS.privateKey).toString('base64');
 function build(version, out){
-  const src = fs.readFileSync(path.join(HOST, 'server.js'), 'utf8').replace(/^const VERSION = '[^']+';/m, `const VERSION = '${version}';`);
+  const src = fs.readFileSync(path.join(HOST, 'server.js'), 'utf8').replace(/^const VERSION = '[^']+';/m, `const VERSION = '${version}';`)
+    .replace(/^const UPDATE_KEY = '[^']*';/m, `const UPDATE_KEY = '${PUB}';`);
   const tmp = path.join(HOST, `.update-test-${version}.js`);
   fs.writeFileSync(tmp, src);
   try{ execFileSync('bun', ['build', '--compile', tmp, '--outfile', out], { cwd: HOST, stdio: 'pipe' }); }
@@ -62,9 +67,9 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   fs.writeFileSync(path.join(rel, APP_ZIP), appZip);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
   let sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
-  let list = [];
+  let list = [], sigVer = '1.0.0', sigMode = 'ok';   // sigMode: ok | bad (signed by another key) | none
   const port = 19300, url = f => `http://localhost:${port}/${f}`;
-  const assets = [{ name: APP_ZIP, browser_download_url: url(APP_ZIP) }, { name: ASSET + '.zip', browser_download_url: url(ASSET + '.zip') }, { name: 'SHA256SUMS.txt', browser_download_url: url('SHA256SUMS.txt') }];
+  const assets = [{ name: APP_ZIP, browser_download_url: url(APP_ZIP) }, { name: ASSET + '.zip', browser_download_url: url(ASSET + '.zip') }, { name: 'SHA256SUMS.txt', browser_download_url: url('SHA256SUMS.txt') }, { name: 'SHA256SUMS.txt.sig', browser_download_url: url('SHA256SUMS.txt.sig') }];
   // the app-mode install starts from the same rc build
   const inst = path.join(dir, 'Hudini Host'); fs.mkdirSync(path.join(inst, 'data'), { recursive: true });
   fs.copyFileSync(path.join(app, ASSET), path.join(inst, 'hudini-server')); fs.chmodSync(path.join(inst, 'hudini-server'), 0o755);
@@ -73,6 +78,11 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const srv = http.createServer((q, s) => {
     if(q.url === '/releases'){ s.setHeader('content-type', 'application/json'); return s.end(JSON.stringify(list)); }
     if(q.url === '/SHA256SUMS.txt') return s.end(sums);
+    if(q.url === '/SHA256SUMS.txt.sig'){
+      if(sigMode === 'none'){ s.statusCode = 404; return s.end(); }
+      if(sigMode === 'bad') return s.end(crypto.sign(null, Buffer.from(`hudini-update\n${sigVer}\n${sums}`), crypto.generateKeyPairSync('ed25519').privateKey).toString('base64'));
+      return s.end(signFor(sigVer, sums));
+    }
     const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)) return s.end(fs.readFileSync(f)); s.statusCode = 404; s.end();
   });
   await new Promise(r => srv.listen(port, r));
@@ -101,6 +111,26 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const s = await until(async () => { const x = await status(); return x && x.upd.state === 'latest' && x; }, 15000);
     eq(s && s.version, '1.0.0', 'still 1.0.0, rc not offered');
     await stopAll();
+  });
+
+  await step('release with a wrong or missing signature is refused', async () => {
+    build('0.9.0', path.join(app, ASSET));   // an older build again
+    list = [{ tag_name: 'v1.0.0', assets }];
+    for(const [mode, re] of [['bad', /подпись/], ['none', /подпис/]]){
+      sigMode = mode;
+      run();
+      const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+      check(s && re.test(s.upd.err), `${mode} signature refused: ` + (s && s.upd.err));
+      eq(s && s.version, '0.9.0', 'kept running the old version');
+      await stopAll();
+    }
+    sigMode = 'ok';
+    sigVer = '0.9.1';   // a valid signature, but for another version (old release under a new tag)
+    run();
+    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+    check(s && /подпись/.test(s.upd.err), 'signature for another version refused: ' + (s && s.upd.err));
+    await stopAll();
+    sigVer = '1.0.0';
   });
 
   await step('tampered download is refused', async () => {
@@ -147,6 +177,24 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     check(!fs.existsSync(path.join(inst, 'Hudini Host.old')) && !fs.existsSync(path.join(inst, 'hudini-server.old')), '.old files removed on start');
     p.stdin.end();
     check(await until(() => p.exitCode !== null, 5000), 'exits when stdin closes (no orphan process)');
+  });
+
+  if(process.platform !== 'win32') await step('app mode: a zip whose symlink points outside the app folder is refused', async () => {
+    const evil = `HudiniHost-${APP_OS}-1.0.1.zip`;
+    fs.writeFileSync(path.join(rel, evil), zipMany([
+      { name: 'Hudini Host/Hudini Host', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'Hudini Host/esc', data: Buffer.from('../..'), mode: 0o120777 },   // symlink to two levels up
+      { name: 'Hudini Host/esc/pwned.txt', data: Buffer.from('x') },
+    ]));
+    list = [{ tag_name: 'v1.0.1', assets: [{ name: evil, browser_download_url: url(evil) }, ...assets.slice(2)] }];
+    sums = sha(fs.readFileSync(path.join(rel, evil))) + '  ' + evil + '\n'; sigVer = '1.0.1';
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini Host'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'ignore', 'ignore'] });
+    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+    check(s && /архив повреждён/.test(s.upd.err), 'escaping symlink refused: ' + (s && s.upd.err));
+    check(!fs.existsSync(path.join(dir, 'pwned.txt')) && !fs.existsSync(path.join(inst, '..', 'pwned.txt')), 'nothing written outside');
+    eq(s && s.version, '1.0.0', 'kept running');
+    p.stdin.end(); await until(() => p.exitCode !== null, 5000);
   });
 
   srv.close(); fs.rmSync(dir, { recursive: true, force: true });

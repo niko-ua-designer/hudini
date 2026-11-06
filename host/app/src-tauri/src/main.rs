@@ -207,8 +207,16 @@ fn is_loading_url(u: &Url) -> bool {
     u.scheme() == "tauri" || u.host_str() == Some("tauri.localhost")
 }
 
-fn is_server_url(u: &Url) -> bool {
-    u.scheme() == "http" && matches!(u.host_str(), Some("localhost") | Some("127.0.0.1"))
+// Только наш сервер: http://localhost:<порт сервера>/ (другие программы на localhost в окно не пускаем)
+fn is_server_url(u: &Url, port: u16) -> bool {
+    port != 0 && u.scheme() == "http" && matches!(u.host_str(), Some("localhost") | Some("127.0.0.1")) && u.port() == Some(port)
+}
+
+// Наружу открываем только https-ссылки (никаких file:, javascript:, smb: и прочих схем)
+fn open_external(app: &AppHandle, url: &Url) {
+    if url.scheme() == "https" {
+        let _ = app.opener().open_url(url.as_str(), None::<&str>);
+    }
 }
 
 // ---------- сервер (sidecar) ----------
@@ -485,24 +493,26 @@ fn main() {
                 .background_color(Color(0x0f, 0x11, 0x15, 0xff))
                 // в окне только страница загрузки и страница управления; остальные ссылки — в обычном браузере
                 .on_navigation(move |url| {
-                    if is_loading_url(url) || is_server_url(url) || matches!(url.scheme(), "about" | "data" | "blob") {
+                    let port = nav.state::<Server>().port.load(Ordering::SeqCst);
+                    if is_loading_url(url) || is_server_url(url, port) || url.as_str() == "about:blank" {
                         return true;
                     }
-                    if matches!(url.scheme(), "http" | "https") {
-                        let _ = nav.opener().open_url(url.as_str(), None::<&str>);
-                    }
+                    open_external(&nav, url);
                     false
                 })
                 .on_new_window(move |url, _features| {
-                    if matches!(url.scheme(), "http" | "https") {
-                        let _ = popup.opener().open_url(url.as_str(), None::<&str>);
-                    }
+                    open_external(&popup, &url);
                     NewWindowResponse::Deny
                 })
                 // «Скачать файл вручную» (файл для CS2) → в папку «Загрузки»
                 .on_download(move |_webview, event| {
                     match event {
                         DownloadEvent::Requested { url, destination } => {
+                            // скачивать можно только с нашего сервера (файл для CS2)
+                            let port = dl.state::<Server>().port.load(Ordering::SeqCst);
+                            if !is_server_url(url, port) {
+                                return false;
+                            }
                             if let Ok(dir) = dl.path().download_dir() {
                                 let name = destination
                                     .file_name()

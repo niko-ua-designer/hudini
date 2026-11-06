@@ -506,6 +506,17 @@ const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v|
 const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
 // Версия в имени файла: 1.0.0-rc.4 → 1.0rc4, 1.0.0 → 1.0, 1.0.2 → 1.0.2
 const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? `${m[1]}.${m[2]}${m[3]!=='0' ? '.'+m[3] : ''}${m[4]!=null ? 'rc'+m[4] : ''}` : v; };
+// Подпись обновлений: релиз несёт SHA256SUMS.txt.sig — подпись Ed25519 строки «hudini-update\n<версия>\n» + SHA256SUMS.txt.
+// Закрытый ключ есть только в секретах GitHub (HUDINI_SIGNING_KEY), здесь — публичный. Без верной подписи обновление не ставится,
+// поэтому подменённый релиз (даже с верными суммами) или старая версия под новым тегом не пройдут.
+const UPDATE_KEY = '';
+function updateSigOk(ver, sums, sigB64){
+  if(!UPDATE_KEY) return false;
+  try{
+    const key = nodeCrypto.createPublicKey({ key:Buffer.from(UPDATE_KEY, 'base64'), format:'der', type:'spki' });
+    return nodeCrypto.verify(null, Buffer.from(`hudini-update\n${ver}\n${sums}`), key, Buffer.from(String(sigB64).trim(), 'base64'));
+  }catch{ return false; }
+}
 // Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
 function pickRelease(list){
   const beta = VERSION.includes('-');
@@ -545,24 +556,32 @@ function unzipSingle(buf, want){
   return e.data();
 }
 // Распаковать архив программы с окном в dest. Общую папку («Hudini Host/») убираем, data/ не трогаем.
+// Внутри dest? Сравниваем настоящие пути (realpath), чтобы ссылка на папку не вывела запись наружу
+const inside = (root, p) => p===root || p.startsWith(root+path.sep);
 function extractApp(zip, dest){
   const list = unzipAll(zip).filter(e => e.name && !e.name.startsWith('__MACOSX/'));
+  if(list.length > 5000) throw new Error('архив повреждён: слишком много файлов');
   const top = list[0]?.name.split('/')[0];
   const strip = list.every(e => e.name.includes('/') && e.name.split('/')[0]===top) ? top+'/' : '';
   fs.rmSync(dest, { recursive:true, force:true }); fs.mkdirSync(dest, { recursive:true });
-  let n = 0;
+  const root = fs.realpathSync(dest);
+  let n = 0, total = 0;
   for(const e of list){
     const rel = e.name.slice(strip.length);
     const parts = rel.split('/').filter(Boolean);
     if(!parts.length || parts[0]==='data') continue;   // настройки и файлы стримера остаются как есть
-    if(rel.startsWith('/') || /^[a-z]:/i.test(rel) || parts.some(x => x==='..' || x==='.')) throw new Error('архив повреждён: '+e.name);
-    const to = path.join(dest, ...parts);
-    if(e.dir){ fs.mkdirSync(to, { recursive:true }); continue; }
+    // без абсолютных путей, «..», имён дисков, NUL и двоеточий (потоки NTFS)
+    if(rel.startsWith('/') || /^[a-z]:/i.test(rel) || parts.some(x => x==='..' || x==='.' || /[\0:]/.test(x))) throw new Error('архив повреждён: '+e.name);
+    const to = path.join(root, ...parts);
+    if(e.dir){ fs.mkdirSync(to, { recursive:true }); if(!inside(root, fs.realpathSync(to))) throw new Error('архив повреждён: '+e.name); continue; }
     fs.mkdirSync(path.dirname(to), { recursive:true });
+    const dir = fs.realpathSync(path.dirname(to));
+    if(!inside(root, dir) || fs.existsSync(to) || isLink(to)) throw new Error('архив повреждён: '+e.name);
     const data = e.data();
-    if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app)
+    total += data.length; if(total > 1024*1048576) throw new Error('архив повреждён: слишком большой');
+    if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app): только внутрь архива
       const target = data.toString('utf8');
-      if(path.isAbsolute(target)) throw new Error('архив повреждён: '+e.name);
+      if(path.isAbsolute(target) || /[\0\\]/.test(target) || !inside(root, path.resolve(dir, target))) throw new Error('архив повреждён: '+e.name);
       fs.symlinkSync(target, to); n++; continue;
     }
     fs.writeFileSync(to, data); n++;
@@ -574,6 +593,7 @@ function extractApp(zip, dest){
   if(!n) throw new Error('архив пустой');
   return dest;
 }
+const isLink = p => { try{ return fs.lstatSync(p).isSymbolicLink(); }catch{ return false; } };
 // Переместить файл или папку; если data на другом диске (macOS: папка в Application Support), копируем
 function moveSync(from, to){
   try{ fs.renameSync(from, to); }
@@ -591,10 +611,13 @@ async function doCheck(applyIfIdle){
     upd.latest=ver;
     if(!rel || cmpVer(ver, VERSION)<=0){ upd.state='latest'; return; }
     if(upd.staged?.ver!==ver){
-      const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt');
+      const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt'), sigA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt.sig');
       if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
+      if(!sigA) throw new Error('у релиза нет подписи, обновление отменено');
       upd.state='downloading'; log('⬇ Скачиваю обновление', ver, '…');
       const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
+      const sig=await (await fetch(sigA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
+      if(!updateSigOk(ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
       const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
       const want=(line||'').trim().split(/\s+/)[0];
       const zip=Buffer.from(await (await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) })).arrayBuffer());
