@@ -31,7 +31,7 @@ async function until(fn, ms = 8000, every = 150){
 
 // ---------- servers ----------
 async function publicBroker(){
-  const aedes = require('aedes')(), { createServer } = require('aedes-server-factory');
+  const aedes = await require('aedes').Aedes.createBroker(), { createServer } = require('aedes-server-factory');
   const srv = createServer(aedes, { ws: true });
   await new Promise(r => srv.listen(PORTS.pub, r));
   return { aedes, url: `ws://localhost:${PORTS.pub}`, close: () => new Promise(r => { srv.close(); aedes.close(r); }) };

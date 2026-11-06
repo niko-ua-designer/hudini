@@ -13,7 +13,7 @@ import { spawn, exec, execFile } from 'node:child_process';
 import nodeCrypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { WebSocketServer, createWebSocketStream } from 'ws';
-import createAedes from 'aedes';
+import { Aedes } from 'aedes';
 import mqtt from 'mqtt';
 import WIDGET_HTML from '../widget.html' with { type: 'text' };
 import CORE_JS from '../core.js' with { type: 'text' };
@@ -113,7 +113,7 @@ const T = s => `${PREFIX}/${ROOM.room}/${s}`;
 const inRoom = topic => ROOM && topic.startsWith(`${PREFIX}/${ROOM.room}/`);
 
 // ---------- брокер ----------
-const aedes = createAedes();
+const aedes = await Aedes.createBroker();   // aedes 1.x: брокер запускается асинхронно
 const status = { mods:0, obs:0, obsSeen:0, tunnel:null, tunnelErr:'', bridge:false, cs2Seen:0, cs2:null, gsiPath:'' };
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 const ctl = { hidden:false, paused:false, stop:0 };
