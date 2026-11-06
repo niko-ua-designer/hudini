@@ -1076,6 +1076,8 @@ function renderLockBtns(){
 }
 $('vaultWarnSet').onclick=()=>$('passBtn').click();
 $('vaultWarnLater').onclick=()=>{ lsSet(VAULT_SNOOZE, Date.now()+3*24*3600e3); renderLockBtns(); };
+// «Больше не показывать»: карточка не появится, но кнопка «⚠ Нет пароля» остаётся оранжевой
+$('vaultWarnNever').onclick=()=>{ lsSet(VAULT_SNOOZE, Number.MAX_SAFE_INTEGER); renderLockBtns(); };
 $('passBtn').onclick=async()=>{
   if(vaultPass){
     const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
