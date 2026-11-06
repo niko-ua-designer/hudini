@@ -64,7 +64,7 @@ jobs:
     env:
       TRIPLE: ${{ matrix.triple }}
       EXT: ${{ matrix.ext }}
-      ZIP: HudiniHost-${{ matrix.os }}-${{ needs.version.outputs.pretty }}.zip
+      ZIP_NAME: HudiniHost-${{ matrix.os }}-${{ needs.version.outputs.pretty }}.zip   # not ZIP: Info-ZIP reads $ZIP as its default options
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with: { persist-credentials: false }
@@ -111,9 +111,9 @@ jobs:
           cp host/PORTABLE.txt "pkg/Hudini Host/README.txt"
           mkdir -p out
           if [ "$RUNNER_OS" = Windows ]; then
-            (cd pkg && 7z a -tzip -mx=9 "../out/$ZIP" "Hudini Host")
+            (cd pkg && 7z a -tzip -mx=9 "../out/$ZIP_NAME" "Hudini Host")
           else
-            (cd pkg && zip -9 -r -y "../out/$ZIP" "Hudini Host")
+            (cd pkg && zip -9 -r -y "../out/$ZIP_NAME" "Hudini Host")
           fi
           ls -l out
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
