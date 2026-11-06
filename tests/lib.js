@@ -79,7 +79,7 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
   await ctx.route('https://unpkg.com/**', r => r.fulfill({ body: MQTT_JS, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
-  await ctx.addInitScript(([l, tour]) => { try{ localStorage.setItem('hudini.lang', l); if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() })); }catch{} }, [lang, tour]);
+  await ctx.addInitScript(([l, tour]) => { try{ localStorage.setItem('hudini.lang', l); if(!localStorage.getItem('overlay.vaultWarn')) localStorage.setItem('overlay.vaultWarn', String(Date.now()+864e5)); if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() })); }catch{} }, [lang, tour]);
   await ctx.route(/jtvnw\.net/, r => r.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/img.png')), contentType: 'image/png' }));
   // Twitch chat without the network: window.__irc(line) feeds a raw IRC line to the panel
   if(irc) await ctx.addInitScript(() => { const Real = window.WebSocket; window.WebSocket = function(url, p){ if(!String(url).includes('irc-ws')) return new Real(url, p);

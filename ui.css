@@ -113,6 +113,12 @@ button{transition:border-color .15s,background-color .15s,transform .08s}
 button:active:not(:disabled){transform:scale(.97)}
 #tabs button{transition:color .15s,background-color .15s}
 #upBar{transition:width .2s}
+/* предупреждение: ключи комнат без пароля */
+#vaultWarn{position:fixed;left:16px;bottom:16px;z-index:2147483000;isolation:isolate;opacity:1;max-width:380px;background:#2a1d0c;border:1px solid #f5a623;border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px #000a;color:#ffe2b0;font-size:13px;line-height:1.45}
+#vaultWarn b{display:block;color:#ffc35c;font-size:14px;margin-bottom:4px}
+#vaultWarn p{margin:0 0 10px}
+#vaultWarn .row{display:flex;gap:8px}
+#passBtn.warn{border-color:#f5a623;color:#ffc35c;background:#f5a62322}
 #toast{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .25s}
 /* bright: a little more life */
 body.bright #tabs button:hover span:first-child,body.bright #tabs button:hover{animation:wiggle .4s ease}

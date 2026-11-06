@@ -1067,7 +1067,15 @@ $('roomFile').onchange=async e=>{
 };
 
 // --- пароль на пульт ---
-function renderLockBtns(){ $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '🔓 Пароль'; $('lockBtn').hidden=!vaultPass; }
+// Без пароля ключи комнат лежат в браузере открытым текстом: напоминаем, пока пароль не поставят («Позже» — на 3 дня)
+const VAULT_SNOOZE='overlay.vaultWarn';
+function renderLockBtns(){
+  $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '⚠ Нет пароля'; $('lockBtn').hidden=!vaultPass;
+  $('passBtn').classList.toggle('warn', !vaultPass);
+  $('vaultWarn').hidden = !!vaultPass || !rooms.length || Date.now() < Number(lsGet(VAULT_SNOOZE, 0));
+}
+$('vaultWarnSet').onclick=()=>$('passBtn').click();
+$('vaultWarnLater').onclick=()=>{ lsSet(VAULT_SNOOZE, Date.now()+3*24*3600e3); renderLockBtns(); };
 $('passBtn').onclick=async()=>{
   if(vaultPass){
     const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
