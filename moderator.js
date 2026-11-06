@@ -1,4 +1,14 @@
 // Hudini moderator panel. Loaded by moderator.html.
+// Пульт работает только в своей вкладке: внутри чужой страницы его могли бы нажимать за модератора.
+// Хранилище с ключами комнат в рамке не открываем.
+if(window.top!==window.self){
+  const box=document.createElement('div'), a=document.createElement('a');
+  box.style.cssText='font:16px/1.5 system-ui,sans-serif;color:#e6e8ee;background:#0b0d11;padding:40px;text-align:center;min-height:100vh;box-sizing:border-box';
+  box.textContent='Пульт Hudini открывается только в отдельной вкладке. ';
+  a.href=location.origin+location.pathname; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent='Открыть пульт'; a.style.color='#a78bfa';
+  box.appendChild(a); document.body.replaceChildren(box);
+  throw new Error('Hudini: panel inside a frame');
+}
 // ================== НАСТРОЙКИ ==================
 // Должны совпадать с widget.html
 const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt'; // общий сервер: только чтобы найти Hudini Host
@@ -28,7 +38,7 @@ const brokerUrl=qs.get('broker') || BROKER_URL;
 function keepQuery(){ const q=new URLSearchParams(); for(const k of ['broker','variant']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
 const clientId='mod_'+rid(10);
 const topics = r => ({ base:`${TOPIC_PREFIX}/${r}`, state:`${TOPIC_PREFIX}/${r}/state`, fx:`${TOPIC_PREFIX}/${r}/fx` });
-const validCode = c => /^[a-z0-9_-]{4,64}$/i.test(c||'');
+const validCode = c => typeof c==='string' && /^[a-z0-9_-]{4,64}$/i.test(c) && !['__proto__','constructor','prototype'].includes(c.toLowerCase());
 
 // ================== КОМНАТЫ И КЛЮЧИ ==================
 // У каждой комнаты: код (тема на брокере, не секрет), ключ шифрования k, открытый ключ p и закрытый ключ s.
@@ -205,6 +215,7 @@ async function onSrv(payload){
   openHome({ url:info.url, user:'mod', pass:info.pass });
 }
 $('status').onclick=()=>{ if(!client?.connected) showHostTip(); };
+const stateSeenT=new Map();   // комната → время самого нового экрана, который пульт видел или отправил
 async function onMessage(topic, payload, packet){
   if(!payload.length) return;                     // пустые «удаления» не принимаем
   const T=topics(room), keys=KEYS;
@@ -217,6 +228,11 @@ async function onMessage(topic, payload, packet){
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
+  if(typeof msg!=='object' || !Array.isArray(msg.els)) return;   // эффект или мусор вместо экрана
+  const t=Number(msg.t)||0;
+  if(t>Date.now()+5*60*1000) return;               // из будущего
+  if(t<(stateSeenT.get(room)||0)) return;          // старый экран, присланный повторно: не принимаем и не переподписываем
+  stateSeenT.set(room, t);
   if(msg.from===clientId && !packet.retain) return;   // своё эхо
   if(drag) return;                                 // не мешаем, пока тащим
   state=sanitizeState(msg); if(state.lang) STREAM_LANG=state.lang;
@@ -250,6 +266,7 @@ function publishNow(qos=0){
   if(!client || !client.connected){ pendingOffline=true; return; }
   STREAM_LANG=streamLang();
   const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, els:state.els, fonts:state.fonts||[] };
+  stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
 function scheduleSend(){
@@ -311,6 +328,7 @@ function addText(text, x, y){
   addEl({ type:'text', text, ...place(x,y), fs:8, font:'montserrat', color:'#ffffff', stroke:'#000000', sw:6, bg:false, bgColor:'#000000', bgA:0.6 });
 }
 function addWeb(url, x, y, extra={}){
+  if(blockedEmbed(url)) return toast('Этот адрес нельзя показать на экране: это пульт или программа Hudini', 4000);
   const kind=parseEmbed(url).kind;
   addEl({ type:'web', url, ...place(x,y), w: kind==='site'?45:40, ar:'16:9', shape:'rect',
     zoom: kind==='site'?0.6:1, sound: kind==='youtube'||kind==='twitch', bw:0, bc:'#ffffff', ...extra });
@@ -336,7 +354,7 @@ const camPushUrl=id=>`https://vdo.ninja/?push=${id}&webcam&label=moderator&width
 const camViewUrl=id=>`https://vdo.ninja/?view=${id}&cleanoutput&transparent&cover&codec=h264&videobitrate=${CAM_BITRATE}`;
 function addCam(){
   const id=rid(12);
-  window.open(camPushUrl(id), '_blank');
+  window.open(camPushUrl(id), '_blank', 'noopener');
   addWeb(camViewUrl(id), 82, 75, { w:22, ar:'1:1', shape:'circle', sound:false, bw:0.6, bc:'#7c5cff' });
   toast('Во вкладке VDO.Ninja выбери камеру и нажми старт', 5000);
 }
@@ -478,6 +496,7 @@ function err(msg){ const e=new Error(msg); e.shown=true; toast(msg, 5000); retur
 async function uploadBlob(blob, name){
   const h=homeHttp();
   if(!h){ showHostTip('Файлы хранятся у стримера в программе Hudini Host, а она сейчас не подключена'); const e=new Error('нет Hudini Host'); e.shown=true; throw e; }
+  if(!MIME_RE.test(blob.type||'')) throw err(`${name}: такой формат не загрузить. Подойдут PNG, JPG, GIF, WebP, видео, звук и шрифты`);
   if(storage && blob.size > storage.maxFileBytes) throw err(`${name}: ${fmtBytes(blob.size)}, а стример разрешил файлы до ${fmtBytes(storage.maxFileBytes)}. Для больших видео лучше ссылка или YouTube.`);
   const id=rid(14), keys=KEYS;
   const box=await packAsset(keys, blob, id, name);
@@ -977,10 +996,20 @@ async function acceptInvite(text){
   let r=null;
   try{ const h=(text.includes('#') ? text.slice(text.indexOf('#')+1) : text).replace(/^invite=/,''); r=cleanRoom(JSON.parse(TD.decode(b64u.dec(h)))); }catch{}
   if(!r){ toast('Это не ссылка-приглашение модератора'); return false; }
+  // Свой адрес программы из чужой ссылки не берём. Последний известный адрес берём, только если это туннель
+  // Cloudflare, как его публикует Hudini Host; иначе пульт сам найдёт программу через общий сервер.
+  delete r.manual;
+  if(r.home && !/^wss:\/\/[a-z0-9-]+\.trycloudflare\.com\/mqtt$/.test(r.home.url)) delete r.home;
   const ex=rooms.find(x=>x.code===r.code);
-  if(ex) Object.assign(ex, r); else rooms.push(r);
+  // коды комнат уникальны: чужие ключи не перезаписывают уже сохранённую комнату
+  if(ex && (ex.k!==r.k || ex.p!==r.p || JSON.stringify(ex.s)!==JSON.stringify(r.s))){
+    alert(`Комната с кодом ${r.code} уже есть, но с другими ключами.\nПриглашение не принято: твоя комната осталась как была.`);
+    return false;
+  }
+  if(!confirm(`Принять приглашение в комнату «${r.name}» (код ${r.code})?\nСсылка даёт полное управление экраном этой комнаты. Принимай только от модератора, которому доверяешь.`)) return false;
+  if(!ex) rooms.push(r);
   await switchRoom(r.code); saveRooms(); renderRooms();
-  toast(`Комната «${r.name}» добавлена`); return true;
+  toast(ex ? `Комната «${ex.name}» уже есть: переключаюсь` : `Комната «${r.name}» добавлена`); return true;
 }
 $('roomJoin').onclick=()=>{ const t=prompt('Вставь ссылку-приглашение от другого модератора:', ''); if(t) acceptInvite(t.trim()); };
 $('roomInvite').onclick=async()=>{
@@ -1663,7 +1692,7 @@ function seekPlayer(d){
 }
 $('plBack').onclick=()=>seekPlayer(-10);
 $('plFwd').onclick=()=>seekPlayer(10);
-$('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(camPushUrl(id), '_blank'); };
+$('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(camPushUrl(id), '_blank', 'noopener'); };
 $('tToggle').onclick=()=>act(timerToggle);
 $('tReset').onclick=()=>act(timerReset);
 document.querySelectorAll('[data-tadd]').forEach(b=>b.onclick=()=>act(el=>timerAdd(el, Number(b.dataset.tadd))));
@@ -2101,8 +2130,8 @@ async function runAction(a, ctx){
     case 'shake': sendFx({ type:'shake' }, true); break;
     case 'scene': { const sc=(scenes[room]||[]).find(x=>x.name===a.scene); if(sc) applyScene(sc, false); break; }
     case 'counter': if(el?.type==='counter') act1(el, x=>x.value+=Math.round(num(a.num,1,-1e6,1e6))); break;
-    case 'text': if(el?.type==='text') act1(el, x=>x.text=fillTpl(a.tpl||'', ctx).slice(0,500)); break;
-    case 'chatmsg': if(ctx.chatMsg) showChatMsg(ctx.chatMsg); break;
+    case 'text': if(el?.type==='text') act1(el, x=>x.text=fillTpl(a.tpl||'', ctx).slice(0, ctx.cap||500)); break;
+    case 'chatmsg': if(ctx.chatMsg) showChatMsg(ctx.cap ? capChatMsg(ctx.chatMsg, ctx.cap) : ctx.chatMsg); break;
     case 'timer': if(el?.type==='timer') act1(el, x=>{ timerReset(x); timerToggle(x); }); break;
     case 'wait': await sleep(num(a.secs,1,0,600)*1000); break;
   }
@@ -2132,16 +2161,24 @@ function matchTrig(t, ctx){
   if(t.type==='timer' || t.type==='counter') return !t.el || t.el===ctx.el;
   return false;
 }
-const scnLast=new Map();
+// Защита от флуда: каждый сценарий не чаще раза в 3 с, все вместе не больше 30 раз в минуту.
+// Если команду может написать любой зритель, его текст на экране обрезаем до 200 знаков.
+const scnLast=new Map(), scnFired=[], SCN_MIN_CD=3000, SCN_PER_MIN=30, SCN_TEXT_CAP=200;
+function capChatMsg(m, n){
+  return { ...m, text:String(m.text||'').slice(0, n), emotes:(Array.isArray(m.emotes)?m.emotes:[]).filter(e=>Number(e?.[2])<n) };
+}
 function fire(kind, ctx){
   if(!$('scnRun').checked) return;
   for(const sc of scnList()){
     if(!sc.on || sc.trig?.type!==kind) continue;
     const c={ ...ctx };
     if(!matchTrig(sc.trig, c)) continue;
-    const cd=num(sc.trig.cd,0,0,3600)*1000, last=scnLast.get(sc.id)||0;
-    if(Date.now()-last<cd) continue;
-    scnLast.set(sc.id, Date.now());
+    const now=Date.now(), cd=Math.max(SCN_MIN_CD, num(sc.trig.cd,0,0,3600)*1000), last=scnLast.get(sc.id)||0;
+    if(now-last<cd) continue;
+    while(scnFired.length && now-scnFired[0]>=60000) scnFired.shift();
+    if(scnFired.length>=SCN_PER_MIN) continue;
+    scnFired.push(now); scnLast.set(sc.id, now);
+    if(kind==='chat' && sc.trig.who!=='mods' && sc.trig.who!=='subs') c.cap=SCN_TEXT_CAP;
     runScenario(sc, c);
   }
 }

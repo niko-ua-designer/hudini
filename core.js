@@ -32,9 +32,9 @@ const UFonts = { done:new Map(),   // id → 'loading' | 'ok' | 'bad'
     this.done.set(id, 'loading');
     fetch(u).then(r => r.arrayBuffer()).then(b => this.load(id, b)).then(() => this.done.set(id, 'ok')).catch(() => this.done.set(id, 'bad'));
   } };
-function fontOf(v){ return FONTS[v] || UFONT_RE.test(v||'') ? v : 'montserrat'; }
+function fontOf(v){ return typeof v==='string' && (Object.hasOwn(FONTS, v) || UFONT_RE.test(v)) ? v : 'montserrat'; }
 function fontCss(key){
-  const m = UFONT_RE.exec(key||''); if(!m) return FONTS[key] || FONTS.montserrat;
+  const m = UFONT_RE.exec(key||''); if(!m) return typeof key==='string' && Object.hasOwn(FONTS, key) ? FONTS[key] : FONTS.montserrat;
   UFonts.use(m[1]);
   return `'hu-${m[1]}',${TEXT_FB},${EMOJI_FONT},sans-serif`;
 }
@@ -93,6 +93,15 @@ function str(v, n){ return String(v ?? '').slice(0, n); }
 function safeUrl(u){ try{ const p = new URL(String(u).trim()); return (p.protocol==='https:'||p.protocol==='http:') ? p.href : null; }catch{ return null; } }
 const ASSET_RE = /^asset:([a-z0-9]{6,24})$/;
 function assetId(src){ const m = ASSET_RE.exec(src || ''); return m ? m[1] : null; }
+// Сайт на экране не может быть самим пультом, страницами Hudini или программой стримера на этом ПК
+const HUDINI_SITE = 'https://niko-ua-designer.github.io';
+function blockedEmbed(url){
+  let u; try{ u = new URL(url); }catch{ return true; }
+  const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  if(h==='localhost' || h.endsWith('.localhost') || /^127\./.test(h) || h==='0.0.0.0' || h==='::1' || h==='::' || /^::ffff:(127\.|7f)/.test(h)) return true;
+  if(u.origin===HUDINI_SITE) return true;
+  return typeof location!=='undefined' && /^https?:$/.test(location.protocol) && u.origin===location.origin;
+}
 function safeSrc(u){ return assetId(u) ? u : safeUrl(u); }
 function isVideoUrl(u){ try{ return /\.(mp4|webm|mov|m4v)$/i.test(new URL(u).pathname); }catch{ return false; } }
 function rgba(h, a){ const n = parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
@@ -137,8 +146,8 @@ function sanitizeEl(e){
     o.hh=num(e.hh,0,0,300);   // высота в % экрана; 0 = по пропорциям картинки
     if(type==='video'){ o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.restart=num(e.restart,0,0,1e15); }
   } else if(type==='web'){
-    o.url=safeUrl(e.url); if(!o.url) return null;
-    o.w=num(e.w,40,1,200); o.ar=ASPECTS[e.ar]?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
+    o.url=safeUrl(e.url); if(!o.url || blockedEmbed(o.url)) return null;
+    o.w=num(e.w,40,1,200); o.ar=typeof e.ar==='string' && Object.hasOwn(ASPECTS, e.ar)?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
     o.zoom=num(e.zoom,1,0.2,3); o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.paused=!!e.paused; o.restart=num(e.restart,0,0,1e15);
     o.bw=num(e.bw,0,0,3); o.bc=hex(e.bc,'#ffffff');
   } else if(type==='cs2'){
@@ -149,7 +158,7 @@ function sanitizeEl(e){
     o.minK=Math.round(num(e.minK,2,1,5));
     // вид HUD: цвета, эффекты, аватарки, команды, серия, выбранные игроки
     o.ctc=hex(e.ctc,'#5d9cec'); o.tc=hex(e.tc,'#e0a030'); o.glow=e.glow!==false; o.fx=['none','soft','bright'].includes(e.fx)?e.fx:'soft';
-    o.av={}; if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
+    o.av=Object.create(null); if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
     o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip;
@@ -856,7 +865,8 @@ function playerSeek(node, el, d){
 // Файл хранится в программе стримера Hudini Host. Пульт шифрует и подписывает его ключами комнаты,
 // программа держит байты как есть, виджет и пульты скачивают и проверяют подпись.
 // Формат открытой части: [4 байта длина заголовка][заголовок JSON { id, mime, size, name }][байты файла]
-const MIME_RE = /^(image|video|audio|font)\/[\w.+-]+$/;
+// SVG не принимаем: это документ со своими ссылками и скриптами, а не просто картинка
+const MIME_RE = /^(?!image\/svg)(image|video|audio|font)\/[\w.+-]+$/i;
 async function packAsset(keys, blob, id, name){
   const head = TE.encode(JSON.stringify({ id, mime:blob.type, size:blob.size, name:str(name, 80) }));
   const data = new Uint8Array(4 + head.length + blob.size);
@@ -976,7 +986,7 @@ const WEAPONS = { ak47:'AK-47', m4a1:'M4A4', m4a1_silencer:'M4A1-S', awp:'AWP', 
   mac10:'MAC-10', mp9:'MP9', mp7:'MP7', mp5sd:'MP5-SD', ump45:'UMP-45', p90:'P90', bizon:'PP-Bizon', nova:'Nova', xm1014:'XM1014',
   mag7:'MAG-7', sawedoff:'Sawed-Off', negev:'Negev', m249:'M249', taser:'Zeus', c4:'C4', hegrenade:'HE', flashbang:'Флешка',
   smokegrenade:'Дым', molotov:'Молотов', incgrenade:'Зажигалка', decoy:'Ложная' };
-function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? st('Нож') : st(WEAPONS[id] || id.toUpperCase()); }
+function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? st('Нож') : st((Object.hasOwn(WEAPONS, id) && WEAPONS[id]) || id.toUpperCase()); }
 function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
@@ -1158,9 +1168,9 @@ function fnum(c, el, key, text, cls){
 // ---------- турнирный и соло HUD, таблица, дуэль, сравнение ----------
 // короткие имена для узких карточек турнирного HUD
 const WSHORT = { deagle:'Deagle', galilar:'Galil', elite:'Berettas', bizon:'Bizon', fiveseven:'Five-7', usp_silencer:'USP-S', m4a1_silencer:'M4A1-S', mp5sd:'MP5', sawedoff:'Sawed-Off' };
-function weaponShort(w){ const id=String(w||'').replace(/^weapon_/,''); return WSHORT[id] || weaponName(w); }
+function weaponShort(w){ const id=String(w||'').replace(/^weapon_/,''); return Object.hasOwn(WSHORT, id) ? WSHORT[id] : weaponName(w); }
 function avatar(el, p, cls){
-  const box=h('div', cls||'hd-av'), src=el.av[String(p?.name||'').toLowerCase()];
+  const box=h('div', cls||'hd-av'), avk=String(p?.name||'').toLowerCase(), src=el.av && Object.hasOwn(el.av, avk) ? el.av[avk] : null;
   const team=p?.team==='T'?'t':'ct'; box.classList.add('tm-'+team);
   if(src){ const img=document.createElement('img'); img.alt=''; img.src=resolveSrc(src); img.draggable=false; box.appendChild(img); }
   else box.textContent=String(p?.name||'?').replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase() || '?';

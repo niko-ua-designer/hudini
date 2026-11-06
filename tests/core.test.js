@@ -62,6 +62,25 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     await mod2.context().close();
   });
 
+  await step('invites never replace the keys of a saved room', async () => {
+    const r = await panel.evaluate(async () => {
+      const me = curRoom(), k0 = me.k, n0 = rooms.length;
+      const evil = { ...me, ...(await newRoomKeys()), name: 'Чужая', manual: { url: 'wss://evil.example/mqtt', pass: 'x' } };
+      const refused = await acceptInvite(inviteLink(evil));
+      const kept = curRoom().k === k0 && rooms.length === n0 && curRoom().name !== 'Чужая';
+      const same = await acceptInvite(inviteLink(me));
+      const other = { ...(await makeRoom('Гость')), manual: { url: 'wss://evil.example/mqtt', pass: 'x' }, home: { url: 'wss://evil.example/mqtt', pass: 'x' } };
+      await acceptInvite(inviteLink(other));
+      const added = rooms.find(x => x.code === other.code);
+      const res = { refused, kept, same, count: rooms.length - n0, manual: !!added?.manual, home: !!added?.home };
+      rooms = rooms.filter(x => x.code !== other.code); await switchRoom(me.code); saveRooms(); renderRooms();
+      return res;
+    });
+    eq(r, { refused: false, kept: true, same: true, count: 1, manual: false, home: false }, 'different keys refused, same keys switch, broker addresses from a link are not taken');
+    eq(await panel.evaluate(() => ['__proto__', 'constructor', 'prototype'].map(validCode)), [false, false, false], 'room codes cannot be prototype names');
+    check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok') && (await panel.evaluate(() => state.els.length)) > 0, 15000), 'panel back in its room with the screen');
+  });
+
   await step('files API: password, lockout, local rules', async () => {
     const tun = host.tunnel;
     eq((await fetch(tun + '/files')).status, 401, 'tunnel without password → 401');
@@ -130,6 +149,16 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     atk2.publish('stream-overlay/v1/otherroom/state', 'x'); await sleep(700);
     check(leaked === 0, 'other rooms are off-limits (ACL): nothing delivered'); check(kicked, 'publisher to another room is dropped');
     atk2.end(true); atk.end(true);
+    // экран другого типа и экран «из будущего» виджет не принимает
+    await panel.evaluate(() => {
+      const st = topics(room).state, fx = topics(room).fx;
+      sealedPublish(st, { v: 2, from: 'x', t: Date.now() + 10 * 60 * 1000, visible: true, els: [{ id: 'fut', type: 'text', text: 'БУДУЩЕЕ', x: 50, y: 50 }] }, { qos: 1 });
+      sealedPublish(st, { type: 'confetti', from: 'x', t: Date.now(), n: 'abc' }, { qos: 1 });
+      sealedPublish(fx, { v: 2, from: 'x', t: Date.now(), n: 'def', visible: true, els: [] }, { qos: 1 });
+    });
+    await sleep(800);
+    check((await texts(widget)).includes('НОВЫЙ') && !(await texts(widget)).includes('БУДУЩЕЕ'), 'state from the future and wrong-shaped messages are ignored');
+    check(await widget.evaluate(r => Number(localStorage.getItem('hudini.stateT.' + r)) > 0, room), 'widget remembers the time of the last screen across restarts');
     // widget reload restores the real screen
     await panel.evaluate(() => publishNow(1)); await widget.reload();
     check(await until(async () => (await texts(widget)).includes('НОВЫЙ'), 8000), 'widget restores the real screen after reload');
@@ -146,6 +175,18 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
       return { good, swapped, tampered, foreign };
     });
     eq(r, { good: true, swapped: null, tampered: null, foreign: null }, 'only the right id, untouched bytes and the room key open a file');
+    const svg = await panel.evaluate(async () => {
+      const box = await packAsset(KEYS, new Blob(['<svg xmlns="http://www.w3.org/2000/svg"/>'], { type: 'image/svg+xml' }), 'svg111222333', 'x.svg');
+      return await openAsset(KEYS, box, 'svg111222333');
+    });
+    eq(svg, null, 'SVG files are not opened');
+    const before = fs.readdirSync(path.join(host.dir, 'files', room)).length;
+    await panel.setInputFiles('#fileInput', { name: 'x.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>') });
+    check(await until(async () => /формат/.test(await panel.textContent('#toast'))), 'SVG upload is refused with a message');
+    eq(fs.readdirSync(path.join(host.dir, 'files', room)).length, before, 'nothing stored for SVG');
+    const web = await panel.evaluate(() => ['http://localhost:7790/widget.html', 'http://127.0.0.1:7791/', 'http://[::1]/', location.origin + '/moderator.html', 'https://niko-ua-designer.github.io/hudini/', 'https://example.com/']
+      .map(url => !!sanitizeEl({ id: 'w1', type: 'web', url })));
+    eq(web, [false, false, false, false, false, true], 'web elements cannot embed the panel, Hudini pages or this PC');
   });
 
   await step('widget size check', async () => {

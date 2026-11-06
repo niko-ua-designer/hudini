@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https: http:; connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com/mqtt@5.16.1/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https: http:; connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -325,6 +325,9 @@ async function start(){
   try{ KEYS=await importRoomKeys({ k:hp.get('k'), p:hp.get('p') }); }
   catch{ status('Ключ в ссылке повреждён: попроси у модератора новую ссылку', true); return; }
   const base=`${TOPIC_PREFIX}/${room}`;
+  // время последнего принятого экрана помним и после перезапуска OBS: старый сохранённый экран не вернётся
+  const tKey='hudini.stateT.'+room;
+  try{ lastStateT=Math.max(lastStateT, Number(localStorage.getItem(tKey))||0); }catch{}
   const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
@@ -367,6 +370,9 @@ async function start(){
     if(!plain){ console.warn('[overlay] отброшено неподписанное сообщение', topic); return; }
     let msg; try{ msg=JSON.parse(TD.decode(plain)); }catch{ return; }
     if(!msg || typeof msg!=='object') return;
+    // сообщение экрана нельзя выдать за эффект и наоборот
+    if(topic===T.state ? !Array.isArray(msg.els) : topic===T.fx ? typeof msg.type!=='string' : true) return;
+    if(topic===T.state && Number(msg.t)>Date.now()+5*60*1000) return;   // из будущего: так можно было бы заблокировать новые
     if(!packet.retain) clockSample(Number(msg.t));
     // Пульт новее виджета: перезагрузиться в обход кэша OBS (один раз на версию)
     if(Number(msg.wv)>WIDGET_VER && Number(qs.get('upd')||0)<Number(msg.wv)){
@@ -376,7 +382,8 @@ async function start(){
     if(topic===T.state){
       const t=Number(msg.t)||0;
       if(t<lastStateT) return;                       // повтор старого сообщения
-      lastStateT=t; applyState(sanitizeState(msg));
+      if(t>lastStateT){ lastStateT=t; try{ localStorage.setItem(tKey, String(t)); }catch{} }
+      applyState(sanitizeState(msg));
     } else if(topic===T.fx){
       // эффекты: только свежие и каждый один раз (против повторной отправки перехваченных)
       const t=Number(msg.t)||0, key=t+':'+msg.n;
