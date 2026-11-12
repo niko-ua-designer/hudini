@@ -89,7 +89,7 @@ details[open] summary{margin-bottom:10px}
     <div class="lights">
       <span class="light" id="lRoom"><i></i>Комната</span>
       <span class="light" id="lObs"><i></i>OBS</span>
-      <span class="light" id="lTun"><i></i>Туннель</span>
+      <span class="light" id="lTun"><i></i>Порт модераторов</span>
       <span class="light" id="lCs"><i></i>CS2</span>
     </div>
     <span data-i18n-switch></span>
@@ -165,12 +165,14 @@ details[open] summary{margin-bottom:10px}
   <div class="card">
     <details>
       <summary>⚙ Для продвинутых</summary>
-      <div class="hint" style="margin-top:0"><b>Свой адрес для модераторов.</b> Вместо бесплатного туннеля Cloudflare: Tailscale Funnel, свой туннель Cloudflare или свой домен. Направь его на <code id="tport">http://127.0.0.1:7778</code> и впиши адрес вида <code>wss://мой-адрес/mqtt</code>. Пусто = обычный туннель.</div>
-      <div class="row"><input id="fixedUrl" placeholder="wss://my-pc.tailnet.ts.net/mqtt"><button id="fixedSave">Сохранить</button></div>
-      <div class="hint" style="margin-top:16px"><b>Адрес и пароль для пульта.</b> Обычно пульт находит программу сам. Если нет, модератор вписывает их в пульте: «Комната» → «Для продвинутых». Никому больше не показывай.</div>
-      <div class="row"><input id="modUrl" readonly placeholder="адрес появится, когда заработает туннель"><input id="modPass" type="password" readonly><button id="showPass">👁 Показать</button></div>
-      <div class="hint" style="margin-top:16px"><b>Новый пароль модераторов.</b> Все модераторы отключатся на пару секунд и подключатся снова сами. Чтобы закрыть доступ человеку насовсем, модератор нажимает в пульте «♻ Сменить ключи», а ты вставляешь новую ссылку в шаг 1.</div>
-      <div class="row"><button id="newPass">🔑 Новый пароль</button></div>
+      <div class="hint" style="margin-top:0"><b>Код для модератора.</b> Одна строка: комната, пароль, отпечаток сертификата и адреса. Отправь её модератору лично и никому больше не показывай.</div>
+      <div class="row"><input id="modCode" readonly placeholder="код появится, когда запустится комната"><button id="copyCode">Скопировать</button></div>
+      <div class="hint" id="addrList" style="margin-top:8px"></div>
+      <div class="hint" style="margin-top:16px"><b>Свой внешний адрес.</b> Если порт модераторов проброшен на роутере: впиши <code>мой-адрес:порт</code>. Он попадёт в код.</div>
+      <div class="row"><input id="extAddr" placeholder="my-pc.example.com:7778"><button id="extSave">Сохранить</button></div>
+      <label class="hint check" style="margin-top:16px"><input type="checkbox" id="modsOn"> Пускать модераторов</label>
+      <div class="hint" style="margin-top:16px"><b>Новый код.</b> Меняет пароль и отключает всех модераторов: старый код перестаёт работать.</div>
+      <div class="row"><button id="newPass">🔑 Новый код</button><button id="newRoom">♻ Пересоздать комнату</button></div>
     </details>
   </div>
 
@@ -178,10 +180,9 @@ details[open] summary{margin-bottom:10px}
     <h2>📊 Состояние</h2>
     <div class="grid">
       <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sTun"><b>Туннель для модераторов</b><span class="dot"></span><span class="v">—</span></div>
+      <div class="st" id="sTun"><b>Порт для модераторов</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sMods"><b>Модераторы напрямую</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sFiles"><b>Файлы</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sBr"><b>Поиск адреса (общий сервер)</b><span class="dot"></span><span class="v">—</span></div>
       <div class="st" id="sCs"><b>CS2</b><span class="dot"></span><span class="v">—</span></div>
     </div>
   </div>
@@ -224,15 +225,14 @@ async function refresh(){
   $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Ссылка ещё не сохранена';
   if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
   const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1');
-  const tunTxt=s.tunnel?'работает':(s.tunnelErr||'запускается…');
+  const tunTxt=s.modErr?('не открылся: '+s.modErr):('порт '+s.mport+' · TLS');
   const csTxt=s.cs2Online?'данные идут':'нет данных';
   st('sObs', s.obsOnline?'ok':'bad', obsTxt);
-  st('sTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), tunTxt);
+  st('sTun', s.modErr?'bad':'ok', tunTxt);
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
-  st('sBr', s.bridge?'ok':'warn', s.bridge?'работает':'нет связи (пульт попробует последний адрес)');
   light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Ссылка ещё не сохранена');
   light('lObs', s.obsOnline?'ok':(s.room?'warn':''), obsTxt);
-  light('lTun', s.tunnel?'ok':(s.tunnelErr?'bad':'warn'), tunTxt);
+  light('lTun', s.modErr?'bad':'ok', tunTxt);
   light('lCs', s.cs2Online?'ok':'', csTxt);
   const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0), U=['ru','uk'].includes(window.HudiniI18n?.lang||'ru')?'МБ':'MB';
   st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} / ${L.totalMB} ${U} · файлов: ${g.files||0} / ${L.files}`);
@@ -242,8 +242,11 @@ async function refresh(){
   }
   $('limAsk').hidden = !!g.limitsSet; $('limCard').classList.toggle('first', !g.limitsSet);
   $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
-  if(document.activeElement!==$('fixedUrl')) $('fixedUrl').value=s.fixedUrl||''; $('fixedUrl').disabled=$('fixedSave').disabled=!!s.fixedEnv;
-  $('tport').textContent='http://127.0.0.1:'+(s.tport||7778);
+  if(document.activeElement!==$('extAddr')) $('extAddr').value=s.extAddr||'';
+  $('modsOn').checked=!!s.modsOn;
+  const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'локальная сеть', inet:'интернет', porthole:'Porthole', ext:'свой адрес' };
+  $('addrList').textContent='Адреса: '+(s.addrs||[]).map(a=>`${a.h}:${a.port} (${NET[a.net]||a.net})`).join(' · ')+(s.modList?.length?'\nПодключены: '+s.modList.map(m=>`${m.ip} (${NET[m.net]||m.net}${m.rtt!=null?', '+m.rtt+' мс':''})`).join(', '):'');
+  $('addrList').style.whiteSpace='pre-line';
   st('sCs', s.cs2Online?'ok':'warn', csTxt);
   if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
   const c=s.cs2;
@@ -271,9 +274,11 @@ $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.tar
 $('dockUrl').value=location.origin+'/dock'; $('dockCode').textContent=location.origin+'/dock';
 $('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
 $('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('fixedSave').onclick=async()=>{ try{ await api('/api/fixedurl', { url:$('fixedUrl').value }); toast($('fixedUrl').value?'Свой адрес сохранён ✓':'Вернул обычный туннель ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('newPass').onclick=async()=>{ if(!confirm('Сменить пароль модераторов? Все модераторы отключатся на минуту.')) return; try{ await api('/api/modpass/new', {}); toast('Новый пароль ✓'); }catch(e){ toast(e.message); } };
-$('showPass').onclick=async()=>{ try{ const r=await api('/api/modpass'); $('modUrl').value=r.url||''; $('modPass').value=r.pass; $('modPass').type=$('modPass').type==='password'?'text':'password'; }catch(e){ toast(e.message); } };
+$('extSave').onclick=async()=>{ try{ await api('/api/extaddr', { addr:$('extAddr').value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toast(e.message); } };
+$('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toast(err.message); } refresh(); };
+$('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ const r=await api('/api/code/new', {}); $('modCode').value=r.code; toast('Новый код ✓'); }catch(e){ toast(e.message); } };
+$('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toast(e.message); } };
+$('copyCode').onclick=async()=>{ try{ const r=await api('/api/code'); $('modCode').value=r.code; await navigator.clipboard.writeText(r.code); toast('Код скопирован ✓'); }catch(e){ toast(e.message); } };
 
 // ---- только в окне программы: автозапуск и внешние ссылки ----
 if(TAURI){

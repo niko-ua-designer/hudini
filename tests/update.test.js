@@ -1,6 +1,6 @@
 // Self-update of Hudini Host: a compiled rc build updates to the stable release from a fake GitHub,
 // verifies SHA-256, ignores old host-v tags and v0.x betas, refuses a tampered download, and a stable build ignores rc releases.
-// App mode (window and tray, OVERLAY_APP): picks the new HudiniHost-<os>-<ver>.zip, unpacks every file and relaunches the app.
+// App mode (window and tray, OVERLAY_APP): picks the new Hudini-<os>-<ver>.zip, unpacks every file and relaunches the app.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
@@ -49,20 +49,20 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   console.log('building two Host versions (takes a little while)…');
   build('1.0.0-rc.1', path.join(app, ASSET));
   build('1.0.0', path.join(rel, ASSET));
-  const zip = zipOne(path.join(rel, ASSET), 'Hudini Host/' + ASSET);   // same layout as the portable release zip
+  const zip = zipOne(path.join(rel, ASSET), 'Hudini/' + ASSET);   // same layout as the portable release zip
   fs.writeFileSync(path.join(rel, ASSET + '.zip'), zip);
-  // New release layout (app with window and tray): HudiniHost-<os>-<version>.zip, folder «Hudini Host/» with several files
-  const APP_OS = { linux:'linux', darwin: os.arch() === 'arm64' ? 'mac-arm64' : 'mac-intel', win32:'windows' }[process.platform];
-  const APP_ZIP = `HudiniHost-${APP_OS}-1.0.zip`;
+  // New release layout (app with window and tray): Hudini-<os>-<version>.zip, folder «Hudini/» with several files
+  const APP_OS = { linux:'linux', darwin:'macos', win32:'windows' }[process.platform];
+  const APP_ZIP = `Hudini-${APP_OS}-1.0.zip`;
   const newServer = fs.readFileSync(path.join(rel, ASSET));
   const fakeApp = '#!/bin/sh\necho "$@" > "$(dirname "$0")/launched.txt"\n';   // the new «app»: records how it was started
   const appZip = zipMany([
-    { name: 'Hudini Host/', mode: 0o755 },
-    { name: 'Hudini Host/Hudini Host', data: Buffer.from(fakeApp), mode: 0o755 },
-    { name: 'Hudini Host/hudini-server', data: newServer },   // no unix mode: made executable by name
-    { name: 'Hudini Host/README.txt', data: Buffer.from('new readme') },
-    { name: 'Hudini Host/data/' },
-    { name: 'Hudini Host/data/overlay-host.json', data: Buffer.from('{"modPass":"from-zip"}') },
+    { name: 'Hudini/', mode: 0o755 },
+    { name: 'Hudini/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+    { name: 'Hudini/hudini-server', data: newServer },   // no unix mode: made executable by name
+    { name: 'Hudini/README.txt', data: Buffer.from('new readme') },
+    { name: 'Hudini/data/' },
+    { name: 'Hudini/data/overlay-host.json', data: Buffer.from('{"modPass":"from-zip"}') },
   ]);
   fs.writeFileSync(path.join(rel, APP_ZIP), appZip);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
@@ -71,9 +71,9 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const port = 19300, url = f => `http://localhost:${port}/${f}`;
   const assets = [{ name: APP_ZIP, browser_download_url: url(APP_ZIP) }, { name: ASSET + '.zip', browser_download_url: url(ASSET + '.zip') }, { name: 'SHA256SUMS.txt', browser_download_url: url('SHA256SUMS.txt') }, { name: 'SHA256SUMS.txt.sig', browser_download_url: url('SHA256SUMS.txt.sig') }];
   // the app-mode install starts from the same rc build
-  const inst = path.join(dir, 'Hudini Host'); fs.mkdirSync(path.join(inst, 'data'), { recursive: true });
+  const inst = path.join(dir, 'Hudini'); fs.mkdirSync(path.join(inst, 'data'), { recursive: true });
   fs.copyFileSync(path.join(app, ASSET), path.join(inst, 'hudini-server')); fs.chmodSync(path.join(inst, 'hudini-server'), 0o755);
-  fs.writeFileSync(path.join(inst, 'Hudini Host'), '#!/bin/sh\necho old app\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(inst, 'Hudini'), '#!/bin/sh\necho old app\n', { mode: 0o755 });
   fs.writeFileSync(path.join(inst, 'README.txt'), 'old readme');
   const srv = http.createServer((q, s) => {
     if(q.url === '/releases'){ s.setHeader('content-type', 'application/json'); return s.end(JSON.stringify(list)); }
@@ -86,8 +86,8 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)) return s.end(fs.readFileSync(f)); s.statusCode = 404; s.end();
   });
   await new Promise(r => srv.listen(port, r));
-  const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_TUNNEL: '1', OVERLAY_NO_OPEN: '1', OVERLAY_SITE: 'off', OVERLAY_PUBLIC_BROKER: 'ws://localhost:1', OVERLAY_PORT: '17830' };
-  const status = async () => { try{ return await (await fetch('http://127.0.0.1:17830/api/status')).json(); }catch{ return null; } };
+  const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_OPEN: '1', OVERLAY_ADMIN_TOKEN: T.ADMIN_TOKEN, OVERLAY_SITE: 'off', OVERLAY_PORT: '17830' };
+  const status = async () => { try{ return await (await fetch('http://127.0.0.1:17830/api/status', { headers: { 'x-hudini-token': T.ADMIN_TOKEN } })).json(); }catch{ return null; } };
   const run = () => { const p = spawn(path.join(app, ASSET), [], { cwd: app, env, detached: true }); p.unref(); return p; };
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
@@ -144,11 +144,11 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     await stopAll();
   });
 
-  if(process.platform !== 'win32') await step('app mode: picks HudiniHost-<os>-<ver>.zip, unpacks all files, relaunches the app', async () => {
+  if(process.platform !== 'win32') await step('app mode: picks Hudini-<os>-<ver>.zip, unpacks all files, relaunches the app', async () => {
     list = [{ tag_name: 'v1.0.0', assets }];
     sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
     fs.writeFileSync(path.join(inst, 'data', 'overlay-host.json'), JSON.stringify({ modPass: 'app-pass-456' }));
-    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini Host'), OVERLAY_APP_PID: '4242', OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4242', OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
     check(await until(() => /^READY 17830$/m.test(out), 10000), 'prints READY <port> for the app');
@@ -160,35 +160,35 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     check(fs.readFileSync(path.join(inst, 'hudini-server')).equals(newServer), 'server replaced from the zip');
     check((fs.statSync(path.join(inst, 'hudini-server')).mode & 0o111) !== 0, 'server is executable');
     eq(fs.readFileSync(path.join(inst, 'README.txt'), 'utf8'), 'new readme', 'README replaced');
-    eq(fs.readFileSync(path.join(inst, 'Hudini Host'), 'utf8'), fakeApp, 'app executable replaced');
-    check(fs.existsSync(path.join(inst, 'Hudini Host.old')) && fs.existsSync(path.join(inst, 'hudini-server.old')), 'old files kept as .old until next start');
+    eq(fs.readFileSync(path.join(inst, 'Hudini'), 'utf8'), fakeApp, 'app executable replaced');
+    check(fs.existsSync(path.join(inst, 'Hudini.old')) && fs.existsSync(path.join(inst, 'hudini-server.old')), 'old files kept as .old until next start');
     eq(JSON.parse(fs.readFileSync(path.join(inst, 'data', 'overlay-host.json'), 'utf8')).modPass, 'app-pass-456', 'data/ from the zip does not overwrite settings');
     check(!fs.existsSync(path.join(inst, 'data', 'update')), 'staging folder removed');
     check(await until(() => p.exitCode !== null, 5000), 'old server exited');
   });
 
   if(process.platform !== 'win32') await step('app mode: cleans .old files, exits when the app closes stdin', async () => {
-    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini Host'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
     check(await until(() => /^READY 17830$/m.test(out), 10000), 'new server ready');
     const s = await until(async () => { const x = await status(); return x && x.upd.state === 'latest' && x; }, 15000);
     check(s && s.version === '1.0.0' && s.app === true && s.standalone === false, 'runs 1.0.0 in app mode');
-    check(!fs.existsSync(path.join(inst, 'Hudini Host.old')) && !fs.existsSync(path.join(inst, 'hudini-server.old')), '.old files removed on start');
+    check(!fs.existsSync(path.join(inst, 'Hudini.old')) && !fs.existsSync(path.join(inst, 'hudini-server.old')), '.old files removed on start');
     p.stdin.end();
     check(await until(() => p.exitCode !== null, 5000), 'exits when stdin closes (no orphan process)');
   });
 
   if(process.platform !== 'win32') await step('app mode: a zip whose symlink points outside the app folder is refused', async () => {
-    const evil = `HudiniHost-${APP_OS}-1.0.1.zip`;
+    const evil = `Hudini-${APP_OS}-1.0.1.zip`;
     fs.writeFileSync(path.join(rel, evil), zipMany([
-      { name: 'Hudini Host/Hudini Host', data: Buffer.from(fakeApp), mode: 0o755 },
-      { name: 'Hudini Host/esc', data: Buffer.from('../..'), mode: 0o120777 },   // symlink to two levels up
-      { name: 'Hudini Host/esc/pwned.txt', data: Buffer.from('x') },
+      { name: 'Hudini/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'Hudini/esc', data: Buffer.from('../..'), mode: 0o120777 },   // symlink to two levels up
+      { name: 'Hudini/esc/pwned.txt', data: Buffer.from('x') },
     ]));
     list = [{ tag_name: 'v1.0.1', assets: [{ name: evil, browser_download_url: url(evil) }, ...assets.slice(2)] }];
     sums = sha(fs.readFileSync(path.join(rel, evil))) + '  ' + evil + '\n'; sigVer = '1.0.1';
-    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini Host'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'ignore', 'ignore'] });
     const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
     check(s && /архив повреждён/.test(s.upd.err), 'escaping symlink refused: ' + (s && s.upd.err));

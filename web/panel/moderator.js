@@ -183,7 +183,9 @@ function openHome(info){
     if(r && !r.manual && (r.home?.url!==info.url || r.home?.pass!==info.pass)){ r.home={ url:info.url, pass:info.pass }; saveRooms(); }
   });
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
-    if(!hostCtl?.paused) hostNote='Hudini Host не принял пароль';
+    // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
+    if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
+    else if(!hostCtl?.paused) hostNote='Hudini Host не принял пароль';
     dropHome(); setTimeout(()=>{ if(!homeClient) tryHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
   } });
 }

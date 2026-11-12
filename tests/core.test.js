@@ -13,7 +13,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
   const room = await panel.evaluate(() => room);
   const P = 'stream-overlay/v1/' + room;
 
-  await step('panel finds Hudini Host through the public broker', async () => {
+  await step('panel connects to Hudini Host directly (TLS)', async () => {
     check(S.online, 'panel status is online via Hudini Host');
     check(/OBS: 1920×1080/.test(await panel.textContent('#obsStatus')), 'panel sees the OBS widget');
     check(!S.obsLink.includes('broker.emqx') && S.obsLink.startsWith(host.base + '/widget/widget.html'), 'OBS link points to the Host');
@@ -34,13 +34,13 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq(await until(async () => (await texts(widget)).includes('ПРИВЕТ') && await texts(widget)), ['ПРИВЕТ'], 'widget shows the text');
   });
 
-  await step('content does not go through the public broker', async () => {
+  await step('nothing is announced on the public broker any more', async () => {
     const seen = new Set();
     const spy = mqtt.connect(S.pub.url); await new Promise(r => spy.on('connect', r));
     spy.subscribe('#'); spy.on('message', t => seen.add(t.split('/').pop()));
     await panel.fill('#newText', 'ЕЩЁ'); await panel.click('#addText'); await panel.click('#confetti');
     await sleep(1500); spy.end(true);
-    eq([...seen], ['srv'], 'only the encrypted address announcement is on the public broker');
+    eq([...seen], [], 'the public broker sees nothing at all');
   });
 
   await step('files are stored encrypted on disk and shown in OBS', async () => {
@@ -65,6 +65,8 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     const inv = await panel.evaluate(() => inviteLink(curRoom()));
     const mod2 = await T.newPage('mod2');
     await mod2.goto(inv.replace('moderator.html', 'moderator.html?broker=' + encodeURIComponent(S.pub.url)));
+    await mod2.waitForFunction(() => typeof curRoom === 'function' && curRoom());
+    await T.attach(mod2, host);
     check(await until(async () => (await mod2.getAttribute('#status', 'class')).includes('ok'), 12000), 'mod2 online');
     check(await until(() => mod2.$$eval('#elLayer img.content', n => n.filter(i => i.naturalWidth > 0).length === 2), 10000), 'mod2 preview shows both files');
     await mod2.fill('#newText', 'ОТ ВТОРОГО'); await mod2.click('#addText');
@@ -101,17 +103,17 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq(rebound, 421, 'wrong Host header (DNS rebinding) → 421');
     const r = await fetch(`${host.admin}/api/link`, { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: '{}' });
     eq(r.status, 403, 'control API from another site → 403');
-    eq((await fetch(`${host.base}/api/modpass`)).status, 403, 'widget origin (localhost) cannot read the moderators password');
+    eq((await fetch(`${host.base}/api/code`)).status, 403, 'widget origin (localhost) cannot read the moderator code');
     const dockSt = await (await fetch(`${host.base}/api/status`)).json();
-    check(dockSt.ctl && !('logs' in dockSt) && !('obsLink' in dockSt) && !('fixedUrl' in dockSt), 'widget origin gets only the short dock status');
+    check(dockSt.ctl && !('logs' in dockSt) && !('obsLink' in dockSt) && !('addrs' in dockSt), 'widget origin gets only the short dock status');
     eq((await fetch(`${host.base}/`, { redirect: 'manual' })).headers.get('location'), `${host.admin}/`, 'management page moves to 127.0.0.1');
     eq((await fetch(`${host.base}/files`, { headers: { origin: 'https://evil.example' } })).status, 403, 'another site cannot hit the files API on this PC');
     const wsFrom = origin => new Promise(res => { const w = new (require('ws'))(`ws://localhost:${host.port}/mqtt`, 'mqtt', { origin }); w.on('open', () => { w.close(); res('open'); }); w.on('error', () => res('refused')); });
     eq(await wsFrom('https://evil.example'), 'refused', 'local MQTT refuses a WebSocket from another site');
     eq(await wsFrom(`http://localhost:${host.port}`), 'open', 'local MQTT accepts the widget origin');
     const codes = [];
-    for(let i = 0; i < 6; i++) codes.push((await fetch(tun + '/files', { headers: { authorization: 'Bearer wrong' + i, 'cf-connecting-ip': '203.0.113.9' } })).status);
-    eq(codes, [401, 401, 401, 401, 401, 429], 'five wrong passwords from one address → pause');
+    for(let i = 0; i < 6; i++) codes.push((await fetch(tun + '/files', { headers: { authorization: 'Bearer wrong' + i } })).status);
+    eq(codes, [401, 401, 401, 401, 429, 429], 'five wrong passwords a minute (the probe above counts as one) → 429');
     const ok = await panel.evaluate(async () => (await fetch(homeHttp().base + '/files', { headers: { authorization: homeHttp().auth } })).status);
     eq(ok, 200, 'the panel with the real password still works');
   });
@@ -242,6 +244,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     await panel.waitForFunction(old => document.getElementById('link').value !== old, S.link);
     const link = await panel.inputValue('#link');
     const set = await host.api('/api/link', { link });
+    await T.attach(panel, host);   // a new room needs the new code (the saved session of the old keys is gone)
     const after = JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8')).modPass;
     check(set.ok && before !== after, 'moderator password changed');
     check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 12000), 'panel reconnects with the new keys');
@@ -250,7 +253,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     S.link = link; S.obsLink = set.obsLink;
   });
 
-  await step('public broker down: panel uses the last known address', async () => {
+  await step('public broker down: the panel does not need it', async () => {
     await S.pub.close();
     await panel.reload();
     check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 12000), 'panel online without the public broker');

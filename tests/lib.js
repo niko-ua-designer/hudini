@@ -5,11 +5,14 @@ const http = require('http'), fs = require('fs'), path = require('path'), os = r
 const { spawn } = require('child_process');
 const { chromium } = require('playwright');
 
+// The moderators' port uses a self-signed certificate: tests (and only tests) accept it
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const ADMIN_TOKEN = 'test-admin-token';
 const ROOT = path.resolve(__dirname, '..');
 const WEB = path.join(ROOT, 'web');
 const MQTT_JS = fs.readFileSync(path.join(__dirname, 'node_modules/mqtt/dist/mqtt.min.js'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const PORTS = { pub: 18888, web: 18090, host: 17790 };   // host uses host+1 for the moderators' tunnel port
+const PORTS = { pub: 18888, web: 18090, host: 17790 };   // host uses host+1 for the moderators' TLS port
 
 // ---------- tiny test framework ----------
 const results = [];
@@ -54,18 +57,21 @@ function startHost(env = {}){
   const port = Number(env.OVERLAY_PORT || PORTS.host);
   const proc = spawn('bun', ['run', 'server.js'], { cwd: path.join(ROOT, 'server'), env: { ...process.env,
     OVERLAY_HOST_DIR: dir, OVERLAY_NO_OPEN: '1', OVERLAY_NO_UPDATE: '1', OVERLAY_PORT: String(port),
-    OVERLAY_PUBLIC_BROKER: `ws://localhost:${PORTS.pub}`, OVERLAY_TUNNEL_URL: `ws://127.0.0.1:${port + 1}/mqtt`, ...env } });
+    OVERLAY_ADMIN_TOKEN: ADMIN_TOKEN, OVERLAY_MOD_PORT: String(port + 1), ...env } });
   let log = ''; proc.stdout.on('data', d => log += d); proc.stderr.on('data', d => log += d);
   const base = `http://localhost:${port}`;
   const host = {
-    proc, dir, port, base, tunnel: `http://127.0.0.1:${port + 1}`, log: () => log,
+    proc, dir, port, base, tunnel: `https://127.0.0.1:${port + 1}`, modPort: port + 1, token: ADMIN_TOKEN, log: () => log,
     admin: `http://127.0.0.1:${port}`,   // страница управления и /api: отдельный origin от виджета (localhost)
     async api(p, body){
       const base = `http://127.0.0.1:${port}`;
-      const r = await fetch(base + p, body === undefined ? {} : { method:'POST', headers:{ 'content-type':'application/json', origin: base }, body: JSON.stringify(body) });
+      const h = { 'x-hudini-token': ADMIN_TOKEN };
+      const r = await fetch(base + p, body === undefined ? { headers: h } : { method:'POST', headers:{ ...h, 'content-type':'application/json', origin: base }, body: JSON.stringify(body) });
       return r.json();
     },
     async ready(){ return until(async () => (await fetch(`http://127.0.0.1:${port}/api/status`)).ok, 15000); },
+    // The code a streamer gives to a moderator, decoded
+    async code(){ const r = await this.api('/api/code'); return { ...r, data: JSON.parse(Buffer.from(r.code.slice(8), 'base64url').toString()) }; },
     async stop(){ if(proc.exitCode !== null) return; proc.kill('SIGTERM'); await until(() => proc.exitCode !== null, 3000); if(proc.exitCode === null) proc.kill('SIGKILL'); },
   };
   return host;
@@ -76,7 +82,7 @@ let browser = null;
 const pageErrors = [];
 async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false } = {}){
   browser ||= await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true });
   await ctx.route('https://unpkg.com/**', r => r.fulfill({ body: MQTT_JS, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
@@ -94,6 +100,11 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
 }
 async function closeBrowser(){ await browser?.close(); browser = null; }
 
+// Point a panel at a Host the way a saved session does: the direct TLS address and the password from the moderator code
+async function attach(page, host){
+  const { pass } = await host.api('/api/code');
+  await page.evaluate(([url, pass]) => { const r = curRoom(); r.manual = { url, pass }; saveRooms(); dropHome(); tryHome(); }, [`wss://127.0.0.1:${host.modPort}/mqtt`, pass]);
+}
 // Panel + Host + widget wired together, as on a real stream
 async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = {}){
   const pub = await publicBroker(), web = await webServer();
@@ -103,6 +114,7 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   await panel.waitForFunction(() => document.getElementById('link').value.includes('#k='));
   const link = await panel.inputValue('#link');
   const set = await host.api('/api/link', { link });
+  await attach(panel, host);
   const online = await until(async () => /Hudini Host/.test(await panel.textContent('#status')) && (await panel.getAttribute('#status', 'class')).includes('ok'), 15000);
   const widget = await newPage('widget', { w: 1920, h: 1080 });
   await widget.goto(set.obsLink);
@@ -117,4 +129,4 @@ function finish(){
   return bad.length ? 1 : 0;
 }
 // A sealed asset made the same way the panel does it, using core.js inside a page
-module.exports = { ROOT, PORTS, sleep, until, check, eq, step, publicBroker, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };
+module.exports = { ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, publicBroker, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };

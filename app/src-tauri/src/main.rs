@@ -347,7 +347,8 @@ fn on_ready(app: &AppHandle, port: u16) {
     let server = app.state::<Server>();
     server.port.store(port, Ordering::SeqCst);
     server.crashes.store(0, Ordering::SeqCst);
-    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/"))) {
+    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}", server.token.lock().unwrap()))) {
+        // одноразовый вход: сервер выдаёт окну cookie hudini_admin и перенаправляет на страницу управления
         let _ = w.navigate(url);
     }
 }
@@ -381,12 +382,12 @@ fn quit(app: &AppHandle) {
 }
 
 // ---------- ссылка для OBS из /api/status ----------
-fn fetch_status(port: u16) -> Result<serde_json::Value, String> {
+fn fetch_status(port: u16, token: &str) -> Result<serde_json::Value, String> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let mut s = TcpStream::connect_timeout(&addr, Duration::from_secs(2)).map_err(|e| e.to_string())?;
     let _ = s.set_read_timeout(Some(Duration::from_secs(3)));
     // Host 127.0.0.1:<порт>: сервер отвечает только своему адресу (защита от DNS-rebinding)
-    write!(s, "GET /api/status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").map_err(|e| e.to_string())?;
+    write!(s, "GET /api/status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nX-Hudini-Token: {token}\r\nConnection: close\r\n\r\n").map_err(|e| e.to_string())?;
     let mut buf = Vec::new();
     s.read_to_end(&mut buf).map_err(|e| e.to_string())?;
     let text = String::from_utf8_lossy(&buf);
@@ -405,7 +406,8 @@ fn copy_obs_link(app: &AppHandle) {
         if port == 0 {
             return notify(&app, t.not_ready);
         }
-        let link = fetch_status(port).ok().and_then(|s| s.get("obsLink").and_then(|v| v.as_str()).map(String::from)).unwrap_or_default();
+        let token = app.state::<Server>().token.lock().unwrap().clone();
+        let link = fetch_status(port, &token).ok().and_then(|s| s.get("obsLink").and_then(|v| v.as_str()).map(String::from)).unwrap_or_default();
         if link.is_empty() {
             notify(&app, t.no_link);
             show_main(&app);

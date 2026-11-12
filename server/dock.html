@@ -54,7 +54,6 @@ async function refresh(){
   $('rows').replaceChildren(
     row(s.obsOnline?'ok':'bad', 'OBS', s.obsOnline?'виджет работает':(s.room?'виджет не подключён':'вставь ссылку в настройках')),
     row(s.ctl?.paused?'warn':(s.mods?'ok':'warn'), 'Модераторы', s.ctl?.paused?'пауза':(s.mods?'онлайн: '+s.mods:'пока никого')),
-    row(s.tunnel?'ok':'warn', 'Туннель', s.tunnel?'работает':'запускается…'),
     row(s.cs2Online?'ok':'warn', 'CS2', s.cs2Online?'данные идут':'нет данных'),
     row(g.used>0.9*g.limitBytes?'warn':'ok', 'Файлы', `${mb(g.used)} / ${mb(g.limitBytes)} MB`),
   );

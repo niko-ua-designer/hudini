@@ -1,20 +1,21 @@
 // Hudini Host: сервер оверлея на ПК стримера.
 // • OBS подключается к нему напрямую (localhost): минимальная задержка, без интернета посередине.
-// • Модераторы подключаются через бесплатный туннель Cloudflare (с паролем) или через свой адрес.
-// • Общий сервер нужен только чтобы пульт нашёл адрес: раз в минуту туда уходит зашифрованное объявление.
-//   Всё содержимое (экран, файлы, CS2) идёт только через этот компьютер.
+// • Модераторы подключаются напрямую: порт для модераторов (TLS, самоподписанный сертификат с отпечатком) открыт
+//   на адресах VPN (Tailscale, Radmin, ZeroTier), в локальной сети или через проброс порта; Porthole показывает его как 127.0.0.1.
+//   Чужих серверов нет: всё содержимое (экран, файлы, CS2) идёт только через этот компьютер.
 // • Файлы хранятся на диске зашифрованными: программа не может их прочитать, расшифровывает только виджет.
 // • Принимает живые данные из CS2 (Game State Integration) и отдаёт их оверлею.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import https from 'node:https';
 import { spawn, exec, execFile } from 'node:child_process';
 import nodeCrypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { WebSocketServer, createWebSocketStream } from 'ws';
 import { Aedes } from 'aedes';
-import mqtt from 'mqtt';
+import selfsigned from 'selfsigned';
 import WIDGET_HTML from '../web/widget/widget.html' with { type: 'text' };
 import CORE_JS from '../web/shared/core.js' with { type: 'text' };
 import CORE_CSS from '../web/shared/core.css' with { type: 'text' };
@@ -28,25 +29,27 @@ import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'te
 
 const VERSION = '1.0.0-rc.4';
 const PREFIX = 'stream-overlay/v1';
-const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io:8084/mqtt';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
-const NO_TUNNEL = !!process.env.OVERLAY_NO_TUNNEL;
+// Роль модератора: сервер не открывает портов, только проверяет и ставит обновления
+const ROLE_MOD = process.env.OVERLAY_ROLE === 'mod';
 const NO_OPEN = !!process.env.OVERLAY_NO_OPEN;
 // Запуск из программы с окном и треем (app/): она читает stdout и держит открытым stdin
 const APP = !!process.env.OVERLAY_APP;
 const APP_EXE = process.env.OVERLAY_APP_EXE || '';           // файл программы с окном (его перезапускаем после обновления)
 const APP_PID = Number(process.env.OVERLAY_APP_PID) || process.ppid;
+// Случайный префикс служебных строк для программы с окном (строка журнала их не подделает); он же — токен первого входа в управление
+const APP_TOKEN = process.env.OVERLAY_APP_TOKEN || ''; delete process.env.OVERLAY_APP_TOKEN;
 let appHidden = false;                                       // окно программы спрятано в трей
 
 // ---------- папка с настройками: рядом с .exe ----------
 const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes('~BUN');
-// Портативно: всё (настройки, файлы модераторов, кэш, cloudflared) лежит в папке data рядом с программой.
+// Портативно: всё (настройки, файлы модераторов, кэш, сертификат, журналы) лежит в папке data рядом с программой.
 // Удалил папку с программой, и на компьютере ничего не осталось.
 const APP_DIR = compiled ? path.dirname(process.execPath) : import.meta.dir;
 const BASE = process.env.OVERLAY_HOST_DIR || path.join(APP_DIR, 'data');
 fs.mkdirSync(BASE, { recursive: true, mode:0o700 });
 // Версии до 1.0 хранили всё прямо рядом с .exe: переносим в data
-if(compiled && !process.env.OVERLAY_HOST_DIR) for(const f of ['overlay-host.json', 'cache', 'files', 'cloudflared.exe', 'cloudflared']){
+if(compiled && !process.env.OVERLAY_HOST_DIR) for(const f of ['overlay-host.json', 'cache', 'files']){
   const from = path.join(APP_DIR, f), to = path.join(BASE, f);
   try{ if(fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to); }catch{}
 }
@@ -54,26 +57,60 @@ const CFG_FILE = path.join(BASE, 'overlay-host.json');
 const rnd = n => nodeCrypto.randomBytes(n).toString('base64url');
 let cfg = {};
 try{ cfg = JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); }catch{}
-cfg = { port:7777, link:'', modPass:rnd(18), gsiToken:rnd(18), fixedUrl:'', ...cfg };
+const hadCloudflare = !!cfg.link && !cfg.direct;   // настройки от версии с туннелем Cloudflare
+cfg = { port:7777, link:'', modPass:rnd(18), gsiToken:rnd(18), extAddr:'', modsOn:true, name:'Hudini', ...cfg };
+delete cfg.fixedUrl;
+if(!cfg.direct){ cfg.direct = 1; if(hadCloudflare) cfg.cfNotice = true; }
+// cloudflared больше не нужен: убираем скачанный файл
+for(const f of ['cloudflared.exe', 'cloudflared']) try{ fs.rmSync(path.join(BASE, f), { force:true }); }catch{}
 // Лимиты для файлов модераторов: при первом запуске программа предлагает их поменять (страница управления)
 const LIMIT_DEFAULTS = { fileMB:100, totalMB:2048, files:300 };
 cfg.limits = { ...LIMIT_DEFAULTS, ...(cfg.limits||{}) };
 // в настройках пароль модераторов, токен CS2 и ключи комнаты: файл читает только владелец
 const saveCfg = () => { fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2), { mode:0o600 }); try{ fs.chmodSync(CFG_FILE, 0o600); }catch{} };
 saveCfg();
-// Свой адрес вместо Cloudflare (Tailscale Funnel, свой домен): из настроек или переменной окружения
-const fixedUrl = () => process.env.OVERLAY_TUNNEL_URL || cfg.fixedUrl || '';
 const okPort = v => { const n = Number(v); return Number.isInteger(n) && n>=1024 && n<=65534 ? n : 0; };
-const PORT = okPort(process.env.OVERLAY_PORT) || okPort(cfg.port) || 7777, TPORT = PORT + 1;
+// PORT — страница управления и виджет (только этот компьютер); MPORT — порт для модераторов (TLS, снаружи)
+const PORT = okPort(process.env.OVERLAY_PORT) || okPort(cfg.port) || 7777;
+const MPORT = okPort(process.env.OVERLAY_MOD_PORT) || okPort(cfg.modPort) || PORT + 1;
 
 // ---------- журнал ----------
-const logs = [];
-function log(...a){
-  const line = new Date().toLocaleTimeString('ru-RU') + '  ' + a.join(' ').replace(/[\r\n]+/g, ' ');
+// В памяти последние строки (для страницы управления), на диске data/logs/host-ГГГГ-ММ-ДД.log (7 дней)
+const LOGS_DIR = path.join(BASE, 'logs'); fs.mkdirSync(LOGS_DIR, { recursive:true, mode:0o700 });
+const logs = [], connLogs = [];
+const dayStamp = (d=new Date()) => d.toLocaleDateString('sv-SE');
+function emitLog(conn, a){
+  const text = a.join(' ').replace(/[\r\n]+/g, ' ');
+  const line = new Date().toLocaleTimeString('ru-RU') + '  ' + text;
   console.log(line); logs.push(line); if(logs.length>200) logs.shift();
+  if(conn){ connLogs.push(line); if(connLogs.length>200) connLogs.shift(); }
+  try{ fs.appendFileSync(path.join(LOGS_DIR, `host-${dayStamp()}.log`), new Date().toISOString() + (conn ? '  [conn]  ' : '  ') + text + '\n', { mode:0o600 }); }catch{}
 }
+const log = (...a) => emitLog(false, a);
+const logc = (...a) => emitLog(true, a);   // события подключений: у них свой фильтр на странице управления
+function pruneLogs(){
+  const old = dayStamp(new Date(Date.now() - 7*864e5));
+  try{ for(const f of fs.readdirSync(LOGS_DIR)){
+    const m = /^host-(\d{4}-\d\d-\d\d)\.log$/.exec(f);
+    if(m && m[1] < old) fs.rmSync(path.join(LOGS_DIR, f), { force:true });
+  } }catch{}
+}
+pruneLogs(); setInterval(pruneLogs, 6*3600e3);
+// Падение: стек в crash-<дата-время>.log и код 70. Обычное закрытие (QUIT, SIGTERM, выключение ПК) крашем не считается.
+let shuttingDown = false;
+function crash(kind, e){
+  if(shuttingDown) return;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const text = `${kind} ${new Date().toISOString()}\nHudini ${VERSION} ${process.platform} ${os.arch()}\n\n${e?.stack || e}\n\nПоследние строки журнала:\n${logs.slice(-30).join('\n')}\n`;
+  try{ fs.writeFileSync(path.join(LOGS_DIR, `crash-${stamp}.log`), text, { mode:0o600 }); }catch{}
+  try{ console.error(text); }catch{}
+  process.exit(70);
+}
+process.on('uncaughtException', e => crash('uncaughtException', e));
+process.on('unhandledRejection', e => crash('unhandledRejection', e));
 
-// ---------- комната из ссылки для OBS ----------
+// ---------- комната ----------
+const ROOM_ABC = 'abcdefghijkmnpqrstuvwxyz23456789';
 let ROOM = null, AES = null;
 function parseLink(link){
   try{
@@ -84,25 +121,40 @@ function parseLink(link){
   }catch{ return null; }
 }
 const subtle = globalThis.crypto.subtle;
-async function setRoom(link){
+// Новые ключи комнаты: AES-256 (общий, есть у виджета) и пара ECDSA P-256 (закрытая половина только у модераторов), как в core.js
+async function newRoom(name){
+  const aes = nodeCrypto.randomBytes(32);
+  const pair = await subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, true, ['sign', 'verify']);
+  const code = Array.from(nodeCrypto.randomBytes(16), x => ROOM_ABC[x % ROOM_ABC.length]).join('');
+  return { code, name:String(name||cfg.name||'Hudini').slice(0, 40), k:aes.toString('base64url'),
+    p:Buffer.from(await subtle.exportKey('raw', pair.publicKey)).toString('base64url'), s:await subtle.exportKey('jwk', pair.privateKey) };
+}
+const linkOf = r => `http://localhost:${PORT}/widget/widget.html?room=${r.code}#k=${r.k}&p=${r.p}`;
+// full — комната, созданная этой программой (с закрытым ключом, из неё собирается код для модератора)
+async function setRoom(link, full){
   const r = parseLink(link); if(!r) throw new Error('Это не ссылка из пульта модератора');
   const key = await subtle.importKey('raw', Buffer.from(r.k, 'base64url'), 'AES-GCM', false, ['encrypt','decrypt']);
   const changed = ROOM && (ROOM.room!==r.room || ROOM.k!==r.k);
   if(changed){
-    // Новая комната или новые ключи (модератор нажал «Сменить ключи»): старый адрес гасим,
-    // пароль модераторов меняем и всех отключаем. Так доступ теряют все, у кого старые ключи.
-    await announce({ off:true });
+    // Новая комната или новые ключи: пароль модераторов меняем и всех отключаем. Так доступ теряют все, у кого старые ключи.
     cfg.modPass = rnd(18);
     kickMods('ключи комнаты сменились');
   }
+  if(full) cfg.room = full;
+  else if(!(cfg.room && cfg.room.code===r.room && cfg.room.k===r.k)) delete cfg.room;
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
-  log('Комната:', r.room);
-  restartBridge(); announce(); publishCtl();
+  log('Комната готова');
+  announce(); publishCtl();
+}
+async function createRoom(name){
+  const full = await newRoom(name);
+  if(name) cfg.name = full.name;
+  await setRoom(linkOf(full), full);
 }
 function kickMods(why){
   let n = 0;
-  for(const c of Object.values(aedes.clients)) if(c.conn?._tunnel){ try{ c.close(); n++; }catch{} }
-  if(n) log('👤 Отключил модераторов:', n, '—', why);
+  for(const c of Object.values(aedes.clients)) if(c.conn?._mod){ try{ c.close(); n++; }catch{} }
+  if(n) logc('👤 Отключил модераторов:', n, '—', why);
 }
 // Шифруем ключом комнаты (как в core.js, без подписи)
 async function sealAES(obj){
@@ -114,9 +166,72 @@ async function sealAES(obj){
 const T = s => `${PREFIX}/${ROOM.room}/${s}`;
 const inRoom = topic => ROOM && topic.startsWith(`${PREFIX}/${ROOM.room}/`);
 
+// ---------- TLS: самоподписанный сертификат с отпечатком ----------
+// Модератор получает отпечаток (SHA-256 сертификата) в коде и сверяет его при подключении: имя и цепочка не нужны.
+let TLS = { key:'', cert:'', fp:'' };
+const fpOf = x => x.fingerprint256.replace(/:/g, '').toLowerCase();
+async function ensureTls(){
+  const dir = path.join(BASE, 'tls'); fs.mkdirSync(dir, { recursive:true, mode:0o700 });
+  const kf = path.join(dir, 'key.pem'), cf = path.join(dir, 'cert.pem');
+  try{
+    const key = fs.readFileSync(kf, 'utf8'), cert = fs.readFileSync(cf, 'utf8'), x = new nodeCrypto.X509Certificate(cert);
+    if(Date.parse(x.validTo) > Date.now() + 30*864e5 && x.checkPrivateKey(nodeCrypto.createPrivateKey(key))){ TLS = { key, cert, fp:fpOf(x) }; return; }
+    log('⚠ Сертификат истекает, выпускаю новый: старые коды для модераторов перестанут подходить');
+  }catch{}
+  const pems = await selfsigned.generate([{ name:'commonName', value:'Hudini' }], { notAfterDate:new Date(Date.now() + 3650*864e5), keySize:2048, algorithm:'sha256' });
+  fs.writeFileSync(kf, pems.private, { mode:0o600 }); fs.writeFileSync(cf, pems.cert, { mode:0o600 });
+  TLS = { key:pems.private, cert:pems.cert, fp:fpOf(new nodeCrypto.X509Certificate(pems.cert)) };
+  log('🔐 Сертификат для модераторов создан');
+}
+await ensureTls();
+
+// ---------- адреса, по которым можно подключиться ----------
+// Подпись сети по адресу: так пульт показывает, через что идёт связь
+const NET_LABEL = { tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес' };
+function netOf(ip, ifname=''){
+  const a = String(ip).replace(/^::ffff:/, '');
+  if(/^127\./.test(a) || a==='::1') return 'porthole';
+  const [o1, o2] = a.split('.').map(Number);
+  if(o1===100 && o2>=64 && o2<=127) return 'tailscale';
+  if(o1===26) return 'radmin';
+  if(o1===25) return 'hamachi';
+  if(/^(zt|feth)/i.test(ifname)) return 'zerotier';
+  if(o1===10 || (o1===172 && o2>=16 && o2<=31) || (o1===192 && o2===168)) return 'lan';
+  return 'inet';
+}
+const NET_ORDER = ['tailscale', 'radmin', 'hamachi', 'zerotier', 'lan', 'inet'];
+function parseExt(v){
+  const m = /^([a-z0-9.-]+):(\d{1,5})$/i.exec(String(v||'').trim());
+  return m && +m[2]>=1 && +m[2]<=65535 ? { h:m[1], port:+m[2], net:'ext' } : null;
+}
+function addresses(){
+  const out = [];
+  for(const [name, list] of Object.entries(os.networkInterfaces())) for(const a of list||[]){
+    if(a.family!=='IPv4' || a.internal || a.address.startsWith('169.254.')) continue;
+    out.push({ h:a.address, port:MPORT, net:netOf(a.address, name) });
+  }
+  out.sort((x, y) => NET_ORDER.indexOf(x.net) - NET_ORDER.indexOf(y.net));
+  const ext = parseExt(cfg.extAddr); if(ext) out.push(ext);
+  out.push({ h:'127.0.0.1', port:MPORT, net:'porthole' });   // Porthole открывает порт стримера у модератора на 127.0.0.1
+  return out;
+}
+// Код для модератора: комната, пароль, отпечаток сертификата и адреса одной строкой
+function modCode(){
+  if(!ROOM) return '';
+  const o = { v:1, name:cfg.name || 'Hudini', room:ROOM.room, ...(cfg.room?.s ? { k:ROOM.k, p:ROOM.p, s:cfg.room.s } : {}),
+    pass:cfg.modPass, fp:TLS.fp, addrs:addresses() };
+  return 'hudini1:' + Buffer.from(JSON.stringify(o)).toString('base64url');
+}
+let lastAddrs = '';
+setInterval(() => {
+  const now = addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', ');
+  if(now!==lastAddrs){ lastAddrs = now; log('🌐 Адреса для модераторов:', now); }
+}, 30000);
+
 // ---------- брокер ----------
 const aedes = await Aedes.createBroker({ connectTimeout:10000 });   // aedes 1.x: брокер запускается асинхронно
-const status = { mods:0, obs:0, obsSeen:0, tunnel:null, tunnelErr:'', bridge:false, cs2Seen:0, cs2:null, gsiPath:'' };
+const status = { mods:0, obs:0, obsSeen:0, cs2Seen:0, cs2:null, gsiPath:'' };
+const modList = new Map();   // id клиента → { ip, net, since, rtt } для страницы управления
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 const ctl = { hidden:false, paused:false, stop:0 };
 async function publishCtl(){
@@ -126,167 +241,95 @@ async function publishCtl(){
 // Защита пароля от перебора: 5 ошибок подряд с одного адреса → пауза 1 мин, потом 2, 4… до 30 мин
 const fails = new Map();
 // Общей блокировки для всех нет: пароль — 18 случайных байт, подобрать его нельзя, а общий замок позволял кому угодно запереть всех модераторов
-function locked(ip){ const f = fails.get(ip), u = f?.until||0; return u > Date.now() ? Math.ceil((u-Date.now())/1000) : 0; }
+// Porthole: все гости приходят с 127.0.0.1, блокировать «адрес» нельзя; для loopback только ограничение частоты (5 ошибок в минуту)
+const isLoop = ip => /^(127\.|::1$|::ffff:127\.)/.test(ip);
+const loopFails = [];
+function locked(ip){
+  if(isLoop(ip)){
+    const now = Date.now(); while(loopFails.length && now-loopFails[0] > 60000) loopFails.shift();
+    return loopFails.length>=5 ? Math.ceil((60000-(now-loopFails[0]))/1000) : 0;
+  }
+  const f = fails.get(ip), u = f?.until||0; return u > Date.now() ? Math.ceil((u-Date.now())/1000) : 0;
+}
 function passOk(ip, pass){
-  if(locked(ip)) return false;
+  // Porthole: верный пароль пускает всегда (иначе один гость запер бы остальных на минуту); перебор 144-битного пароля бессмыслен
+  if(locked(ip) && !isLoop(ip)) return false;
   const a = Buffer.from(String(pass||'')), b = Buffer.from(cfg.modPass);
   const ok = a.length===b.length && nodeCrypto.timingSafeEqual(a, b);
   if(ok){ fails.delete(ip); return true; }
+  if(isLoop(ip)){ if(!locked(ip)){ loopFails.push(Date.now()); logc('⚠ Неверный пароль с', ip, '(Porthole или этот компьютер)'); } return false; }
   const f = fails.get(ip) || { n:0, until:0, lock:30 };
-  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; log('⚠ Подбор пароля с', ip, '— пауза', f.lock, 'с'); }
-  else log('⚠ Отклонено подключение с неверным паролем');
+  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Подбор пароля с', ip, '— пауза', f.lock, 'с'); }
+  else logc('⚠ Неверный пароль с', ip, `(${NET_LABEL[netOf(ip)]})`);
   fails.set(ip, f);
   if(fails.size > 1000) for(const [k,v] of fails) if(v.until < Date.now()) fails.delete(k);
   return false;
 }
-const ipOf = req => String(req.headers['cf-connecting-ip'] || req.socket?.remoteAddress || '?').slice(0, 64);
+// Адрес — только из сокета: заголовкам вроде cf-connecting-ip верить нельзя
+const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 aedes.authenticate = (client, user, pass, cb) => {
-  if(!client.conn?._tunnel) return cb(null, true);
-  if(ctl.paused) return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false);   // стример поставил модераторов на паузу   // локальные (OBS) без пароля: сервер слушает только этот ПК
+  if(!client.conn?._mod) return cb(null, true);   // локальные (OBS) без пароля: порт слушает только этот ПК
+  if(ctl.paused) return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false);   // стример поставил модераторов на паузу
+  if(!cfg.modsOn) return cb(Object.assign(new Error('off'), { returnCode:3 }), false);   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
-// Тема host (кнопки стримера в доке OBS) пишет только сама программа: клиентам туда нельзя
-// Кто что пишет: модераторы (через туннель) — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
-// srv (адрес и пароль), cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
-const PUB_TUNNEL = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
+// Кто что пишет: модераторы — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
+// srv, cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
+const PUB_MOD = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
-  if(!(client?.conn?._tunnel ? PUB_TUNNEL : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
-  if(ctl.paused && client?.conn?._tunnel) return cb(new Error('пауза'));
+  if(!(client?.conn?._mod ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
+  if(ctl.paused && client?.conn?._mod) return cb(new Error('пауза'));
   cb(null);
 };
 aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub : null);
-aedes.on('client', c => { if(c.conn?._tunnel){ status.mods++; log('👤 Модератор подключился'); } else status.obs++; });
-aedes.on('clientDisconnect', c => { if(c.conn?._tunnel){ status.mods=Math.max(0,status.mods-1); log('👤 Модератор отключился'); } else status.obs=Math.max(0,status.obs-1); });
+aedes.on('client', c => {
+  const s = c.conn;
+  if(!s?._mod){ status.obs++; return; }
+  const m = { ip:s._ip, net:netOf(s._ip), since:Date.now(), rtt:null, ws:s._ws, pingAt:0, timer:null };
+  const ping = () => { if(m.ws.readyState===1){ m.pingAt = Date.now(); try{ m.ws.ping(); }catch{} } };
+  m.ws.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
+  m.timer = setInterval(ping, 5000); ping();
+  modList.set(c.id, m); status.mods = modList.size;
+  logc('👤 Модератор подключился:', m.ip, `(${NET_LABEL[m.net]}, TLS)`);
+});
+aedes.on('clientDisconnect', c => {
+  const m = modList.get(c.id);
+  if(!c.conn?._mod){ status.obs = Math.max(0, status.obs-1); return; }
+  if(m){ clearInterval(m.timer); modList.delete(c.id); logc('👤 Модератор отключился:', m.ip, `— был на связи ${Math.round((Date.now()-m.since)/1000)} с`); }
+  status.mods = modList.size;
+});
 
 // Самое большое сообщение — состояние экрана; файлы идут отдельно через /files
-const WS_MAX = 16*1048576, TUNNEL_CONNS = 64;
-function wsServer(tunnel){
+const WS_MAX = 16*1048576, MOD_CONNS = 64;
+function wsServer(mod){
   const wss = new WebSocketServer({ noServer:true, maxPayload:WS_MAX, handleProtocols: p => p.has('mqtt') ? 'mqtt' : false });
   return (req, socket, head) => {
     if(new URL(req.url, 'http://x').pathname !== '/mqtt'){ socket.destroy(); return; }
     // локально подключается только виджет OBS с этого же адреса: чужой сайт в браузере стримера сюда не пустим
-    if(!tunnel && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin)))){ socket.destroy(); return; }
-    if(tunnel && wss.clients.size >= TUNNEL_CONNS){ socket.destroy(); return; }
+    if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin)))){ socket.destroy(); return; }
+    if(mod && (!cfg.modsOn || wss.clients.size >= MOD_CONNS)){ socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, ws => {
-      const stream = createWebSocketStream(ws); stream._tunnel = tunnel; stream._ip = ipOf(req);
+      const stream = createWebSocketStream(ws); stream._mod = mod; stream._ip = ipOf(req); stream._ws = ws;
       stream.on('error', ()=>{});
       aedes.handle(stream, req);
     });
   };
 }
 
-// ---------- общий сервер: только объявление адреса ----------
-// Пульт подписан на зашифрованное объявление (адрес + пароль). Содержимое через общий сервер не ходит.
-let pub = null;
-function restartBridge(){
-  pub?.end(true);
-  if(!ROOM) return;
-  pub = mqtt.connect(PUBLIC_BROKER, { clientId:'host_'+rnd(6), clean:true, keepalive:30, reconnectPeriod:5000, connectTimeout:10000 });
-  pub.on('connect', () => { status.bridge=true; log('🌐 Общий сервер подключён (объявление адреса)'); announce(); });
-  pub.on('close', () => { if(status.bridge) log('🌐 Общий сервер отключился'); status.bridge=false; });
-  pub.on('error', () => { status.bridge=false; });
-}
 aedes.on('publish', (packet, client) => {
-  if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._tunnel) status.obsSeen = Date.now();
+  if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._mod) status.obsSeen = Date.now();
 });
 
-// ---------- объявление адреса для пульта ----------
-const modUrl = () => fixedUrl() || (status.tunnel ? `wss://${status.tunnel}/mqtt` : null);
-async function announce(opt={}){
+// ---------- состояние для пульта, уже подключённого к программе ----------
+// Адрес и пароль больше нигде не публикуются: модератор получает их в коде. В свой брокер уходит только пауза.
+async function announce(){
   if(!ROOM || !AES) return;
-  const url = opt.off ? null : modUrl();
-  const info = { ver:2, url, user:'mod', pass: url ? cfg.modPass : null, paused:ctl.paused, t:Date.now() };
-  const box = await sealAES(info);
-  // и в свой брокер: пульт, уже подключённый к программе, узнает о смене адреса или пароля
+  const box = await sealAES({ ver:2, paused:ctl.paused, t:Date.now() });
   aedes.publish({ cmd:'publish', topic:T('srv'), payload:box, qos:1, retain:true, dup:false }, ()=>{});
-  if(pub?.connected) await new Promise(r => pub.publish(T('srv'), box, { qos:1, retain:true }, r));
 }
 setInterval(announce, 60000);
-
-// ---------- туннель Cloudflare ----------
-function cfName(){ return process.platform==='win32' ? 'cloudflared.exe' : 'cloudflared'; }
-// Закреплённая версия cloudflared и SHA-256 готового бинарника (для macOS: файла внутри .tgz).
-// Хеши из release notes Cloudflare, перепроверены скачиванием.
-// Обновление: поменять CF_VERSION и хеши из https://github.com/cloudflare/cloudflared/releases
-const CF_VERSION = '2026.10.4';
-const CF_PINS = {
-  'win32-amd64':  { file:'cloudflared-windows-amd64.exe', sha256:'411b16d40c8d872243efeb52c550053d00af0a8a97fbb32e730fb8aba429eaa8' },
-  'linux-amd64':  { file:'cloudflared-linux-amd64',       sha256:'ae5e8add7884b0531d66bbca4570d1de491ff6da51e4ebe7eb160cdf241d9e42' },
-  'linux-arm64':  { file:'cloudflared-linux-arm64',       sha256:'2b7203b4fb0ba28a0c1e12f8855ce2c25f76d266a8d5edafac5540b6812acff6' },
-  'darwin-amd64': { file:'cloudflared-darwin-amd64.tgz',  sha256:'fdec0f9a1c726f4c10283fc0cd70e602d510c72887b737270433c81a08c883a9' },
-  'darwin-arm64': { file:'cloudflared-darwin-arm64.tgz',  sha256:'49e7963072b2ca83fb44c09f4d4a7cda52d390c0c9c6f55bac83454a5bc43910' },
-};
-function cfPin(){
-  const arch = os.arch()==='arm64' ? 'arm64' : os.arch()==='x64' ? 'amd64' : os.arch();
-  // Windows на ARM запускает amd64-сборку через эмуляцию: отдельной arm64-сборки у Cloudflare нет
-  const key = process.platform==='win32' ? 'win32-amd64' : `${process.platform}-${arch}`;
-  const pin = CF_PINS[key];
-  if(!pin) throw new Error('нет cloudflared для этой системы ('+key+')');
-  return pin;
-}
-const sha256File = p => nodeCrypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
-async function ensureCloudflared(){
-  const local = path.join(BASE, cfName());
-  const pin = cfPin();
-  // Уже скачанный файл тоже проверяем: старые версии программы качали его без проверки
-  if(fs.existsSync(local)){
-    if(sha256File(local)===pin.sha256) return local;
-    log('⚠ cloudflared на диске не совпадает с проверенной версией', CF_VERSION, '— скачиваю заново');
-    fs.rmSync(local, { force:true });
-  }
-  const url = `https://github.com/cloudflare/cloudflared/releases/download/${CF_VERSION}/${pin.file}`;
-  log('⬇ Скачиваю cloudflared', CF_VERSION, '(один раз, ~30 МБ)…');
-  const res = await fetch(url, { redirect:'follow', signal:AbortSignal.timeout(10*60*1000) });
-  if(!res.ok) throw new Error('не скачался cloudflared: HTTP '+res.status);
-  const buf = Buffer.from(await res.arrayBuffer());
-  // Распаковываем и проверяем во временном месте; на постоянное место кладём только проверенный файл
-  const tmpDir = fs.mkdtempSync(path.join(BASE, '.cf-'));
-  try{
-    let bin;
-    if(pin.file.endsWith('.tgz')){
-      const tgz = path.join(tmpDir, 'cf.tgz'); fs.writeFileSync(tgz, buf);
-      await new Promise((ok, no) => execFile('tar', ['-xzf', tgz, '-C', tmpDir, 'cloudflared'], e => e?no(e):ok()));
-      bin = path.join(tmpDir, 'cloudflared');
-    } else { bin = path.join(tmpDir, cfName()); fs.writeFileSync(bin, buf); }
-    const got = sha256File(bin);
-    if(got!==pin.sha256) throw new Error('контрольная сумма cloudflared не совпала, файл удалён');
-    fs.chmodSync(bin, 0o755);
-    fs.renameSync(bin, local);
-  } finally { fs.rmSync(tmpDir, { recursive:true, force:true }); }
-  log('✓ cloudflared', CF_VERSION, 'скачан и проверен');
-  return local;
-}
-let tunnelProc = null;
-// Свой адрес поменяли на странице управления: гасим или поднимаем туннель Cloudflare
-function applyFixedUrl(){
-  if(fixedUrl()){ try{ tunnelProc?.kill(); }catch{} startTunnel(); }
-  else { status.tunnel=null; announce(); if(!tunnelProc) startTunnel(); }
-}
-async function startTunnel(){
-  if(fixedUrl()){ status.tunnel = fixedUrl().replace(/^wss?:\/\//,'').replace(/\/.*$/,''); status.tunnelErr=''; log('Свой адрес для модераторов:', fixedUrl()); announce(); return; }
-  if(NO_TUNNEL) return;
-  let bin;
-  try{ bin = await ensureCloudflared(); }
-  catch(e){ status.tunnelErr = e.message; log('⚠ Туннель:', e.message, '— модераторы пока не подключатся, пробую снова через минуту'); setTimeout(startTunnel, 60000); return; }
-  log('🚇 Поднимаю туннель для модераторов…');
-  tunnelProc = spawn(bin, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${TPORT}`], { windowsHide:true });
-  const onData = d => {
-    // api.trycloudflare.com встречается в сообщениях об ошибках: это не адрес туннеля
-    const m = String(d).match(/https:\/\/(?!api\.)([a-z0-9-]+\.trycloudflare\.com)/);
-    if(m && m[1]!==status.tunnel){ status.tunnel=m[1]; status.tunnelErr=''; log('✓ Туннель готов:', m[1]); announce(); }
-  };
-  tunnelProc.stdout.on('data', onData); tunnelProc.stderr.on('data', onData);
-  tunnelProc.on('exit', code => {
-    tunnelProc=null;
-    if(fixedUrl()) return;   // переключились на свой адрес
-    status.tunnel=null; announce();
-    if(shuttingDown) return;
-    status.tunnelErr='туннель упал (код '+code+'), перезапуск через 15 с'; log('⚠', status.tunnelErr);
-    setTimeout(startTunnel, 15000);
-  });
-}
 
 // ---------- CS2 Game State Integration ----------
 let lastOwn = null, cs2Local = 0, cs2Pending = null, cs2Timer = null;
@@ -499,13 +542,13 @@ function widgetHtml(){
 // Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
 // Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
 // Два вида сборок:
-// • старая (один файл, без окна): HudiniHost-windows.exe.zip и т.п., внутри один файл программы;
-// • программа с окном и треем (OVERLAY_APP): HudiniHost-<система>-<версия>.zip, внутри папка «Hudini Host/»
+// • один файл без окна (запуск из исходников, разработка): HudiniHost-windows.exe.zip и т.п.;
+// • приложение Hudini с окном и треем (OVERLAY_APP): Hudini-<система>-<версия>.zip, внутри папка «Hudini/»
 //   с программой, этим сервером и README. Меняем всё, кроме data/, и запускаем программу с окном заново.
 const REPO = 'niko-ua-designer/hudini';
 const ASSET = { win32:'HudiniHost-windows.exe', linux:'HudiniHost-linux', darwin: os.arch()==='arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel' }[process.platform];
-const APP_OS = { win32:'windows', linux:'linux', darwin: os.arch()==='arm64' ? 'mac-arm64' : 'mac-intel' }[process.platform];
-// Программа с окном: на macOS это папка «Hudini Host.app», файл внутри неё; иначе сам файл программы
+const APP_OS = { win32:'windows', linux:'linux', darwin:'macos' }[process.platform];   // для macOS одна universal-сборка
+// Программа с окном: на macOS это папка «Hudini.app», файл внутри неё; иначе сам файл программы
 const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(APP_EXE) || [])[1] || APP_EXE;
 const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
 const APP_ENTRY = APP_BUNDLE ? path.basename(APP_BUNDLE) : '';
@@ -536,8 +579,8 @@ function pickRelease(list){
 function pickAsset(assets, ver){
   assets = Array.isArray(assets) ? assets : [];
   if(!APP) return assets.find(a => a.name===ASSET+'.zip');
-  const re = new RegExp('^HudiniHost-'+APP_OS+'-[\\w.]+\\.zip$');
-  return assets.find(a => a.name===`HudiniHost-${APP_OS}-${prettyVer(ver)}.zip`) || assets.find(a => re.test(a.name||''));
+  const re = new RegExp('^Hudini-'+APP_OS+'-[\\w.]+\\.zip$');
+  return assets.find(a => a.name===`Hudini-${APP_OS}-${prettyVer(ver)}.zip`) || assets.find(a => re.test(a.name||''));
 }
 // Разбор .zip: список записей, данные распаковываются по запросу
 function unzipAll(buf){
@@ -565,7 +608,7 @@ function unzipSingle(buf, want){
   if(!e) throw new Error('в архиве нет '+want);
   return e.data();
 }
-// Распаковать архив программы с окном в dest. Общую папку («Hudini Host/») убираем, data/ не трогаем.
+// Распаковать архив программы с окном в dest. Общую папку («Hudini/») убираем, data/ не трогаем.
 // Внутри dest? Сравниваем настоящие пути (realpath), чтобы ссылка на папку не вывела запись наружу
 const inside = (root, p) => p===root || p.startsWith(root+path.sep);
 function extractApp(zip, dest){
@@ -610,7 +653,8 @@ function moveSync(from, to){
   catch(e){ if(e.code!=='EXDEV') throw e; fs.cpSync(from, to, { recursive:true, verbatimSymlinks:true }); fs.rmSync(from, { recursive:true, force:true }); }
 }
 let checking=null;
-function checkUpdate(applyIfIdle){ return checking ||= doCheck(applyIfIdle).finally(()=>{ checking=null; }); }
+// Приложение читает строки «UPDATE <состояние> <версия>» (роль модератора: нет страницы управления) и может ответить «APPLY»
+function checkUpdate(applyIfIdle){ return checking ||= doCheck(applyIfIdle).finally(()=>{ checking=null; appSay('UPDATE '+upd.state+' '+(upd.latest||'-')); }); }
 async function doCheck(applyIfIdle){
   if(!compiled || process.env.OVERLAY_NO_UPDATE || !ASSET || (APP && !APP_EXE)) { upd.state='off'; return; }
   try{
@@ -652,9 +696,7 @@ async function doCheck(applyIfIdle){
 function isIdle(){ return status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
 function stopForRestart(){
   shuttingDown=true;
-  try{ tunnelProc?.kill(); }catch{}
-  try{ pub?.end(true); }catch{}
-  try{ local.closeAllConnections?.(); local.close(); tunnelSrv.closeAllConnections?.(); tunnelSrv.close(); }catch{}
+  try{ local.closeAllConnections?.(); local.close(); modSrv.closeAllConnections?.(); modSrv.close(); }catch{}
 }
 // Программа с окном: старые файлы → *.old (работающие файлы переименовать можно), новые на их место,
 // потом запускаем новую программу с окном. Она ждёт, пока старая закроется, и поднимает новый сервер.
@@ -715,7 +757,7 @@ setInterval(()=>{ if(upd.state==='ready' && upd.auto && isIdle() && Date.now()-s
 const FILES = path.join(BASE, 'files'); fs.mkdirSync(FILES, { recursive:true });
 const okId = id => /^[a-z0-9]{8,32}$/i.test(id||'');
 const okRoom = r => /^[a-z0-9_-]{4,64}$/i.test(r||'');
-const MB = 1048576, PART_MAX = 8*MB + 4096;   // туннель Cloudflare принимает до 100 МБ за запрос, шлём кусками
+const MB = 1048576, PART_MAX = 8*MB + 4096;   // файлы идут кусками по 8 МБ: обрыв связи не стоит всей загрузки
 function scanFiles(){
   const out = new Map();   // "room/id" → { room, id, size, at }
   for(const r of fs.readdirSync(FILES)){
@@ -799,7 +841,15 @@ const okOrigin = o => o===`http://localhost:${PORT}` || o===`http://127.0.0.1:${
 // Страница управления живёт на http://127.0.0.1:<порт>, виджет OBS — на http://localhost:<порт>. Это разные origin:
 // код оверлея (он приходит с сайта) не может читать пароль модераторов и менять настройки.
 const ADMIN = () => `http://127.0.0.1:${PORT}`;
-const isAdmin = req => req.headers.host===`127.0.0.1:${PORT}`;
+// Управление открывается только с cookie hudini_admin: сам адрес 127.0.0.1 ничего не значит (порт могли расшарить через Porthole).
+// Окно приложения получает cookie через одноразовый /auth?t=<токен>, из браузера — по ссылке из консоли. Заголовок X-Hudini-Token — для самой программы и тестов.
+const ADMIN_TOKEN = process.env.OVERLAY_ADMIN_TOKEN || APP_TOKEN || rnd(18);
+const ADMIN_COOKIE = rnd(24);
+let adminTokenUsed = false;
+const sameStr = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length===y.length && nodeCrypto.timingSafeEqual(x, y); };
+const isLocalAdminHost = req => req.headers.host===`127.0.0.1:${PORT}`;
+const cookieOf = (req, name) => (String(req.headers.cookie||'').split(/;\s*/).map(x => x.split('=')).find(x => x[0]===name) || [])[1] || '';
+const isAdmin = req => isLocalAdminHost(req) && (sameStr(cookieOf(req, 'hudini_admin'), ADMIN_COOKIE) || (!!req.headers['x-hudini-token'] && sameStr(req.headers['x-hudini-token'], ADMIN_TOKEN)));
 function send(res, code, body, type='text/plain; charset=utf-8', extra={}){
   res.writeHead(code, { 'content-type':type, 'cache-control':'no-store', 'x-content-type-options':'nosniff', ...extra }); res.end(body);
 }
@@ -811,22 +861,25 @@ function readRaw(req, max){
 const readBody = async (req, max) => (await readRaw(req, max)).toString('utf8');
 const bearer = req => (String(req.headers.authorization||'').match(/^Bearer\s+(\S+)$/)||[])[1] || '';
 // Пульт открыт на другом сайте (GitHub Pages, приложение): разрешаем запросы с паролем отовсюду.
-// Куки не используются, а без пароля через туннель ничего не отдаётся.
+// Куки на этом порту не используются, а без пароля ничего не отдаётся.
 const CORS = { 'access-control-allow-origin':'*', 'access-control-allow-methods':'GET, PUT, POST, DELETE, OPTIONS',
   'access-control-allow-headers':'authorization, content-type', 'access-control-max-age':'600' };
-async function filesApi(req, res, url, tunnel){
-  const p = url.pathname, extra = tunnel ? CORS : {};
+async function filesApi(req, res, url, mod){
+  const p = url.pathname, extra = mod ? CORS : {};
   const j = (code, obj) => send(res, code, JSON.stringify(obj), 'application/json', extra);
   if(req.method==='OPTIONS') return send(res, 204, '', 'text/plain', extra);
-  if(!ROOM) return j(503, { ok:false, error:'программа ещё не знает комнату: вставь ссылку из пульта' });
+  if(!ROOM) return j(503, { ok:false, error:'комната ещё не создана' });
+  if(mod && !cfg.modsOn) return j(503, { ok:false, error:'стример не пускает модераторов' });
   const id = p.startsWith('/files/') ? p.slice(7) : '';
   const room = url.searchParams.get('room') || ROOM.room;
   // Виджет на этом же компьютере читает файлы текущей комнаты без пароля, всё остальное только с паролем модераторов
-  if(!(!tunnel && req.method==='GET' && id && room===ROOM.room)){
-    if(!tunnel && req.headers.origin && !okOrigin(req.headers.origin)) return j(403, { ok:false, error:'чужой сайт' });
-    const ip = tunnel ? ipOf(req) : 'local', wait = locked(ip);
-    if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
-    if(!passOk(ip, bearer(req))) return j(401, { ok:false, error:'неверный пароль' });
+  if(!(!mod && req.method==='GET' && id && room===ROOM.room)){
+    if(!mod && req.headers.origin && !okOrigin(req.headers.origin)) return j(403, { ok:false, error:'чужой сайт' });
+    const ip = mod ? ipOf(req) : 'local', wait = locked(ip);
+    if(!passOk(ip, bearer(req))){
+      if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
+      return j(401, { ok:false, error:'неверный пароль' });
+    }
   }
   const mine = () => [...fileIndex.values()].filter(f => f.room===ROOM.room).map(f => [f.id, f.size]);
   if(req.method==='GET' && p==='/files') return j(200, { ok:true, storage:storage(ROOM.room), ids:mine() });
@@ -868,11 +921,21 @@ const local = http.createServer(async (req, res) => {
       pushCs2(compactGsi(g));
       return send(res, 200, 'ok');
     }
+    if(p==='/auth' && isLocalAdminHost(req)){
+      const t = url.searchParams.get('t') || '';
+      // в приложении токен одноразовый (окно открывается один раз); из консоли браузера ссылкой можно пользоваться повторно
+      if(!sameStr(t, ADMIN_TOKEN) || (APP_TOKEN && adminTokenUsed)) return send(res, 403, 'ссылка недействительна: открой управление из приложения Hudini или по ссылке из консоли');
+      adminTokenUsed = true;
+      return send(res, 302, '', 'text/plain', { location:'/', 'set-cookie':`hudini_admin=${ADMIN_COOKIE}; HttpOnly; SameSite=Strict; Path=/` });
+    }
     if(p.startsWith('/api/') && !isAdmin(req)){
-      // со стороны виджета (localhost) — только то, что нужно доку в OBS: краткий статус и кнопки стримера
-      if(req.method==='GET' && p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods, tunnel:status.tunnel ? true : null,
-        obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
-      if(!(req.method==='POST' && p==='/api/control' && req.headers.origin===`http://localhost:${PORT}`)) return send(res, 403, 'open the management page at '+ADMIN()+'/');
+      // без входа: «живой» (проверка приложения); со стороны виджета (localhost) — краткий статус и кнопки стримера для дока в OBS
+      if(req.method==='GET' && p==='/api/status'){
+        if(isLocalAdminHost(req)) return send(res, 200, JSON.stringify({ alive:true, version:VERSION }), 'application/json');
+        return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods,
+          obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
+      }
+      if(!(req.method==='POST' && p==='/api/control' && req.headers.origin===`http://localhost:${PORT}`)) return send(res, 403, 'open the management page from the Hudini app');
     }
     if(p.startsWith('/api/')){
       if(req.method==='POST' && !okOrigin(req.headers.origin)) return send(res, 403, 'bad origin');   // защита от чужих сайтов
@@ -880,13 +943,19 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/update/apply'){ if(!upd.staged) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json'); send(res, 200, JSON.stringify({ ok:true }), 'application/json'); setTimeout(applyUpdate, 300); return; }
       if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
       if(req.method==='POST' && p==='/api/limits'){ setLimits(JSON.parse(await readBody(req, 4096))); return send(res, 200, JSON.stringify({ ok:true, limits:cfg.limits }), 'application/json'); }
-      if(req.method==='POST' && p==='/api/fixedurl'){
-        const { url:u } = JSON.parse(await readBody(req, 4096)), v = String(u||'').trim();
-        if(v && !/^wss:\/\/[a-z0-9.-]+(:\d+)?\/mqtt$/i.test(v)) throw new HttpErr(400, 'адрес должен быть вида wss://мой-адрес/mqtt');
-        if(process.env.OVERLAY_TUNNEL_URL) throw new HttpErr(400, 'адрес задан переменной OVERLAY_TUNNEL_URL');
-        cfg.fixedUrl = v; saveCfg(); log(v ? 'Свой адрес: '+v : 'Свой адрес убран, возвращаю туннель Cloudflare'); applyFixedUrl();
-        return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
+      if(req.method==='POST' && p==='/api/extaddr'){   // свой внешний адрес для проброса порта: host:port
+        const { addr } = JSON.parse(await readBody(req, 4096)), v = String(addr||'').trim();
+        if(v && !parseExt(v)) throw new HttpErr(400, 'адрес должен быть вида мой-адрес:порт');
+        cfg.extAddr = v; saveCfg(); log(v ? 'Свой внешний адрес: '+v : 'Свой внешний адрес убран');
+        return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json');
       }
+      if(req.method==='POST' && p==='/api/mods'){   // «Пускать модераторов»
+        const { on } = JSON.parse(await readBody(req, 1024));
+        cfg.modsOn = !!on; saveCfg(); logc(cfg.modsOn ? '▶ Модераторов пускаю' : '⏸ Модераторов не пускаю');
+        if(!cfg.modsOn) kickMods('стример закрыл вход');
+        return send(res, 200, JSON.stringify({ ok:true, modsOn:cfg.modsOn }), 'application/json');
+      }
+      if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
         const { action } = JSON.parse(await readBody(req, 1024));
         if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
@@ -896,18 +965,25 @@ const local = http.createServer(async (req, res) => {
         await publishCtl();
         return send(res, 200, JSON.stringify({ ok:true, ctl }), 'application/json');
       }
-      if(p==='/api/modpass') return send(res, 200, JSON.stringify({ ok:true, url:modUrl(), pass:cfg.modPass }), 'application/json');
-      if(req.method==='POST' && p==='/api/modpass/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('новый пароль модераторов'); await announce(); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
+      if(p==='/api/code') return send(res, 200, JSON.stringify({ ok:true, code:modCode(), fp:TLS.fp, addrs:addresses(), pass:cfg.modPass, name:cfg.name }), 'application/json');
+      if(req.method==='POST' && p==='/api/code/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('новый код для модераторов'); log('🔑 Выдан новый код для модераторов'); return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/room/new'){   // новая комната: новые ключи, пароль и код
+        const { name } = JSON.parse(await readBody(req, 1024));
+        await createRoom(name); log('🆕 Комната создана заново');
+        return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
+      }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
-        storage:storage(ROOM?.room), limits:cfg.limits, tport:TPORT, ctl, fixedUrl:fixedUrl(), fixedEnv:!!process.env.OVERLAY_TUNNEL_URL,
-        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40) }), 'application/json');
+        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, ctl, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
+        modList:[...modList.values()].map(({ ip, net, since, rtt }) => ({ ip, net, since, rtt })), role:ROLE_MOD ? 'mod' : 'streamer',
+        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
       if(p==='/api/gsi/cfg') return send(res, 200, gsiCfgText(), 'application/octet-stream', { 'content-disposition':'attachment; filename="gamestate_integration_streamoverlay.cfg"' });
       return send(res, 404, 'not found');
     }
     if(p==='/' || p==='/index.html'){
-      if(!isAdmin(req)) return send(res, 302, '', 'text/plain', { location:ADMIN()+'/' });   // старые закладки на localhost
+      if(!isLocalAdminHost(req)) return send(res, 302, '', 'text/plain', { location:ADMIN()+'/' });   // старые закладки на localhost
+      if(!isAdmin(req)) return send(res, 403, 'Страница управления открывается из приложения Hudini или по ссылке из консоли (…/auth?t=…).');
       return send(res, 200, UI_HTML, 'text/html; charset=utf-8', { 'x-frame-options':'DENY', 'content-security-policy':"frame-ancestors 'none'" });
     }
     if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8');
@@ -924,30 +1000,31 @@ const local = http.createServer(async (req, res) => {
   }catch(e){ errOut(res, e); }
 });
 local.on('upgrade', wsServer(false));
-// Порт для туннеля: MQTT по WebSocket и файлы с паролем, ничего больше (страница управления наружу не видна)
-const tunnelSrv = http.createServer(async (req, res) => {
+// Порт для модераторов (TLS, все интерфейсы): MQTT по WebSocket, файлы с паролем и /ping для замера задержки.
+// Страница управления здесь не отдаётся никогда.
+const modSrv = https.createServer({ key:TLS.key, cert:TLS.cert, minVersion:'TLSv1.2' }, async (req, res) => {
   const url = new URL(req.url, 'http://x'), p = url.pathname;
   try{
+    if(p==='/ping') return send(res, 200, 'pong', 'text/plain; charset=utf-8', CORS);
     if(p==='/files' || p.startsWith('/files/')) return await filesApi(req, res, url, true);
-    send(res, 404, 'Hudini Host', 'text/plain; charset=utf-8', CORS);
+    send(res, 404, 'Hudini', 'text/plain; charset=utf-8', CORS);
   }catch(e){ errOut(res, e, CORS); }
 });
-tunnelSrv.on('upgrade', wsServer(true));
+modSrv.on('upgrade', wsServer(true));
+modSrv.on('tlsClientError', () => {});
+modSrv.on('error', e => { log('⚠ Порт для модераторов', MPORT, 'не открылся:', e.message); status.modErr = e.message; });
 
 function openBrowser(u){
   if(NO_OPEN || APP) return;
-  if(!/^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(u)) return;
+  if(!/^http:\/\/(localhost|127\.0\.0\.1):\d+\/(auth\?t=[\w-]+)?$/.test(u)) return;
   const cb = () => {};
   if(process.platform==='win32') execFile('cmd', ['/c', 'start', '', u], cb);
   else execFile(process.platform==='darwin' ? 'open' : 'xdg-open', [u], cb);
 }
 
-let shuttingDown = false;
 async function shutdown(){
   if(shuttingDown) return; shuttingDown = true;
   log('Выключаюсь…');
-  try{ status.tunnel = null; await announce({ off:true }); }catch{}
-  tunnelProc?.kill();
   setTimeout(() => process.exit(0), 600);
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
@@ -956,7 +1033,6 @@ process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 // stdout: строки «READY <порт>», «RESTART», «FAIL <причина>». stdin: «VISIBLE 0/1», «QUIT».
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
-const APP_TOKEN = process.env.OVERLAY_APP_TOKEN || ''; delete process.env.OVERLAY_APP_TOKEN;
 function appSay(line){ if(APP) try{ process.stdout.write((APP_TOKEN ? APP_TOKEN+' ' : '')+line+'\n'); }catch{} }
 if(APP){
   process.stdout.on?.('error', ()=>{});
@@ -969,26 +1045,41 @@ if(APP){
       if(l==='VISIBLE 0') appHidden = true;
       else if(l==='VISIBLE 1') appHidden = false;
       else if(l==='QUIT') shutdown();
+      else if(l==='APPLY' && upd.staged) applyUpdate();
     }
   });
   process.stdin.on('end', shutdown); process.stdin.on('close', shutdown); process.stdin.on('error', shutdown);
   process.stdin.resume();
 }
 
-local.listen(PORT, '127.0.0.1', async () => {
-  tunnelSrv.listen(TPORT, '127.0.0.1');
-  console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini Host ${VERSION}                           ║\n  ║  Управление:  http://127.0.0.1:${PORT}           ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n`);
-  log('Папка настроек:', BASE);
-  if(cfg.link){ try{ await setRoom(cfg.link); }catch(e){ log('⚠', e.message); } }
-  // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
-  if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
-  startTunnel();
-  appSay('READY '+PORT);
+const AUTH_URL = () => `${ADMIN()}/auth?t=${ADMIN_TOKEN}`;
+function listenMod(){
+  modSrv.listen(MPORT, '0.0.0.0', () => { status.modErr = ''; log('🔌 Порт для модераторов:', MPORT, '(TLS, отпечаток', TLS.fp.slice(0, 16)+'…)'); });
+}
+let modTries = 0;
+modSrv.on('error', e => { if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && modTries++ < 30) setTimeout(listenMod, 500); });   // старая версия ещё закрывается
+if(ROLE_MOD){
+  // Роль модератора: ни одного порта, только проверка и установка обновлений
+  log('Роль: модератор (порты не открываю)');
+  appSay('READY 0');
   if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
-  else openBrowser(ADMIN()+'/');
-});
+} else {
+  local.listen(PORT, '127.0.0.1', async () => {
+    listenMod();
+    console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
+    log('Папка настроек:', BASE);
+    lastAddrs = addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', '); log('🌐 Адреса для модераторов:', lastAddrs);
+    if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
+    else { try{ await createRoom(); log('🆕 Комната создана'); }catch(e){ log('⚠ Не удалось создать комнату:', e.message); } }
+    // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
+    if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
+    appSay('READY '+PORT);
+    if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
+    else openBrowser(AUTH_URL());
+  });
+}
 let portTries=0;
 local.on('error', e => {
   if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
-  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); openBrowser(ADMIN()+'/'); setTimeout(()=>process.exit(1), 4000);
+  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
