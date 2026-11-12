@@ -51,9 +51,11 @@ function saveRooms(){
   saveChain=saveChain.then(async()=>lsSet('overlay.vault2', vaultPass ? { locked: await lockJSON(vaultPass, data) } : { plain:data })).catch(e=>console.warn(e));
   return saveChain;
 }
+// канал Twitch, привязанный к комнате: у каждой комнаты свой чат
+function cleanChannel(ch){ return String(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,40); }
 function cleanRoom(r){
   return r && validCode(r.code) && typeof r.k==='string' && typeof r.p==='string' && r.s && typeof r.s==='object'
-    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined } : null;
+    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined, chat:cleanChannel(r.chat) || undefined } : null;
 }
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
 async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
@@ -316,6 +318,7 @@ function sendFx(fx, quiet){
 async function switchRoom(code){
   if(code===room) return;
   if(homeClient) dropHome();
+  chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   await useRoom(code); saveRooms();
   state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
@@ -323,6 +326,7 @@ async function switchRoom(code){
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());
   renderRooms(); renderScenes(); renderScn(); $('scnEdit').hidden=true; lastEvSeq=null; updateLink(); renderAll();
+  { const ch=curRoom()?.chat; if(ch) chatConnect(ch); }
 }
 
 // ================== ИЗМЕНЕНИЯ / ОТМЕНА ==================
@@ -426,7 +430,7 @@ function renderCsStatus(){
 }
 function addCase(){
   const items=[['Наклейка',2,50],['Скин на пистолет',3,25],['Скин на винтовку',4,15],['AK-47 | Redline',5,8],['Нож',6,2]].map(([n,r,p])=>({ n:sT(n), r, p, img:'' }));
-  addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8, kind:'normal', upChance:25 });
+  addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8, kind:'normal' });
 }
 // Розыгрыш один на экран: state.raffle, не слой
 const raf=()=>state.raffle||null;
@@ -445,9 +449,9 @@ function addPoll(){
 
 // ---- язык надписей на стриме (по умолчанию как у пульта) ----
 const DEFAULT_TXT={
-  en:{ 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistol skin', 'Скин на винтовку':'Rifle skin', 'Нож':'Knife', 'Предмет':'Item' },
-  uk:{ 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш', 'Наклейка':'Наліпка', 'Скин на пистолет':'Скін на пістолет', 'Скин на винтовку':'Скін на гвинтівку', 'Нож':'Ніж', 'Предмет':'Предмет' },
-  de:{ 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistolen-Skin', 'Скин на винтовку':'Gewehr-Skin', 'Нож':'Messer', 'Предмет':'Gegenstand' },
+  en:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistol skin', 'Скин на винтовку':'Rifle skin', 'Нож':'Knife', 'Предмет':'Item' },
+  uk:{ 'Перекрут':'Перекрут', 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш', 'Наклейка':'Наліпка', 'Скин на пистолет':'Скін на пістолет', 'Скин на винтовку':'Скін на гвинтівку', 'Нож':'Ніж', 'Предмет':'Предмет' },
+  de:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistolen-Skin', 'Скин на винтовку':'Gewehr-Skin', 'Нож':'Messer', 'Предмет':'Gegenstand' },
 };
 function streamLang(){ const r=curRoom(); return STREAM_LANGS.includes(r?.slang) ? r.slang : (STREAM_LANGS.includes(window.HudiniI18n?.lang) ? window.HudiniI18n.lang : 'ru'); }
 const sT=s=>DEFAULT_TXT[streamLang()]?.[s] ?? s;
@@ -1332,9 +1336,9 @@ const NAME_COLORS=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','
 function nameColor(login){ let h=0; for(const ch of login) h=(h*31+ch.charCodeAt(0))>>>0; return NAME_COLORS[h%NAME_COLORS.length]; }
 function chatConnect(ch){
   chatDisconnect();
-  ch=(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'');
+  ch=cleanChannel(ch);
   if(!ch) return;
-  lsSet('overlay.chat', ch); $('chatChan').value=ch;
+  { const r=curRoom(); if(r && r.chat!==ch){ r.chat=ch; saveRooms(); } } $('chatChan').value=ch;
   const ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443'); chatWs=ws;
   setPill($('chatStatus'), 'warn', 'подключение…'); $('chatBtn').textContent='Отключить';
   ws.onopen=()=>{ ws.send('CAP REQ :twitch.tv/tags'); ws.send('PASS SCHMOOPIIE'); ws.send('NICK justinfan'+(10000+Math.random()*80000|0)); ws.send('JOIN #'+ch); };
@@ -1410,7 +1414,7 @@ function showChatMsg(m){
   toast(`💬 ${m.user}: ${m.text.slice(0,40)}`);
 }
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
-$('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
+$('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r){ delete r.chat; saveRooms(); } } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
 // ---- розыгрыш: участники живут в пульте (и в хранилище, чтобы пережить перезагрузку пульта) ----
@@ -1500,40 +1504,42 @@ function renderRaffle(el){
 }
 // ---- кейс за донат ----
 const CASE_SND=[['in','Подлёт и посадка'],['tense','Нарастание'],['lock','Защёлки'],['open','Открытие'],['tick','Щелчок ленты'],['win','Выпадение']];
-function casePick(el){
-  const pool=el.items.map((it,i)=>[i,it.p]).filter(([,p])=>p>0); if(!pool.length) return -1;
+function casePick(el, spOk){
+  const pool=el.items.map((it,i)=>[i,it.p]).filter(([i,p])=>p>0 && (spOk || !el.items[i].sp)); if(!pool.length) return -1;
   const total=pool.reduce((a,[,p])=>a+p,0), r=new Uint32Array(1); crypto.getRandomValues(r);
   let x=r[0]/2**32*total; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[pool.length-1][0];
 }
 const cryptoUnit=()=>{ const r=new Uint32Array(1); crypto.getRandomValues(r); return r[0]/2**32; };
 function caseOpen(el, donor, amount){
-  if(!el.items.some(it=>it.p>0)) return toast('Добавь предметы с шансом больше 0'), false;
-  const win=casePick(el);
-  const rndFrom=idxs=>{ const pool=idxs.map(i=>[i,el.items[i].p]).filter(([,p])=>p>0); const tot=pool.reduce((a,[,p])=>a+p,0); let x=Math.random()*tot; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[0][0]; };
-  const all=el.items.map((_, i)=>i), rnd=()=>rndFrom(all);
+  if(!el.items.some(it=>it.p>0 && !it.sp)) return toast('Добавь предметы с шансом больше 0'), false;
   // вид этого открытия: у рандомного решается здесь, сильной случайностью, и зрители про него не знают
   const kind = el.kind==='random' ? (cryptoUnit()<0.5 ? 'bait' : 'normal') : el.kind;
   el.kindNow = el.kind==='random' ? kind : '';
-  const reel=Array.from({ length:CASE_REEL }, ()=> Math.random()<0.18 ? Math.random()*el.items.length|0 : rnd());
+  const spOk = kind==='second';   // карточка «Перекрут» выпадает только во втором шансе
+  const win=casePick(el, spOk);
+  const all=el.items.map((_, i)=>i).filter(i=>spOk || !el.items[i].sp);
+  const rndFrom=idxs=>{ const pool=idxs.map(i=>[i,el.items[i].p]).filter(([,p])=>p>0); const tot=pool.reduce((a,[,p])=>a+p,0); let x=Math.random()*tot; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[0][0]; };
+  const rnd=()=>rndFrom(all);
+  const reel=Array.from({ length:CASE_REEL }, ()=> Math.random()<0.18 ? all[Math.random()*all.length|0] : rnd());
   reel[CASE_WIN]=win; reel[CASE_WIN-1]=rnd(); reel[CASE_WIN+1]=rnd();
   el.bmode='under';
   if(kind==='bait'){
     // «почти-почти»: рядом с выигрышем стоит самый редкий предмет (если выпало не самое редкое). Лента недокручивает и дотягивает
     // или проскакивает на него и откатывается назад
-    const rarest=el.items.reduce((b,it,i)=> it.r>el.items[b].r ? i : b, 0);
+    const rarest=all.reduce((b,i)=> el.items[i].r>el.items[b].r ? i : b, all[0]);
     const near = el.items[win].r < el.items[rarest].r ? rarest : rnd();
     el.bmode = cryptoUnit()<0.5 ? 'over' : 'under';
     reel[el.bmode==='over' ? CASE_WIN+1 : CASE_WIN-1] = near;
     el.jit=(Math.random()-0.5)*0.6;
   } else el.jit=(Math.random()-0.5)*0.8;   // обычная: точка остановки где угодно внутри карточки
   el.reel=reel; el.win=win;
-  // второй шанс: с шансом upChance% после ленты вторая, из предметов редче выпавшего
+  // второй шанс: выпала карточка «Перекрут» — вторая лента из обычных предметов по их шансам
   el.reel2=[]; el.win2=-1; el.jit2=0;
-  if(kind==='second' && cryptoUnit()*100 < el.upChance){
-    const better=all.filter(i=>el.items[i].p>0 && el.items[i].r>el.items[win].r);
-    if(better.length){
-      const w2=rndFrom(better);
-      el.reel2=Array.from({ length:CASE_REEL }, ()=>rndFrom(better)); el.reel2[CASE_WIN]=w2; el.win2=w2; el.jit2=(Math.random()-0.5)*0.8;
+  if(kind==='second' && el.items[win].sp){
+    const plain=all.filter(i=>!el.items[i].sp && el.items[i].p>0);
+    if(plain.length){
+      const w2=rndFrom(plain);
+      el.reel2=Array.from({ length:CASE_REEL }, ()=>rndFrom(plain)); el.reel2[CASE_WIN]=w2; el.win2=w2; el.jit2=(Math.random()-0.5)*0.8;
     }
   }
   const fin=caseWinIdx(el);
@@ -1545,22 +1551,22 @@ function caseOpen(el, donor, amount){
 function renderCase(el){
   setField(I('iKName'), el.name); setField(I('iKColor'), el.cc); setField(I('iKVol'), String(el.vol)); setField(I('iKHide'), String(el.hideAfter)); I('iKLow').checked=el.q==='low'; setField(I('iKUhh'), el.uhhText); setField(I('iKUpT'), el.upText);
   $('kLogoDel').hidden=!el.logo;
-  const sum=el.items.reduce((a,it)=>a+it.p,0);
+  const used=it=>!it.sp || el.kind==='second', sum=el.items.reduce((a,it)=>a+(used(it)?it.p:0),0);
   $('kSum').textContent=`· ${el.items.length} · шансы: ${+sum.toFixed(2)}%`; $('kSum').style.color = Math.abs(sum-100)<0.01 ? '' : 'var(--warn)';
   $('kFix').hidden = Math.abs(sum-100)<0.01 || !sum;
   const busy = el.openAt && nowMs() < el.openAt+caseT(el).reveal;
   for(const r of document.querySelectorAll('#kKinds input')) r.checked = r.value===el.kind;
-  $('kUpRow').hidden = el.kind!=='second'; setField(I('iKUp'), String(el.upChance)); $('vKUp').textContent = el.upChance+'%';
+  $('kSp').hidden = el.kind!=='second' || el.items.some(it=>it.sp);
   $('kOpen').disabled=!!busy; $('kTest').disabled=!!busy;
   $('kInfo').textContent = busy ? 'Кейс открывается на стриме…' : Math.abs(sum-100)>=0.01 && sum ? 'Шансы в сумме не 100%: при открытии они считаются пропорционально.' : '';
   const box=$('kItems');
   if(document.activeElement?.closest('#kItems')) return;   // не перерисовывать, пока печатают
   box.replaceChildren(...el.items.map((it,i)=>{
-    const r=document.createElement('div'); r.className='row kit'; r.dataset.i=i; r.style.borderLeft=`3px solid ${RARITY7[it.r]}`; r.style.paddingLeft='6px';
+    const r=document.createElement('div'); r.className='row kit'; r.dataset.i=i; r.style.borderLeft=`3px solid ${it.sp ? '#35d0ff' : RARITY7[it.r]}`; if(it.sp && el.kind!=='second') r.style.opacity='.45'; r.style.paddingLeft='6px';
     const pic=document.createElement('button'); pic.className='kpic'; pic.title='Картинка предмета'; pic.dataset.act='img';
     if(it.img){ const im=document.createElement('img'); im.src=resolveSrc(it.img); im.style.cssText='width:26px;height:20px;object-fit:contain'; pic.appendChild(im); } else pic.textContent='🖼';
-    const nm=document.createElement('input'); nm.type='text'; nm.className='grow'; nm.value=it.n; nm.placeholder='Предмет'; nm.dataset.f='n'; nm.style.minWidth='60px';
-    const rr=document.createElement('select'); rr.dataset.f='r'; rr.style.width='84px'; RARITY_NAME.forEach((n,k)=>{ const o=new Option(n,k); o.style.color=RARITY7[k]; rr.appendChild(o); }); rr.value=String(it.r);
+    const nm=document.createElement('input'); nm.type='text'; nm.className='grow'; nm.value=it.n; nm.placeholder=it.sp ? 'Перекрут' : 'Предмет'; if(it.sp) nm.title='Карточка «Перекрут»: выпала — лента крутится ещё раз'; nm.dataset.f='n'; nm.style.minWidth='60px';
+    const rr=document.createElement('select'); rr.dataset.f='r'; rr.style.width='84px'; RARITY_NAME.forEach((n,k)=>{ const o=new Option(n,k); o.style.color=RARITY7[k]; rr.appendChild(o); }); rr.value=String(it.r); if(it.sp) rr.hidden=true;
     const pp=document.createElement('input'); pp.type='number'; pp.min='0'; pp.max='100'; pp.step='0.1'; pp.value=String(it.p); pp.dataset.f='p'; pp.style.width='58px'; pp.title='Шанс, %';
     const del=document.createElement('button'); del.textContent='✕'; del.title='Убрать предмет'; del.dataset.act='del';
     r.append(pic, nm, rr, pp, del); return r;
@@ -1583,8 +1589,9 @@ async function caseSetFile(f, target){
 }
 $('kFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; caseSetFile(f, kFileFor); };
 bindInput('iKName', (el,f)=>el.name=f.value.slice(0,40)||'HUDINI CASE');
-for(const r of document.querySelectorAll('#kKinds input')) r.addEventListener('change', ()=>{ if(r.checked) act(el=>{ el.kind=r.value; }); });
-bindInput('iKUp', (el,f)=>el.upChance=Math.round(num(f.value,25,0,100)));
+for(const r of document.querySelectorAll('#kKinds input')) r.addEventListener('change', ()=>{ if(r.checked) act(el=>{ el.kind=r.value; if(el.kind==='second') addRespin(el); }); });
+function addRespin(el){ if(el.items.length<40 && !el.items.some(it=>it.sp)) el.items.push({ n:sT('Перекрут'), r:2, p:10, img:'', sp:1 }); }
+$('kSp').onclick=()=>act(addRespin);
 bindInput('iKUhh', (el,f)=>el.uhhText=f.value.slice(0,24));
 bindInput('iKUpT', (el,f)=>el.upText=f.value.slice(0,24));
 bindInput('iKColor', (el,f)=>el.cc=f.value);
@@ -1593,7 +1600,7 @@ bindInput('iKHide', (el,f)=>el.hideAfter=num(f.value,12,3,120));
 bindInput('iKLow', (el,f)=>el.q=f.checked?'low':'high', 'change');
 $('kLogo').onclick=()=>caseUpload({ kind:'logo' }); $('kLogoDel').onclick=()=>act(el=>el.logo='');
 $('kAdd').onclick=()=>act(el=>{ if(el.items.length<40) el.items.push({ n:sT('Предмет'), r:2, p:0, img:'' }); });
-$('kFix').onclick=()=>act(el=>{ const s=el.items.reduce((a,it)=>a+it.p,0); if(s>0) el.items.forEach(it=>it.p=Math.round(it.p/s*10000)/100); });
+$('kFix').onclick=()=>act(el=>{ const used=it=>!it.sp || el.kind==='second', s=el.items.reduce((a,it)=>a+(used(it)?it.p:0),0); if(s>0) el.items.forEach(it=>{ if(used(it)) it.p=Math.round(it.p/s*10000)/100; }); });
 $('kOpen').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; if(!$('kDonor').value.trim()) return toast('Впиши ник донатера'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
 $('kTest').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; beginChange(); if(caseOpen(el, '', '')) commit(); };
 $('kItems').addEventListener('change', e=>{
@@ -2685,7 +2692,10 @@ async function boot(){
   if(!rooms.length){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); saveRooms(); renderRooms(); }
   $('toSessions').hidden=!TAURI;
   updateLink(); renderAll();
-  { const ch=lsGet('overlay.chat',''); if(ch) chatConnect(ch); }
+  { // раньше канал был один на весь пульт: переносим его в текущую комнату, остальные начинают без чата
+    const legacy=cleanChannel(lsGet('overlay.chat','')), r=curRoom();
+    if(legacy){ if(r && !r.chat){ r.chat=legacy; saveRooms(); } lsSet('overlay.chat',''); }
+    const ch=curRoom()?.chat; if(ch) chatConnect(ch); }
   window.hudiniReady=true;
 }
 // ================== МЕТКИ β / α ==================

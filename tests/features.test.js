@@ -24,6 +24,32 @@ const { step, check, eq, until, sleep } = T;
     check(await mod.evaluate(() => !document.querySelector('#chatFeed img[src="x"]')), 'HTML in chat stays text');
   });
 
+  await step('every room has its own chat; the old single channel moves to the first room', async () => {
+    const p = await T.newPage('rooms', { irc: true, app: false });
+    await p.addInitScript(() => { try { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('store:overlay.chat', JSON.stringify('oldchan')); } } catch {} });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const st = () => p.evaluate(() => ({ room: room, chat: curRoom().chat, other: rooms.filter(r => r.code !== room).map(r => r.chat), ws: !!chatWs, field: document.getElementById('chatChan').value, feed: document.querySelectorAll('.cm').length }));
+    const first = await st();
+    eq([first.chat, first.ws, first.field], ['oldchan', true, 'oldchan'], 'the old channel went to the current room and connected');
+    eq(await p.evaluate(() => JSON.parse(localStorage.getItem('store:overlay.chat') || '""')), '', 'the old single key is cleared');
+    await p.evaluate(() => window.__irc('@badge-info=;badges=;color=#1E90FF;display-name=Anna;emotes=;id=1;mod=0;subscriber=0 :anna!anna@x.tmi.twitch.tv PRIVMSG #chan :hello'));
+    eq((await st()).feed, 1, 'a message in the feed of the first room');
+    const code1 = first.room;
+    await p.evaluate(async () => { const r = await makeRoom('Second'); rooms.push(r); await switchRoom(r.code); saveRooms(); renderRooms(); });
+    const second = await st();
+    eq([second.chat, second.ws, second.field, second.feed], [undefined, false, '', 0], 'a new room starts without a chat and with an empty feed');
+    eq(second.other, ['oldchan'], 'the first room keeps its channel');
+    await p.evaluate(() => chatConnect('second_chan'));
+    eq((await st()).chat, 'second_chan', 'the second room has its own channel');
+    await p.evaluate(code => switchRoom(code), code1);
+    const back = await st();
+    eq([back.chat, back.ws, back.field, back.feed], ['oldchan', true, 'oldchan', 0], 'back in the first room its chat reconnects, the feed starts clean');
+    await p.evaluate(() => document.getElementById('chatBtn').click());
+    eq([(await st()).chat, (await st()).ws], [undefined, false], 'Disconnect clears the channel of this room only');
+    eq((await st()).other, ['second_chan'], 'the other room is untouched');
+    await p.context().close();
+  });
+
   await step('poll counts chat votes once per viewer', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=poll]'); await mod.click('#pToggle');
     await mod.evaluate(() => { onChat('a', '1'); onChat('b', '!2'); onChat('c', '2'); onChat('c', '1'); onChat('d', 'hello 2'); });
@@ -133,36 +159,40 @@ const { step, check, eq, until, sleep } = T;
     const id = await mod.evaluate(() => state.els.at(-1).id);
     await mod.evaluate(i => { selectedId = i; msel.clear(); renderAll(); }, id);
     eq(await mod.$$eval('#kKinds input', n => n.map(x => x.value)), ['normal', 'bait', 'random', 'second'], 'four kinds in the list');
-    check(await mod.isHidden('#kUpRow'), 'no chance slider while the kind is normal');
+    check(await mod.isHidden('#kSp'), 'no respin button while the kind is normal');
     await mod.click('#kKinds label:has(input[value=second])');
     eq(await mod.evaluate(i => state.els.find(e => e.id === i).kind, id), 'second', 'picking a kind from the list');
-    check(!(await mod.isHidden('#kUpRow')), 'second chance shows its chance slider');
+    eq(await mod.evaluate(i => state.els.find(e => e.id === i).items.filter(x => x.sp).length, id), 1, 'second chance adds the Respin card to the items');
+    check(await mod.isHidden('#kSp'), 'the add button hides once the card exists');
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.items.find(x => x.sp).p = 50; }, id);
     const S = await mod.evaluate(i => {
       const el = state.els.find(e => e.id === i), rarest = el.items.reduce((b, it, k) => it.r > el.items[b].r ? k : b, 0), out = {};
-      const run = (kind, n, up) => {
-        el.kind = kind; if (up != null) el.upChance = up;
-        const r = { n, over: 0, under: 0, bait: 0, normal: 0, near: 0, nearTried: 0, reel2: 0, better: 0, jitOk: true, lens: true };
+      const run = (kind, n) => {
+        el.kind = kind;
+        const r = { n, over: 0, under: 0, bait: 0, normal: 0, near: 0, nearTried: 0, reel2: 0, better: 0, jitOk: true, lens: true, spLeak: 0, spMiss: 0 };
         for (let k = 0; k < n; k++) {
           caseOpen(el, 'd', '1');
           if (el.kindNow === 'bait') r.bait++; if (el.kindNow === 'normal') r.normal++;
           if (caseKind(el) === 'bait') { r[el.bmode]++; if (el.win !== rarest) { r.nearTried++; if (el.reel[el.bmode === 'over' ? 53 : 51] === rarest) r.near++; } }
-          if (el.reel2.length) { r.reel2++; if (el.items[el.win2].r > el.items[el.win].r && el.reel2[52] === el.win2 && el.reel2.every(ix => el.items[ix].r > el.items[el.win].r)) r.better++; if (el.reel2.length !== 60) r.lens = false; }
+          if (kind !== 'second' && (el.items[el.win].sp || el.reel.some(ix => el.items[ix].sp))) r.spLeak++;
+          if (el.reel2.length) { r.reel2++; if (el.items[el.win].sp && !el.items[el.win2].sp && el.reel2[52] === el.win2 && el.reel2.every(ix => !el.items[ix].sp)) r.better++; if (el.reel2.length !== 60) r.lens = false; }
+          else if (kind === 'second' && el.items[el.win].sp) r.spMiss++;
           if (kind !== 'bait' && Math.abs(el.jit) > 0.4 + 1e-9) r.jitOk = false;
           el.openAt = 0;
         }
         return r;
       };
       out.normal = run('normal', 100); out.bait = run('bait', 300); out.random = run('random', 400);
-      out.up100 = run('second', 200, 100); out.up0 = run('second', 100, 0); out.up25 = run('second', 800, 25);
-      el.kind = 'bait'; el.upChance = 25; return out;
+      out.second = run('second', 600);
+      el.kind = 'bait'; return out;
     }, id);
     eq([S.normal.reel2, S.normal.bait, S.normal.jitOk], [0, 0, true], 'normal: no second reel, stop point inside the card');
     check(S.bait.over > 60 && S.bait.under > 60 && S.bait.over + S.bait.under === 300, `bait: both ways happen (over ${S.bait.over}, under ${S.bait.under})`);
     eq(S.bait.near, S.bait.nearTried, 'bait: the rarest item sits next to the winner on the side the reel is heading to');
     check(S.random.bait > 150 && S.random.normal > 150 && S.random.bait + S.random.normal === 400, `random: the kind of each opening is decided at the opening (${S.random.bait} bait / ${S.random.normal} normal)`);
-    check(S.up100.reel2 > 120 && S.up100.better === S.up100.reel2 && S.up100.lens, `second chance at 100%: second reel only with better items (${S.up100.reel2} of 200, the rest had nothing better)`);
-    eq(S.up0.reel2, 0, 'second chance at 0%: never');
-    check(S.up25.reel2 > 110 && S.up25.reel2 < 290, `second chance at 25% happens about a quarter of the time (${S.up25.reel2} of 800, fewer where nothing is better)`);
+    check(S.second.reel2 > 120 && S.second.reel2 < 280, `second chance: the Respin card (33% here) starts the second reel (${S.second.reel2} of 600)`);
+    check(S.second.better === S.second.reel2 && S.second.lens && S.second.spMiss === 0, 'second reel: 60 plain cards, no Respin in it, the winner on the stop position; every Respin win gets a second reel');
+    eq([S.normal.spLeak, S.bait.spLeak, S.random.spLeak], [0, 0, 0], 'the Respin card never shows up on the reel in other kinds');
     // panel and stream draw the same frame
     const readFrame = page => page.evaluate(() => { const c = document.querySelector('.case'); return c && { tf: c._strip.style.transform, tf2: c._strip2 ? c._strip2.style.transform : '', stage: c.dataset.stage, uhh: c.dataset.uhh, up: c.dataset.up, ph: c.dataset.ph }; });
     // freeze the clock and draw that exact frame with the page's own frame function (rAF of a background page may be late)
@@ -195,7 +225,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.uhhText = ''; changed(); publishNow(1); }, id);
     await wid.evaluate(() => { window.__caseFreeze = null; }); await mod.evaluate(() => { window.__caseFreeze = null; });
     // second chance: force a second reel
-    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.kind = 'second'; el.upChance = 100; el.openAt = 0; el.ttl = 0; for (let k = 0; k < 50; k++) { caseOpen(el, 'etsuitoku', '1'); if (el.reel2.length) break; } changed(); publishNow(1); }, id);
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.kind = 'second'; el.items.find(x => x.sp).p = 100; el.openAt = 0; el.ttl = 0; for (let k = 0; k < 200; k++) { caseOpen(el, 'etsuitoku', '1'); if (el.reel2.length) break; } changed(); publishNow(1); }, id);
     check(await sameOpening(id), 'the stream has received the second reel');
     await sleep(300);
     const T2 = await mod.evaluate(i => { const el = state.els.find(e => e.id === i); return { two: el.reel2.length, ct: caseT(el), n2: el.items[el.win2].n }; }, id);

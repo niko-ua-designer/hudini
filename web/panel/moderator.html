@@ -338,6 +338,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
     <div class="row"><input id="chatChan" type="text" class="grow" placeholder="ник канала"><button id="chatBtn">Подключить</button></div>
     <div class="hint">Только читает чат, без входа в аккаунт. Нужен для ленты, счётчиков, голосований и сценариев. Подключай в одном пульте, иначе всё посчитается дважды.</div>
+    <div class="hint">Чат привязан к комнате: у каждой комнаты свой канал и своя лента. При смене комнаты чат переключается сам.</div>
     <h2>Команды в чате</h2>
     <div class="row"><span class="hint">Кто может</span><select id="cmdMode" class="grow">
       <option value="off">Никто (выключено)</option><option value="broadcaster">Только стример</option><option value="mods">Стример и модеры чата</option>
@@ -642,9 +643,9 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <label class="kk"><input type="radio" name="kKind" value="normal"><span><b>Обычный</b><small>честная лента</small></span></label>
         <label class="kk"><input type="radio" name="kKind" value="bait"><span><b>Байтовый</b><small>почти выпало, но нет</small></span></label>
         <label class="kk"><input type="radio" name="kKind" value="random"><span><b>Рандомный</b><small>вид выбирается сам, зрители не знают</small></span></label>
-        <label class="kk"><input type="radio" name="kKind" value="second"><span><b>Второй шанс</b><small>вторая лента с предметами редче</small></span></label>
+        <label class="kk"><input type="radio" name="kKind" value="second"><span><b>Второй шанс</b><small>выпал «Перекрут» — лента крутится ещё раз</small></span></label>
       </div>
-      <div class="row" id="kUpRow"><span class="hint">Шанс перекрута</span><input type="range" id="iKUp" min="0" max="100" step="1" class="grow"><span class="hint" id="vKUp" style="width:36px;text-align:right"></span></div>
+      <div class="row"><button id="kSp" class="grow" hidden title="Выпала — лента крутится ещё раз">＋ Карточка «Перекрут»</button></div>
       <div class="lbl">Открыть</div>
       <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник донатера"><input type="text" id="kAmount" placeholder="Сумма, 500 ₽" style="width:110px"></div>
       <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть без донатера, для проверки">▶ Тест</button></div>

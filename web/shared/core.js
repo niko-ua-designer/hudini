@@ -181,13 +181,13 @@ function sanitizeEl(e){
   } else if(type==='case'){
     o.x=50; o.y=50; o.rot=0; o.fs=num(e.fs,4,1,12); o.font=fontOf(e.font); o.color=hex(e.color,'#ffffff');
     o.name=str(e.name,40)||'HUDINI CASE'; o.logo=safeSrc(e.logo)||''; o.cc=hex(e.cc,'#7c5cff');
-    o.items=(Array.isArray(e.items)?e.items:[]).slice(0,40).map(x=>({ n:str(x?.n,40), img:safeSrc(x?.img)||'', r:Math.round(num(x?.r,2,0,6)), p:num(x?.p,0,0,100) }));
+    o.items=(Array.isArray(e.items)?e.items:[]).slice(0,40).map(x=>({ n:str(x?.n,40), img:safeSrc(x?.img)||'', r:Math.round(num(x?.r,2,0,6)), p:num(x?.p,0,0,100), sp:x?.sp?1:0 }));
     o.openAt=num(e.openAt,0,0,1e15); o.donor=str(e.donor,40); o.amount=str(e.amount,24);
     o.win=Math.round(num(e.win,-1,-1,39)); o.jit=num(e.jit,0,-0.4,0.4);
     o.reel=(Array.isArray(e.reel)?e.reel:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
     o.kind=CASE_KINDS.includes(e.kind)?e.kind:'bait';   // кейсы без вида вели себя как байтовые
     o.kindNow=e.kindNow==='normal'?'normal':e.kindNow==='bait'?'bait':'';   // у рандомного: что выпало на этом открытии
-    o.bmode=e.bmode==='over'?'over':'under'; o.upChance=Math.round(num(e.upChance,25,0,100));
+    o.bmode=e.bmode==='over'?'over':'under';
     o.reel2=(Array.isArray(e.reel2)?e.reel2:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
     o.win2=Math.round(num(e.win2,-1,-1,39)); o.jit2=num(e.jit2,0,-0.4,0.4);
     o.uhhText=str(e.uhhText,24); o.upText=str(e.upText,24);   // свои надписи (по умолчанию без текста)
@@ -450,7 +450,9 @@ function gemSvg(){
 function itemCard(it, cls){
   const c=rh('div','cs-card'+(cls?' '+cls:'')); c.style.setProperty('--r', RARITY7[it?.r??2]);
   const pic=rh('div','cs-pic');
+  if(it?.sp){ c.classList.add('sp'); c.style.setProperty('--r','#35d0ff'); }   // карточка «Перекрут»
   if(it?.img){ const im=rh('img'); im.alt=''; im.draggable=false; im.src=resolveSrc(it.img); pic.appendChild(im); }
+  else if(it?.sp) pic.appendChild(rh('div','cs-respin','↻'));
   else pic.appendChild(gemSvg());
   c.append(pic, rh('div','cs-nm', it?.n||'?'));
   return c;

@@ -497,3 +497,4 @@
 @keyframes cs-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
 .cs-pic svg{width:5em;height:5em;color:var(--r);filter:drop-shadow(0 0 .6em color-mix(in srgb,var(--r) 70%,transparent))}
 .cs-bpic svg{width:9em;height:9em;color:var(--r);filter:drop-shadow(0 0 1.4em color-mix(in srgb,var(--r) 80%,transparent))}
+.cs-card .cs-respin{font-size:4.2em;line-height:1;font-weight:700;color:var(--r);text-shadow:0 0 .4em var(--r)}
