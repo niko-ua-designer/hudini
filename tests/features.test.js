@@ -302,6 +302,41 @@ const { step, check, eq, until, sleep } = T;
     check(Math.abs(B5.r - A.l) < 0.2, `scaling snapped the right edge of Beta to the left edge of Alpha: ${B5.r.toFixed(2)} vs ${A.l.toFixed(2)}`);
   });
 
+  await step('sound tab: master × element volume, mute keeps the slider, effects volume', async () => {
+    await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
+    await mod.click('[data-tab=sound]');
+    eq(await mod.$$eval('#mixer .mx', n => n.length), 2, 'master and effects rows, nothing else yet');
+    check(await mod.isVisible('#mixerEmpty'), 'hint about the empty list');
+    await mod.click('[data-tab=add]');
+    await mod.evaluate(() => { addEl({ type: 'video', src: 'https://example.com/a.mp4', x: 30, y: 30, w: 30, sound: true }); });
+    await mod.click('[data-add=case]'); await mod.click('[data-add=raffle]'); await mod.click('[data-add=countdown]');
+    await mod.evaluate(() => { const t = state.els.find(e => e.type === 'timer'); t.endSound = 'https://example.com/end.mp3'; changed(); });
+    await mod.click('[data-tab=sound]');
+    eq(await mod.$$eval('#mixer .mx', n => n.length), 6, 'video, case, giveaway and a timer with an end sound are listed');
+    const ids = await mod.evaluate(() => Object.fromEntries(['video', 'case', 'raffle', 'timer'].map(t => [t, state.els.find(e => e.type === t).id])));
+    const slide = (key, v) => mod.$eval(`#mixer .mx[data-key="${key}"] input`, (i, v) => { i.value = v; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); }, v);
+    const vol = id => wid.$eval(`.el[data-id="${id}"] video`, v => v.volume).catch(() => -1);
+    await slide('master', 50);
+    check(await until(async () => Math.abs((await vol(ids.video)) - 0.5) < 0.01), 'video on stream: master 50% × its own 100% = 0.5');
+    await slide(ids.video, 40);
+    check(await until(async () => Math.abs((await vol(ids.video)) - 0.2) < 0.01), 'video on stream: 50% × 40% = 0.2');
+    eq(await wid.evaluate(() => masterVol()), 0.5, 'widget knows the master volume');
+    await slide('fx', 30);
+    check(await until(async () => Math.abs((await wid.evaluate(() => fxVol())) - 0.3) < 0.01), 'effects volume reaches the widget');
+    eq(await mod.evaluate(ids => ['timer', 'raffle', 'case'].map(t => state.els.find(e => e.id === ids[t]).vol), ids), [0.8, 1, 0.8], 'default volumes: timer 0.8, giveaway 1, case 0.8');
+    // 🔇: the slider keeps its place, the sound is off
+    await mod.click(`#mixer .mx[data-key="${ids.video}"] .mxm`);
+    check(await until(async () => await wid.$eval(`.el[data-id="${ids.video}"] video`, v => v.muted).catch(() => false)), 'muted video is muted on stream');
+    check(await mod.$eval(`#mixer .mx[data-key="${ids.video}"]`, n => n.classList.contains('off')), 'row is shown as muted');
+    eq(await mod.evaluate(id => state.els.find(e => e.id === id).vol, ids.video), 0.4, 'slider position stays at 40');
+    await mod.click(`#mixer .mx[data-key="${ids.case}"] .mxm`);
+    eq(await mod.evaluate(id => state.els.find(e => e.id === id).vol, ids.case), 0, 'case muted: volume 0');
+    await mod.click(`#mixer .mx[data-key="${ids.case}"] .mxm`);
+    eq(await mod.evaluate(id => state.els.find(e => e.id === id).vol, ids.case), 0.8, 'case unmuted: back to 0.8');
+    check(await mod.evaluate(() => { const s = sanitizeState({ vol: 5, fxVol: -1, els: [] }); return s.vol === 1 && s.fxVol === 0; }), 'volumes are clamped to 0..1');
+    await mod.click('[data-tab=add]');
+  });
+
   await step('editor: multi-select, align, group, undo', async () => {
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
     for(const t of ['А', 'Б', 'В']){ await mod.fill('#newText', t); await mod.click('#addText'); }

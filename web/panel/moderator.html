@@ -115,6 +115,15 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 
 /* ---------- слои и инспектор ---------- */
 #layers{display:flex;flex-direction:column;gap:4px}
+.mx{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin-top:6px}
+.mx.master{border-color:var(--acc)}
+.mx .mxn{grid-column:1/3;background:none;border:0;padding:0;text-align:left;color:var(--text);font-size:12.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .mxs{display:flex;align-items:center;gap:6px;grid-column:1}
+.mx .mxs input{flex:1;min-width:0}
+.mx .mxv{width:34px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.mx .mxm{padding:2px 7px;font-size:14px}
+.mx.off .mxs{opacity:.45}
+.mx.off .mxm{background:var(--warn);border-color:var(--warn);color:#000}
 .layer{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);cursor:pointer}
 .layer.sel{border-color:var(--acc);background:#262046}
 .layer.hid .name{opacity:.45;text-decoration:line-through}
@@ -187,7 +196,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
 /* ---------- вкладки слева ---------- */
 #left{padding-top:0}
-#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
 #tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px 6px;font-size:16px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:none;color:var(--muted)}
 #tabs button span{font-size:10.5px;letter-spacing:.02em}
 #tabs button:hover{background:var(--panel2);color:var(--text)}
@@ -272,6 +281,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <button data-tab="scenes" title="Сцены и библиотека">🎞<span>Сцены</span></button>
     <button data-tab="chat" title="Чат Twitch">💬<span>Чат</span></button>
     <button data-tab="auto" title="Сценарии: если… то…">⚡<span>Сценарии</span></button>
+    <button data-tab="sound" title="Громкость оверлея и каждого звука">🔊<span>Звук</span></button>
     <button data-tab="room" title="Комната, ключи, настройки">⚙<span>Комната</span></button>
   </nav>
 
@@ -349,6 +359,13 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <div id="scnList"></div>
     <div class="row"><button id="scnNew" class="primary grow">＋ Новый сценарий</button></div>
     <div id="scnEdit" hidden></div>
+  </section>
+
+  <section data-pane="sound" hidden>
+    <h2>🔊 Звук</h2>
+    <div class="hint">Итоговая громкость на стриме = общая × громкость звука. 🔇 заглушает звук, не трогая ползунок.</div>
+    <div id="mixer"></div>
+    <div class="hint" id="mixerEmpty" hidden>Звуки появятся здесь, когда на экране будет видео, сайт, кейс, розыгрыш или таймер со звуком.</div>
   </section>
 
   <section data-pane="room" hidden>

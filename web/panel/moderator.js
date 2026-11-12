@@ -58,7 +58,7 @@ function cleanRoom(r){
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
 async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
 
-let state={ visible:true, els:[] };
+let state={ visible:true, vol:1, fxVol:1, els:[] };
 let selectedId=null, drag=null;
 const undoStack=[]; let changeOpen=false;
 function byId(id){ return state.els.find(e=>e.id===id); }
@@ -300,7 +300,7 @@ function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
   STREAM_LANG=streamLang();
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, els:state.els, fonts:state.fonts||[] };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
@@ -318,7 +318,7 @@ async function switchRoom(code){
   if(homeClient) dropHome();
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   await useRoom(code); saveRooms();
-  state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
+  state={ visible:true, vol:1, fxVol:1, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());
@@ -652,7 +652,7 @@ function renderAll(){
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ n.remove(); nodes.delete(id); }
-  renderLayers(); renderInspector(); renderToolbar();
+  renderLayers(); renderMixer(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
@@ -681,6 +681,52 @@ function elName(el){
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
   try{ const p=new URL(el.src).pathname.split('/').filter(Boolean).pop(); return decodeURIComponent(p||el.src); }catch{ return el.src; }
+}
+// ---- вкладка «Звук»: общая громкость, эффекты и каждый звучащий элемент ----
+const muteMem=new Map();   // что было на ползунке до 🔇
+const hasSound = el => ['video','web','case','raffle'].includes(el.type) || (el.type==='timer' && !!el.endSound);
+const mxRows = () => [{ key:'master', name:'Общая громкость' }, { key:'fx', name:'Звуковые эффекты (кнопка «Звук», сценарии)' },
+  ...state.els.filter(hasSound).map(el=>({ key:el.id, el, name:elIcon(el)+' '+elName(el).slice(0,40) }))];
+function mxGet(r){ return r.key==='master' ? num(state.vol,1,0,1) : r.key==='fx' ? num(state.fxVol,1,0,1) : num(r.el.vol,1,0,1); }
+function mxSet(r, v){ if(r.key==='master') state.vol=v; else if(r.key==='fx') state.fxVol=v; else r.el.vol=v; }
+// у видео и сайта звук включается галочкой, у остальных 🔇 — это нулевая громкость
+const mxMuted = r => r.el && (r.el.type==='video' || r.el.type==='web') ? !r.el.sound : mxGet(r)<0.005;
+let mixSig='';
+function renderMixer(){
+  const box=$('mixer'); if(!box) return;
+  const rows=mxRows(), sig=rows.map(r=>r.key).join('|');   // имена тикают (таймер), поэтому строки пересобираем только при смене состава
+  $('mixerEmpty').hidden = rows.length>2;
+  if(sig!==mixSig){
+    mixSig=sig; box.replaceChildren();
+    for(const r of rows){
+      const d=document.createElement('div'); d.className='mx'+(r.key==='master'?' master':''); d.dataset.key=r.key;
+      const n=document.createElement('button'); n.className='mxn'; n.textContent=r.name; n.title=r.el ? 'Выделить на экране' : '';
+      if(r.el) n.onclick=()=>select(r.el.id); else n.style.cursor='default';
+      const s=document.createElement('div'); s.className='mxs';
+      const sl=document.createElement('input'); sl.type='range'; sl.min=0; sl.max=100; sl.step=1;
+      const v=document.createElement('span'); v.className='mxv';
+      s.append(sl, v);
+      const m=document.createElement('button'); m.className='mxm';
+      const cur=()=>mxRows().find(x=>x.key===r.key);
+      sl.oninput=()=>{ const x=cur(); if(!x) return; beginChange(); mxSet(x, Number(sl.value)/100); if(x.el && Number(sl.value)>0 && x.el.type!=='video' && x.el.type!=='web') muteMem.delete(x.key); changed(); };
+      sl.onchange=()=>commit();
+      m.onclick=()=>{ const x=cur(); if(!x) return; beginChange();
+        if(x.el && (x.el.type==='video' || x.el.type==='web')) x.el.sound=!x.el.sound;
+        else if(mxGet(x)<0.005) mxSet(x, muteMem.get(x.key) || 0.8);
+        else { muteMem.set(x.key, mxGet(x)); mxSet(x, 0); }
+        commit(); };
+      d.append(n, s, m); box.appendChild(d);
+    }
+  }
+  for(const r of rows){
+    const d=box.querySelector(`.mx[data-key="${CSS.escape(r.key)}"]`); if(!d) continue;
+    const sl=d.querySelector('input'), val=Math.round(mxGet(r)*100), off=mxMuted(r);
+    if(document.activeElement!==sl) sl.value=val;
+    const nm=d.querySelector('.mxn'); if(nm.textContent!==r.name) nm.textContent=r.name;
+    d.querySelector('.mxv').textContent=val+'%';
+    d.classList.toggle('off', off);
+    const m=d.querySelector('.mxm'); m.textContent=off?'🔇':'🔊'; m.title=off?'Включить звук':'Заглушить';
+  }
 }
 function renderLayers(){
   const box=$('layers'); box.replaceChildren();

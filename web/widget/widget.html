@@ -122,7 +122,7 @@ let visible=true, lastState={ visible:true, els:[] };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
-  lastState=s; visible=s.visible; if(!visible) window.Case3D?.silence?.();
+  lastState=s; setVolumes(s); visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
   s.els.forEach((el,i)=>{
@@ -139,7 +139,7 @@ function applyState(s){
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
       const v=node.querySelector('video');
-      v.muted=!el.sound; v.volume=el.vol;
+      v.muted=!el.sound; v.volume=num(el.vol*masterVol(),1,0,1);
       const restart = el.restart && el.restart!==node._restart;
       node._restart=el.restart;
       if(show){
@@ -181,7 +181,7 @@ setInterval(()=>{
     const s=tickNode(node, el, now);
     if(el.type==='timer' && s){
       if(node._ended===false && s.ended && !el.hidden && visible){
-        if(el.endSound) playSound(el.endSound, 0.8);
+        if(el.endSound) playSound(el.endSound, el.vol);
         if(el.endConfetti) confetti();
       }
       node._ended=s.ended;
@@ -195,7 +195,7 @@ const pendingSounds=new Map();
 function playSound(src, vol){
   const id=assetId(src);
   if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, vol); return; } src=u; }
-  const a=new Audio(src); a.volume=num(vol,0.7,0,1);
+  const a=new Audio(src); a.volume=num(num(vol,0.7,0,1)*masterVol(),0.7,0,1);
   sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
   a.play().catch(e=>status('Звук не проигрался: '+e.message));
 }
@@ -230,16 +230,17 @@ let actx=null;
 function ac(){ try{ actx ||= new AudioContext(); if(actx.state==='suspended') actx.resume(); return actx; }catch{ return null; } }
 function blip(freq, dur, vol, type){
   const a=ac(); if(!a) return; const t=a.currentTime, o=a.createOscillator(), g=a.createGain();
-  o.type=type||'square'; o.frequency.setValueAtTime(freq, t); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.type=type||'square'; o.frequency.setValueAtTime(freq, t); vol*=masterVol(); if(vol<0.0002) return;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.02);
 }
 Object.defineProperty(CaseFx, 'audio', { get:()=>visible && !document.body.classList.contains('host-hidden') });
-RaffleFx.tick=el=>{ if(el.ticks && visible && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08, 'square'); };
-RaffleFx.open=el=>{ if(!visible || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12, 'sine'), 1050); };
+RaffleFx.tick=el=>{ if(el.ticks && visible && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08*el.vol, 'square'); };
+RaffleFx.open=el=>{ if(!visible || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12*el.vol, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12*el.vol, 'sine'), 1050); };
 RaffleFx.win=el=>{
   if(!visible || el.hidden) return;
-  if(el.snd) playSound(el.snd, 0.85);
-  else [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f, 0.45, 0.14, 'triangle'), i*120));
+  if(el.snd) playSound(el.snd, 0.85*el.vol);
+  else [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f, 0.45, 0.14*el.vol, 'triangle'), i*120));
   if(el.fxc) confetti();
   if(el.vfx) playVfx(el);
 };
@@ -250,7 +251,7 @@ void main(){vec4 c=texture2D(t,v);float d=distance(cb(c.rgb),cb(k));float a=smoo
 float sp=max(0.,c.g-max(c.r,c.b));c.g-=sp*(1.-a*.5);gl_FragColor=vec4(c.rgb*a,a);}`;
 function playVfx(el){
   const src = assetId(el.vfx) ? Assets.resolve(el.vfx) : el.vfx; if(!src) return;
-  const v=document.createElement('video'); v.playsInline=true; v.muted=false; v.src=src;
+  const v=document.createElement('video'); v.playsInline=true; v.muted=false; v.volume=num(el.vol*masterVol(),1,0,1); v.src=src;
   if(!assetId(el.vfx)) v.crossOrigin='anonymous';
   const layer=document.createElement(el.key?'canvas':'div'); layer.className='vfx';
   const done=()=>{ v.pause(); layer.remove(); }; setTimeout(done, 30000); v.onended=done; v.onerror=done;
@@ -286,7 +287,7 @@ function calib(){
 
 function onFx(f){
   if(!f || typeof f!=='object') return;
-  if(f.type==='sound'){ const src=safeSrc(f.src); if(src) playSound(src, f.vol); }
+  if(f.type==='sound'){ const src=safeSrc(f.src); if(src) playSound(src, num(f.vol,0.7,0,1)*fxVol()); }
   else if(f.type==='stopsounds') stopSounds();
   else if(f.type==='confetti') confetti();
   else if(f.type==='shake') shake();

@@ -73,6 +73,11 @@ const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
 const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','raffle','case'];
+// Общая громкость оверлея: звук на стриме = общая × громкость элемента. Виджет задаёт её из состояния.
+let MASTER_VOL = 1, FX_VOL = 1;
+function setVolumes(s){ MASTER_VOL = num(s?.vol, 1, 0, 1); FX_VOL = num(s?.fxVol, 1, 0, 1); }
+function masterVol(){ return MASTER_VOL; }
+function fxVol(){ return FX_VOL; }
 const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare'];
 // Виды на весь экран: своя сетка на 16:9, двигать их нельзя, чтобы ничего не съезжало
 const CS2_FULL = new Set(['hud_solo','hud_tour','table','duel','compare']);
@@ -193,7 +198,7 @@ function sanitizeEl(e){
     o.winners=(Array.isArray(e.winners)?e.winners:[]).slice(-50).map(x=>str(x,40)).filter(Boolean);
     o.confirm=Math.round(num(e.confirm,0,0,600)); o.cUntil=num(e.cUntil,0,0,1e15); o.ok=!!e.ok;
     o.snd=safeSrc(e.snd)||''; o.vfx=safeSrc(e.vfx)||''; o.key=e.key!==false; o.kc=hex(e.kc,'#00ff00'); o.ksim=num(e.ksim,0.4,0.05,0.9);
-    o.fxc=e.fxc!==false; o.ticks=e.ticks!==false;
+    o.fxc=e.fxc!==false; o.ticks=e.ticks!==false; o.vol=num(e.vol,1,0,1);
   } else if(type==='poll'){
     o.fs=num(e.fs,3.2,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
@@ -213,7 +218,7 @@ function sanitizeEl(e){
       o.acc=num(e.acc,0,0,1e13); o.target=num(e.target,0,0,1e15);
       o.tz=validTz(str(e.tz,50)); o.secs=e.secs!==false;
       o.endText=str(e.endText,40); o.endSound=safeUrl(e.endSound)||'';
-      o.endConfetti=!!e.endConfetti; o.endBlink=e.endBlink!==false;
+      o.endConfetti=!!e.endConfetti; o.endBlink=e.endBlink!==false; o.vol=num(e.vol,0.8,0,1);
     } else {
       o.value=Math.round(num(e.value,0,-1e9,1e9)); o.step=Math.round(num(e.step,1,1,1e6));
       o.cmode=COUNTER_MODES.includes(e.cmode)?e.cmode:'manual'; o.kw=str(e.kw,120); o.uniq=!!e.uniq; o.modsOnly=!!e.modsOnly;
@@ -295,7 +300,7 @@ function sanitizeState(m){
   const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
     .filter(f => /^[a-z0-9]{6,24}$/.test(f?.id||'')).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
-  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts };
+  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1) };
 }
 
 // ---------- время ----------
@@ -836,7 +841,7 @@ function playerPost(node, kind, cmd, arg){
 function playerApply(node, el, muted){
   const kind = playerKind(el); if(!kind) return;
   const f = node.querySelector('iframe'); if(!f) return;
-  const want = { kind, paused:!!el.paused, vol: !muted && el.sound ? el.vol : null };
+  const want = { kind, paused:!!el.paused, vol: !muted && el.sound ? el.vol * masterVol() : null };
   const prev = node._plWant; node._plWant = want;
   const send = () => {
     const w = node._plWant; if(!w) return;

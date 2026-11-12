@@ -348,6 +348,7 @@
   // Синтез без сэмплов: металлические щелчки из резонансов, суб-удары, подъём на фильтре, реверберация свёрткой.
   // Свой звук на любой момент модератор ставит в пульте, тогда синтез для этого момента молчит.
   const A = { ctx:null, muted:false };
+  const MV = () => typeof masterVol === 'function' ? masterVol() : 1;   // общая громкость оверлея (core.js)
   const files = new Set();   // свои звуки кейса, чтобы «остановить звуки» их тоже глушила
   function ac(vol){
     if(!A.ctx){
@@ -355,7 +356,7 @@
       chain(A.ctx);
     }
     if(A.ctx.state === 'suspended') A.ctx.resume();
-    A.out.gain.value = A.muted ? 0 : vol * 0.62;
+    A.out.gain.value = A.muted ? 0 : vol * MV() * 0.62;
     return A.ctx;
   }
   function chain(x){
@@ -464,7 +465,7 @@
       else if(big) for(let i = 0; i < 12; i++) SFX.bell(t0 + 0.3 + i * 0.08, 1800 + Math.random() * 2400, 0.025, 0.4);
     },
   };
-  function playFile(src, vol){ try{ const u = window.resolveSrc ? window.resolveSrc(src) : src; if(!u) return; if(A.muted) return; const a = new Audio(u); a.volume = vol; files.add(a); a.addEventListener('ended', () => files.delete(a)); a.play().catch(() => {}); }catch{} }
+  function playFile(src, vol){ try{ const u = window.resolveSrc ? window.resolveSrc(src) : src; if(!u) return; if(A.muted) return; const a = new Audio(u); a.volume = Math.min(1, vol * MV()); files.add(a); a.addEventListener('ended', () => files.delete(a)); a.play().catch(() => {}); }catch{} }
   function sound(el, k, t0, extra){
     const own = el.snd?.[k === 'lock2' ? 'lock' : k];
     if(own){ if(k !== 'tick' || !sound.busy) playFile(own, el.vol); return; }
