@@ -2255,7 +2255,7 @@ $('kfClear').onclick=()=>act(el=>{ delete el.kf; });
 $('kfApply').onclick=()=>{
   const v=$('kfPreset').value, el=byId(selectedId); if(!v || !el) return toast('Выбери анимацию в списке');
   let kf;
-  if(v.startsWith('p:')) kf=kfPreset(v.slice(2), el);
+  if(v.startsWith('p:')) kf=kfPreset(v.slice(2), el, boxOf(el.id));
   else { const a=myAnims[+v.slice(2)]; if(!a) return;
     kf={ mode:a.mode, end:a.end, f:a.f.map(f=>({ ...f, x:el.x+f.x, y:el.y+f.y, r:el.rot+f.r })) }; }
   act1(el, x=>{ x.kf=sanitizeKf({ ...kf, playing:true, start:Date.now() }); x.hidden=false; delete x.ttl; });

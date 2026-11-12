@@ -50,6 +50,30 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('DVD screensaver bounces off the edges of the element, not its centre', async () => {
+    await mod.click('[data-tab=add]');
+    for (const [txt, fs] of [['WIDE LOGO TEXT', 9], ['i', 3]]) {
+      await mod.fill('#newText', txt); await mod.click('#addText');
+      const id = await mod.evaluate(f => { const e = state.els.at(-1); beginChange(); e.fs = f; e.x = 50; e.y = 50; commit(); selectedId = e.id; msel.clear(); renderAll(); return e.id; }, fs);
+      await sleep(300);
+      const R = await mod.evaluate(i => {
+        const box = boxOf(i), hw = (box.r - box.l) / 2, hh = (box.b - box.t) / 2;
+        const kf = kfPreset('dvd', state.els.find(e => e.id === i), box), xs = kf.f.map(f => f.x), ys = kf.f.map(f => f.y);
+        const eps = 0.05;
+        return { hw, hh, n: kf.f.length, inside: kf.f.every(f => f.x >= hw - eps && f.x <= 100 - hw + eps && f.y >= hh - eps && f.y <= 100 - hh + eps),
+          wall: kf.f.slice(1).every(f => f.x <= hw + eps || f.x >= 100 - hw - eps || f.y <= hh + eps || f.y >= 100 - hh - eps ),
+          reachX: [Math.min(...xs), Math.max(...xs)], reachY: [Math.min(...ys), Math.max(...ys)], d: kf.f.every(f => f.d >= 1), mode: kf.mode };
+      }, id);
+      check(R.hw > 0.05 && R.n >= 6 && R.mode === 'loop', `${txt}: a loop of ${R.n} keyframes, half-width ${R.hw.toFixed(1)}%`);
+      check(R.inside, `${txt}: the whole frame of the element stays on the screen`);
+      check(R.wall, `${txt}: every turn after the start happens at a wall`);
+      check(Math.abs(R.reachX[0] - R.hw) < 0.05 && Math.abs(R.reachX[1] - (100 - R.hw)) < 0.05, `${txt}: the element touches both side walls (${R.reachX.map(v => v.toFixed(1))})`);
+      check(Math.abs(R.reachY[0] - R.hh) < 0.05 && Math.abs(R.reachY[1] - (100 - R.hh)) < 0.05, `${txt}: and the top and bottom (${R.reachY.map(v => v.toFixed(1))})`);
+      check(R.d, `${txt}: every step lasts at least a millisecond`);
+    }
+    await mod.evaluate(() => { beginChange(); state.els = []; selectedId = null; commit(); });
+  });
+
   await step('poll counts chat votes once per viewer', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=poll]'); await mod.click('#pToggle');
     await mod.evaluate(() => { onChat('a', '1'); onChat('b', '!2'); onChat('c', '2'); onChat('c', '1'); onChat('d', 'hello 2'); });

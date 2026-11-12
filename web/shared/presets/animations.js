@@ -6,7 +6,23 @@
 //   mode  once | loop | pingpong · end  stay | hide | back
 // Готовые анимации. Строятся от текущего положения элемента.
 const SPEED = 0.025; // % экрана за мс для «пролётов»
-function kfPreset(name, el){
+// DVD-заставка: элемент летит по диагонали и отскакивает краями своей рамки (box = { l, r, t, b } в % экрана), а не центром.
+// Путь замкнутый: по x 3 пробега туда-обратно, по y 2, так что углы попадаются редко, как в оригинале.
+function dvdPath(el, box, F){
+  const hw=box ? Math.max(0, (box.r-box.l)/2) : 5, hh=box ? Math.max(0, (box.b-box.t)/2) : 5;
+  const minX=Math.min(hw, 49), maxX=100-minX, minY=Math.min(hh, 49), maxY=100-minY, Wx=maxX-minX, Wy=maxY-minY;
+  const clamp=(v,a,b)=>Math.min(b, Math.max(a, v));
+  const sx=(clamp(el.x, minX, maxX)-minX)/Wx, sy=(clamp(el.y, minY, maxY)-minY)/Wy;   // где на пути сейчас элемент
+  const KX=6, KY=4;   // полуциклов за круг
+  const T=Math.hypot(KX*Wx*16, KY*Wy*9)/(SPEED*1.6*16);   // скорость как раньше: ~0.04 % ширины в мс
+  const tri=ph=>{ const f=((ph%2)+2)%2; return f<=1 ? f : 2-f; };
+  const ev=new Set([0]);
+  for(let n=1;n<=KX;n++) ev.add(Math.round((n-sx)/KX*T));
+  for(let n=1;n<=KY;n++) ev.add(Math.round((n-sy)/KY*T));
+  const ts=[...ev].filter(t=>t>=0 && t<Math.round(T)).sort((a,b)=>a-b);
+  return { mode:'loop', end:'stay', f:ts.map((t,i)=>F({ x:minX+Wx*tri(sx+KX*t/T), y:minY+Wy*tri(sy+KY*t/T), e:'linear', d:Math.max(1, (i+1<ts.length ? ts[i+1] : Math.round(T))-t) })) };
+}
+function kfPreset(name, el, box){
   const x=el.x, y=el.y, r=el.rot, F=(o)=>({ x, y, r, s:1, o:1, d:800, e:'inout', ...o });
   const dist=(a,b)=>Math.hypot(b.x-a.x, (b.y-a.y)*9/16);
   switch(name){
@@ -21,11 +37,7 @@ function kfPreset(name, el){
     case 'zigzag': return { mode:'pingpong', end:'stay', f:[-2,-1,0,1,2].map(i=>F({ x:x+i*8, y:y-(i%2?7:0), d:450, e:'inout' })) };
     case 'swing': return { mode:'pingpong', end:'stay', f:[F({ r:r-15, d:900 }), F({ r:r+15 })] };
     case 'heart': return { mode:'loop', end:'stay', f:[F({ d:500, e:'out' }), F({ s:1.25, d:200, e:'in' }), F({ d:300, e:'out' }), F({ s:1.15, d:150, e:'in' })] };
-    case 'dvd': {
-      const pts=[[8,12],[70,88],[92,40],[30,10],[8,55],[50,88],[92,70],[60,12]].map(([px,py])=>F({ x:px, y:py, e:'linear' }));
-      pts.forEach((p,i)=>p.d=dist(p, pts[(i+1)%pts.length])/SPEED*1.6);
-      return { mode:'loop', end:'stay', f:pts };
-    }
+    case 'dvd': return dvdPath(el, box, F);
   }
   return null;
 }
