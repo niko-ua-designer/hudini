@@ -699,7 +699,27 @@ function mxSet(r, v){ if(r.key==='master') state.vol=v; else if(r.key==='fx') st
 // у видео и сайта звук включается галочкой, у остальных 🔇 — это нулевая громкость
 const mxMuted = r => r.el && (r.el.type==='video' || r.el.type==='web') ? !r.el.sound : mxGet(r)<0.005;
 let mixSig='';
+// общая громкость в шапке: тот же state.vol, что и первый ползунок вкладки «Звук»
+function syncHdrVol(){
+  const sl=$('hdrVol'), v=Math.round(num(state.vol,1,0,1)*100);
+  if(document.activeElement!==sl) sl.value=v;
+  $('hdrVolV').textContent=v+'%'; $('hdrMute').textContent=v<1?'🔇':'🔊';
+}
+$('hdrVol').oninput=()=>{ beginChange(); state.vol=Number($('hdrVol').value)/100; changed(); };
+$('hdrVol').onchange=()=>commit();
+$('hdrMute').onclick=()=>{ beginChange(); if(num(state.vol,1,0,1)<0.005) state.vol=muteMem.get('master')||0.8; else { muteMem.set('master', num(state.vol,1,0,1)); state.vol=0; } commit(); };
+// меню «⋯ Ещё»: ссылка для стримера, рамка, пароль, очистка
+function toggleMore(force){
+  const m=$('moreMenu'), open=force ?? m.hidden; m.hidden=!open; $('moreBtn').classList.toggle('on', open);
+  if(!open) return;
+  const away=e=>{ if(m.contains(e.target) || $('moreBtn').contains(e.target)) return; toggleMore(false); removeEventListener('pointerdown', away, true); };
+  setTimeout(()=>addEventListener('pointerdown', away, true), 0);
+}
+$('moreBtn').onclick=()=>toggleMore();
+$('moreMenu').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b && b.id!=='copyLink') setTimeout(()=>toggleMore(false), 0); });
+addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('moreMenu').hidden) toggleMore(false); });
 function renderMixer(){
+  syncHdrVol();
   const box=$('mixer'); if(!box) return;
   const rows=mxRows(), sig=rows.map(r=>r.key).join('|');   // имена тикают (таймер), поэтому строки пересобираем только при смене состава
   $('mixerEmpty').hidden = rows.length>2;

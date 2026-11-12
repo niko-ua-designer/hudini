@@ -6,7 +6,7 @@
   const KEY = 'hudini.ui', BAK = 'hudini.ui.bak';
   const HELP_URL = '../help.html';
   const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
-  const TABS = ['add', 'scenes', 'chat', 'auto', 'room'];
+  const TABS = ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room'];
   const DEF = { v:1, lw:300, rw:310, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
   // Ready layouts: one click, then everything can still be tuned by hand
   const PRESETS = {
@@ -262,7 +262,7 @@
   // ---------- help menu ----------
   function helpButton(){
     const b = document.createElement('button'); b.id = 'helpBtn'; b.textContent = '❓'; b.title = 'Гайд и справка';
-    $('passBtn').before(b);
+    $('moreBtn').before(b);
     b.onclick = e => {
       e.stopPropagation();
       if($('helpMenu')){ $('helpMenu').remove(); return; }
@@ -318,8 +318,8 @@
     { sel:'#left', tab:'add', title:'Добавляй здесь', text:'Текст, картинки, GIF, видео, таймеры и счётчики. Картинку можно просто перетащить на холст или вставить через Ctrl+V.', sample:true },
     { sel:'#stage', title:'Это экран стримера', text:'Всё, что здесь, видно на стриме. Тащи элемент мышкой, меняй размер за уголок, крути за кружок. Ctrl+Z отменяет.' },
     { sel:'#right', title:'Слои и настройки', text:'Кликни по элементу, и здесь появятся цвет, шрифт и анимации. Глазик 👁 прячет элемент со стрима, не удаляя его.' },
-    { sel:'#copyLink', title:'Связь со стримером', text:'Нажми «Копировать» и отправь ссылку стримеру. Он вставляет её в программу Hudini Host на своём ПК, и пульт находит его сам.' },
-    { sel:'#status', title:'Всё ли на связи', text:'Зелёная точка: программа стримера подключена. Рядом видно, работает ли виджет в OBS. Если что-то не так, нажми на плашку.' },
+    { sel:'#moreBtn', title:'Связь со стримером', text:'В меню «Ещё» нажми «Копировать» и отправь ссылку стримеру. Он вставляет её в программу Hudini Host на своём ПК, и пульт находит его сам.' },
+    { sel:'#status', title:'Всё ли на связи', text:'Полоски и миллисекунды: связь с программой стримера и её задержка. Рядом видно, работает ли виджет в OBS. Если что-то не так, нажми на плашку.' },
     { sel:'.lvl', title:'Метки β и α', text:'β: работает, но ещё обкатывается. α: эксперимент. Нажми на метку, чтобы узнать больше или сообщить о проблеме.' },
     { sel:'#helpBtn', title:'Гайд всегда здесь', text:'Кнопка ❓ покажет обучение ещё раз и откроет справку прямо в пульте.' },
     { sel:null, title:'🎛 Настроим под тебя', text:'Выбери, как пульт будет выглядеть. Всё это можно поменять потом: Комната → Вид пульта.', setup:true },

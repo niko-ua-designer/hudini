@@ -494,7 +494,7 @@ const { step, check, eq, until, sleep } = T;
     mod.removeAllListeners('dialog'); mod.on('dialog', d => d.accept('Начало'));
     await mod.click('[data-tab=scenes]'); await mod.click('#sceneSave');
     const n = await mod.evaluate(() => state.els.length);
-    await mod.click('#clearAll'); await mod.click('.scene');
+    await mod.click('#moreBtn'); await mod.click('#clearAll'); await mod.click('.scene');
     eq(await mod.evaluate(() => state.els.length), n, 'scene brings the elements back');
     check(await until(async () => (await wid.$$eval('.el', x => x.length)) >= n), 'widget shows the scene');
   });
@@ -502,7 +502,7 @@ const { step, check, eq, until, sleep } = T;
   await step('password vault and encrypted backup', async () => {
     const answers = ['secret123', 'secret123', 'bk-pass-1'];
     mod.removeAllListeners('dialog'); mod.on('dialog', d => d.type() === 'prompt' ? d.accept(answers.shift() ?? '') : d.accept());
-    await mod.click('#passBtn');
+    await mod.click('#moreBtn'); await mod.click('#passBtn');
     check(await until(async () => !!(await T.stored(mod, 'overlay.vault2'))?.locked), 'vault locked');
     check(!JSON.stringify(await T.stored(mod, 'overlay.vault2')).includes('"d"'), 'no private key in clear');
     await mod.click('[data-tab=room]');

@@ -199,13 +199,6 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 .scene button{padding:2px 6px;font-size:12px}
 
 /* ---------- вкладки слева ---------- */
-#left{padding-top:0}
-#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
-#tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px 6px;font-size:16px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:none;color:var(--muted)}
-#tabs button span{font-size:10.5px;letter-spacing:.02em}
-#tabs button:hover{background:var(--panel2);color:var(--text)}
-#tabs button.on{color:var(--text);border-bottom-color:var(--acc);background:var(--panel2)}
-#tabs button .badge{position:absolute}
 section[data-pane][hidden]{display:none}
 /* ---------- лента чата ---------- */
 #chatFeed{margin-top:8px;max-height:calc(100vh - 360px);min-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;background:#11141a}
@@ -263,19 +256,22 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 <header>
   <h1>🎩 Hudini <span data-i18n-switch></span></h1>
   <a id="toSessions" href="../app/start.html" hidden title="Вернуться к списку стримеров">← Сессии</a>
-  <span id="status" class="pill">подключение…</span>
-  <span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span>
-  <span class="hint hide-narrow" title="Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS">Ссылка для Hudini Host:</span>
-  <input id="link" type="text" readonly>
-  <button id="copyLink">📋 Копировать</button>
-  <button id="calibBtn" title="Показать у стримера рамку по краям экрана на 10 секунд">📐 Рамка</button>
+  <div id="conn" class="conn"><span id="status" class="pill">подключение…</span><span class="sep"></span><span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span></div>
   <button id="updBanner" class="primary" hidden title="На GitHub вышла новая версия пульта">🆕 Обновить пульт</button>
   <span class="spacer"></span>
-  <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Пароль</button>
-  <button id="lockBtn" title="Закрыть пульт до ввода пароля" hidden>🔐</button>
+  <div class="hvol" title="Общая громкость"><button id="hdrMute" class="ico">🔊</button><input id="hdrVol" type="range" min="0" max="100" step="1" value="100"><span id="hdrVolV">100%</span></div>
   <button id="undoBtn" title="Ctrl+Z">↶ Отменить</button>
   <button id="globalEye">🙈 Скрыть всё</button>
-  <button id="clearAll" class="danger">🗑 Очистить всё</button>
+  <button id="lockBtn" hidden>🔐</button>
+  <button id="moreBtn" title="Ссылка для стримера, рамка, пароль, очистка">⋯ Ещё</button>
+  <div id="moreMenu" hidden>
+    <div class="mrow"><span class="hint" title="Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS">Ссылка для Hudini Host:</span></div>
+    <div class="mrow"><input id="link" type="text" readonly><button id="copyLink">📋 Копировать</button></div>
+    <button id="calibBtn" title="Показать у стримера рамку по краям экрана на 10 секунд">📐 Рамка</button>
+    <button id="passBtn" title="Пароль на пульт: ключи комнат хранятся зашифрованными">🔓 Пароль</button>
+    <hr>
+    <button id="clearAll" class="danger">🗑 Очистить всё</button>
+  </div>
   <div id="connStrip" hidden><b id="csHead"></b><span id="csWhy"></span><span class="spacer"></span><button id="csRetry">Повторить</button><a id="csSess" href="../app/start.html" hidden>← Сессии</a></div>
 </header>
 
@@ -290,6 +286,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <button data-tab="room" title="Комната, ключи, настройки">⚙<span>Комната</span></button>
   </nav>
 
+  <div id="panes">
   <section data-pane="add">
     <h2>Текст</h2>
     <textarea id="newText" placeholder="Текст на экран… (Ctrl+Enter — добавить)"></textarea>
@@ -304,16 +301,16 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
 
     <h2>Виджеты</h2>
-    <div class="grid2">
+    <div class="grid2 tiles">
       <button data-add="countdown">⏱ Таймер</button>
       <button data-add="stopwatch">⏲ Секундомер</button>
       <button data-add="until">📅 Отсчёт до</button>
       <button data-add="clock">🕐 Часы</button>
       <button data-add="counter">🔢 Счётчик</button>
       <button data-add="poll">📊 Голосование</button>
-      <button data-add="cs2">🎯 CS2</button>
-      <button data-add="case" style="grid-column:span 2">📦 3D-кейс за донат</button>
-      <button id="addCam" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
+      <button data-add="cs2" class="wide" style="grid-column:span 2">🎯 CS2</button>
+      <button data-add="case" style="grid-column:span 2" class="wide">📦 3D-кейс за донат</button>
+      <button id="addCam" class="wide" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
     </div>
 
     <h2>Эффекты на весь экран</h2>
@@ -464,6 +461,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <kbd>Пробел</kbd> таймер · <kbd>+</kbd>/<kbd>−</kbd> счётчик · <kbd>P</kbd> анимация
     </div>
   </section>
+  </div>
 </aside>
 
 <main id="wrap">
