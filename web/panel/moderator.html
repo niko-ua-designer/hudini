@@ -293,7 +293,6 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button data-add="until">📅 Отсчёт до</button>
       <button data-add="clock">🕐 Часы</button>
       <button data-add="counter">🔢 Счётчик</button>
-      <button data-add="chatcounter">💬 Счётчик чата</button>
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2">🎯 CS2</button>
       <button data-add="raffle" style="grid-column:span 2">🎁 Розыгрыш с рулеткой</button>
@@ -498,6 +497,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <div class="lbl">Слова (через запятую, * = любое сообщение)</div>
         <input type="text" id="iKw" placeholder="F, KEKW, +">
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="iUniq"> Один раз на зрителя</label>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="iModsOnly"> Считать только модераторов</label>
       </div>
       <div data-cmode="interval">
         <div class="row"><span class="hint">+1 каждые</span><input type="number" id="iEvery" min="1" class="grow"><span class="hint">сек</span></div>

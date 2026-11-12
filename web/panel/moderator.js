@@ -402,11 +402,10 @@ function addTimer(mode){
   if(mode==='clock') Object.assign(base, { secs:true, tz:'', fs:8 });
   addEl(base);
 }
-function addCounter(chat){
+function addCounter(){
   addEl({ type:'counter', ...place(), ...TW_BASE, fs:9, value:0, step:1,
-    label: chat ? sT('F в чат') : sT('Смертей'), cmode: chat?'chat':'manual', kw: chat?'F':'', uniq:false,
-    every:60, goal:0, running: !!chat, startAt:Date.now() });
-  if(chat && !chatWs) toast('Подключи чат Twitch слева, чтобы счётчик заработал', 4000);
+    label: sT('Смертей'), cmode:'manual', kw:'', uniq:false, modsOnly:false,
+    every:60, goal:0, running:false, startAt:Date.now() });
 }
 
 function addCs2(){
@@ -751,7 +750,7 @@ function renderInspector(){
   if(el.type==='counter'){
     setField(I('iValue'), String(counterValue(el, nowMs()))); setField(I('iStep'), String(el.step)); setField(I('iGoal'), el.goal?String(el.goal):'');
     setField(I('iCmode'), el.cmode); showFor('cmode', el.cmode);
-    setField(I('iKw'), el.kw); setField(I('iUniq'), el.uniq, 'checked'); setField(I('iEvery'), String(el.every));
+    setField(I('iKw'), el.kw); setField(I('iUniq'), el.uniq, 'checked'); setField(I('iModsOnly'), el.modsOnly, 'checked'); setField(I('iEvery'), String(el.every));
     $('cToggle').textContent = el.running ? '⏸ Остановить' : '▶ Считать';
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
@@ -974,7 +973,7 @@ document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
   if(a==='raffle') return addRaffle();
   if(a==='case') return addCase();
-  if(a==='counter') addCounter(false); else if(a==='chatcounter') addCounter(true); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
+  if(a==='counter') addCounter(); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
 
 $('pickSound').onclick=()=>$('soundFile').click();
@@ -1517,6 +1516,7 @@ function onChat(user, text, msg){
     if(el.type!=='counter' || el.cmode!=='chat' || !el.running) continue;
     const kws=el.kw.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
     if(!kws.some(k=> k==='*' || (k.includes(' ') ? low.includes(k) : tokens.has(k)))) continue;
+    if(el.modsOnly && !msg?.mod) continue;
     if(el.uniq){ let s=chatSeen.get(el.id); if(!s){ s=new Set(); chatSeen.set(el.id,s); } if(s.has(user)) continue; s.add(user); }
     el.value+=el.step; any=true;
   }
@@ -1619,6 +1619,7 @@ bindInput('iCmode',  (el,f)=>{ if(el.cmode==='interval' && el.running) el.value=
   el.cmode=f.value; el.running = el.cmode==='chat'; el.startAt=Date.now();
   if(el.cmode==='chat' && !chatWs) toast('Подключи чат Twitch слева', 3000); });
 bindInput('iKw',     (el,f)=>el.kw=f.value.slice(0,120));
+bindInput('iModsOnly',(el,f)=>el.modsOnly=f.checked);
 bindInput('iUniq',   (el,f)=>{ el.uniq=f.checked; chatSeen.delete(el.id); });
 bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.now()); el.startAt=Date.now(); } el.every=num(f.value,60,1,86400); });
 // CS2
@@ -2497,7 +2498,6 @@ const FEATURES=[
   ['beta', 'Hudini Host', '#status'],
   ['beta', 'Чат Twitch', '[data-tab="chat"]'],
   ['beta', 'Сценарии', '[data-tab="auto"]'],
-  ['beta', 'Счётчик чата', '[data-add="chatcounter"]'],
   ['beta', 'Голосование', '[data-add="poll"]'],
   ['beta', 'CS2', '[data-add="cs2"]'],
   ['beta', 'Вебка', '#addCam'],

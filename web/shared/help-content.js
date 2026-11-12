@@ -44,7 +44,7 @@ ru: {
 <p>Лимиты меняет стример на странице Hudini Host.</p>`],
 ['chat', 'Чат, голосования, счётчики β', `
 <p>Вкладка 💬 Чат читает чат Twitch без входа в аккаунт. Клик по сообщению показывает его на стриме.</p>
-<p><b>Голосование</b>: зрители пишут цифру варианта. Один зритель — один голос, засчитывается последний выбор. <b>Счётчик чата</b> считает команду или слово (например, «F»).</p>
+<p><b>Голосование</b>: зрители пишут цифру варианта. Один зритель — один голос, засчитывается последний выбор. <b>Счётчик</b> в режиме «По сообщениям в чате» считает команду или слово (например, «F»), можно только от модераторов.</p>
 <p>Подключай чат только в одном пульте, иначе всё посчитается дважды.</p>
 <p><b>Команды в чате</b> (Чат → «Команды в чате», выбери, кому можно): <code>!опрос</code>, <code>!опрос 60</code> — закрыть само через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
 ['scenarios', 'Сценарии β', `
@@ -131,7 +131,7 @@ en: {
 <p>The streamer changes the limits on the Hudini Host page.</p>`],
 ['chat', 'Chat, polls, counters β', `
 <p>The 💬 Chat tab reads Twitch chat without logging in. Click a message to show it on stream.</p>
-<p><b>Poll</b>: viewers type the number of an option. One viewer, one vote; the last choice counts. The <b>chat counter</b> counts a command or a word (for example "F").</p>
+<p><b>Poll</b>: viewers type the number of an option. One viewer, one vote; the last choice counts. The <b>counter</b> in "By chat messages" mode counts a command or a word (for example "F"), optionally from moderators only.</p>
 <p>Connect the chat in one panel only, otherwise everything is counted twice.</p>
 <p><b>Chat commands</b> (Chat → “Chat commands”, choose who may use them): <code>!poll</code>, <code>!poll 60</code> to close by itself in 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
 ['scenarios', 'Scenarios β', `

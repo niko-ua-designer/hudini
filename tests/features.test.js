@@ -31,6 +31,20 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await wid.$$eval('.poll', n => n.length)) === 1), 'poll on stream');
   });
 
+  await step('counter: one button, chat mode counts words, "moderators only" skips viewers', async () => {
+    await mod.click('[data-tab=add]');
+    eq(await mod.$$eval('[data-add=chatcounter]', n => n.length), 0, 'no separate chat-counter button');
+    await mod.click('[data-add=counter]');
+    const id = await mod.evaluate(() => { const e = state.els.filter(x => x.type === 'counter').pop(); return e.id; });
+    await mod.evaluate(i => { const e = state.els.find(x => x.id === i); Object.assign(e, { cmode: 'chat', kw: 'F', running: true, value: 0 }); }, id);
+    await irc('Anna', 'F'); await irc('Boris', 'f lol'); await irc('Chris', 'nope');
+    eq(await mod.evaluate(i => state.els.find(x => x.id === i).value, id), 2, 'chat mode: two matching messages counted');
+    await mod.evaluate(i => { state.els.find(x => x.id === i).modsOnly = true; }, id);
+    await irc('Anna', 'F'); await irc('Vasya', 'F', 'moderator/1'); await irc('Streamer', 'F', 'broadcaster/1');
+    eq(await mod.evaluate(i => state.els.find(x => x.id === i).value, id), 4, 'moderators only: viewer skipped, moderator and broadcaster counted');
+    eq(await mod.evaluate(i => sanitizeState({ els: [{ ...state.els.find(x => x.id === i) }] }).els[0].modsOnly, id), true, 'modsOnly survives sanitize');
+  });
+
   await step('giveaway: entries from chat, sub-only and x2, case reel lands on the winner, confirm and reroll', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=raffle]');
     await mod.fill('#iRPrize', 'AK-47 | Redline'); await mod.dispatchEvent('#iRPrize', 'change');

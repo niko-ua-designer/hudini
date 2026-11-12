@@ -216,7 +216,7 @@ function sanitizeEl(e){
       o.endConfetti=!!e.endConfetti; o.endBlink=e.endBlink!==false;
     } else {
       o.value=Math.round(num(e.value,0,-1e9,1e9)); o.step=Math.round(num(e.step,1,1,1e6));
-      o.cmode=COUNTER_MODES.includes(e.cmode)?e.cmode:'manual'; o.kw=str(e.kw,120); o.uniq=!!e.uniq;
+      o.cmode=COUNTER_MODES.includes(e.cmode)?e.cmode:'manual'; o.kw=str(e.kw,120); o.uniq=!!e.uniq; o.modsOnly=!!e.modsOnly;
       o.every=num(e.every,60,1,86400); o.goal=Math.round(num(e.goal,0,0,1e9));
     }
   }
