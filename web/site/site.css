@@ -565,7 +565,7 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 .ly{animation:none}.ly.new{animation:lyIn .35s var(--ease) both}
 .in-eye,.in-fl{animation:none}
 
-/* 3D donation case: a CSS crate that drops in, spins, opens its lid, then the reel runs in perspective */
+/* 3D case: a CSS crate that drops in, spins, opens its lid, then the reel runs in perspective */
 .o-case{inset:0;left:0;top:0;width:auto;transform:none;transition:opacity .35s}
 .o-case.on{opacity:1;transform:none}
 .kc-who{position:absolute;left:50%;top:2.2cqw;transform:translateX(-50%);margin:0;z-index:3;white-space:nowrap}

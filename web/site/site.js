@@ -265,7 +265,7 @@
           <div class="xe x-img"><img src="img/demo-photo.jpg" alt=""></div>
           <div class="xe x-gif"><img src="img/demo-party.gif" alt=""></div>
           <div class="xe x-web"><div class="wb"><div class="wbar"><i></i><i></i><i></i><span>${ic('lock')}stats.example/top</span></div>
-            <div class="wbody"><h6>${D.top}</h6>${rows.map(([n, v, a], i) => `<div class="wr"><span class="wn">${i + 1} ${n}</span><span class="wbr"><i style="--v:${v}%"></i></span><span class="wv">${a} ${D.cur}</span></div>`).join('')}</div></div></div>
+            <div class="wbody"><h6>${D.top}</h6>${rows.map(([n, v, a], i) => `<div class="wr"><span class="wn">${i + 1} ${n}</span><span class="wbr"><i style="--v:${v}%"></i></span><span class="wv">${a}</span></div>`).join('')}</div></div></div>
           <div class="xe x-txt"><span>WOW!</span></div>
           <div class="o o-text">${t.dMsg}</div>
           <div class="o o-poll"><h4>${t.dPollQ}</h4>${['Mirage', 'Inferno', 'Nuke'].map((m, i) => `<div class="pr"><span class="k">${i + 1}</span><span>${m}</span><span class="bar"><i></i></span><span class="v"></span></div>`).join('')}<div class="pf"></div></div>

@@ -425,7 +425,7 @@
 @keyframes rf-in{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 @keyframes rf-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 60%,transparent)}50%{box-shadow:0 0 0 .3em transparent}}
 
-/* ---------- кейс за донат ---------- */
+/* ---------- кейс ---------- */
 .case,.case *{box-sizing:border-box}
 .case{position:relative;width:100%;aspect-ratio:16/9;line-height:1.15;text-align:center;overflow:hidden;pointer-events:none}
 .case[data-ph="wait"],.case[data-ph="gone"],.case:not([data-ph]){opacity:0}

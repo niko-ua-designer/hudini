@@ -151,7 +151,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.click('[data-tab=add]');
   });
 
-  await step('donation case: items with chances, 3D opening, honest reel, reveal by rarity', async () => {
+  await step('case: items with chances, 3D opening, honest reel, reveal by rarity', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
     const el0 = await mod.evaluate(() => state.els.at(-1));
     eq([el0.type, el0.items.length, el0.items.reduce((a, it) => a + it.p, 0)], ['case', 5, 100], 'case with 5 default items, chances add up to 100%');

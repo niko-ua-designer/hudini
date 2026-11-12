@@ -55,12 +55,12 @@ ru: {
 ['scenarios', 'Сценарии β', `
 <p>«Если… → то…»: например, кто-то написал <code>!кринж</code> → показать картинку на 5 секунд и запустить конфетти. Условия: команда в чате, событие CS2, конец таймера, цель счётчика или кнопка.</p>
 <p>Сценарии выполняет открытый пульт. Если пульт открыт у двух модераторов, включи «Выполнять сценарии» только у одного.</p>`],
-['case', 'Кейс за донат', `
-<p>Добавить → <b>3D-кейс за донат</b>. Донат открывает кейс: он падает на экран, открывается, лента крутится и показывает выигрыш.</p>
+['case', 'Кейс', `
+<p>Добавить → <b>3D-кейс</b>. Модератор открывает кейс кнопкой: он падает на экран, открывается, лента крутится и показывает выигрыш.</p>
 <ul>
 <li><b>Вид кейса</b>: <b>Обычный</b> (честная лента), <b>Байтовый</b> (почти выпало, но нет), <b>Рандомный</b> (вид выбирается сам, зрители не знают), <b>Второй шанс</b> (выпала карточка «Перекрут», и лента крутится ещё раз).</li>
 <li><b>Предметы</b>: название, редкость, шанс в процентах и картинка. Кнопка «⚖ До 100%» подгоняет шансы пропорционально.</li>
-<li><b>Открыть</b>: впиши ник и сумму, нажми «Открыть кейс». Кнопка «Тест» открывает кейс для проверки. История открытий лежит под списком.</li>
+<li><b>Открыть</b>: впиши ник зрителя (сумму можно не писать) и нажми «Открыть кейс». Кнопка «Тест» открывает кейс для проверки. История открытий лежит под списком.</li>
 <li><b>Звуки и вид</b>: громкость, сколько показывать итог, свои звуки и «лёгкий режим для слабого ПК».</li>
 </ul>`],
 ['giveaway', 'Розыгрыши', `
@@ -172,12 +172,12 @@ en: {
 ['scenarios', 'Scenarios β', `
 <p>"If… → then…": for example, someone types <code>!cringe</code> → show a picture for 5 seconds and fire confetti. Triggers: a chat command, a CS2 event, a timer ending, a counter goal or a button.</p>
 <p>Scenarios run in an open panel. If two moderators have the panel open, turn on "Run scenarios" in only one of them.</p>`],
-['case', 'Donation case', `
-<p>Add → <b>3D case for a donation</b>. A donation opens the case: it drops onto the screen, opens, the reel spins and shows the prize.</p>
+['case', 'Case', `
+<p>Add → <b>3D case</b>. The moderator opens the case with a button: it drops onto the screen, opens, the reel spins and shows the prize.</p>
 <ul>
 <li><b>Case kind</b>: <b>Normal</b> (an honest reel), <b>Bait</b> (almost dropped, but not), <b>Random</b> (the kind is picked for you, viewers do not know), <b>Second chance</b> (the "Respin" card drops and the reel spins once more).</li>
 <li><b>Items</b>: name, rarity, chance in percent and a picture. "⚖ To 100%" scales the chances proportionally.</li>
-<li><b>Open</b>: type the name and amount, press "Open the case". "Test" opens a case for checking. The opening history is under the list.</li>
+<li><b>Open</b>: type the viewer's name (the amount is optional) and press "Open the case". "Test" opens a case for checking. The opening history is under the list.</li>
 <li><b>Sounds and look</b>: volume, how long to show the result, your own sounds and a "light mode for a weak PC".</li>
 </ul>`],
 ['giveaway', 'Giveaways', `
@@ -289,12 +289,12 @@ uk: {
 ['scenarios', 'Сценарії β', `
 <p>«Якщо… → то…»: наприклад, хтось написав <code>!крінж</code> → показати картинку на 5 секунд і запустити конфеті. Умови: команда в чаті, подія CS2, кінець таймера, мета лічильника або кнопка.</p>
 <p>Сценарії виконує відкритий пульт. Якщо пульт відкритий у двох модераторів, увімкни «Виконувати сценарії» лише в одного.</p>`],
-['case', 'Кейс за донат', `
-<p>Додати → <b>3D-кейс за донат</b>. Донат відкриває кейс: він падає на екран, відкривається, стрічка крутиться й показує виграш.</p>
+['case', 'Кейс', `
+<p>Додати → <b>3D-кейс</b>. Модератор відкриває кейс кнопкою: він падає на екран, відкривається, стрічка крутиться й показує виграш.</p>
 <ul>
 <li><b>Вид кейса</b>: <b>Звичайний</b> (чесна стрічка), <b>Байтовий</b> (майже випало, але ні), <b>Рандомний</b> (вид обирається сам, глядачі не знають), <b>Другий шанс</b> (випала картка «Перекрут», і стрічка крутиться ще раз).</li>
 <li><b>Предмети</b>: назва, рідкість, шанс у відсотках і картинка. Кнопка «⚖ До 100%» підганяє шанси пропорційно.</li>
-<li><b>Відкрити</b>: впиши нік і суму, натисни «Відкрити кейс». Кнопка «Тест» відкриває кейс для перевірки. Історія відкриттів під списком.</li>
+<li><b>Відкрити</b>: впиши нік глядача (суму можна не писати) і натисни «Відкрити кейс». Кнопка «Тест» відкриває кейс для перевірки. Історія відкриттів під списком.</li>
 <li><b>Звуки й вигляд</b>: гучність, скільки показувати підсумок, власні звуки та «легкий режим для слабкого ПК».</li>
 </ul>`],
 ['giveaway', 'Розіграші', `
@@ -406,12 +406,12 @@ de: {
 ['scenarios', 'Szenarien β', `
 <p>„Wenn… → dann…“: Zum Beispiel schreibt jemand <code>!cringe</code> → ein Bild 5 Sekunden zeigen und Konfetti starten. Auslöser: ein Chat-Befehl, ein CS2-Ereignis, ein abgelaufener Timer, ein Zählerziel oder ein Knopf.</p>
 <p>Szenarien laufen in einem offenen Pult. Haben zwei Mods das Pult offen, schalte „Szenarien ausführen“ nur bei einem ein.</p>`],
-['case', 'Spenden-Case', `
-<p>Hinzufügen → <b>3D-Case für Spenden</b>. Eine Spende öffnet das Case: Es fällt auf den Bildschirm, öffnet sich, die Rolle dreht sich und zeigt den Gewinn.</p>
+['case', 'Case', `
+<p>Hinzufügen → <b>3D-Case</b>. Der Mod öffnet das Case per Knopf: Es fällt auf den Bildschirm, öffnet sich, die Rolle dreht sich und zeigt den Gewinn.</p>
 <ul>
 <li><b>Case-Art</b>: <b>Normal</b> (ehrliche Rolle), <b>Köder</b> (fast gefallen, aber nein), <b>Zufällig</b> (die Art wird selbst gewählt, Zuschauer wissen es nicht), <b>Zweite Chance</b> (die Karte „Respin“ fällt und die Rolle dreht sich noch einmal).</li>
 <li><b>Gegenstände</b>: Name, Seltenheit, Chance in Prozent und ein Bild. „⚖ Auf 100%“ skaliert die Chancen proportional.</li>
-<li><b>Öffnen</b>: Name und Betrag eintragen, „Case öffnen“ drücken. „Test“ öffnet ein Case zur Probe. Der Verlauf steht unter der Liste.</li>
+<li><b>Öffnen</b>: Namen des Zuschauers eintragen (der Betrag ist optional), „Case öffnen“ drücken. „Test“ öffnet ein Case zur Probe. Der Verlauf steht unter der Liste.</li>
 <li><b>Töne und Aussehen</b>: Lautstärke, wie lange das Ergebnis bleibt, eigene Töne und ein „Lite-Modus für schwache PCs“.</li>
 </ul>`],
 ['giveaway', 'Verlosungen', `

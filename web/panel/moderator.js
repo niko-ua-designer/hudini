@@ -1502,7 +1502,7 @@ function renderRaffle(el){
   $('rInfo').textContent = `Участников: ${m.size}` + (el.winners.length ? ` · победители: ${el.winners.join(', ')}` : '') + (chatWs ? '' : ' · чат Twitch не подключён');
   const list=$('rList'); list.dataset.i18nSkip=''; list.textContent=[...m.values()].slice(-300).map(e=>(e.sub?'★ ':'')+e.user).join(', ') || '—';
 }
-// ---- кейс за донат ----
+// ---- кейс ----
 const CASE_SND=[['in','Подлёт и посадка'],['tense','Нарастание'],['lock','Защёлки'],['open','Открытие'],['tick','Щелчок ленты'],['win','Выпадение']];
 function casePick(el, spOk){
   const pool=el.items.map((it,i)=>[i,it.p]).filter(([i,p])=>p>0 && (spOk || !el.items[i].sp)); if(!pool.length) return -1;
@@ -1601,7 +1601,7 @@ bindInput('iKLow', (el,f)=>el.q=f.checked?'low':'high', 'change');
 $('kLogo').onclick=()=>caseUpload({ kind:'logo' }); $('kLogoDel').onclick=()=>act(el=>el.logo='');
 $('kAdd').onclick=()=>act(el=>{ if(el.items.length<40) el.items.push({ n:sT('Предмет'), r:2, p:0, img:'' }); });
 $('kFix').onclick=()=>act(el=>{ const used=it=>!it.sp || el.kind==='second', s=el.items.reduce((a,it)=>a+(used(it)?it.p:0),0); if(s>0) el.items.forEach(it=>{ if(used(it)) it.p=Math.round(it.p/s*10000)/100; }); });
-$('kOpen').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; if(!$('kDonor').value.trim()) return toast('Впиши ник донатера'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
+$('kOpen').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; if(!$('kDonor').value.trim()) return toast('Впиши ник зрителя'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
 $('kTest').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; beginChange(); if(caseOpen(el, '', '')) commit(); };
 $('kItems').addEventListener('change', e=>{
   const row=e.target.closest('.kit'); if(!row) return; const i=+row.dataset.i, f=e.target.dataset.f; if(!f) return;

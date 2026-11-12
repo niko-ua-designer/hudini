@@ -309,7 +309,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button data-add="counter">🔢 Счётчик</button>
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2" class="wide" style="grid-column:span 2">🎯 CS2</button>
-      <button data-add="case" style="grid-column:span 2" class="wide">📦 3D-кейс за донат</button>
+      <button data-add="case" style="grid-column:span 2" class="wide">📦 3D-кейс</button>
       <button id="addCam" class="wide" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
     </div>
 
@@ -634,9 +634,9 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="hint" id="csStatus"></div>
     </div>
 
-    <!-- кейс за донат -->
+    <!-- кейс -->
     <div data-for="case" class="box">
-      <div class="t">📦 Кейс за донат</div>
+      <div class="t">📦 Кейс</div>
       <div class="row"><input type="text" id="iKName" class="grow" placeholder="Название кейса"><input type="color" id="iKColor" title="Цвет кейса"><button id="kLogo" title="Картинка на крышке">🖼</button><button id="kLogoDel" title="Убрать картинку" hidden>🗑</button></div>
       <div class="lbl">Вид кейса</div>
       <div id="kKinds">
@@ -647,8 +647,8 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       </div>
       <div class="row"><button id="kSp" class="grow" hidden title="Выпала — лента крутится ещё раз">＋ Карточка «Перекрут»</button></div>
       <div class="lbl">Открыть</div>
-      <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник донатера"><input type="text" id="kAmount" placeholder="Сумма, 500 ₽" style="width:110px"></div>
-      <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть без донатера, для проверки">▶ Тест</button></div>
+      <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник зрителя"><input type="text" id="kAmount" placeholder="Сумма (по желанию)" style="width:110px"></div>
+      <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть для проверки">▶ Тест</button></div>
       <div class="hint" id="kInfo"></div>
       <div class="lbl">Предметы <span class="hint" id="kSum"></span></div>
       <div id="kItems"></div>
