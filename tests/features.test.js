@@ -238,7 +238,7 @@ const { step, check, eq, until, sleep } = T;
   await step('CS2 HUD: tournament, ADR, kill feed, table, compare', async () => {
     const names = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b3', 'b4', 'b5'];
     const P = (hp, k, dmg) => { const o = {}; names.forEach((n, i) => o['9' + i] = { name:n, observer_slot:i, team:i < 5 ? 'CT' : 'T', state:{ health:hp[i], armor:50, money:2000, round_kills:0, round_totaldmg:dmg[i] }, match_stats:{ kills:k[i], deaths:1, assists:0 }, weapons:{ w:{ name:'weapon_ak47', type:'Rifle', state:'active' } } }); return o; };
-    const G = (players, phase, round) => ({ provider:{ steamid:'999' }, map:{ name:'de_nuke', round, team_ct:{ score:1 }, team_t:{ score:2 } }, round:{ phase }, player:{ steamid:'90', name:'a1', team:'CT', state:{ health:100 } }, allplayers:players });
+    const G = (players, phase, round) => ({ provider:{ steamid:'999' }, map:{ name:'de_nuke', round, team_ct:{ score:round + (phase === 'over' ? 1 : 0) }, team_t:{ score:0 } }, round:{ phase }, player:{ steamid:'90', name:'a1', team:'CT', state:{ health:100 } }, allplayers:players });
     const full = Array(10).fill(100), z = Array(10).fill(0);
     await gsi(G(P(full, z, z), 'live', 0));
     await gsi(G(P(full, z, [100, 50, 0, 0, 0, 0, 0, 0, 0, 0]), 'over', 0));

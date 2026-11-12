@@ -336,11 +336,53 @@ let lastOwn = null, cs2Local = 0, cs2Pending = null, cs2Timer = null;
 // События игры: считаем здесь, по каждому пакету от CS2, чтобы пульт и виджет получали готовое и ничего не пропускали
 let evSeq = Date.now() % 1e9, evs = [], prevOwn = null, prevAll = {}, prevBomb = null, prevRPhase = null;
 function addEv(k, extra){ evs.push({ s:++evSeq, k, t:Date.now(), ...extra }); if(evs.length>20) evs.shift(); }
-// Статистика за матч для ADR и HS%: урон и хедшоты копятся в конце каждого раунда
-let mstats = {}, mKey = '';
-function statFor(id){ return mstats[id] ||= { dmg:0, hs:0, kills:0, rounds:0 }; }
-const adrOf = id => { const x = mstats[id]; return x && x.rounds ? Math.round(x.dmg / x.rounds) : 0; };
-const hspOf = (id, k) => { const x = mstats[id]; return x && k ? Math.round(x.hs / Math.max(1, k) * 100) : 0; };
+// Статистика за матч для ADR и HS%. По каждому игроку и номеру раунда храним максимум урона, хедшотов и убийств
+// за раунд (CS2 обнуляет их в следующем раунде, а у погибшего в середине раунда они остаются последними известными).
+// ADR = урон за сыгранные раунды / сыгранные раунды по счёту матча, HS% = хедшоты / убийства.
+// Файл data/cs2-stats.json переживает перезапуск программы посреди матча; новая карта или матч обнуляют его.
+const STATS_FILE = path.join(BASE, 'cs2-stats.json');
+let mstats = {}, mKey = '', mLast = -1, mRounds = 0, statsT = null;
+try{
+  const j = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+  if(j && j.v === 1 && j.stats && typeof j.stats === 'object'){ for(const [id, x] of Object.entries(j.stats)) if(x && typeof x === 'object') mstats[id] = { dmg:{ ...x.dmg }, hs:{ ...x.hs }, k:{ ...x.k } };
+    mKey = String(j.key || ''); mLast = Number.isInteger(j.last) ? j.last : -1; }
+}catch{}
+function saveStats(now){
+  if(statsT){ clearTimeout(statsT); statsT = null; }
+  if(!now){ statsT = setTimeout(() => saveStats(true), 2000); return; }
+  try{ fs.writeFileSync(STATS_FILE, JSON.stringify({ v:1, key:mKey, last:mLast, stats:mstats }), { mode:0o600 }); }catch{}
+}
+const sumOf = o => { let n = 0; for(const k in o) n += o[k]; return n; };
+function noteStat(id, round, st){
+  const x = mstats[id] ||= { dmg:{}, hs:{}, k:{} };
+  let ch = false;
+  for(const [f, v] of [['dmg', st.round_totaldmg], ['hs', st.round_killhs], ['k', st.round_kills]]){
+    const n = Math.max(0, Math.round(Number(v) || 0));
+    if(n > (x[f][round] || 0)){ x[f][round] = n; ch = true; }
+  }
+  return ch;
+}
+// В статистику идёт только то, что приходит про каждого игрока целиком: свой игрок (steamid совпадает с provider)
+// и все игроки в режиме наблюдателя. Игрок, на которого смотрим без allplayers, видим только по частям.
+function trackStats(g, own){
+  const map = g.map || {}, round = map.round;
+  if(map.phase === 'warmup' || !Number.isInteger(round)) return;
+  const key = (map.name || '') + '|' + (map.mode || '');
+  if(key !== mKey || round < mLast){ mstats = {}; mKey = key; saveStats(); }
+  mLast = round;
+  const sc = Number(map.team_ct?.score) + Number(map.team_t?.score);
+  mRounds = Number.isFinite(sc) ? sc : round;
+  let ch = false;
+  if(own && g.player?.state) ch = noteStat(g.player.steamid, round, g.player.state) || ch;
+  if(g.allplayers) for(const [id, pl] of Object.entries(g.allplayers)) if(pl?.state) ch = noteStat(id, round, pl.state) || ch;
+  if(ch && !statsT) saveStats();
+}
+const adrOf = id => {
+  const x = mstats[id]; if(!x || !mRounds) return 0;
+  let d = 0; for(const r in x.dmg) if(+r < mRounds) d += x.dmg[r];
+  return Math.round(d / mRounds);
+};
+const hspOf = id => { const x = mstats[id], k = x ? sumOf(x.k) : 0; return k ? Math.min(100, Math.round(sumOf(x.hs) / k * 100)) : 0; };
 const NADE = { weapon_hegrenade:'he', weapon_flashbang:'flash', weapon_smokegrenade:'smoke', weapon_molotov:'molly', weapon_incgrenade:'molly', weapon_decoy:'decoy' };
 function shortPlayer(p, id){
   const st=p.state||{}, ms=p.match_stats||{};
@@ -352,19 +394,16 @@ function shortPlayer(p, id){
     kit:!!st.defusekit, bomb:ws.some(x=>x.name==='weapon_c4'), alive:(st.health??0)>0,
     dmg:st.round_totaldmg||0, rhs:st.round_killhs||0, equip:st.equip_value, flashed:st.flashed||0,
     pistol:(ws.find(x=>x.type==='Pistol')||{}).name, nades:ws.filter(x=>NADE[x.name]).map(x=>NADE[x.name]),
-    adr:adrOf(id), hsp:hspOf(id, ms.kills) };
+    adr:adrOf(id), hsp:hspOf(id) };
 }
 function compactGsi(g){
   const me = g.provider?.steamid, p = g.player || {}, own = !!me && p.steamid === me;
   const st = p.state || {}, ms = p.match_stats || {};
   const w = Object.values(p.weapons || {}).find(x => x && x.state === 'active') || {};
   const map = g.map || {};
-  // новый матч или карта: обнуляем ADR
-  const key = (map.name||'') + '|' + (map.mode||'');
-  if(key !== mKey || (map.round ?? 0) < (compactGsi.lastRound ?? 0)){ mstats = {}; mKey = key; }
-  compactGsi.lastRound = map.round ?? 0;
+  trackStats(g, own);
   const mine = own ? {
-    dmg:st.round_totaldmg||0, adr:adrOf(me), hsp:hspOf(me, ms.kills), id:me,
+    dmg:st.round_totaldmg||0, adr:adrOf(me), hsp:hspOf(me), id:me,
     nades:Object.values(p.weapons||{}).filter(x=>x && NADE[x.name]).map(x=>NADE[x.name]), kit:!!st.defusekit, bomb:Object.values(p.weapons||{}).some(x=>x?.name==='weapon_c4'),
     name:p.name, team:p.team, hp:st.health, armor:st.armor, helmet:!!st.helmet, money:st.money,
     rk:st.round_kills, rhs:st.round_killhs, equip:st.equip_value, k:ms.kills, a:ms.assists, d:ms.deaths,
@@ -419,9 +458,7 @@ function compactGsi(g){
   prevBomb = out.bomb;
   const rp = g.round?.phase;
   if(rp==='over' && prevRPhase && prevRPhase!=='over'){
-    // раунд закончился: урон и хедшоты раунда в статистику матча
-    const list = out.players || (own ? [{ id:me, dmg:mine.dmg, rhs:mine.rhs }] : []);
-    for(const pl of list){ const x=statFor(pl.id); x.dmg+=pl.dmg||0; x.hs+=pl.rhs||0; x.rounds++; }
+    saveStats(true);
     const win=g.round?.win_team, my=(own?mine.team:lastOwn?.team)||null;
     addEv('round_end', { win, my, ct:out.ct, tt:out.tt });
   }
