@@ -426,7 +426,7 @@ function renderCsStatus(){
 }
 function addCase(){
   const items=[['Наклейка',2,50],['Скин на пистолет',3,25],['Скин на винтовку',4,15],['AK-47 | Redline',5,8],['Нож',6,2]].map(([n,r,p])=>({ n:sT(n), r, p, img:'' }));
-  addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8 });
+  addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8, kind:'normal', upChance:25 });
 }
 // Розыгрыш один на экран: state.raffle, не слой
 const raf=()=>state.raffle||null;
@@ -683,7 +683,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
-  if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+CASE_T.reveal ? ' · открывается' : '');
+  if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
   if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
   if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
@@ -1485,28 +1485,52 @@ function casePick(el){
   const total=pool.reduce((a,[,p])=>a+p,0), r=new Uint32Array(1); crypto.getRandomValues(r);
   let x=r[0]/2**32*total; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[pool.length-1][0];
 }
+const cryptoUnit=()=>{ const r=new Uint32Array(1); crypto.getRandomValues(r); return r[0]/2**32; };
 function caseOpen(el, donor, amount){
   if(!el.items.some(it=>it.p>0)) return toast('Добавь предметы с шансом больше 0'), false;
-  const win=casePick(el), rnd=()=>{ const pool=el.items.map((it,i)=>[i,it.p]).filter(([,p])=>p>0); const tot=pool.reduce((a,[,p])=>a+p,0); let x=Math.random()*tot; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[0][0]; };
+  const win=casePick(el);
+  const rndFrom=idxs=>{ const pool=idxs.map(i=>[i,el.items[i].p]).filter(([,p])=>p>0); const tot=pool.reduce((a,[,p])=>a+p,0); let x=Math.random()*tot; for(const [i,p] of pool){ x-=p; if(x<0) return i; } return pool[0][0]; };
+  const all=el.items.map((_, i)=>i), rnd=()=>rndFrom(all);
+  // вид этого открытия: у рандомного решается здесь, сильной случайностью, и зрители про него не знают
+  const kind = el.kind==='random' ? (cryptoUnit()<0.5 ? 'bait' : 'normal') : el.kind;
+  el.kindNow = el.kind==='random' ? kind : '';
   const reel=Array.from({ length:CASE_REEL }, ()=> Math.random()<0.18 ? Math.random()*el.items.length|0 : rnd());
-  reel[CASE_WIN]=win;
-  // «почти-почти»: перед выигрышем стоит самый редкий предмет (если выпало не самое редкое) — лента притормозит на нём
-  const rarest=el.items.reduce((b,it,i)=> it.r>el.items[b].r ? i : b, 0);
-  reel[CASE_WIN-1] = el.items[win].r < el.items[rarest].r ? rarest : rnd();
-  reel[CASE_WIN+1] = rnd();
-  el.reel=reel; el.win=win; el.jit=(Math.random()-0.5)*0.6;
+  reel[CASE_WIN]=win; reel[CASE_WIN-1]=rnd(); reel[CASE_WIN+1]=rnd();
+  el.bmode='under';
+  if(kind==='bait'){
+    // «почти-почти»: рядом с выигрышем стоит самый редкий предмет (если выпало не самое редкое). Лента недокручивает и дотягивает
+    // или проскакивает на него и откатывается назад
+    const rarest=el.items.reduce((b,it,i)=> it.r>el.items[b].r ? i : b, 0);
+    const near = el.items[win].r < el.items[rarest].r ? rarest : rnd();
+    el.bmode = cryptoUnit()<0.5 ? 'over' : 'under';
+    reel[el.bmode==='over' ? CASE_WIN+1 : CASE_WIN-1] = near;
+    el.jit=(Math.random()-0.5)*0.6;
+  } else el.jit=(Math.random()-0.5)*0.8;   // обычная: точка остановки где угодно внутри карточки
+  el.reel=reel; el.win=win;
+  // второй шанс: с шансом upChance% после ленты вторая, из предметов редче выпавшего
+  el.reel2=[]; el.win2=-1; el.jit2=0;
+  if(kind==='second' && cryptoUnit()*100 < el.upChance){
+    const better=all.filter(i=>el.items[i].p>0 && el.items[i].r>el.items[win].r);
+    if(better.length){
+      const w2=rndFrom(better);
+      el.reel2=Array.from({ length:CASE_REEL }, ()=>rndFrom(better)); el.reel2[CASE_WIN]=w2; el.win2=w2; el.jit2=(Math.random()-0.5)*0.8;
+    }
+  }
+  const fin=caseWinIdx(el);
   el.donor=String(donor||'').slice(0,40); el.amount=String(amount||'').slice(0,24);
-  el.openAt=Date.now()+500; el.hidden=false; el.ttl=el.openAt+CASE_T.reveal+el.hideAfter*1000;
-  const h=lsGet('hudini.caseHist', []); h.unshift({ t:Date.now(), d:el.donor, n:el.items[win].n, r:el.items[win].r, c:el.name }); lsSet('hudini.caseHist', h.slice(0,100));
+  el.openAt=Date.now()+500; el.hidden=false; el.ttl=el.openAt+caseT(el).reveal+el.hideAfter*1000;
+  const h=lsGet('hudini.caseHist', []); h.unshift({ t:Date.now(), d:el.donor, n:el.items[fin].n, r:el.items[fin].r, c:el.name }); lsSet('hudini.caseHist', h.slice(0,100));
   return true;
 }
 function renderCase(el){
-  setField(I('iKName'), el.name); setField(I('iKColor'), el.cc); setField(I('iKVol'), String(el.vol)); setField(I('iKHide'), String(el.hideAfter)); I('iKLow').checked=el.q==='low';
+  setField(I('iKName'), el.name); setField(I('iKColor'), el.cc); setField(I('iKVol'), String(el.vol)); setField(I('iKHide'), String(el.hideAfter)); I('iKLow').checked=el.q==='low'; setField(I('iKUhh'), el.uhhText); setField(I('iKUpT'), el.upText);
   $('kLogoDel').hidden=!el.logo;
   const sum=el.items.reduce((a,it)=>a+it.p,0);
   $('kSum').textContent=`· ${el.items.length} · шансы: ${+sum.toFixed(2)}%`; $('kSum').style.color = Math.abs(sum-100)<0.01 ? '' : 'var(--warn)';
   $('kFix').hidden = Math.abs(sum-100)<0.01 || !sum;
-  const busy = el.openAt && nowMs() < el.openAt+CASE_T.reveal;
+  const busy = el.openAt && nowMs() < el.openAt+caseT(el).reveal;
+  for(const r of document.querySelectorAll('#kKinds input')) r.checked = r.value===el.kind;
+  $('kUpRow').hidden = el.kind!=='second'; setField(I('iKUp'), String(el.upChance)); $('vKUp').textContent = el.upChance+'%';
   $('kOpen').disabled=!!busy; $('kTest').disabled=!!busy;
   $('kInfo').textContent = busy ? 'Кейс открывается на стриме…' : Math.abs(sum-100)>=0.01 && sum ? 'Шансы в сумме не 100%: при открытии они считаются пропорционально.' : '';
   const box=$('kItems');
@@ -1539,6 +1563,10 @@ async function caseSetFile(f, target){
 }
 $('kFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; caseSetFile(f, kFileFor); };
 bindInput('iKName', (el,f)=>el.name=f.value.slice(0,40)||'HUDINI CASE');
+for(const r of document.querySelectorAll('#kKinds input')) r.addEventListener('change', ()=>{ if(r.checked) act(el=>{ el.kind=r.value; }); });
+bindInput('iKUp', (el,f)=>el.upChance=Math.round(num(f.value,25,0,100)));
+bindInput('iKUhh', (el,f)=>el.uhhText=f.value.slice(0,24));
+bindInput('iKUpT', (el,f)=>el.upText=f.value.slice(0,24));
 bindInput('iKColor', (el,f)=>el.cc=f.value);
 bindInput('iKVol', (el,f)=>el.vol=Number(f.value));
 bindInput('iKHide', (el,f)=>el.hideAfter=num(f.value,12,3,120));

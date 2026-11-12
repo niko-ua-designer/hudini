@@ -115,6 +115,10 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 
 /* ---------- слои и инспектор ---------- */
 #layers{display:flex;flex-direction:column;gap:4px}
+.kk{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;margin-top:4px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);cursor:pointer}
+.kk:has(input:checked){border-color:var(--acc)}
+.kk input{margin-top:3px}
+.kk b{display:block;font-size:12.5px}.kk small{display:block;color:var(--muted);font-size:11px}
 .mx{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin-top:6px}
 .mx.master{border-color:var(--acc)}
 .mx .mxn{grid-column:1/3;background:none;border:0;padding:0;text-align:left;color:var(--text);font-size:12.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -635,6 +639,14 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <div data-for="case" class="box">
       <div class="t">📦 Кейс за донат</div>
       <div class="row"><input type="text" id="iKName" class="grow" placeholder="Название кейса"><input type="color" id="iKColor" title="Цвет кейса"><button id="kLogo" title="Картинка на крышке">🖼</button><button id="kLogoDel" title="Убрать картинку" hidden>🗑</button></div>
+      <div class="lbl">Вид кейса</div>
+      <div id="kKinds">
+        <label class="kk"><input type="radio" name="kKind" value="normal"><span><b>Обычный</b><small>честная лента</small></span></label>
+        <label class="kk"><input type="radio" name="kKind" value="bait"><span><b>Байтовый</b><small>почти выпало, но нет</small></span></label>
+        <label class="kk"><input type="radio" name="kKind" value="random"><span><b>Рандомный</b><small>вид выбирается сам, зрители не знают</small></span></label>
+        <label class="kk"><input type="radio" name="kKind" value="second"><span><b>Второй шанс</b><small>вторая лента с предметами редче</small></span></label>
+      </div>
+      <div class="row" id="kUpRow"><span class="hint">Шанс перекрута</span><input type="range" id="iKUp" min="0" max="100" step="1" class="grow"><span class="hint" id="vKUp" style="width:36px;text-align:right"></span></div>
       <div class="lbl">Открыть</div>
       <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник донатера"><input type="text" id="kAmount" placeholder="Сумма, 500 ₽" style="width:110px"></div>
       <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть без донатера, для проверки">▶ Тест</button></div>
@@ -647,6 +659,9 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <div class="row" style="margin-top:6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
         <div class="row"><span class="hint">Показывать итог</span><input type="number" id="iKHide" min="3" max="120" style="width:64px"><span class="hint">сек</span></div>
         <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
+        <div class="hint" style="margin-top:6px">Своя надпись (по желанию, пусто = без надписи):</div>
+        <input type="text" id="iKUhh" maxlength="24" placeholder="когда байтовая лента почти выпала, например: УХХ!">
+        <input type="text" id="iKUpT" maxlength="24" placeholder="при втором шансе, например: ПЕРЕКРУТ!" style="margin-top:4px">
         <div class="hint" style="margin-top:6px">Свой звук вместо встроенного (по желанию):</div>
         <div id="kSnd"></div>
       </details>

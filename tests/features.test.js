@@ -101,7 +101,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.click('[data-tab=add]');
   });
 
-  await step('donation case: items with chances, 3D opening, near-miss reel, reveal by rarity', async () => {
+  await step('donation case: items with chances, 3D opening, honest reel, reveal by rarity', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
     const el0 = await mod.evaluate(() => state.els.at(-1));
     eq([el0.type, el0.items.length, el0.items.reduce((a, it) => a + it.p, 0)], ['case', 5, 100], 'case with 5 default items, chances add up to 100%');
@@ -114,8 +114,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.fill('#kDonor', 'etsuitoku'); await mod.fill('#kAmount', '500 ₽'); await mod.click('#kOpen');
     const el = await mod.evaluate(() => state.els.at(-1));
     eq([el.reel.length, el.reel[52]], [60, el.win], 'reel built with the dropped item in the winning slot');
-    const rarest = el.items.reduce((b, it, i) => it.r > el.items[b].r ? i : b, 0);
-    if (el.win !== rarest) eq(el.reel[51], rarest, 'near-miss: the rarest item sits right before the winner');
+    eq([el.kind, el.reel2.length, el.bmode], ['normal', 0, 'under'], 'a new case is a normal one: no second reel');
     check(await until(() => wid.evaluate(() => !!document.querySelector('.case .cs-3d canvas')), 8000), '3D scene runs on stream (WebGL)');
     check((await wid.textContent('.cs-top')).includes('etsuitoku'), 'donor shown');
     await wid.evaluate(() => { window.__caseFreeze = 12950; }); await sleep(600);
@@ -126,6 +125,89 @@ const { step, check, eq, until, sleep } = T;
     check((await wid.textContent('.cs-bname')) === el.items[el.win].n, 'dropped item named on stream');
     eq(await mod.evaluate(() => lsGet('hudini.caseHist', [])[0]?.d), 'etsuitoku', 'opening saved to history');
     await wid.evaluate(() => { window.__caseFreeze = null; });
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'case'); selectedId = null; commit(); });
+  });
+
+  await step('case kinds: normal, bait (both ways), random hides its kind, second chance; panel and stream agree', async () => {
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
+    const id = await mod.evaluate(() => state.els.at(-1).id);
+    await mod.evaluate(i => { selectedId = i; msel.clear(); renderAll(); }, id);
+    eq(await mod.$$eval('#kKinds input', n => n.map(x => x.value)), ['normal', 'bait', 'random', 'second'], 'four kinds in the list');
+    check(await mod.isHidden('#kUpRow'), 'no chance slider while the kind is normal');
+    await mod.click('#kKinds label:has(input[value=second])');
+    eq(await mod.evaluate(i => state.els.find(e => e.id === i).kind, id), 'second', 'picking a kind from the list');
+    check(!(await mod.isHidden('#kUpRow')), 'second chance shows its chance slider');
+    const S = await mod.evaluate(i => {
+      const el = state.els.find(e => e.id === i), rarest = el.items.reduce((b, it, k) => it.r > el.items[b].r ? k : b, 0), out = {};
+      const run = (kind, n, up) => {
+        el.kind = kind; if (up != null) el.upChance = up;
+        const r = { n, over: 0, under: 0, bait: 0, normal: 0, near: 0, nearTried: 0, reel2: 0, better: 0, jitOk: true, lens: true };
+        for (let k = 0; k < n; k++) {
+          caseOpen(el, 'd', '1');
+          if (el.kindNow === 'bait') r.bait++; if (el.kindNow === 'normal') r.normal++;
+          if (caseKind(el) === 'bait') { r[el.bmode]++; if (el.win !== rarest) { r.nearTried++; if (el.reel[el.bmode === 'over' ? 53 : 51] === rarest) r.near++; } }
+          if (el.reel2.length) { r.reel2++; if (el.items[el.win2].r > el.items[el.win].r && el.reel2[52] === el.win2 && el.reel2.every(ix => el.items[ix].r > el.items[el.win].r)) r.better++; if (el.reel2.length !== 60) r.lens = false; }
+          if (kind !== 'bait' && Math.abs(el.jit) > 0.4 + 1e-9) r.jitOk = false;
+          el.openAt = 0;
+        }
+        return r;
+      };
+      out.normal = run('normal', 100); out.bait = run('bait', 300); out.random = run('random', 400);
+      out.up100 = run('second', 200, 100); out.up0 = run('second', 100, 0); out.up25 = run('second', 800, 25);
+      el.kind = 'bait'; el.upChance = 25; return out;
+    }, id);
+    eq([S.normal.reel2, S.normal.bait, S.normal.jitOk], [0, 0, true], 'normal: no second reel, stop point inside the card');
+    check(S.bait.over > 60 && S.bait.under > 60 && S.bait.over + S.bait.under === 300, `bait: both ways happen (over ${S.bait.over}, under ${S.bait.under})`);
+    eq(S.bait.near, S.bait.nearTried, 'bait: the rarest item sits next to the winner on the side the reel is heading to');
+    check(S.random.bait > 150 && S.random.normal > 150 && S.random.bait + S.random.normal === 400, `random: the kind of each opening is decided at the opening (${S.random.bait} bait / ${S.random.normal} normal)`);
+    check(S.up100.reel2 > 120 && S.up100.better === S.up100.reel2 && S.up100.lens, `second chance at 100%: second reel only with better items (${S.up100.reel2} of 200, the rest had nothing better)`);
+    eq(S.up0.reel2, 0, 'second chance at 0%: never');
+    check(S.up25.reel2 > 110 && S.up25.reel2 < 290, `second chance at 25% happens about a quarter of the time (${S.up25.reel2} of 800, fewer where nothing is better)`);
+    // panel and stream draw the same frame
+    const readFrame = page => page.evaluate(() => { const c = document.querySelector('.case'); return c && { tf: c._strip.style.transform, tf2: c._strip2 ? c._strip2.style.transform : '', stage: c.dataset.stage, uhh: c.dataset.uhh, up: c.dataset.up, ph: c.dataset.ph }; });
+    // freeze the clock and draw that exact frame with the page's own frame function (rAF of a background page may be late)
+    const framePos = async (page, ms) => { await page.evaluate(m => { window.__caseFreeze = m; }, ms);
+      return page.evaluate(m => { const c = document.querySelector('.case'); if (!c) return null; caseFrame(c, c._el, m);
+        return { tf: c._strip.style.transform, tf2: c._strip2 ? c._strip2.style.transform : '', stage: c.dataset.stage, uhh: c.dataset.uhh, up: c.dataset.up, ph: c.dataset.ph }; }, ms); };
+    const sameOpening = async id => { const want = await mod.evaluate(i => { const e = state.els.find(x => x.id === i); return [e.openAt, e.bmode, e.kind, e.reel2.length, e.win2]; }, id);
+      const got = () => wid.evaluate(() => { const e = lastState.els.find(x => x.type === 'case'); return e && [e.openAt, e.bmode, e.kind, e.reel2.length, e.win2]; });
+      const ok = await until(async () => JSON.stringify(await got()) === JSON.stringify(want), 12000);
+      if (!ok) console.log('    sameOpening want', JSON.stringify(want), 'got', JSON.stringify(await got()));
+      return ok; };
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.kind = 'bait'; el.hideAfter = 60; el.openAt = 0; changed(); }, id);
+    await mod.fill('#kDonor', 'etsuitoku'); await mod.click('#kOpen');
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.bmode = 'over'; changed(); publishNow(1); }, id);
+    check(await sameOpening(id), 'the stream has received the opening');
+    await sleep(300);
+    for (const ms of [8000, 11700, 12400, 12950]) {
+      const a = await framePos(mod, ms), b = await framePos(wid, ms);
+      eq([a.tf, a.uhh, a.ph], [b.tf, b.uhh, b.ph], `bait frame at ${ms} ms is the same in the panel and on stream`);
+    }
+    eq((await framePos(wid, 11700)).uhh, '1', 'bait: the tension moment is flagged (shake and flash)');
+    eq((await framePos(wid, 6000)).uhh, '0', 'bait: not before the tension moment');
+    const m0 = await wid.evaluate(() => { const m = document.querySelector('.cs-mark').getBoundingClientRect(), c = document.querySelectorAll('.cs-strip:not(.cs-strip2) .cs-card')[52].getBoundingClientRect(); return [m.left, c.left, c.right]; });
+    await framePos(wid, 12990);
+    const m1 = await wid.evaluate(() => { const m = document.querySelector('.cs-mark').getBoundingClientRect(), c = document.querySelectorAll('.cs-strip:not(.cs-strip2) .cs-card')[52].getBoundingClientRect(); return [m.left, c.left, c.right]; });
+    check(m1[0] > m1[1] && m1[0] < m1[2], 'bait "over": after the roll-back the marker stands on the winner');
+    check(await wid.evaluate(() => !document.querySelector('.cs-uhh, .cs-up')), 'no captions on the reel by default');
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.uhhText = 'SO CLOSE'; changed(); publishNow(1); }, id);
+    check(await until(async () => (await wid.textContent('.cs-uhh').catch(() => '')) === 'SO CLOSE'), 'own caption shows on stream when set');
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.uhhText = ''; changed(); publishNow(1); }, id);
+    await wid.evaluate(() => { window.__caseFreeze = null; }); await mod.evaluate(() => { window.__caseFreeze = null; });
+    // second chance: force a second reel
+    await mod.evaluate(i => { const el = state.els.find(e => e.id === i); el.kind = 'second'; el.upChance = 100; el.openAt = 0; el.ttl = 0; for (let k = 0; k < 50; k++) { caseOpen(el, 'etsuitoku', '1'); if (el.reel2.length) break; } changed(); publishNow(1); }, id);
+    check(await sameOpening(id), 'the stream has received the second reel');
+    await sleep(300);
+    const T2 = await mod.evaluate(i => { const el = state.els.find(e => e.id === i); return { two: el.reel2.length, ct: caseT(el), n2: el.items[el.win2].n }; }, id);
+    eq(T2.two, 60, 'second chance rolled a second reel');
+    const f1 = await framePos(wid, 13500), f1p = await framePos(mod, 13500);
+    eq([f1.up, f1.stage, f1p.up], ['1', '1', '1'], 'the RESPIN! banner is up between the reels, on stream and in the panel');
+    const f2 = await framePos(wid, 20500), f2p = await framePos(mod, 20500);
+    eq([f2.stage, f2.tf2 === f2p.tf2, f2.ph], ['2', true, 'reel'], 'second reel: the same position in the panel and on stream');
+    const fin = await framePos(wid, T2.ct.reveal + 400);
+    eq(fin.ph, 'reveal', 'second chance: the reveal comes after the second reel');
+    check((await wid.textContent('.cs-bname')) === T2.n2, 'the item of the second reel is the one shown');
+    await wid.evaluate(() => { window.__caseFreeze = null; }); await mod.evaluate(() => { window.__caseFreeze = null; });
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'case'); selectedId = null; commit(); });
   });
 

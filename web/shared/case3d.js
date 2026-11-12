@@ -16,7 +16,9 @@
   const easeOutCubic = x => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
   const easeOutBack = x => { x = clamp(x, 0, 1); const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
   // CASE_T, RARITY7, CaseFx объявлены в core.js (общая область видимости скриптов страницы)
-  const T = () => typeof CASE_T !== 'undefined' ? CASE_T : { land:1300, lock1:3300, lock2:3650, open:4000, reel:4800, reelDur:8200, reveal:13200 };
+  const T = el => typeof caseT === 'function' && el ? caseT(el) : typeof CASE_T !== 'undefined' ? CASE_T : { land:1300, lock1:3300, lock2:3650, open:4000, reel:4800, reelDur:8200, reveal:13200 };
+  const winOf = el => el.items[typeof caseWinIdx === 'function' ? caseWinIdx(el) : el.win];
+  const isBait = el => typeof caseKind === 'function' && caseKind(el) === 'bait';
   const FX = () => typeof CaseFx !== 'undefined' ? CaseFx : {};
   const RAR = () => typeof RARITY7 !== 'undefined' ? RARITY7 : ['#b0c3d9','#5e98d9','#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
 
@@ -269,8 +271,8 @@
 
   function render(S, c, el, t){
     resize(S, c._gl);
-    const ct = T(), now = performance.now(), dt = S.lastT == null ? 0 : Math.min(0.05, (now - S.lastT) / 1000); S.lastT = now;
-    const win = el.items[el.win], rc = win ? RAR()[win.r] || '#4b69ff' : '#4b69ff', gold = win?.r === 6, top = win && win.r >= 5;
+    const ct = T(el), now = performance.now(), dt = S.lastT == null ? 0 : Math.min(0.05, (now - S.lastT) / 1000); S.lastT = now;
+    const win = winOf(el), rc = win ? RAR()[win.r] || '#4b69ff' : '#4b69ff', gold = win?.r === 6, top = win && win.r >= 5;
     const H = 0.78;
     // полёт и посадка
     const fly = clamp(t / ct.land, 0, 1), e = easeOutCubic(fly);
@@ -310,6 +312,10 @@
     });
     if(rev > 0 && rev < 6000 && (top || gold) && Math.random() < (gold ? 0.7 : 0.35)) emit(S, gold ? 4 : 2, { at:[0, H + 0.3, 0], speed:4, cone:0.4, up:2.5, color:rc, size:0.18, life:1.6, drag:0.9, grav:-1.5, spread:1.6, white:0.3 });
     if(t > ct.open && rev < 0 && Math.random() < 0.5) emit(S, 1, { at:[0, H + 0.1, 0], speed:1.6, cone:0.2, up:3, color:'#ffe7b8', size:0.12, life:2.2, drag:0.95, grav:0.3, spread:2, white:0.5 });
+    // байтовая лента в момент «почти» трясёт камеру; перекрут бьёт вспышкой и частицами
+    const rp = (t - ct.reel) / T().reelDur;
+    if(isBait(el) && rp > 0.74 && rp < 0.93){ S.shake = Math.max(S.shake, 0.2 * Math.sin(Math.PI * (rp - 0.74) / 0.19) + 0.05); once(S, 'bait', t, ct.reel + T().reelDur * 0.74, () => emit(S, 90, { at:[0, H + 0.1, 0], speed:5, cone:0.8, up:1.2, color:'#ffd27a', size:0.2, life:1.2, drag:0.9, grav:-1.5, spread:2, white:0.4 })); }
+    if(ct.up != null) once(S, 'up', t, ct.up, () => { S.shake = 0.3; emit(S, 260, { at:[0, H + 0.2, 0], speed:8, cone:1.1, up:0.9, color:'#ffe08a', size:0.26, life:1.9, drag:0.92, grav:-2, spread:1.6, white:0.35 }); });
     stepParticles(S, dt);
     // камера: подлёт ближе при напряжении, отъезд на ленте, толчки
     S.shake *= Math.pow(0.02, dt);
@@ -373,12 +379,17 @@
   }
   // Прослушка без стрима: вся звуковая дорожка открытия в WAV (для проверки и для пульта)
   async function renderWav(el){
-    const ct = T(), sr = 44100, dur = (ct.reveal + 5000) / 1000, x = new OfflineAudioContext(2, sr * dur | 0, sr), keep = A.ctx;
+    const ct = T(el), sr = 44100, dur = (ct.reveal + 5000) / 1000, x = new OfflineAudioContext(2, sr * dur | 0, sr), keep = A.ctx;
     A.ctx = x; chain(x); A.out.gain.value = (el.vol ?? 0.8) * 0.62;
-    const r = el.items?.[el.win]?.r ?? 2;
+    const r = winOf(el)?.r ?? 2, bait = isBait(el);
     SFX.in(0); SFX.tense((ct.land + 150) / 1000, (ct.open - ct.land - 150) / 1000); SFX.lock(ct.lock1 / 1000, 1); SFX.lock(ct.lock2 / 1000, 1.12); SFX.open(ct.open / 1000);
     let last = -1; for(let ms = 0; ms < ct.reelDur; ms += 4){ const xx = caseReelX(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== last){ if(last >= 0) SFX.tick((ct.reel + ms) / 1000, ms / ct.reelDur); last = idx; } }
-    SFX.creep((ct.reel + ct.reelDur * 0.78) / 1000); SFX.win(ct.reveal / 1000, r);
+    if(bait){ SFX.tense((ct.reel + ct.reelDur * 0.66) / 1000, ct.reelDur * 0.2 / 1000); SFX.creep((ct.reel + ct.reelDur * 0.78) / 1000); }
+    if(ct.up != null){
+      SFX.up(ct.up / 1000);
+      let l2 = -1; for(let ms = 0; ms < CASE_2.dur; ms += 4){ const xx = caseReelX2(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== l2){ if(l2 >= 0) SFX.tick((ct.reel2 + ms) / 1000, ms / CASE_2.dur); l2 = idx; } }
+    }
+    SFX.win(ct.reveal / 1000, r);
     const buf = await x.startRendering(); A.ctx = keep; if(keep) chain(keep); else { A.out = null; }
     const n = buf.length, out = new DataView(new ArrayBuffer(44 + n * 4)), L = buf.getChannelData(0), R = buf.getChannelData(1);
     const w = (o, str) => { for(let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
@@ -454,6 +465,10 @@
       const f = lp(cut, 1.2); f.frequency.setValueAtTime(cut * 0.4, t0); f.frequency.exponentialRampToValueAtTime(cut, t0 + 0.6); f.connect(g);
       for(const n of notes) for(const de of [-9, 0, 8]){ const o = osc('sawtooth', n, t0, dur, f); o.detune.value = de; }
     },
+    up(t0){   // «перекрут»: короткий подъём, удар и колокольчики
+      SFX.tense(t0, 1.1); SFX.thud(t0 + 1.1);
+      SFX.bell(t0 + 1.1, 880, 0.14, 1.4); SFX.bell(t0 + 1.18, 1318.51, 0.12, 1.4); SFX.bell(t0 + 1.26, 1760, 0.1, 1.6);
+    },
     win(t0, r){
       const big = r >= 5, gold = r === 6;
       if(big){ const g = voice(null, 0.3); env(g, t0, 0.004, 1, gold ? 2 : 1.4); const o = osc('sine', 70, t0, 2.2, g); o.frequency.exponentialRampToValueAtTime(30, t0 + 1.2);
@@ -475,14 +490,18 @@
   function audio(c, el, t){
     if(!FX().audio || el.hidden) return;
     if(!(c._snd && c._snd.key === el.openAt)) A.muted = false;   // новое открытие снова со звуком
-    const ct = T(), x = ac(el.vol); if(!x) return;
+    const ct = T(el), x = ac(el.vol); if(!x) return;
     const S = c._snd && c._snd.key === el.openAt ? c._snd : (c._snd = { key:el.openAt, done:new Set() });
-    const win = el.items[el.win];
-    const events = [['in', 0], ['tense', ct.land + 150], ['lock', ct.lock1], ['lock2', ct.lock2], ['open', ct.open], ['creep', ct.reel + ct.reelDur * 0.78], ['win', ct.reveal]];
+    const win = winOf(el), bait = isBait(el);
+    const events = [['in', 0], ['tense', ct.land + 150], ['lock', ct.lock1], ['lock2', ct.lock2], ['open', ct.open]];
+    if(bait) events.push(['bait', ct.reel + ct.reelDur * 0.66], ['creep', ct.reel + ct.reelDur * 0.78]);
+    if(ct.up != null) events.push(['up', ct.up]);
+    events.push(['win', ct.reveal]);
     for(const [k, at] of events){
       if(t >= at - 30 && !S.done.has(k)){ S.done.add(k); if(t - at < 350){
         const t0 = x.currentTime + Math.max(0, (at - t) / 1000);
         if(k === 'tense') sound(el, 'tense', t0, (ct.open - ct.land - 150) / 1000);
+        else if(k === 'bait') sound(el, 'tense', t0, ct.reelDur * 0.2 / 1000);
         else if(k === 'lock2') sound(el, 'lock2', t0, 1.12);
         else if(k === 'win') sound(el, 'win', t0, win ? win.r : 2);
         else sound(el, k, t0, 1);

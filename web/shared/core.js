@@ -130,6 +130,9 @@ const RAFFLE_PHASES = ['idle','collect','closed','spin'];
 // Кейс за донат: время сцены от openAt, одинаковое у пульта и виджета
 const CASE_T = { land:1300, lock1:3300, lock2:3650, open:4000, reel:4800, reelDur:8200, reveal:13200 };
 const CASE_REEL = 60, CASE_WIN = 52, CASE_STEP = 10.8;   // карточка 10em + зазор .8em
+// Виды кейса: обычный (честная лента), байтовый (почти выпало, но нет), рандомный (вид решается при открытии), со вторым шансом
+const CASE_KINDS = ['normal','bait','random','second'];
+const CASE_2 = { gap:1900, dur:6400 };   // «перекрут»: пауза с надписью и вторая лента
 const RARITY7 = ['#b0c3d9','#5e98d9','#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
 const RARITY_NAME = ['Ширпотреб','Промышленное','Армейское','Запрещённое','Засекреченное','Тайное','Редкое'];
 const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
@@ -182,6 +185,12 @@ function sanitizeEl(e){
     o.openAt=num(e.openAt,0,0,1e15); o.donor=str(e.donor,40); o.amount=str(e.amount,24);
     o.win=Math.round(num(e.win,-1,-1,39)); o.jit=num(e.jit,0,-0.4,0.4);
     o.reel=(Array.isArray(e.reel)?e.reel:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
+    o.kind=CASE_KINDS.includes(e.kind)?e.kind:'bait';   // кейсы без вида вели себя как байтовые
+    o.kindNow=e.kindNow==='normal'?'normal':e.kindNow==='bait'?'bait':'';   // у рандомного: что выпало на этом открытии
+    o.bmode=e.bmode==='over'?'over':'under'; o.upChance=Math.round(num(e.upChance,25,0,100));
+    o.reel2=(Array.isArray(e.reel2)?e.reel2:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
+    o.win2=Math.round(num(e.win2,-1,-1,39)); o.jit2=num(e.jit2,0,-0.4,0.4);
+    o.uhhText=str(e.uhhText,24); o.upText=str(e.upText,24);   // свои надписи (по умолчанию без текста)
     o.hideAfter=num(e.hideAfter,12,3,120); o.vol=num(e.vol,0.8,0,1); o.q=e.q==='low'?'low':'high';
     o.snd={}; for(const k of ['in','tense','lock','open','tick','win']){ const v=safeSrc(e.snd?.[k]); if(v) o.snd[k]=v; }
   } else if(type==='raffle'){
@@ -449,7 +458,7 @@ function itemCard(it, cls){
 function paintCase(c, el){
   for(const it of el.items) if(it.img) resolveSrc(it.img);
   for(const v of Object.values(el.snd)) resolveSrc(v);
-  const sig=JSON.stringify([el.openAt, el.items, el.reel, el.win, el.donor, el.amount, el.name, el.cc, el.logo && resolveSrc(el.logo), STREAM_LANG]);
+  const sig=JSON.stringify([el.openAt, el.items, el.reel, el.win, el.reel2, el.win2, el.kind, el.kindNow, el.bmode, el.uhhText, el.upText, el.donor, el.amount, el.name, el.cc, el.logo && resolveSrc(el.logo), STREAM_LANG]);
   if(c._sig!==sig){
     c._sig=sig; c.replaceChildren(); c._t0=el.openAt;
     const g=rh('div','cs-3d'); c.appendChild(g); c._gl=g;
@@ -458,55 +467,104 @@ function paintCase(c, el){
     c.appendChild(top);
     const reel=rh('div','cs-reel'), strip=rh('div','cs-strip');
     el.reel.forEach((ix,i)=>strip.appendChild(itemCard(el.items[ix], i===CASE_WIN?'win':'')));
-    reel.append(strip, rh('div','cs-mark')); c.appendChild(reel);
-    const w=el.items[el.win];
+    reel.append(strip);
+    if(el.reel2.length){   // вторая лента «перекрута»: те же карточки, но предметы ≥ выбранной редкости
+      const strip2=rh('div','cs-strip cs-strip2'); el.reel2.forEach((ix,i)=>strip2.appendChild(itemCard(el.items[ix], i===CASE_WIN?'win':''))); reel.appendChild(strip2); c._strip2=strip2;
+    } else c._strip2=null;
+    reel.append(rh('div','cs-mark')); c.appendChild(reel); c._reelBox=reel;
+    c.append(rh('div','cs-flash'));
+    if(el.uhhText) c.appendChild(rh('div','cs-uhh', el.uhhText));
+    if(el.upText) c.appendChild(rh('div','cs-up', el.upText));
+    const w=el.items[caseWinIdx(el)];
     const rev=rh('div','cs-rev'+(w?.r===6?' gold':'')); if(w) rev.style.setProperty('--r', RARITY7[w.r]);
     rev.append(rh('div','cs-rays'), rh('canvas','cs-sparks'));
     const card=rh('div','cs-big'); const pic=rh('div','cs-bpic');
     if(w?.img){ const im=rh('img'); im.alt=''; im.src=resolveSrc(w.img); pic.appendChild(im); } else pic.appendChild(gemSvg());
     card.append(pic, rh('div','cs-rar', w ? st(RARITY_NAME[w.r]) : ''), rh('div','cs-bname', w?.n||''), rh('div','cs-who', (el.donor||st('Зритель'))+' '+st('выбил')));
     rev.appendChild(card); c.appendChild(rev);
-    c._strip=strip; c._last=-1; c._sparks=null;
+    c._strip=strip; c._last=-1; c._last2=-1; c._sparks=null;
   }
   caseKick(c, el);
 }
-// Положение ленты: разгон, долгое торможение на соседней карточке и медленный дотяг до выигрыша
+// Вид этого открытия (у рандомного он выпал при открытии), время сцены и итоговый предмет
+function caseKind(el){ return el.kind==='random' ? (el.kindNow||'normal') : el.kind; }
+function caseWinIdx(el){ return el.reel2 && el.reel2.length ? el.win2 : el.win; }
+function caseT(el){
+  if(!(el && el.reel2 && el.reel2.length)) return CASE_T;
+  const up=CASE_T.reel+CASE_T.reelDur, reel2=up+CASE_2.gap;
+  return { ...CASE_T, up, reel2, reveal:reel2+CASE_2.dur+200 };
+}
+// Положение ленты. Обычная: один плавный ease-out в случайную точку выигрышной карточки.
+// Байтовая «недокрут»: долгое торможение на соседней карточке и медленный дотяг. «Перекрут»: проскок на следующую карточку и откат.
+const easeOut=(q,k)=>1-Math.pow(1-q,k);
 function caseReelX(el, t){
-  const p=Math.min(1, Math.max(0, t/CASE_T.reelDur));
-  const target=(CASE_WIN+0.5+el.jit)*CASE_STEP - 0.4, gap=CASE_STEP*(0.5+el.jit)+1.2;   // стоп: над прошлой карточкой
-  const x1=target-gap;
-  if(p<0.8){ const q=p/0.8; return x1*(1-Math.pow(1-q,3.2)); }
+  const p=Math.min(1, Math.max(0, t/CASE_T.reelDur)), jit=el.jit;
+  const target=(CASE_WIN+0.5+jit)*CASE_STEP - 0.4;
+  if(caseKind(el)!=='bait') return target*easeOut(p, 3.7);
+  if(el.bmode==='over'){
+    const xo=target+CASE_STEP*(0.62+Math.abs(jit)*0.4);   // проскочили на следующую карточку
+    if(p<0.8) return xo*easeOut(p/0.8, 3.2);
+    const q=(p-0.8)/0.2; return xo + (target-xo)*(q*q*(3-2*q));
+  }
+  const gap=CASE_STEP*(0.5+jit)+1.2, x1=target-gap;   // стоп: над прошлой карточкой
+  if(p<0.8) return x1*easeOut(p/0.8, 3.2);
   const q=(p-0.8)/0.2; return x1 + gap*(q*q*(3-2*q));
 }
+function caseReelX2(el, t){
+  const p=Math.min(1, Math.max(0, t/CASE_2.dur));
+  return ((CASE_WIN+0.5+el.jit2)*CASE_STEP - 0.4)*easeOut(p, 3.7);
+}
+// Момент напряжения байтовой ленты: тряска, вспышка и «УХХ!»
+const CASE_BAIT = [0.74, 0.93];
 function caseKick(c, el){
+  c._el=el;   // цикл кадров всегда берёт последнее состояние элемента
   if(c._loop || !el.openAt) return;
-  const end=el.openAt+CASE_T.reveal+el.hideAfter*1000+1500;
-  if(nowMs()>end) { c.dataset.ph='gone'; return; }
   c._loop=true;
   const step=()=>{
+    const el=c._el, end=el.openAt+caseT(el).reveal+el.hideAfter*1000+1500;
     const now = window.__caseFreeze!=null ? el.openAt+window.__caseFreeze : nowMs();   // __caseFreeze: стоп-кадр для тестов и скриншотов
     if(!c.isConnected || now>end || c._t0!==el.openAt){ c._loop=false; if(now>end) c.dataset.ph='gone'; window.Case3D?.stop(c); return; }
     caseFrame(c, el, now-el.openAt);
     requestAnimationFrame(step);
   };
+  if(nowMs()>el.openAt+caseT(el).reveal+el.hideAfter*1000+1500){ c.dataset.ph='gone'; c._loop=false; return; }
   requestAnimationFrame(step);
 }
 function caseFrame(c, el, t){
-  const ph = t<0 ? 'wait' : t<CASE_T.reel ? 'open' : t<CASE_T.reveal ? 'reel' : 'reveal';
+  const ct=caseT(el), two=ct.reel2!=null;
+  const ph = t<0 ? 'wait' : t<CASE_T.reel ? 'open' : t<ct.reveal ? 'reel' : 'reveal';
   if(c.dataset.ph!==ph) c.dataset.ph=ph;
   window.Case3D?.frame(c, el, t);
   if(t>=CASE_T.reel-300 && c._strip){
-    const x=caseReelX(el, t-CASE_T.reel);
-    c._strip.style.transform=`translate3d(${(-x).toFixed(3)}em,0,0)`;
-    const idx=Math.floor((x+0.4)/CASE_STEP);
-    if(idx!==c._last){ if(c._last>=0 && t<CASE_T.reel+CASE_T.reelDur) window.Case3D?.tick(el, Math.min(1,(t-CASE_T.reel)/CASE_T.reelDur)); c._last=idx; }
+    const second = two && t>=ct.reel2;
+    if(c.dataset.stage!==(second?'2':'1')) c.dataset.stage=second?'2':'1';
+    if(!second){
+      const x=caseReelX(el, t-CASE_T.reel);
+      c._strip.style.transform=`translate3d(${(-x).toFixed(3)}em,0,0)`;
+      const idx=Math.floor((x+0.4)/CASE_STEP);
+      if(idx!==c._last){ if(c._last>=0 && t<CASE_T.reel+CASE_T.reelDur) window.Case3D?.tick(el, Math.min(1,(t-CASE_T.reel)/CASE_T.reelDur)); c._last=idx; }
+    } else if(c._strip2){
+      const x=caseReelX2(el, t-ct.reel2);
+      c._strip2.style.transform=`translate3d(${(-x).toFixed(3)}em,0,0)`;
+      const idx=Math.floor((x+0.4)/CASE_STEP);
+      if(idx!==c._last2){ if(c._last2>=0 && t<ct.reel2+CASE_2.dur) window.Case3D?.tick(el, Math.min(1,(t-ct.reel2)/CASE_2.dur)); c._last2=idx; }
+    }
+    // байтовая лента: в момент «почти» трясётся и вспыхивает
+    const pb=(t-CASE_T.reel)/CASE_T.reelDur, bait=caseKind(el)==='bait' && pb>CASE_BAIT[0] && pb<CASE_BAIT[1];
+    const box=c._reelBox;
+    if(box){
+      if(bait){ const k=Math.sin(Math.PI*(pb-CASE_BAIT[0])/(CASE_BAIT[1]-CASE_BAIT[0])); box.style.translate=`${(Math.sin(t*0.11)*0.22*k).toFixed(3)}em ${(Math.cos(t*0.17)*0.16*k).toFixed(3)}em`; }
+      else if(box.style.translate) box.style.translate='';
+    }
+    const u=bait?'1':'0'; if(c.dataset.uhh!==u) c.dataset.uhh=u;
+    const up = two && t>=ct.up && t<ct.reel2+900 ? '1' : '0'; if(c.dataset.up!==up) c.dataset.up=up;
   }
-  if(ph==='reveal') caseSparks(c, el, t-CASE_T.reveal);
+  if(ph==='reveal') caseSparks(c, el, t-ct.reveal);
 }
 // Искры в цвет редкости при выпадении (2D-холст поверх)
 function caseSparks(c, el, t){
   const cv=c.querySelector('.cs-sparks'); if(!cv) return;
-  const w=el.items[el.win]; if(!w) return;
+  const w=el.items[caseWinIdx(el)]; if(!w) return;
   if(!c._sparks){
     const W=cv.width=Math.max(320, c.clientWidth|0), H=cv.height=Math.max(180, c.clientHeight|0), n = w.r>=5 ? 260 : w.r>=3 ? 160 : 90;
     c._sparks=Array.from({ length:n }, ()=>{ const a=Math.random()*Math.PI*2, v=(0.25+Math.random())*H*0.012*(w.r>=5?1.5:1); return { x:W/2, y:H*0.46, vx:Math.cos(a)*v, vy:Math.sin(a)*v-H*0.004, s:1+Math.random()*2.6, l:0.7+Math.random()*1.3 }; });
