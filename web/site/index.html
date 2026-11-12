@@ -7,10 +7,9 @@
 <title>Hudini · stream overlay run by your moderator</title>
 <meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from a web panel. Text, pictures, GIFs, timers, polls, Twitch chat, CS2. Encrypted, files stay on the streamer's PC.">
 <meta name="theme-color" content="#08090f">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="preload" href="fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="shared/icons/icon-192.png">
+<link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="shared/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css?v=2">
 <script src="site.js?v=2" defer></script>
 </head>
@@ -18,9 +17,9 @@
 <div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <header class="top">
-  <a class="logo" href="index.html"><img src="icons/icon-192.png" alt="">Hudini</a>
+  <a class="logo" href="index.html"><img src="shared/icons/icon-192.png" alt="">Hudini</a>
   <nav><a href="#features" data-t="features"></a><a href="#how" data-t="how"></a><a href="#cs2">CS2</a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
-  <a class="btn small primary" href="moderator.html" data-t="open"></a>
+  <a class="btn small primary" href="panel/moderator.html" data-t="open"></a>
   <select class="lang" aria-label="Language"></select>
 </header>
 
@@ -30,7 +29,7 @@
     <h1 data-t="h1"></h1>
     <p class="sub" data-t="sub"></p>
     <div class="cta">
-      <a class="btn primary shine" href="moderator.html" data-t="open"></a>
+      <a class="btn primary shine" href="panel/moderator.html" data-t="open"></a>
       <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
     </div>
     <small class="free" data-t="free"></small>
@@ -74,7 +73,7 @@
       <h2 data-t="ctaTitle"></h2>
       <p data-t="ctaText"></p>
       <div class="cta">
-        <a class="btn primary shine" href="moderator.html" data-t="open"></a>
+        <a class="btn primary shine" href="panel/moderator.html" data-t="open"></a>
         <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
       </div>
     </div>
@@ -82,7 +81,7 @@
 </main>
 
 <footer><div class="wrap">
-  <span class="flogo"><img src="icons/icon-192.png" alt="">Hudini 1.0</span>
+  <span class="flogo"><img src="shared/icons/icon-192.png" alt="">Hudini 1.0</span>
   <span><a href="help.html" data-help data-t="helpLink"></a> · <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener" data-t="issues"></a> · <a href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener" data-t="license"></a> AGPL-3.0 / MIT</span>
 </div></footer>
 </body>

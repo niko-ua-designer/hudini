@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
+const WEB = path.join(ROOT, 'web');
 const MQTT_JS = fs.readFileSync(path.join(__dirname, 'node_modules/mqtt/dist/mqtt.min.js'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const PORTS = { pub: 18888, web: 18090, host: 17790 };   // host uses host+1 for the moderators' tunnel port
@@ -40,8 +41,8 @@ const TYPES = { '.html':'text/html; charset=utf-8', '.js':'application/javascrip
   '.webmanifest':'application/manifest+json', '.png':'image/png', '.gif':'image/gif' };
 async function webServer(){
   const srv = http.createServer((req, res) => {
-    const f = path.join(ROOT, decodeURIComponent(new URL(req.url, 'http://x').pathname));
-    if(!f.startsWith(ROOT) || !fs.existsSync(f) || !fs.statSync(f).isFile()){ res.statusCode = 404; return res.end(); }
+    const f = path.join(WEB, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    if(!f.startsWith(WEB) || !fs.existsSync(f) || !fs.statSync(f).isFile()){ res.statusCode = 404; return res.end(); }
     res.setHeader('content-type', TYPES[path.extname(f)] || 'application/octet-stream');
     res.end(fs.readFileSync(f));
   });
@@ -51,7 +52,7 @@ async function webServer(){
 function startHost(env = {}){
   const dir = env.OVERLAY_HOST_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-host-'));
   const port = Number(env.OVERLAY_PORT || PORTS.host);
-  const proc = spawn('bun', ['run', 'server.js'], { cwd: path.join(ROOT, 'host'), env: { ...process.env,
+  const proc = spawn('bun', ['run', 'server.js'], { cwd: path.join(ROOT, 'server'), env: { ...process.env,
     OVERLAY_HOST_DIR: dir, OVERLAY_NO_OPEN: '1', OVERLAY_NO_UPDATE: '1', OVERLAY_PORT: String(port),
     OVERLAY_PUBLIC_BROKER: `ws://localhost:${PORTS.pub}`, OVERLAY_TUNNEL_URL: `ws://127.0.0.1:${port + 1}/mqtt`, ...env } });
   let log = ''; proc.stdout.on('data', d => log += d); proc.stderr.on('data', d => log += d);
@@ -98,7 +99,7 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   const pub = await publicBroker(), web = await webServer();
   const host = startHost(hostEnv); await host.ready();
   const panel = await newPage('panel', { irc, lang, w, h });
-  await panel.goto(`${web.url}/moderator.html?broker=${encodeURIComponent(pub.url)}`);
+  await panel.goto(`${web.url}/panel/moderator.html?broker=${encodeURIComponent(pub.url)}`);
   await panel.waitForFunction(() => document.getElementById('link').value.includes('#k='));
   const link = await panel.inputValue('#link');
   const set = await host.api('/api/link', { link });

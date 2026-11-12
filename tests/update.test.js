@@ -6,7 +6,7 @@ const http = require('http'), fs = require('fs'), path = require('path'), os = r
 const { execFileSync, spawn } = require('child_process');
 const T = require('./lib');
 const { step, check, eq, until } = T;
-const HOST = path.join(T.ROOT, 'host');
+const HOST = path.join(T.ROOT, 'server');
 const ASSET = { linux:'HudiniHost-linux', darwin: os.arch() === 'arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel', win32:'HudiniHost-windows.exe' }[process.platform];
 
 // Test signing key: builds get its public half instead of the real one, the fake GitHub signs with the private half

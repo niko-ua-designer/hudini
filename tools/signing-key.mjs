@@ -1,7 +1,7 @@
 // Creates the Ed25519 key that signs Hudini Host updates. Run once: node tools/signing-key.mjs
 // The private key goes to ~/hudini-signing.key (owner-only) and is never printed: paste it into the GitHub secret
 // HUDINI_SIGNING_KEY, keep a copy in a password manager, then delete the file. The public key goes to
-// ~/hudini-signing.pub and into `const UPDATE_KEY` in host/server.js.
+// ~/hudini-signing.pub and into `const UPDATE_KEY` in server/server.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';

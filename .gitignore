@@ -5,3 +5,4 @@
 .env.*
 hudini-signing.*
 data/
+_site/

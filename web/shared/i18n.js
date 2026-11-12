@@ -1,6 +1,6 @@
 // Hudini translations: Russian UI text → English, Ukrainian, German.
 // To add or fix a phrase: use the exact Russian text shown on screen as the key, in each language.
-// Used by moderator.html and Hudini Host (host/ui.html). The widget on stream is not translated.
+// Used by panel/moderator.html and Hudini Host (server/ui.html). The widget on stream is not translated.
 const HUDINI_DICT = {
   en: {
     "!команда": "!command",

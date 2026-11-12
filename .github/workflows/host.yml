@@ -1,5 +1,5 @@
 # Builds Hudini Host (Tauri desktop app + Bun server sidecar) and publishes it to Releases
-# when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed. The tag must match `const VERSION` in host/server.js.
+# when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed. The tag must match `const VERSION` in server/server.js.
 # Manual run (workflow_dispatch): builds everything; publishes only from a tag ref with dry_run unchecked.
 name: Hudini Host release
 on:
@@ -31,7 +31,7 @@ jobs:
       - name: Version
         id: v
         run: |
-          ver=$(grep -oP "^const VERSION = '\K[^']+" host/server.js)
+          ver=$(grep -oP "^const VERSION = '\K[^']+" server/server.js)
           echo "$ver" | grep -qxE '[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?'
           if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$ver" ]; then echo "tag $GITHUB_REF_NAME does not match VERSION $ver"; exit 1; fi
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
@@ -82,11 +82,11 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libxdo-dev pkg-config patchelf
       - name: Server sidecar
         run: |
-          cd host && npm ci --ignore-scripts --no-audit --no-fund
-          mkdir -p app/src-tauri/binaries
-          bun build --compile --minify --target=${{ matrix.bun }} server.js --outfile "app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
+          cd server && npm ci --ignore-scripts --no-audit --no-fund
+          mkdir -p ../app/src-tauri/binaries
+          bun build --compile --minify --target=${{ matrix.bun }} server.js --outfile "../app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
       - name: Tauri build
-        working-directory: host/app
+        working-directory: app
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
             npx -y @tauri-apps/cli@2.12.4 build --target "$TRIPLE" --bundles app --config "{\"version\":\"${{ needs.version.outputs.ver }}\"}" -- --locked
@@ -95,11 +95,11 @@ jobs:
           fi
       - name: Zip
         run: |
-          # Paths from the Tauri project (host/app/src-tauri, productName "Hudini Host", binary "hudini-host"); adjust here if they change
-          REL="host/app/src-tauri/target/$TRIPLE/release"
+          # Paths from the Tauri project (app/src-tauri, productName "Hudini Host", binary "hudini-host"); adjust here if they change
+          REL="app/src-tauri/target/$TRIPLE/release"
           APP_EXE="$REL/hudini-host$EXT"                       # Windows / Linux app binary
           MAC_APP="$REL/bundle/macos/Hudini Host.app"           # macOS app bundle (sidecar is inside it)
-          SIDECAR="host/app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
+          SIDECAR="app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
           # Portable: a "HudiniHost" folder (no spaces: the autostart entry is not quoted) with the app, the server next to it, an empty data/ folder and a short readme
           rm -rf pkg && mkdir -p "pkg/HudiniHost/data"
           if [ "$RUNNER_OS" = macOS ]; then
@@ -108,7 +108,7 @@ jobs:
             cp "$APP_EXE" "pkg/HudiniHost/HudiniHost$EXT"
             cp "$SIDECAR" "pkg/HudiniHost/hudini-server$EXT"
           fi
-          cp host/PORTABLE.txt "pkg/HudiniHost/README.txt"
+          cp server/PORTABLE.txt "pkg/HudiniHost/README.txt"
           mkdir -p out
           if [ "$RUNNER_OS" = Windows ]; then
             (cd pkg && 7z a -tzip -mx=9 "../out/$ZIP_NAME" "HudiniHost")
@@ -136,11 +136,11 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with: { node-version: 24 }
       - name: Build
-        run: sh host/build.sh
+        run: sh server/build.sh
       - name: Zip
         run: |
           # Each zip holds a "Hudini Host" folder with the app, an empty data/ folder and a short readme
-          cd host/dist
+          cd server/dist
           for f in HudiniHost-*; do
             rm -rf pkg && mkdir -p "pkg/Hudini Host/data"
             cp "$f" "pkg/Hudini Host/"
@@ -152,7 +152,7 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: zip-legacy
-          path: host/dist/*.zip
+          path: server/dist/*.zip
           if-no-files-found: error
 
   publish:
@@ -192,8 +192,8 @@ jobs:
             if(!c.verify(null, msg, c.createPublicKey(key), sig)) process.exit(1);
             // the secret must match the public key built into Hudini Host, or the release could never update itself
             const pub = c.createPublicKey(key).export({ format: "der", type: "spki" }).toString("base64");
-            const want = (/^const UPDATE_KEY = .([^\x27]*)./m.exec(fs.readFileSync("../host/server.js", "utf8")) || [])[1];
-            if(pub !== want){ console.error("HUDINI_SIGNING_KEY does not match UPDATE_KEY in host/server.js"); process.exit(1); }
+            const want = (/^const UPDATE_KEY = .([^\x27]*)./m.exec(fs.readFileSync("../server/server.js", "utf8")) || [])[1];
+            if(pub !== want){ console.error("HUDINI_SIGNING_KEY does not match UPDATE_KEY in server/server.js"); process.exit(1); }
             fs.writeFileSync("SHA256SUMS.txt.sig", sig.toString("base64") + "\n");
           '
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
@@ -211,7 +211,7 @@ jobs:
             The `HudiniHost-windows.exe.zip`, `HudiniHost-linux.zip`, `HudiniHost-mac-arm64.zip`, `HudiniHost-mac-intel.zip` files are for automatic updates of older versions. / Эти файлы нужны для автообновления старых версий, скачивать их не надо.
 
             Panel / Пульт: https://niko-ua-designer.github.io/hudini/
-            Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/host/README.md
+            Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/server/README.md
           files: |
             dist/*.zip
             dist/SHA256SUMS.txt

@@ -4,7 +4,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const KEY = 'hudini.ui', BAK = 'hudini.ui.bak';
-  const HELP_URL = 'help.html';
+  const HELP_URL = '../help.html';
   const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
   const TABS = ['add', 'scenes', 'chat', 'auto', 'room'];
   const DEF = { v:1, lw:300, rw:310, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
@@ -291,7 +291,7 @@
   // ---------- help drawer: the same texts as help.html on the site ----------
   let helpLoad = null;
   async function openHelp(id){
-    if(!window.HUDINI_HELP) await (helpLoad ||= new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'help-content.js?v=1'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); })).catch(() => {});
+    if(!window.HUDINI_HELP) await (helpLoad ||= new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = '../shared/help-content.js?v=1'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); })).catch(() => {});
     const lang = window.HudiniI18n?.lang || 'ru', H = window.HUDINI_HELP?.[lang] || window.HUDINI_HELP?.en;
     if(!H){ window.open(HELP_URL, '_blank', 'noopener'); return; }
     $('helpDrawer')?.remove();

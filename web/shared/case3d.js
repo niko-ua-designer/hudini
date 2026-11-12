@@ -1,11 +1,12 @@
-// Hudini: 3D-кейс за донат. Сцена на three.js (vendor/three.module.min.js, MIT), свой bloom, частицы и синтез звука.
+// Hudini: 3D-кейс за донат. Сцена на three.js (shared/vendor/three.module.min.js, MIT), свой bloom, частицы и синтез звука.
 // Всё считается от времени openAt, поэтому пульт и виджет показывают один и тот же кадр,
 // а виджет, открытый посреди анимации, подхватывает её с нужного места (звуки прошлых моментов не догоняет).
 (function(){
   'use strict';
+  const SELF = document.currentScript ? document.currentScript.src : document.baseURI;   // three.js лежит рядом со скриптом, а не рядом со страницей
   let THREE = null, loading = null, failed = false;
   function load(){
-    if(!loading) loading = import(new URL('vendor/three.module.min.js', document.baseURI).href)
+    if(!loading) loading = import(new URL('vendor/three.module.min.js', SELF).href)
       .then(m => { THREE = m; }).catch(e => { failed = true; console.warn('3D недоступен:', e); });
     return loading;
   }

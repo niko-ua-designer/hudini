@@ -4,7 +4,7 @@
 
 [English](#english) · [Русский](#русский)
 
-![Overlay on stream](img/stream.png)
+![Overlay on stream](web/site/img/stream.png)
 
 ## English
 
@@ -15,7 +15,7 @@ Hudini lets a moderator show text, pictures, GIFs, videos, timers, polls, chat m
 | Part | Where | What it does |
 |---|---|---|
 | **Panel** (`moderator.html`) | Moderator's browser, installable as an app | Editing the screen, scenes, library, chat, scenarios |
-| **Hudini Host** (`host/`) | Streamer's PC | Local server for OBS, encrypted file storage, CS2 data, tunnel for moderators |
+| **Hudini Host** (`server/`) | Streamer's PC | Local server for OBS, encrypted file storage, CS2 data, tunnel for moderators |
 | **Widget** (`widget.html`) | OBS Browser source, served by Hudini Host | Draws the overlay, accepts only signed changes |
 
 The public MQTT server is used only for an encrypted announcement of the Host's address. Screen state, files and CS2 data go directly through the Host.
@@ -53,7 +53,7 @@ npm test                 # end-to-end: panel + Hudini Host + widget in Chromium
 node run.js update       # self-update with two compiled Host builds
 ```
 
-The Host runs from source with Bun: `cd host && npm ci && bun run server.js`. Releases are built by GitHub Actions when a tag `v1.2.3` or `v1.2.3-rc.1` matching `const VERSION` in `host/server.js` is pushed. Interface text is written in Russian and translated by `i18n.js` (EN, UK, DE); add new phrases there in all languages. Help texts live in `help-content.js`.
+The Host runs from source with Bun: `cd server && npm ci && bun run server.js`. Releases are built by GitHub Actions when a tag `v1.2.3` or `v1.2.3-rc.1` matching `const VERSION` in `server/server.js` is pushed. Interface text is written in Russian and translated by `i18n.js` (EN, UK, DE); add new phrases there in all languages. Help texts live in `help-content.js`.
 
 ### License
 
@@ -72,7 +72,7 @@ Hudini позволяет модератору показывать на экр�
 | Часть | Где | Что делает |
 |---|---|---|
 | **Пульт** (`moderator.html`) | Браузер модератора, можно установить как приложение | Редактирование экрана, сцены, библиотека, чат, сценарии |
-| **Hudini Host** (`host/`) | ПК стримера | Локальный сервер для OBS, зашифрованное хранилище файлов, данные CS2, туннель для модераторов |
+| **Hudini Host** (`server/`) | ПК стримера | Локальный сервер для OBS, зашифрованное хранилище файлов, данные CS2, туннель для модераторов |
 | **Виджет** (`widget.html`) | Источник «Браузер» в OBS, его отдаёт Hudini Host | Рисует оверлей, принимает только подписанные изменения |
 
 Общий MQTT-сервер нужен только для зашифрованного объявления адреса программы. Экран, файлы и данные CS2 идут напрямую через Hudini Host.
@@ -110,7 +110,7 @@ npm test                 # сквозные тесты: пульт + Hudini Host
 node run.js update       # автообновление на двух собранных версиях программы
 ```
 
-Программа запускается из исходников через Bun: `cd host && npm ci && bun run server.js`. Релизы собирает GitHub Actions по тегу `v1.2.3` или `v1.2.3-rc.1`, он должен совпадать с `const VERSION` в `host/server.js`. Тексты интерфейса пишутся по-русски и переводятся в `i18n.js` (EN, UK, DE): новые фразы добавляй туда на всех языках. Тексты справки лежат в `help-content.js`.
+Программа запускается из исходников через Bun: `cd server && npm ci && bun run server.js`. Релизы собирает GitHub Actions по тегу `v1.2.3` или `v1.2.3-rc.1`, он должен совпадать с `const VERSION` в `server/server.js`. Тексты интерфейса пишутся по-русски и переводятся в `i18n.js` (EN, UK, DE): новые фразы добавляй туда на всех языках. Тексты справки лежат в `help-content.js`.
 
 ### Лицензия
 

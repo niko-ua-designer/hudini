@@ -963,7 +963,7 @@ $('globalEye').onclick=()=>{ beginChange(); state.visible=!state.visible; commit
 $('undoBtn').onclick=undo;
 
 function widgetLink(){
-  const base=WIDGET_BASE_URL || new URL('widget.html', location.href).href;
+  const base=WIDGET_BASE_URL || new URL('../widget/widget.html', location.href).href;
   const u=new URL(base); u.searchParams.set('room', room); u.searchParams.set('v', String(WIDGET_VER));
   const r=curRoom();
   u.hash=`k=${r.k}&p=${r.p}`;   // ключи после #: не уходят ни на сайт, ни на брокер
@@ -2395,7 +2395,7 @@ setInterval(()=>{ if(client?.connected && !drag && KEYS) publishNow(1); }, 60000
 async function checkPanelUpdate(){
   if(!/^https?:$/.test(location.protocol)) return;
   try{
-    const v=await (await fetch('version.json?t='+Date.now(), { cache:'no-store' })).json();
+    const v=await (await fetch('../version.json?t='+Date.now(), { cache:'no-store' })).json();
     if(Number(v.panel)>WIDGET_VER){ $('updBanner').hidden=false; $('updBanner').title=`Вышла версия ${v.panel}${v.notes?': '+v.notes:''}`; }
   }catch{}
 }
@@ -2426,8 +2426,6 @@ async function boot(){
   window.hudiniReady=true;
   if(migrated) setTimeout(()=>alert('🔐 Защита обновлена.\n\nТеперь все команды на экран подписываются твоим ключом, а чужие отбрасываются. Старые ссылки для OBS больше не работают: нажми «📋 Копировать» и отправь стримеру НОВУЮ ссылку.'), 300);
 }
-// Пульт можно установить как приложение (PWA)
-if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 // ================== МЕТКИ β / α ==================
 // Стабильное в 1.0 без меток. Бета: работает, но мало проверено на разных ПК. Альфа: экспериментально.
 const ISSUES='https://github.com/niko-ua-designer/hudini/issues';

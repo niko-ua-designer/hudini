@@ -27,6 +27,6 @@ for e,n in M.items():
 print('missing',miss, file=sys.stderr)
 # свой цилиндр для бренда
 icons['🎩']='<path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/>'
-js='// Линейные иконки вместо эмодзи (наборы Lucide, ISC: icons/LICENSE-lucide). Собирает tools/icons.py\nconst HUDINI_ICONS = '+json.dumps(icons, ensure_ascii=False, separators=(',',':'))+';\n'
-p='icons.js'; old=open(p).read() if os.path.exists(p) else ''; rest=old.split('\n',2)[2] if old.count('\n')>=2 else ''; open(p,'w').write(js+rest)
+js='// Линейные иконки вместо эмодзи (наборы Lucide, ISC: shared/icons/LICENSE-lucide). Собирает tools/icons.py\nconst HUDINI_ICONS = '+json.dumps(icons, ensure_ascii=False, separators=(',',':'))+';\n'
+p='web/shared/icons.js'; old=open(p).read() if os.path.exists(p) else ''; rest=old.split('\n',2)[2] if old.count('\n')>=2 else ''; open(p,'w').write(js+rest)
 print(len(icons), len(js))

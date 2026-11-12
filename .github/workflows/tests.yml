@@ -20,7 +20,7 @@ jobs:
         with: { node-version: 24 }
       - name: Install
         run: |
-          (cd host && npm ci --ignore-scripts --no-audit --no-fund)
+          (cd server && npm ci --ignore-scripts --no-audit --no-fund)
           (cd tests && npm ci --ignore-scripts --no-audit --no-fund && npx playwright install --with-deps chromium)
       - name: Test
         run: cd tests && npm test

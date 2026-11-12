@@ -2,12 +2,12 @@
 
 ## 1.0.0-rc.4 (ready on branch `rc4`)
 
-Hudini Host becomes a desktop app (Tauri 2, `host/app/`): a window plus a tray icon, optional autostart,
-and the Bun server (`host/server.js`) runs next to it as the `hudini-server` sidecar.
+Hudini Host becomes a desktop app (Tauri 2, `app/`): a window plus a tray icon, optional autostart,
+and the Bun server (`server/server.js`) runs next to it as the `hudini-server` sidecar.
 
 0. Update signing (once): `node tools/signing-key.mjs` writes the private key to `~/hudini-signing.key` without printing it.
    Paste that file into the repository secret `HUDINI_SIGNING_KEY` (Settings → Secrets and variables → Actions),
-   keep a copy in a password manager, delete the file. Put `~/hudini-signing.pub` into `const UPDATE_KEY` in `host/server.js`.
+   keep a copy in a password manager, delete the file. Put `~/hudini-signing.pub` into `const UPDATE_KEY` in `server/server.js`.
    The publish job signs `SHA256SUMS.txt` (`SHA256SUMS.txt.sig`); rc.4 and later refuse an update without a valid signature.
 1. Optional dry run: Actions → "Hudini Host release" → Run workflow on `rc4` with "dry_run" checked.
    It builds all four systems and keeps the zips as workflow artifacts; nothing is published.
@@ -47,9 +47,9 @@ and the Bun server (`host/server.js`) runs next to it as the `hudini-server` sid
 
 ## 1.0.0
 
-1. Set `const VERSION = '1.0.0'` in `host/server.js`.
+1. Set `const VERSION = '1.0.0'` in `server/server.js`.
 2. Point the download links back to `releases/latest`
-   (`site.js`, `help-content.js`, `moderator.html`, `moderator.js`, `README.md`, `host/README.md`)
+   (`web/site/site.js`, `web/shared/help-content.js`, `web/panel/moderator.html`, `web/panel/moderator.js`, `README.md`, `server/README.md`)
    and change the zip names there from `…-1.0rc4.zip` to `…-1.0.zip`.
 3. Commit to `main`, then `git tag v1.0.0 && git push origin v1.0.0`.
    The workflow publishes the release as latest. The old `host-v1.0.0`…`host-v1.4.0` releases are already

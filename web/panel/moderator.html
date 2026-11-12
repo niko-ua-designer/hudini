@@ -6,20 +6,19 @@
 <!-- Защита: скрипты только с этого сайта и mqtt.js с проверкой хеша. Даже если в текст попадёт чужой код, он не запустится. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com/mqtt@5.16.1/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https:; connect-src 'self' wss: ws://localhost:* ws://127.0.0.1:* https: http://localhost:* http://127.0.0.1:* blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini · пульт</title>
-<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f1115">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="../shared/icons/icon-192.png">
+<link rel="apple-touch-icon" href="../shared/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="core.css?v=11">
+<link rel="stylesheet" href="../shared/core.css?v=11">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="i18n.js?v=3"></script>
-<script src="icons.js?v=1"></script>
-<script src="core.js?v=15"></script>
-<script src="case3d.js?v=1"></script>
-<script src="presets/animations.js?v=1"></script>
+<script src="../shared/i18n.js?v=3"></script>
+<script src="../shared/icons.js?v=1"></script>
+<script src="../shared/core.js?v=15"></script>
+<script src="../shared/case3d.js?v=1"></script>
+<script src="../shared/presets/animations.js?v=1"></script>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}

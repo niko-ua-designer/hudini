@@ -59,7 +59,7 @@ The app checks GitHub Releases at start and every 3 hours, downloads the build f
 ```sh
 cd host && npm ci
 bun run server.js          # run from source
-sh build.sh                # build Windows / Linux / macOS binaries into host/dist
+sh build.sh                # build Windows / Linux / macOS binaries into server/dist
 ```
 
 A release is built when a tag `vX.Y.Z` (or `vX.Y.Z-rc.N`) matching `const VERSION` is pushed.
@@ -123,7 +123,7 @@ Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO
 ```sh
 cd host && npm ci
 bun run server.js          # запуск из исходников
-sh build.sh                # сборка для Windows / Linux / macOS в host/dist
+sh build.sh                # сборка для Windows / Linux / macOS в server/dist
 ```
 
 Релиз собирается, когда пушится тег `vX.Y.Z` (или `vX.Y.Z-rc.N`), совпадающий с `const VERSION`.

@@ -8,11 +8,11 @@ updates:
     groups:
       actions: { patterns: ['*'] }
   - package-ecosystem: npm
-    directory: /host
+    directory: /server
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }   # skip versions younger than a week (hijacked releases are usually pulled fast)
     groups:
-      host: { patterns: ['*'] }
+      server: { patterns: ['*'] }
   - package-ecosystem: npm
     directory: /tests
     schedule: { interval: weekly }
@@ -20,7 +20,7 @@ updates:
     groups:
       tests: { patterns: ['*'] }
   - package-ecosystem: cargo
-    directory: /host/app/src-tauri
+    directory: /app/src-tauri
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }   # skip versions younger than a week (hijacked releases are usually pulled fast)
     groups:

@@ -37,7 +37,7 @@
     dl:'<path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/>',
     check:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/>',
     star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
-    // CS2 HUD icons, the same set as the overlay's HUD (core.js HUD_IC; Lucide outlines, ISC, icons/LICENSE-lucide)
+    // CS2 HUD icons, the same set as the overlay's HUD (core.js HUD_IC; Lucide outlines, ISC, shared/icons/LICENSE-lucide)
     heart:'<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>',
     shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
     helmet:'<path d="M4 19c-1-7.5 3-13.5 8.5-13.5 4.7 0 8 3.7 8.5 9.5H9.5l-1.5 4z"/><path d="M21 15h1.5"/>',
@@ -336,7 +336,7 @@
     <div class="dv-bar"><i></i><i></i><i></i><span class="dv-on"><b></b>${t.dOnline}</span><span class="dv-obs">OBS 1920×1080</span></div>
     <div class="dv-body">
       <div class="dv-panel">
-        <div class="dp-head"><img src="icons/icon-192.png" alt="">Hudini<span class="dp-room">#etsuitoku</span></div>
+        <div class="dp-head"><img src="shared/icons/icon-192.png" alt="">Hudini<span class="dp-room">#etsuitoku</span></div>
         <div class="dp-btns">${B.map(([k, i, cls, name]) => `<div class="dp-b ${cls || ''}" data-b="${k}">${ic(i)}<span>${name || lbl[k]}</span></div>`).join('')}</div>
         <div class="dp-chat"><div class="dp-ct"><b></b>${t.dChat}</div><div class="dp-msgs"></div><div class="dv-toast">${ic('bolt')}<span>${t.dToast}</span></div></div>
       </div>

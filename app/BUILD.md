@@ -1,6 +1,6 @@
 # Hudini Host app (window + tray): build
 
-`host/app` is a Tauri 2 shell around the overlay server. The server (`host/server.js`) is compiled by Bun into
+`app` is a Tauri 2 shell around the overlay server. The server (`server/server.js`) is compiled by Bun into
 one file and shipped next to the app as a sidecar named `hudini-server`. The app starts it with
 `OVERLAY_APP=1`, waits for the `READY <port>` line on its stdout and opens `http://localhost:<port>/` in its window.
 
@@ -22,24 +22,24 @@ Tauri looks for `binaries/hudini-server-<rust target triple>[.exe]` and copies i
 executable as `hudini-server[.exe]`.
 
 ```sh
-cd host
+cd server
 npm ci --ignore-scripts --no-audit --no-fund
-mkdir -p app/src-tauri/binaries
+mkdir -p ../app/src-tauri/binaries
 # Windows (x64)
-bun build --compile --minify --target=bun-windows-x64  server.js --outfile app/src-tauri/binaries/hudini-server-x86_64-pc-windows-msvc.exe
+bun build --compile --minify --target=bun-windows-x64  server.js --outfile ../app/src-tauri/binaries/hudini-server-x86_64-pc-windows-msvc.exe
 # Linux (x64)
-bun build --compile --minify --target=bun-linux-x64    server.js --outfile app/src-tauri/binaries/hudini-server-x86_64-unknown-linux-gnu
+bun build --compile --minify --target=bun-linux-x64    server.js --outfile ../app/src-tauri/binaries/hudini-server-x86_64-unknown-linux-gnu
 # macOS Apple Silicon
-bun build --compile --minify --target=bun-darwin-arm64 server.js --outfile app/src-tauri/binaries/hudini-server-aarch64-apple-darwin
+bun build --compile --minify --target=bun-darwin-arm64 server.js --outfile ../app/src-tauri/binaries/hudini-server-aarch64-apple-darwin
 # macOS Intel
-bun build --compile --minify --target=bun-darwin-x64   server.js --outfile app/src-tauri/binaries/hudini-server-x86_64-apple-darwin
+bun build --compile --minify --target=bun-darwin-x64   server.js --outfile ../app/src-tauri/binaries/hudini-server-x86_64-apple-darwin
 ```
 
 Only the one for the runner's target is needed. Check the triple with `rustc -vV | grep host`.
 
 ## 2. App
 
-Run from `host/app/src-tauri`. Optionally keep the app version in sync with the server:
+Run from `app/src-tauri`. Optionally keep the app version in sync with the server:
 `--config '{"version":"1.0.0-rc.4"}'` (the server version in `server.js` is what the updater compares; the
 app version is only metadata).
 
@@ -101,7 +101,7 @@ Push-Location pkg; tar -a -c -f ../HudiniHost-windows-1.0rc4.zip "HudiniHost"; P
 `tar -a` or 7-Zip give a standard zip.)
 
 The old single-file assets (`HudiniHost-windows.exe.zip`, `HudiniHost-linux.zip`, `HudiniHost-mac-arm64.zip`,
-`HudiniHost-mac-intel.zip`, built by `host/build.sh`) stay in the release for rc.3 users: a standalone build
+`HudiniHost-mac-intel.zip`, built by `server/build.sh`) stay in the release for rc.3 users: a standalone build
 updates only from those, an app build (OVERLAY_APP set) only from the new ones.
 
 ## Runtime requirements

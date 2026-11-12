@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>Hudini Host</title>
-<script src="/i18n.js"></script>
-<script src="/icons.js"></script>
+<script src="/shared/i18n.js"></script>
+<script src="/shared/icons.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <style>
@@ -194,7 +194,7 @@ details[open] summary{margin-bottom:10px}
 <div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
-const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (host/app), а не в браузере
+const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (app/), а не в браузере
 function toast(t){ const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', 2600); }
 function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
 function light(id, cls, title){ const e=$(id); e.className='light '+cls; e.title=title; }

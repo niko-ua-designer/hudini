@@ -15,16 +15,16 @@ import zlib from 'node:zlib';
 import { WebSocketServer, createWebSocketStream } from 'ws';
 import { Aedes } from 'aedes';
 import mqtt from 'mqtt';
-import WIDGET_HTML from '../widget.html' with { type: 'text' };
-import CORE_JS from '../core.js' with { type: 'text' };
-import CORE_CSS from '../core.css' with { type: 'text' };
+import WIDGET_HTML from '../web/widget/widget.html' with { type: 'text' };
+import CORE_JS from '../web/shared/core.js' with { type: 'text' };
+import CORE_CSS from '../web/shared/core.css' with { type: 'text' };
 import MQTT_JS from './node_modules/mqtt/dist/mqtt.min.js' with { type: 'text' };
 import UI_HTML from './ui.html' with { type: 'text' };
 import DOCK_HTML from './dock.html' with { type: 'text' };
-import I18N_JS from '../i18n.js' with { type: 'text' };
-import ICONS_JS from '../icons.js' with { type: 'text' };
-import CASE3D_JS from '../case3d.js' with { type: 'text' };
-import THREE_JS from '../vendor/three.module.min.js' with { type: 'text' };
+import I18N_JS from '../web/shared/i18n.js' with { type: 'text' };
+import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
+import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
+import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
 const VERSION = '1.0.0-rc.4';
 const PREFIX = 'stream-overlay/v1';
@@ -32,7 +32,7 @@ const PUBLIC_BROKER = process.env.OVERLAY_PUBLIC_BROKER || 'wss://broker.emqx.io
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 const NO_TUNNEL = !!process.env.OVERLAY_NO_TUNNEL;
 const NO_OPEN = !!process.env.OVERLAY_NO_OPEN;
-// Запуск из программы с окном и треем (host/app): она читает stdout и держит открытым stdin
+// Запуск из программы с окном и треем (app/): она читает stdout и держит открытым stdin
 const APP = !!process.env.OVERLAY_APP;
 const APP_EXE = process.env.OVERLAY_APP_EXE || '';           // файл программы с окном (его перезапускаем после обновления)
 const APP_PID = Number(process.env.OVERLAY_APP_PID) || process.ppid;
@@ -467,9 +467,11 @@ async function installGsi(){
 
 // ---------- файлы виджета: свежие с сайта, запасные встроены в программу ----------
 const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
-const EMBED = { 'widget.html':WIDGET_HTML, 'core.js':CORE_JS, 'core.css':CORE_CSS, 'case3d.js':CASE3D_JS };
+// Ключ = путь файла на сайте и на этом сервере; в кэше имя без «/»
+const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS };
+const cacheName = f => f.replace(/\//g, '_');
 const files = { ...EMBED };
-for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, f), 'utf8'); }catch{}
+for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, cacheName(f)), 'utf8'); }catch{}
 async function refreshSite(){
   if(process.env.OVERLAY_SITE==='off') return;   // тесты: только встроенные файлы
   try{
@@ -479,8 +481,8 @@ async function refreshSite(){
       if(!r.ok) throw new Error(f+': HTTP '+r.status);
       got[f] = await r.text();
     }
-    if(!got['widget.html'].includes('core.js')) throw new Error('странный widget.html');
-    for(const [f,txt] of Object.entries(got)){ files[f]=txt; fs.writeFileSync(path.join(CACHE, f), txt); }
+    if(!got['widget/widget.html'].includes('core.js')) throw new Error('странный widget.html');
+    for(const [f,txt] of Object.entries(got)){ files[f]=txt; fs.writeFileSync(path.join(CACHE, cacheName(f)), txt); }
   }catch(e){ log('⚠ Не обновил файлы виджета с сайта (', e.message, '), использую сохранённые'); }
 }
 refreshSite(); setInterval(refreshSite, 10*60*1000);
@@ -489,7 +491,7 @@ let refreshing=null, lastRefresh=0;
 function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
 function widgetHtml(){
   // mqtt.min.js отдаём свой (та же версия, тот же хеш)
-  return files['widget.html'].replace(/src="https:\/\/unpkg\.com\/mqtt@[^"]+"/, 'src="mqtt.min.js"');
+  return files['widget/widget.html'].replace(/src="https:\/\/unpkg\.com\/mqtt@[^"]+"/, 'src="../mqtt.min.js"');
 }
 
 
@@ -852,7 +854,7 @@ async function filesApi(req, res, url, tunnel){
 const errOut = (res, e, extra={}) => { if(res.headersSent) return res.destroy(); send(res, e.code||400, JSON.stringify({ ok:false, error:e.message, ...(e.extra||{}) }), 'application/json', extra); };
 function obsLink(){
   if(!ROOM) return '';
-  return `http://localhost:${PORT}/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
+  return `http://localhost:${PORT}/widget/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
 }
 const local = http.createServer(async (req, res) => {
   if(!okHost(req.headers.host)) return send(res, 421, 'wrong host');   // защита от DNS-rebinding
@@ -909,13 +911,14 @@ const local = http.createServer(async (req, res) => {
       return send(res, 200, UI_HTML, 'text/html; charset=utf-8', { 'x-frame-options':'DENY', 'content-security-policy':"frame-ancestors 'none'" });
     }
     if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8');
-    if(p==='/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
-    if(p==='/core.js') return send(res, 200, files['core.js'], 'application/javascript; charset=utf-8');
-    if(p==='/core.css') return send(res, 200, files['core.css'], 'text/css; charset=utf-8');
-    if(p==='/case3d.js') return send(res, 200, files['case3d.js'], 'application/javascript; charset=utf-8');
-    if(p==='/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
-    if(p==='/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
-    if(p==='/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
+    if(p==='/widget.html') return send(res, 302, '', 'text/plain', { location:'/widget/widget.html'+url.search });   // старые ссылки для OBS (hash браузер сохранит сам)
+    if(p==='/widget/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
+    if(p==='/shared/core.js') return send(res, 200, files['shared/core.js'], 'application/javascript; charset=utf-8');
+    if(p==='/shared/core.css') return send(res, 200, files['shared/core.css'], 'text/css; charset=utf-8');
+    if(p==='/shared/case3d.js') return send(res, 200, files['shared/case3d.js'], 'application/javascript; charset=utf-8');
+    if(p==='/shared/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
+    if(p==='/shared/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
+    if(p==='/shared/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
     send(res, 404, 'not found');
   }catch(e){ errOut(res, e); }
@@ -949,7 +952,7 @@ async function shutdown(){
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
-// ---------- связь с программой с окном (host/app) ----------
+// ---------- связь с программой с окном (app/) ----------
 // stdout: строки «READY <порт>», «RESTART», «FAIL <причина>». stdin: «VISIBLE 0/1», «QUIT».
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
