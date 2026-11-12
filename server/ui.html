@@ -120,6 +120,11 @@ details[open] summary{margin-bottom:10px}
     <span data-i18n-switch></span>
   </header>
 
+  <div class="banner" id="crashBanner" hidden>
+    <span>Прошлый запуск завершился ошибкой. Если это повторяется, скопируй отчёт и пришли разработчику.</span>
+    <button id="crashCopy" type="button">Скопировать</button>
+    <button id="crashHide" type="button">Скрыть</button>
+  </div>
   <div class="banner" id="legacyBanner" hidden>
     <span>Новая версия Hudini Host работает в своём окне и сворачивается в трей.</span>
     <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">⬇ Скачать новую версию</a>
@@ -227,7 +232,7 @@ details[open] summary{margin-bottom:10px}
 
   <div class="card">
     <h2>📝 Журнал</h2>
-    <div class="row" style="margin:0 0 8px"><label class="check hint" style="margin:0"><input type="checkbox" id="logConn"> только подключения</label><button id="logCopy" style="margin-left:auto">Скопировать</button></div>
+    <div class="row" style="margin:0 0 8px"><label class="check hint" style="margin:0"><input type="checkbox" id="logConn"> только подключения</label><button id="logFolder" type="button" hidden style="margin-left:auto">📁 Открыть папку</button><button id="logCopy" style="margin-left:6px">Скопировать</button></div>
     <pre id="logs" data-i18n-skip></pre>
   </div>
 </div>
@@ -235,6 +240,13 @@ details[open] summary{margin-bottom:10px}
 <script>
 const $=id=>document.getElementById(id);
 const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (app/), а не в браузере
+// Rust зовёт это после загрузки страницы, если прошлый запуск упал (crash-*.log в data/logs)
+window.hudiniCrash=(name, text)=>{
+  $('crashBanner').hidden=false;
+  $('crashCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(name+'\n\n'+text); toast('Скопировано'); }catch{ toast('Не удалось скопировать'); } };
+  $('crashHide').onclick=()=>{ $('crashBanner').hidden=true; TAURI?.core.invoke('crash_dismiss', { name }).catch(()=>{}); };
+};
+if(TAURI){ $('logFolder').hidden=false; $('logFolder').onclick=()=>TAURI.core.invoke('open_logs').catch(e=>toast(String(e))); }
 function toast(t){ const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', 2600); }
 function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
 function light(id, cls, title){ const e=$(id); e.className='light '+cls; e.title=title; }

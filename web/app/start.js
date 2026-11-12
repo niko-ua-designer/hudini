@@ -134,6 +134,15 @@
   $('updBtn').onclick = () => { $('updBtn').disabled = true; call('apply_update').catch(e => { $('updBtn').disabled = false; toast(String(e?.message || e)); }); };
   if(tauri?.event) tauri.event.listen('hudini-update', e => showUpdate(e.payload));
 
+  // ---------- прошлое падение и журналы ----------
+  function showCrash(c){
+    $('crashBanner').hidden = !c;
+    if(!c) return;
+    $('crashCopy').onclick = async () => { try{ await navigator.clipboard.writeText(c.name + '\n\n' + c.text); toast('Скопировано'); }catch{ toast('Не удалось скопировать'); } };
+    $('crashHide').onclick = () => { $('crashBanner').hidden = true; call('crash_dismiss', { name:c.name }).catch(() => {}); };
+  }
+  $('logsBtn').onclick = () => call('open_logs').catch(e => toast(String(e?.message || e)));
+
   // ---------- запуск ----------
   (async () => {
     await HudiniStore.ready;
@@ -142,6 +151,8 @@
     $('ver').textContent = app.version ? 'v' + app.version : '';
     $('remember').checked = !!app.remember;
     showUpdate(app.update);
+    showCrash(app.crash);
+    $('logsBtn').hidden = !tauri;
     // первая вкладка: сохранённая роль, иначе последняя открытая, иначе «Стример»
     const first = app.role === 'mod' ? 'mod' : app.role === 'streamer' ? 'str' : HudiniStore.get('app.tab', 'str');
     setTab(first === 'mod' ? 'mod' : 'str', false);

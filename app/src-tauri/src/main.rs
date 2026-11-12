@@ -12,7 +12,8 @@ use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::collections::VecDeque;
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -173,6 +174,94 @@ struct Server {
     role: Mutex<String>,
     // последнее «UPDATE <состояние> <версия>» от сервера
     update: Mutex<Option<(String, String)>>,
+    // баннер о прошлом падении на странице управления уже показан в этом запуске
+    crash_shown: AtomicBool,
+}
+
+// ---------- журналы и краши (data/logs) ----------
+// app-ГГГГ-ММ-ДД.log (время UTC): роль, ретранслятор, ошибки страниц. crash-*.log только для настоящих падений:
+// паника программы или неожиданная смерть сервера. Обычное закрытие, выход из трея, обновление и выключение ПК крашем не считаются.
+static LOG_DIR: OnceLock<PathBuf> = OnceLock::new();
+const LOG_KEEP_DAYS: u64 = 7;
+const CRASH_KEEP: usize = 10;
+
+fn civil(secs: u64) -> (i64, u32, u32, u32, u32, u32) {
+    let days = (secs / 86400) as i64;
+    let rem = secs % 86400;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
+    (y, m, d, (rem / 3600) as u32, ((rem % 3600) / 60) as u32, (rem % 60) as u32)
+}
+
+// ("2026-11-12", "2026-11-12T15:04:05Z", "20261112-150405")
+fn stamp() -> (String, String, String) {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let (y, mo, d, h, mi, s) = civil(secs);
+    (format!("{y:04}-{mo:02}-{d:02}"), format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z"), format!("{y:04}{mo:02}{d:02}-{h:02}{mi:02}{s:02}"))
+}
+
+fn clip(text: &str, max: usize) -> String {
+    if text.len() <= max {
+        return text.to_string();
+    }
+    let mut end = max;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &text[..end])
+}
+
+fn applog(text: &str) {
+    let Some(dir) = LOG_DIR.get() else { return };
+    let (date, iso, _) = stamp();
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(dir.join(format!("app-{date}.log"))) {
+        let _ = writeln!(f, "{iso} {}", clip(text, 4000).replace('\n', "\n  "));
+    }
+}
+
+fn write_crash(kind: &str, text: &str) {
+    let Some(dir) = LOG_DIR.get() else { return };
+    let (_, iso, file) = stamp();
+    let body = format!("Hudini {} crash\n{iso}\n{}/{}\n{kind}\n\n{}\n", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, clip(text, 16_000));
+    let _ = fs::write(dir.join(format!("crash-{file}.log")), body);
+    applog(&format!("CRASH {kind}"));
+}
+
+// Старые журналы убираем: app-*.log старше недели, crash-* — оставляем 10 последних
+fn prune_logs(dir: &Path) {
+    let Ok(rd) = fs::read_dir(dir) else { return };
+    let limit = Duration::from_secs(LOG_KEEP_DAYS * 86400);
+    let mut crashes = Vec::new();
+    for e in rd.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        let age = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
+        if name.starts_with("app-") && name.ends_with(".log") && age.is_some_and(|a| a > limit) {
+            let _ = fs::remove_file(e.path());
+        } else if name.starts_with("crash-") {
+            crashes.push(name);
+        }
+    }
+    crashes.sort();
+    while crashes.len() > CRASH_KEEP {
+        let _ = fs::remove_file(dir.join(crashes.remove(0)));
+    }
+}
+
+// Последний ещё не скрытый краш: (имя файла, текст)
+fn unseen_crash() -> Option<(String, String)> {
+    let dir = LOG_DIR.get()?;
+    let mut names: Vec<String> = fs::read_dir(dir).ok()?.flatten().map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.starts_with("crash-") && n.ends_with(".log")).collect();
+    names.sort();
+    let name = names.pop()?;
+    let text = fs::read_to_string(dir.join(&name)).ok()?;
+    Some((name, text))
 }
 
 // Выбор роли, который помнит программа (data/app.json): role пусто, если «запоминать» выключено
@@ -336,11 +425,19 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
     let mut ready = false;
     let mut fail = String::new();
     let token = format!("{} ", app.state::<Server>().token.lock().unwrap());
+    // последние строки журнала сервера: попадают в краш-отчёт, если сервер умер сам
+    let mut tail: VecDeque<String> = VecDeque::new();
     // stdout читаем до конца: если перестать, сервер заблокируется на записи в журнал
     for chunk in BufReader::new(out).split(b'\n') {
         let Ok(bytes) = chunk else { break };
         let line = String::from_utf8_lossy(&bytes);
-        let Some(line) = line.trim().strip_prefix(token.as_str()) else { continue };
+        let Some(line) = line.trim().strip_prefix(token.as_str()) else {
+            if tail.len() >= 40 {
+                tail.pop_front();
+            }
+            tail.push_back(clip(line.trim(), 300));
+            continue;
+        };
         if let Some(p) = line.strip_prefix("READY ") {
             if let (false, Ok(port)) = (ready, p.trim().parse::<u16>()) {
                 ready = true; // порт сервера задаётся один раз за запуск
@@ -363,11 +460,21 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
         return; // роль сменили: этот сервер остановили мы, новый уже запущен
     }
     let child = server.child.lock().unwrap().take();
+    let mut exit = None;
     if let Some(mut c) = child {
-        let _ = c.wait();
+        exit = c.wait().ok();
     }
     *server.stdin.lock().unwrap() = None;
     server.port.store(0, Ordering::SeqCst);
+    if !restart && !fail.starts_with("port ") {
+        // Сервер умер сам. Выключение ПК и закрытие программы могут убить его раньше, чем мы это заметим:
+        // даём секунду и сверяемся, не выходим ли мы сами.
+        thread::sleep(Duration::from_millis(1500));
+        if !server.quitting.load(Ordering::SeqCst) && server.gen.load(Ordering::SeqCst) == gen {
+            let lines: Vec<String> = tail.into_iter().collect();
+            write_crash(&format!("server exited unexpectedly (role {role}): {}", exit.map(|s| s.to_string()).unwrap_or_else(|| "unknown".into())), &lines.join("\n"));
+        }
+    }
     if restart {
         // новая версия уже распакована и запущена: она дождётся, пока эта копия закроется
         server.quitting.store(true, Ordering::SeqCst);
@@ -450,6 +557,7 @@ fn stop_child(app: &AppHandle) {
 
 // Смена роли: останавливаем текущий сервер и запускаем сервер новой роли
 fn switch_role(app: &AppHandle, role: &str) -> Result<(), String> {
+    applog(&format!("role: {role}"));
     let server = app.state::<Server>();
     server.gen.fetch_add(1, Ordering::SeqCst);
     stop_child(app);
@@ -467,6 +575,7 @@ fn switch_role(app: &AppHandle, role: &str) -> Result<(), String> {
 
 // Назад к экрану роли: сервер останавливаем, окно возвращаем на первый экран (настройка «запоминать» не меняется)
 fn to_start_page(app: &AppHandle) {
+    applog("role: back to the start screen");
     let server = app.state::<Server>();
     server.gen.fetch_add(1, Ordering::SeqCst);
     stop_child(app);
@@ -587,7 +696,30 @@ fn app_state(app: AppHandle) -> serde_json::Value {
     let server = app.state::<Server>();
     let running = server.role.lock().unwrap().clone();
     let update = server.update.lock().unwrap().clone().map(|(s, v)| serde_json::json!({ "state": s, "ver": v }));
-    serde_json::json!({ "role": cfg.role, "remember": cfg.remember, "running": running, "version": env!("CARGO_PKG_VERSION"), "update": update })
+    let crash = unseen_crash().map(|(name, text)| serde_json::json!({ "name": name, "text": text }));
+    serde_json::json!({ "role": cfg.role, "remember": cfg.remember, "running": running, "version": env!("CARGO_PKG_VERSION"), "update": update, "crash": crash })
+}
+
+// Ошибки страниц (window.onerror, unhandledrejection) попадают в журнал приложения
+#[tauri::command]
+fn app_log(text: String) {
+    applog(&format!("page: {}", clip(&text, 2000)));
+}
+
+// «Открыть папку с журналами»
+#[tauri::command]
+fn open_logs(app: AppHandle) -> Result<(), String> {
+    let dir = LOG_DIR.get().ok_or("no logs folder")?;
+    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
+// «Скрыть» баннер о прошлом падении: файл остаётся, но помечается как просмотренный
+#[tauri::command]
+fn crash_dismiss(name: String) {
+    let Some(dir) = LOG_DIR.get() else { return };
+    if name.starts_with("crash-") && name.ends_with(".log") && !name.contains(['/', '\\']) {
+        let _ = fs::rename(dir.join(&name), dir.join(name.replace(".log", ".seen.log")));
+    }
 }
 
 #[tauri::command]
@@ -635,14 +767,23 @@ struct RelayState(Mutex<Option<(hudini_relay::Relay, tauri::async_runtime::JoinH
 
 #[tauri::command]
 async fn relay_open(app: AppHandle, addrs: Vec<hudini_relay::Addr>, fp: String) -> Result<u16, String> {
+    let count = addrs.len();
     let relay = hudini_relay::Relay::open(addrs, &fp).await.map_err(|e| e.to_string())?;
     let port = relay.port();
+    applog(&format!("relay: opened on 127.0.0.1:{port}, {count} address(es)"));
     let mut rx = relay.subscribe();
     let handle = app.clone();
     let task = tauri::async_runtime::spawn(async move {
         let _ = handle.emit("relay_status", rx.borrow().clone());
+        let mut last = String::new();
         while rx.changed().await.is_ok() {
             let status = rx.borrow_and_update().clone();
+            // в журнал только смены состояния и адреса, без задержки раз в 2 секунды
+            let key = format!("{} {} {} {}", status.state, status.addr, status.net, status.last_error);
+            if key != last {
+                applog(&format!("relay: {} via {} {} (reconnects {}){}", status.state, status.addr, status.net, status.reconnects, if status.last_error.is_empty() { String::new() } else { format!(": {}", status.last_error) }));
+                last = key;
+            }
             let _ = handle.emit("relay_status", status);
         }
     });
@@ -709,12 +850,22 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(Server::default())
         .manage(RelayState::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status])
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, crash_dismiss])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;
             let data = data_dir(&handle, &exe);
             app.manage(Paths { exe, data: data.clone() });
+            let logs = data.join("logs");
+            let _ = fs::create_dir_all(&logs);
+            prune_logs(&logs);
+            let _ = LOG_DIR.set(logs);
+            let default_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                write_crash("panic", &format!("{info}\n{}", std::backtrace::Backtrace::force_capture()));
+                default_hook(info);
+            }));
+            applog(&format!("start {} ({})", env!("CARGO_PKG_VERSION"), std::env::consts::OS));
             let cfg = load_cfg(&data);
             // запомненная роль стримера: сразу запускаем сервер, экран роли не показываем
             let auto_streamer = cfg.remember && cfg.role == ROLE_STREAMER;
@@ -776,6 +927,17 @@ fn main() {
                     true
                 })
                 .on_page_load(|w, payload| {
+                    // страница управления сервера: показываем баннер о прошлом падении (один раз за запуск)
+                    if payload.event() == PageLoadEvent::Finished {
+                        let app = w.app_handle();
+                        let port = app.state::<Server>().port.load(Ordering::SeqCst);
+                        if is_server_url(payload.url(), port) && !app.state::<Server>().crash_shown.swap(true, Ordering::SeqCst) {
+                            if let Some((name, text)) = unseen_crash() {
+                                let js = format!("window.hudiniCrash&&hudiniCrash({},{})", serde_json::to_string(&name).unwrap_or_default(), serde_json::to_string(&text).unwrap_or_default());
+                                let _ = w.eval(&js);
+                            }
+                        }
+                    }
                     if payload.event() == PageLoadEvent::Finished && is_loading_page(payload.url()) {
                         let app = w.app_handle();
                         let (text, error) = app.state::<Server>().pending.lock().unwrap().clone();
@@ -860,7 +1022,12 @@ fn main() {
                     api.prevent_exit();
                 }
             }
-            RunEvent::Exit => stop_server(app),
+            // выход, о котором попросили мы сами (меню трея, обновление, система): сервер, который умрёт при этом, крашем не считается
+            RunEvent::ExitRequested { code: Some(_), .. } => app.state::<Server>().quitting.store(true, Ordering::SeqCst),
+            RunEvent::Exit => {
+                applog("exit");
+                stop_server(app)
+            }
             #[cfg(target_os = "macos")]
             RunEvent::Reopen { .. } => show_main(app),
             _ => {}

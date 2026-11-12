@@ -162,6 +162,30 @@ const STUB = () => {
     await q.context().close();
   });
 
+  await step('previous crash banner and logs', async () => {
+    const p = await open('ru', () => { window.__appState = { role:'', remember:false, version:'1', update:null, crash:{ name:'crash-20261112-150405.log', text:'Hudini 1 crash\npanic' } }; });
+    check(await p.isVisible('#crashBanner'), 'banner shown from app_state');
+    check(await p.isVisible('#logsBtn'), 'logs button shown inside the app');
+    await p.click('#logsBtn');
+    check((await calls(p)).includes('open_logs'), 'open_logs called');
+    await p.click('#crashHide');
+    eq(await p.evaluate(() => window.__calls.find(c => c[0] === 'crash_dismiss')[1]), { name:'crash-20261112-150405.log' }, 'crash_dismiss with the file name');
+    check(await p.isHidden('#crashBanner'), 'banner hidden');
+    await p.context().close();
+    const q = await open();
+    check(await q.isHidden('#crashBanner'), 'no banner without a crash');
+    await q.context().close();
+  });
+
+  await step('page errors reach the app log', async () => {
+    const p = await open();
+    await p.evaluate(() => { setTimeout(() => { throw new Error('boom from page'); }, 0); });
+    await p.waitForFunction(() => window.__calls.some(c => c[0] === 'app_log'));
+    check((await p.evaluate(() => window.__calls.find(c => c[0] === 'app_log')[1].text)).includes('boom from page'), 'error text logged');
+    for(let i = T.pageErrors.length - 1; i >= 0; i--) if(/boom from page/.test(T.pageErrors[i])) T.pageErrors.splice(i, 1);   // the error was thrown on purpose
+    await p.context().close();
+  });
+
   await step('saved role opens its tab', async () => {
     const p = await open('ru', () => { window.__appState = { role:'mod', remember:true, version:'1', update:null }; });
     check(await p.isVisible('#paneMod') && await p.isChecked('#remember'), 'moderator tab and checkbox from app_state');

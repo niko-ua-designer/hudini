@@ -13,6 +13,9 @@
     "allow-store-save",
     "allow-relay-open",
     "allow-relay-close",
-    "allow-relay-status"
+    "allow-relay-status",
+    "allow-app-log",
+    "allow-open-logs",
+    "allow-crash-dismiss"
   ]
 }

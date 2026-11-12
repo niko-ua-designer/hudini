@@ -29,6 +29,10 @@ button.lg{font-size:16px;padding:12px 34px}
 main{flex:1;min-width:0;overflow:auto;padding:24px 28px}
 .banner{display:flex;gap:12px;align-items:center;justify-content:space-between;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:10px 14px;margin-bottom:16px}
 
+.banner.crash{background:#2a1a1d;border-color:#7a2e3a}
+.banner .btns{display:flex;gap:8px}
+.linkbtn{background:none;border:0;color:var(--muted);justify-content:flex-start;padding:4px}
+.linkbtn:hover{color:var(--text)}
 .hero,.empty{max-width:440px;margin:70px auto 0;text-align:center}
 .big{font-size:50px;line-height:1.2}
 .big svg.ic{width:1em;height:1em;color:var(--acc2)}

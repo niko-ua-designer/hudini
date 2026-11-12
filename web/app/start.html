@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="start.css">
 <script src="../shared/i18n.js"></script>
 <script src="../shared/icons.js"></script>
+<script src="applog.js"></script>
 <script src="store.js"></script>
 <script src="sessions.js"></script>
 </head>
@@ -21,10 +22,15 @@
   <button class="tab" id="tabMod" data-tab="mod" type="button"><span class="ti">🛡</span><span><b>Модератор</b><small>пульт и стримеры</small></span></button>
   <div class="grow"></div>
   <label class="chk"><input type="checkbox" id="remember"> Запоминать роль</label>
+  <button class="linkbtn" id="logsBtn" type="button" hidden>📁 Журналы</button>
   <div class="foot"><span data-i18n-switch></span><small id="ver" data-i18n-skip></small></div>
 </aside>
 
 <main>
+  <div class="banner crash" id="crashBanner" hidden>
+    <span>Прошлый запуск завершился ошибкой</span>
+    <span class="btns"><button id="crashCopy" type="button">Скопировать</button><button id="crashHide" type="button">Скрыть</button></span>
+  </div>
   <div class="banner" id="updBanner" hidden>
     <span><span>Доступна новая версия</span> <b id="updVer" data-i18n-skip></b></span>
     <button class="pri" id="updBtn" type="button">Обновить</button>
