@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Hudini Host",
+  "productName": "Hudini",
   "version": "1.0.0",
-  "identifier": "io.github.nikouadesigner.hudinihost",
+  "identifier": "io.github.nikouadesigner.hudini",
   "build": {
     "frontendDist": "../dist"
   },
@@ -17,8 +17,8 @@
     "active": true,
     "targets": "all",
     "category": "Utility",
-    "shortDescription": "Overlay server for OBS",
-    "longDescription": "Hudini Host runs the Hudini overlay server on the streamer's computer: OBS connects to it locally, moderators through a tunnel.",
+    "shortDescription": "Stream overlay for OBS with a moderator panel",
+    "longDescription": "Hudini runs the stream overlay on the streamer's computer or connects a moderator to it directly, without third-party servers.",
     "copyright": "niko-ua-designer",
     "externalBin": [
       "binaries/hudini-server"

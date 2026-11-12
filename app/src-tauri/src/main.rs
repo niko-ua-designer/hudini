@@ -1,6 +1,8 @@
-// Hudini Host: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
+// Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
-// Связь: сервер пишет в stdout «READY <порт>», «RESTART», «FAIL …»; программа пишет в его stdin «VISIBLE 0/1».
+// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …»; программа пишет в его stdin «VISIBLE 0/1», «APPLY».
+// Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
+// окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
 // Программа закрылась или упала → stdin сервера закрывается → сервер выключается сам.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -19,29 +21,34 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent};
 use tauri::window::Color;
-use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 const MAIN: &str = "main";
-const MODERATOR_URL: &str = "https://niko-ua-designer.github.io/hudini/moderator.html";
 const MINIMIZED_ARG: &str = "--minimized";
 #[cfg(windows)]
 const SERVER_BIN: &str = "hudini-server.exe";
 #[cfg(not(windows))]
 const SERVER_BIN: &str = "hudini-server";
 #[cfg(windows)]
-const LOADING_URL: &str = "http://tauri.localhost/index.html";
+const LOADING_URL: &str = "http://tauri.localhost/app/index.html";
 #[cfg(not(windows))]
-const LOADING_URL: &str = "tauri://localhost/index.html";
+const LOADING_URL: &str = "tauri://localhost/app/index.html";
+#[cfg(windows)]
+const START_URL: &str = "http://tauri.localhost/app/start.html";
+#[cfg(not(windows))]
+const START_URL: &str = "tauri://localhost/app/start.html";
+const ROLE_STREAMER: &str = "streamer";
+const ROLE_MOD: &str = "mod";
 
 // ---------- тексты меню и уведомлений: язык системы ----------
 struct Texts {
     open: &'static str,
     copy_obs: &'static str,
-    moderator: &'static str,
+    switch_role: &'static str,
     autostart: &'static str,
     quit: &'static str,
     starting: &'static str,
@@ -56,13 +63,13 @@ struct Texts {
 }
 
 static RU: Texts = Texts {
-    open: "Открыть Hudini Host",
+    open: "Открыть Hudini",
     copy_obs: "Копировать ссылку для OBS",
-    moderator: "Открыть пульт модератора",
+    switch_role: "Сменить роль",
     autostart: "Запускать вместе с системой",
     quit: "Выйти",
     starting: "Запускаю сервер оверлея…",
-    in_tray: "Hudini Host продолжает работать в трее. Выйти можно через меню иконки.",
+    in_tray: "Hudini продолжает работать в трее. Выйти можно через меню иконки.",
     copied: "Ссылка для OBS скопирована: вставь её в источник «Браузер».",
     no_link: "Ссылки для OBS ещё нет: вставь в программу ссылку от модератора.",
     not_ready: "Сервер ещё запускается, попробуй через пару секунд.",
@@ -72,13 +79,13 @@ static RU: Texts = Texts {
     saved: "Файл сохранён в «Загрузки»",
 };
 static UK: Texts = Texts {
-    open: "Відкрити Hudini Host",
+    open: "Відкрити Hudini",
     copy_obs: "Копіювати посилання для OBS",
-    moderator: "Відкрити пульт модератора",
+    switch_role: "Змінити роль",
     autostart: "Запускати разом із системою",
     quit: "Вийти",
     starting: "Запускаю сервер оверлею…",
-    in_tray: "Hudini Host продовжує працювати в треї. Вийти можна через меню іконки.",
+    in_tray: "Hudini продовжує працювати в треї. Вийти можна через меню іконки.",
     copied: "Посилання для OBS скопійовано: встав його в джерело «Браузер».",
     no_link: "Посилання для OBS ще немає: встав у програму посилання від модератора.",
     not_ready: "Сервер ще запускається, спробуй за кілька секунд.",
@@ -88,13 +95,13 @@ static UK: Texts = Texts {
     saved: "Файл збережено в «Завантаження»",
 };
 static DE: Texts = Texts {
-    open: "Hudini Host öffnen",
+    open: "Hudini öffnen",
     copy_obs: "OBS-Link kopieren",
-    moderator: "Moderatoren-Panel öffnen",
+    switch_role: "Rolle wechseln",
     autostart: "Mit dem System starten",
     quit: "Beenden",
     starting: "Overlay-Server wird gestartet…",
-    in_tray: "Hudini Host läuft im Infobereich weiter. Beenden über das Menü des Symbols.",
+    in_tray: "Hudini läuft im Infobereich weiter. Beenden über das Menü des Symbols.",
     copied: "OBS-Link kopiert: füge ihn in die Quelle „Browser“ ein.",
     no_link: "Noch kein OBS-Link: füge zuerst den Link vom Moderator im Programm ein.",
     not_ready: "Der Server startet noch, versuch es in ein paar Sekunden.",
@@ -104,13 +111,13 @@ static DE: Texts = Texts {
     saved: "Datei in „Downloads“ gespeichert",
 };
 static EN: Texts = Texts {
-    open: "Open Hudini Host",
+    open: "Open Hudini",
     copy_obs: "Copy OBS link",
-    moderator: "Open moderator panel",
+    switch_role: "Switch role",
     autostart: "Start with system",
     quit: "Quit",
     starting: "Starting the overlay server…",
-    in_tray: "Hudini Host keeps running in the tray. Quit from the tray icon menu.",
+    in_tray: "Hudini keeps running in the tray. Quit from the tray icon menu.",
     copied: "OBS link copied: paste it into a Browser source.",
     no_link: "No OBS link yet: paste the link from your moderator into the app first.",
     not_ready: "The server is still starting, try again in a few seconds.",
@@ -160,6 +167,37 @@ struct Server {
     crashes: AtomicU32,
     // что показать на странице загрузки, когда она откроется: (текст, ошибка)
     pending: Mutex<(String, bool)>,
+    // поколение сервера: меняется при смене роли, чтобы читатель остановленного сервера ничего не трогал
+    gen: AtomicU32,
+    // роль запущенного сервера: "streamer", "mod" или пусто
+    role: Mutex<String>,
+    // последнее «UPDATE <состояние> <версия>» от сервера
+    update: Mutex<Option<(String, String)>>,
+}
+
+// Выбор роли, который помнит программа (data/app.json): role пусто, если «запоминать» выключено
+#[derive(Default, Clone)]
+struct AppCfg {
+    role: String,
+    remember: bool,
+}
+
+fn load_cfg(data: &Path) -> AppCfg {
+    let v: serde_json::Value = fs::read_to_string(data.join("app.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    let remember = v.get("remember").and_then(|x| x.as_bool()).unwrap_or(false);
+    let role = v.get("role").and_then(|x| x.as_str()).filter(|r| *r == ROLE_STREAMER || *r == ROLE_MOD).unwrap_or("").to_string();
+    AppCfg { role: if remember { role } else { String::new() }, remember }
+}
+
+fn save_cfg(data: &Path, cfg: &AppCfg) {
+    let _ = write_atomic(&data.join("app.json"), serde_json::json!({ "role": cfg.role, "remember": cfg.remember }).to_string().as_bytes());
+}
+
+// Файл целиком или никак: пишем рядом и переименовываем (обрыв посередине не оставит половину файла)
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)
 }
 
 struct TrayItems {
@@ -201,7 +239,7 @@ fn sync_autostart(app: &AppHandle) {
 }
 
 fn notify(app: &AppHandle, body: &str) {
-    let _ = app.notification().builder().title("Hudini Host").body(body).show();
+    let _ = app.notification().builder().title("Hudini").body(body).show();
 }
 
 // ---------- страница загрузки ----------
@@ -209,7 +247,7 @@ fn set_loading(app: &AppHandle, text: &str, error: bool) {
     let server = app.state::<Server>();
     *server.pending.lock().unwrap() = (text.to_string(), error);
     let Some(w) = app.get_webview_window(MAIN) else { return };
-    let on_loading_page = w.url().map(|u| is_loading_url(&u)).unwrap_or(false);
+    let on_loading_page = w.url().map(|u| is_loading_page(&u)).unwrap_or(false);
     if on_loading_page {
         let js = format!("window.hudiniState&&hudiniState({},{})", serde_json::to_string(text).unwrap_or_default(), error);
         let _ = w.eval(&js);
@@ -218,8 +256,13 @@ fn set_loading(app: &AppHandle, text: &str, error: bool) {
     }
 }
 
-fn is_loading_url(u: &Url) -> bool {
+// Страницы из пакета приложения (экран роли и сессий, страница загрузки, позже пульт)
+fn is_app_url(u: &Url) -> bool {
     u.scheme() == "tauri" || u.host_str() == Some("tauri.localhost")
+}
+
+fn is_loading_page(u: &Url) -> bool {
+    is_app_url(u) && u.path() == "/app/index.html"
 }
 
 // Только наш сервер: http://localhost:<порт сервера>/ (другие программы на localhost в окно не пускаем)
@@ -235,7 +278,7 @@ fn open_external(app: &AppHandle, url: &Url) {
 }
 
 // ---------- сервер (sidecar) ----------
-fn spawn_server(app: &AppHandle) -> Result<(), String> {
+fn spawn_server(app: &AppHandle, role: &str) -> Result<(), String> {
     let paths = app.state::<Paths>();
     let bin = paths.exe.parent().map(|d| d.join(SERVER_BIN)).unwrap_or_else(|| PathBuf::from(SERVER_BIN));
     if !bin.exists() {
@@ -248,6 +291,7 @@ fn spawn_server(app: &AppHandle) -> Result<(), String> {
         .env("OVERLAY_HOST_DIR", &paths.data)
         .env("OVERLAY_APP_EXE", &paths.exe)
         .env("OVERLAY_APP_PID", std::process::id().to_string())
+        .env("OVERLAY_ROLE", role)
         .env("OVERLAY_APP_TOKEN", {
             let t = new_token();
             *app.state::<Server>().token.lock().unwrap() = t.clone();
@@ -266,8 +310,10 @@ fn spawn_server(app: &AppHandle) -> Result<(), String> {
     let stdout = child.stdout.take().ok_or("no stdout")?;
     let stderr = child.stderr.take();
     let server = app.state::<Server>();
+    let gen = server.gen.load(Ordering::SeqCst);
     *server.stdin.lock().unwrap() = child.stdin.take();
     *server.child.lock().unwrap() = Some(child);
+    *server.role.lock().unwrap() = role.to_string();
     // окно спрятано (автозапуск) → сервер знает об этом и после обновления запустит программу тоже в трее
     let hidden = app.get_webview_window(MAIN).and_then(|w| w.is_visible().ok()).map(|v| !v).unwrap_or(false);
     say(app, if hidden { "VISIBLE 0" } else { "VISIBLE 1" });
@@ -280,11 +326,12 @@ fn spawn_server(app: &AppHandle) -> Result<(), String> {
         });
     }
     let app = app.clone();
-    thread::spawn(move || read_server(app, stdout));
+    let role = role.to_string();
+    thread::spawn(move || read_server(app, stdout, gen, role));
     Ok(())
 }
 
-fn read_server(app: AppHandle, out: ChildStdout) {
+fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
     let mut restart = false;
     let mut ready = false;
     let mut fail = String::new();
@@ -297,8 +344,14 @@ fn read_server(app: AppHandle, out: ChildStdout) {
         if let Some(p) = line.strip_prefix("READY ") {
             if let (false, Ok(port)) = (ready, p.trim().parse::<u16>()) {
                 ready = true; // порт сервера задаётся один раз за запуск
-                on_ready(&app, port);
+                on_ready(&app, port, &role);
             }
+        } else if let Some(u) = line.strip_prefix("UPDATE ") {
+            let mut it = u.split_whitespace();
+            let state = it.next().unwrap_or("").to_string();
+            let ver = it.next().filter(|v| *v != "-").unwrap_or("").to_string();
+            *app.state::<Server>().update.lock().unwrap() = Some((state.clone(), ver.clone()));
+            let _ = app.emit("hudini-update", serde_json::json!({ "state": state, "ver": ver }));
         } else if line == "RESTART" {
             restart = true;
         } else if let Some(f) = line.strip_prefix("FAIL ") {
@@ -306,6 +359,9 @@ fn read_server(app: AppHandle, out: ChildStdout) {
         }
     }
     let server = app.state::<Server>();
+    if server.gen.load(Ordering::SeqCst) != gen {
+        return; // роль сменили: этот сервер остановили мы, новый уже запущен
+    }
     let child = server.child.lock().unwrap().take();
     if let Some(mut c) = child {
         let _ = c.wait();
@@ -324,6 +380,17 @@ fn read_server(app: AppHandle, out: ChildStdout) {
     let t = texts();
     let busy = fail.starts_with("port ");
     let n = server.crashes.fetch_add(1, Ordering::SeqCst) + 1;
+    if role == ROLE_MOD {
+        // у модератора сервер только проверяет обновления: перезапускаем тихо, экран сессий не трогаем
+        if n > 5 {
+            return;
+        }
+        thread::sleep(Duration::from_secs(2 * n as u64));
+        if !server.quitting.load(Ordering::SeqCst) && server.gen.load(Ordering::SeqCst) == gen {
+            let _ = spawn_server(&app, ROLE_MOD);
+        }
+        return;
+    }
     if busy {
         let port = fail.split_whitespace().nth(1).unwrap_or("7777");
         set_loading(&app, &t.port_busy.replace("{port}", port), true);
@@ -335,18 +402,21 @@ fn read_server(app: AppHandle, out: ChildStdout) {
     }
     let wait = if busy { Duration::from_secs(3) } else { Duration::from_secs(2 * n as u64) };
     thread::sleep(wait);
-    if server.quitting.load(Ordering::SeqCst) {
+    if server.quitting.load(Ordering::SeqCst) || server.gen.load(Ordering::SeqCst) != gen {
         return;
     }
-    if let Err(e) = spawn_server(&app) {
+    if let Err(e) = spawn_server(&app, ROLE_STREAMER) {
         set_loading(&app, &e, true);
     }
 }
 
-fn on_ready(app: &AppHandle, port: u16) {
+fn on_ready(app: &AppHandle, port: u16, role: &str) {
     let server = app.state::<Server>();
     server.port.store(port, Ordering::SeqCst);
     server.crashes.store(0, Ordering::SeqCst);
+    if role != ROLE_STREAMER {
+        return; // роль модератора: порта нет, окно остаётся на экране сессий
+    }
     if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}", server.token.lock().unwrap()))) {
         // одноразовый вход: сервер выдаёт окну cookie hudini_admin и перенаправляет на страницу управления
         let _ = w.navigate(url);
@@ -355,9 +425,14 @@ fn on_ready(app: &AppHandle, port: u16) {
 
 // Закрыть stdin → сервер снимает объявление для пульта и выходит сам; если не вышел за 2 с, убиваем
 fn stop_server(app: &AppHandle) {
+    app.state::<Server>().quitting.store(true, Ordering::SeqCst);
+    stop_child(app);
+}
+
+fn stop_child(app: &AppHandle) {
     let server = app.state::<Server>();
-    server.quitting.store(true, Ordering::SeqCst);
     server.stdin.lock().unwrap().take();
+    *server.role.lock().unwrap() = String::new();
     let child = server.child.lock().unwrap().take();
     if let Some(mut c) = child {
         let start = Instant::now();
@@ -371,6 +446,35 @@ fn stop_server(app: &AppHandle) {
         let _ = c.kill();
         let _ = c.wait();
     }
+}
+
+// Смена роли: останавливаем текущий сервер и запускаем сервер новой роли
+fn switch_role(app: &AppHandle, role: &str) -> Result<(), String> {
+    let server = app.state::<Server>();
+    server.gen.fetch_add(1, Ordering::SeqCst);
+    stop_child(app);
+    server.port.store(0, Ordering::SeqCst);
+    server.crashes.store(0, Ordering::SeqCst);
+    if role == ROLE_STREAMER {
+        set_loading(app, texts().starting, false);
+    }
+    let r = spawn_server(app, role);
+    if let (Err(e), ROLE_STREAMER) = (&r, role) {
+        set_loading(app, e, true);
+    }
+    r
+}
+
+// Назад к экрану роли: сервер останавливаем, окно возвращаем на первый экран (настройка «запоминать» не меняется)
+fn to_start_page(app: &AppHandle) {
+    let server = app.state::<Server>();
+    server.gen.fetch_add(1, Ordering::SeqCst);
+    stop_child(app);
+    server.port.store(0, Ordering::SeqCst);
+    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(START_URL)) {
+        let _ = w.navigate(url);
+    }
+    show_main(app);
 }
 
 fn quit(app: &AppHandle) {
@@ -476,6 +580,112 @@ fn wait_for_exit(pid: u32, timeout: Duration) {
     }
 }
 
+// ---------- команды для страниц из пакета приложения (capabilities/default.json) ----------
+#[tauri::command]
+fn app_state(app: AppHandle) -> serde_json::Value {
+    let cfg = app.state::<Mutex<AppCfg>>().lock().unwrap().clone();
+    let server = app.state::<Server>();
+    let running = server.role.lock().unwrap().clone();
+    let update = server.update.lock().unwrap().clone().map(|(s, v)| serde_json::json!({ "state": s, "ver": v }));
+    serde_json::json!({ "role": cfg.role, "remember": cfg.remember, "running": running, "version": env!("CARGO_PKG_VERSION"), "update": update })
+}
+
+#[tauri::command]
+async fn start_role(app: AppHandle, role: String, remember: bool) -> Result<(), String> {
+    if role != ROLE_STREAMER && role != ROLE_MOD {
+        return Err("unknown role".into());
+    }
+    {
+        let paths = app.state::<Paths>();
+        let cfg_state = app.state::<Mutex<AppCfg>>();
+        let mut cfg = cfg_state.lock().unwrap();
+        cfg.remember = remember;
+        cfg.role = if remember { role.clone() } else { String::new() };
+        save_cfg(&paths.data, &cfg);
+    }
+    let server = app.state::<Server>();
+    let alive = server.child.lock().unwrap().is_some() && *server.role.lock().unwrap() == role;
+    if alive {
+        return Ok(());
+    }
+    tauri::async_runtime::spawn_blocking(move || switch_role(&app, &role)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn set_remember(app: AppHandle, remember: bool) {
+    let paths = app.state::<Paths>();
+    let running = app.state::<Server>().role.lock().unwrap().clone();
+    let cfg_state = app.state::<Mutex<AppCfg>>();
+    let mut cfg = cfg_state.lock().unwrap();
+    cfg.remember = remember;
+    cfg.role = if remember { running } else { String::new() };
+    save_cfg(&paths.data, &cfg);
+}
+
+#[tauri::command]
+fn apply_update(app: AppHandle) {
+    say(&app, "APPLY");
+}
+
+// ---------- ретранслятор модератора (app/relay) ----------
+// Пульт ходит на 127.0.0.1:<порт>, ретранслятор по каждому соединению открывает TLS к серверу стримера
+// и сверяет сертификат с отпечатком из кода. Статус уходит в окно событием relay_status.
+#[derive(Default)]
+struct RelayState(Mutex<Option<(hudini_relay::Relay, tauri::async_runtime::JoinHandle<()>)>>);
+
+#[tauri::command]
+async fn relay_open(app: AppHandle, addrs: Vec<hudini_relay::Addr>, fp: String) -> Result<u16, String> {
+    let relay = hudini_relay::Relay::open(addrs, &fp).await.map_err(|e| e.to_string())?;
+    let port = relay.port();
+    let mut rx = relay.subscribe();
+    let handle = app.clone();
+    let task = tauri::async_runtime::spawn(async move {
+        let _ = handle.emit("relay_status", rx.borrow().clone());
+        while rx.changed().await.is_ok() {
+            let status = rx.borrow_and_update().clone();
+            let _ = handle.emit("relay_status", status);
+        }
+    });
+    let old = app.state::<RelayState>().0.lock().unwrap().replace((relay, task));
+    if let Some((_, t)) = old {
+        t.abort(); // прежний ретранслятор закрывается при выбросе
+    }
+    Ok(port)
+}
+
+#[tauri::command]
+fn relay_close(app: AppHandle) {
+    if let Some((_, t)) = app.state::<RelayState>().0.lock().unwrap().take() {
+        t.abort();
+    }
+}
+
+#[tauri::command]
+fn relay_status(app: AppHandle) -> Option<hudini_relay::Status> {
+    app.state::<RelayState>().0.lock().unwrap().as_ref().map(|(r, _)| r.status())
+}
+
+// Хранилище страниц приложения: один файл data/store.json (ключ → значение, как localStorage)
+const STORE_MAX: usize = 32 * 1024 * 1024;
+
+#[tauri::command]
+fn store_load(app: AppHandle) -> serde_json::Value {
+    let path = app.state::<Paths>().data.join("store.json");
+    fs::read_to_string(path).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}))
+}
+
+#[tauri::command]
+fn store_save(app: AppHandle, data: serde_json::Value) -> Result<(), String> {
+    if !data.is_object() {
+        return Err("store must be an object".into());
+    }
+    let text = data.to_string();
+    if text.len() > STORE_MAX {
+        return Err("store is too large".into());
+    }
+    write_atomic(&app.state::<Paths>().data.join("store.json"), text.as_bytes()).map_err(|e| e.to_string())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(pid) = args.iter().position(|a| a == "--wait-pid").and_then(|i| args.get(i + 1)).and_then(|s| s.parse::<u32>().ok()) {
@@ -498,28 +708,41 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Server::default())
+        .manage(RelayState::default())
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;
             let data = data_dir(&handle, &exe);
             app.manage(Paths { exe, data: data.clone() });
+            let cfg = load_cfg(&data);
+            // запомненная роль стримера: сразу запускаем сервер, экран роли не показываем
+            let auto_streamer = cfg.remember && cfg.role == ROLE_STREAMER;
+            app.manage(Mutex::new(cfg));
             let t = texts();
 
             // ---- окно ----
             let nav = handle.clone();
             let popup = handle.clone();
             let dl = handle.clone();
-            let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-                .title("Hudini Host")
+            let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App((if auto_streamer { "app/index.html" } else { "app/start.html" }).into()))
+                .disable_drag_drop_handler() // нужно, чтобы код модератора можно было перетащить в окно (HTML5 drag-and-drop)
+                .title("Hudini")
                 .inner_size(980.0, 760.0)
                 .min_inner_size(720.0, 520.0)
                 .center()
                 .visible(!start_hidden)
                 .background_color(Color(0x0f, 0x11, 0x15, 0xff))
-                // в окне только страница загрузки и страница управления; остальные ссылки — в обычном браузере
+                // в окне только страницы приложения и страница управления; остальные ссылки — в обычном браузере
                 .on_navigation(move |url| {
                     let port = nav.state::<Server>().port.load(Ordering::SeqCst);
-                    if is_loading_url(url) || is_server_url(url, port) || url.as_str() == "about:blank" {
+                    // ссылка «Сменить роль» на странице управления: сервер останавливаем, окно возвращаем на первый экран
+                    if is_server_url(url, port) && url.path() == "/__role" {
+                        let app = nav.clone();
+                        thread::spawn(move || to_start_page(&app));
+                        return false;
+                    }
+                    if is_app_url(url) || is_server_url(url, port) || url.as_str() == "about:blank" {
                         return true;
                     }
                     open_external(&nav, url);
@@ -553,7 +776,7 @@ fn main() {
                     true
                 })
                 .on_page_load(|w, payload| {
-                    if payload.event() == PageLoadEvent::Finished && is_loading_url(payload.url()) {
+                    if payload.event() == PageLoadEvent::Finished && is_loading_page(payload.url()) {
                         let app = w.app_handle();
                         let (text, error) = app.state::<Server>().pending.lock().unwrap().clone();
                         let js = format!("window.hudiniState&&hudiniState({},{})", serde_json::to_string(&text).unwrap_or_default(), error);
@@ -581,25 +804,26 @@ fn main() {
             // ---- трей ----
             let open = MenuItem::with_id(app, "open", t.open, true, None::<&str>)?;
             let copy = MenuItem::with_id(app, "copy_obs", t.copy_obs, true, None::<&str>)?;
-            let panel = MenuItem::with_id(app, "moderator", t.moderator, true, None::<&str>)?;
+            let switch = MenuItem::with_id(app, "switch_role", t.switch_role, true, None::<&str>)?;
             let auto_on = handle.autolaunch().is_enabled().unwrap_or(false);
             let auto = CheckMenuItem::with_id(app, "autostart", t.autostart, true, auto_on, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", t.quit, true, None::<&str>)?;
             let sep1 = PredefinedMenuItem::separator(app)?;
             let sep2 = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&open, &copy, &panel, &sep1, &auto, &sep2, &quit_item])?;
+            let menu = Menu::with_items(app, &[&open, &copy, &switch, &sep1, &auto, &sep2, &quit_item])?;
             app.manage(TrayItems { autostart: auto });
 
             TrayIconBuilder::with_id("main")
                 .icon(Image::from_bytes(include_bytes!("../icons/64x64.png"))?)
-                .tooltip("Hudini Host")
+                .tooltip("Hudini")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id().0.as_str() {
                     "open" => show_main(app),
                     "copy_obs" => copy_obs_link(app),
-                    "moderator" => {
-                        let _ = app.opener().open_url(MODERATOR_URL, None::<&str>);
+                    "switch_role" => {
+                        let app = app.clone();
+                        thread::spawn(move || to_start_page(&app));
                     }
                     "autostart" => {
                         let al = app.autolaunch();
@@ -619,14 +843,16 @@ fn main() {
                 .build(app)?;
 
             // ---- сервер ----
-            set_loading(&handle, t.starting, false);
-            if let Err(e) = spawn_server(&handle) {
-                set_loading(&handle, &e, true);
+            if auto_streamer {
+                set_loading(&handle, t.starting, false);
+                if let Err(e) = spawn_server(&handle, ROLE_STREAMER) {
+                    set_loading(&handle, &e, true);
+                }
             }
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building Hudini Host")
+        .expect("error while building Hudini")
         .run(|app, event| match event {
             // окно только прячется, поэтому сама программа без окон не выходит — только через «Выйти»
             RunEvent::ExitRequested { api, code: None, .. } => {

@@ -1,8 +1,10 @@
-# Hudini Host app (window + tray): build
+# Hudini app (window + tray): build
 
 `app` is a Tauri 2 shell around the overlay server. The server (`server/server.js`) is compiled by Bun into
 one file and shipped next to the app as a sidecar named `hudini-server`. The app starts it with
 `OVERLAY_APP=1`, waits for the `READY <port>` line on its stdout and opens `http://localhost:<port>/` in its window.
+The window first shows the role screen from the app bundle (`web/app/start.html`): streamer (server with the management page) or
+moderator (`OVERLAY_ROLE=mod`: no ports, updates only; the window shows the saved streamers).
 
 The Tauri part has to be built on each OS natively (one runner per OS). The sidecar can be cross-compiled by Bun,
 but it is simplest to build it on the same runner.
@@ -15,6 +17,12 @@ but it is simplest to build it on the same runner.
 - Node 20+ for `npx @tauri-apps/cli@2.12.4`
 - Linux only: `sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libdbus-1-dev pkg-config build-essential`
   (build on `ubuntu-22.04` so the binary runs on older glibc)
+
+## 0. App pages: assemble `app/dist/`
+
+```sh
+sh tools/build-app.sh     # web/app + web/shared + web/panel → app/dist (frontendDist); run before every `tauri build`
+```
 
 ## 1. Sidecar: compile the server into `src-tauri/binaries/`
 
@@ -45,12 +53,12 @@ app version is only metadata).
 
 | OS | Command | Result |
 |----|---------|--------|
-| Windows | `npx @tauri-apps/cli@2.12.4 build --no-bundle` | `target/release/hudini-host.exe` + `target/release/hudini-server.exe` |
-| Linux | `npx @tauri-apps/cli@2.12.4 build --no-bundle` | `target/release/hudini-host` + `target/release/hudini-server` |
-| macOS arm64 | `npx @tauri-apps/cli@2.12.4 build --bundles app` | `target/release/bundle/macos/Hudini Host.app` |
-| macOS Intel | `npx @tauri-apps/cli@2.12.4 build --bundles app --target x86_64-apple-darwin` | `target/x86_64-apple-darwin/release/bundle/macos/Hudini Host.app` |
+| Windows | `npx @tauri-apps/cli@2.12.4 build --no-bundle` | `target/release/hudini.exe` + `target/release/hudini-server.exe` |
+| Linux | `npx @tauri-apps/cli@2.12.4 build --no-bundle` | `target/release/hudini` + `target/release/hudini-server` |
+| macOS arm64 | `npx @tauri-apps/cli@2.12.4 build --bundles app` | `target/release/bundle/macos/Hudini.app` |
+| macOS Intel | `npx @tauri-apps/cli@2.12.4 build --bundles app --target x86_64-apple-darwin` | `target/x86_64-apple-darwin/release/bundle/macos/Hudini.app` |
 
-On macOS the sidecar ends up inside the bundle: `Hudini Host.app/Contents/MacOS/hudini-server`.
+On macOS the sidecar ends up inside the bundle: `Hudini.app/Contents/MacOS/hudini-server`.
 The bundle is not signed or notarized (Tauri ad-hoc signs it on arm64); users open it with right-click → Open the first time.
 
 ## 3. Portable zip (what the updater expects)
@@ -63,11 +71,11 @@ Every zip holds one folder `HudiniHost/` (no spaces: the Windows autostart entry
 
 ```
 HudiniHost/
-  HudiniHost.exe         (Windows: target/release/hudini-host.exe renamed)
+  HudiniHost.exe         (Windows: target/release/hudini.exe renamed)
   hudini-server.exe      (Windows)
-  HudiniHost             (Linux: target/release/hudini-host renamed, chmod +x)
+  HudiniHost             (Linux: target/release/hudini renamed, chmod +x)
   hudini-server          (Linux, chmod +x)
-  Hudini Host.app/       (macOS: the whole bundle, the server is inside it)
+  Hudini.app/       (macOS: the whole bundle, the server is inside it)
   README.txt
   data/                  (empty; settings and moderators' files go here)
 ```
@@ -80,19 +88,19 @@ Packing:
 ```sh
 # Linux (keeps the executable bits)
 mkdir -p "pkg/HudiniHost/data"
-cp target/release/hudini-host "pkg/HudiniHost/HudiniHost"; cp target/release/hudini-server README.txt "pkg/HudiniHost/"
+cp target/release/hudini "pkg/HudiniHost/HudiniHost"; cp target/release/hudini-server README.txt "pkg/HudiniHost/"
 (cd pkg && zip -9 -r "../HudiniHost-linux-1.0rc4.zip" "HudiniHost")
 
 # macOS (ditto keeps permissions and symlinks inside the .app)
 mkdir -p "pkg/HudiniHost/data"
-cp -R "target/release/bundle/macos/Hudini Host.app" README.txt "pkg/HudiniHost/"
+cp -R "target/release/bundle/macos/Hudini.app" README.txt "pkg/HudiniHost/"
 ditto -c -k --keepParent "pkg/HudiniHost" HudiniHost-mac-arm64-1.0rc4.zip
 ```
 
 ```powershell
 # Windows
 New-Item -ItemType Directory -Force "pkg/HudiniHost/data" | Out-Null
-Copy-Item target/release/hudini-host.exe "pkg/HudiniHost/HudiniHost.exe"
+Copy-Item target/release/hudini.exe "pkg/HudiniHost/HudiniHost.exe"
 Copy-Item target/release/hudini-server.exe, README.txt "pkg/HudiniHost/"
 Push-Location pkg; tar -a -c -f ../HudiniHost-windows-1.0rc4.zip "HudiniHost"; Pop-Location
 ```
@@ -110,7 +118,7 @@ updates only from those, an app build (OVERLAY_APP set) only from the new ones.
 - Linux: `libwebkit2gtk-4.1-0`, `libayatana-appindicator3-1` (tray), a notification daemon for notifications.
 - macOS 10.15+. If macOS starts the app from a quarantined download (App Translocation, read-only path), the
   app keeps its data in `~/Library/Application Support/io.github.nikouadesigner.hudinihost/data` and cannot
-  update itself; moving `Hudini Host.app` (or the whole folder) to another place with Finder fixes that.
+  update itself; moving `Hudini.app` (or the whole folder) to another place with Finder fixes that.
 
 ## How the parts talk
 

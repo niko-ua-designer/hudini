@@ -85,6 +85,8 @@ jobs:
           cd server && npm ci --ignore-scripts --no-audit --no-fund
           mkdir -p ../app/src-tauri/binaries
           bun build --compile --minify --target=${{ matrix.bun }} server.js --outfile "../app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
+      - name: App pages
+        run: sh tools/build-app.sh
       - name: Tauri build
         working-directory: app
         run: |
@@ -95,10 +97,10 @@ jobs:
           fi
       - name: Zip
         run: |
-          # Paths from the Tauri project (app/src-tauri, productName "Hudini Host", binary "hudini-host"); adjust here if they change
+          # Paths from the Tauri project (app/src-tauri, productName "Hudini", binary "hudini"); adjust here if they change
           REL="app/src-tauri/target/$TRIPLE/release"
-          APP_EXE="$REL/hudini-host$EXT"                       # Windows / Linux app binary
-          MAC_APP="$REL/bundle/macos/Hudini Host.app"           # macOS app bundle (sidecar is inside it)
+          APP_EXE="$REL/hudini$EXT"                       # Windows / Linux app binary
+          MAC_APP="$REL/bundle/macos/Hudini.app"           # macOS app bundle (sidecar is inside it)
           SIDECAR="app/src-tauri/binaries/hudini-server-$TRIPLE$EXT"
           # Portable: a "HudiniHost" folder (no spaces: the autostart entry is not quoted) with the app, the server next to it, an empty data/ folder and a short readme
           rm -rf pkg && mkdir -p "pkg/HudiniHost/data"
@@ -203,8 +205,8 @@ jobs:
           prerelease: ${{ needs.version.outputs.pre }}
           make_latest: ${{ needs.version.outputs.pre == 'false' }}
           body: |
-            **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Download the zip for your system: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) or `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Unzip it into its own folder and run HudiniHost (macOS: Hudini Host.app). It lives in the tray (next to the clock) and can start with your computer.
-            **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Скачай zip для своей системы: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) или `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Распакуй в отдельную папку и запусти HudiniHost (macOS: Hudini Host.app). Программа живёт в трее (у часов) и может запускаться вместе с компьютером.
+            **EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live CS2 data. Download the zip for your system: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) or `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Unzip it into its own folder and run HudiniHost (macOS: Hudini.app). It lives in the tray (next to the clock) and can start with your computer.
+            **RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и данные из CS2. Скачай zip для своей системы: Windows `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`, Linux `HudiniHost-linux-${{ needs.version.outputs.pretty }}.zip`, macOS `HudiniHost-mac-arm64-${{ needs.version.outputs.pretty }}.zip` (Apple Silicon) или `HudiniHost-mac-intel-${{ needs.version.outputs.pretty }}.zip`. Распакуй в отдельную папку и запусти HudiniHost (macOS: Hudini.app). Программа живёт в трее (у часов) и может запускаться вместе с компьютером.
             **UK:** Hudini Host, програма для стрімера. Завантаж zip для своєї системи (Windows: `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`), розпакуй в окрему папку й запусти HudiniHost. Програма живе в треї та може запускатися разом із комп'ютером.
             **DE:** Hudini Host, die App für den Streamer. Lade die Zip-Datei für dein System herunter (Windows: `HudiniHost-windows-${{ needs.version.outputs.pretty }}.zip`), entpacke sie in einen eigenen Ordner und starte HudiniHost. Die App sitzt im Infobereich (Tray) und kann mit dem Computer starten.
 

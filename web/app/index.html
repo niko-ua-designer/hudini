@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Hudini Host</title>
+<title>Hudini</title>
 <meta name="color-scheme" content="dark">
 <style>
 html,body{margin:0;height:100%;background:#0f1115;color:#e6e8ee;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -15,15 +15,19 @@ b{font-size:18px}
 .bar{width:160px;height:3px;border-radius:2px;background:#1d212a;overflow:hidden}
 .bar i{display:block;width:40%;height:100%;background:#7c5cff;border-radius:2px;animation:go 1.1s ease-in-out infinite}
 .err~.bar{display:none}
+#back{display:none;color:#a78bfa;text-decoration:none;border:1px solid #2a2f3a;border-radius:8px;padding:7px 14px;cursor:pointer}
+#back:hover{border-color:#7c5cff}
+.err~#back{display:inline-block}
 @keyframes go{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
 </style>
 </head>
 <body>
 <div class="box">
   <div class="logo"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg></div>
-  <b>Hudini Host</b>
+  <b>Hudini</b>
   <div id="msg"></div>
   <div class="bar"><i></i></div>
+  <a id="back" href="start.html">← Hudini</a>
 </div>
 <script>
 // Rust calls hudiniState(text, isError) while the server starts or when it fails
