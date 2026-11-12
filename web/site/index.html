@@ -4,22 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
-<title>Hudini · stream overlay run by your moderator</title>
-<meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from a web panel. Text, pictures, GIFs, timers, polls, Twitch chat, CS2. Encrypted, files stay on the streamer's PC.">
+<title>Hudini · one app for streamer and moderator</title>
+<meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from the Hudini app. Text, pictures, GIFs, timers, polls, cases, Twitch chat, CS2. Direct encrypted connection, no third-party servers.">
 <meta name="theme-color" content="#08090f">
 <link rel="icon" href="shared/icons/icon-192.png">
 <link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="shared/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=2">
-<script src="site.js?v=2" defer></script>
+<link rel="stylesheet" href="site.css?v=3">
+<script src="shared/connect-guides.js?v=1"></script>
+<script src="site-texts.js?v=1"></script>
+<script src="site.js?v=3" defer></script>
 </head>
 <body data-page="home">
 <div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <header class="top">
   <a class="logo" href="index.html"><img src="shared/icons/icon-192.png" alt="">Hudini</a>
-  <nav><a href="#features" data-t="features"></a><a href="#how" data-t="how"></a><a href="#cs2">CS2</a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
-  <a class="btn small primary" href="panel/moderator.html" data-t="open"></a>
+  <nav><a href="#start" data-t="start"></a><a href="#connect" data-t="connect"></a><a href="#features" data-t="features"></a><a href="#cs2">CS2</a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a></nav>
+  <a class="btn small primary" data-dl data-os-label target="_blank" rel="noopener"></a>
   <select class="lang" aria-label="Language"></select>
 </header>
 
@@ -29,22 +31,34 @@
     <h1 data-t="h1"></h1>
     <p class="sub" data-t="sub"></p>
     <div class="cta">
-      <a class="btn primary shine" href="panel/moderator.html" data-t="open"></a>
-      <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
+      <a class="btn primary shine" data-dl data-os-label target="_blank" rel="noopener"></a>
+      <a class="btn ghost" href="#connect" data-t="howConnect"></a>
     </div>
-    <small class="free" data-t="free"></small>
+    <small class="free"><span data-t="dlOther"></span> <span id="otherOs"></span> · <a data-sums target="_blank" rel="noopener" data-t="dlSums"></a></small>
     <div class="demo-wrap"><div class="demo" id="demo" role="img" data-t-aria="demoAria"></div></div>
-  </section>
-
-  <section class="block wrap reveal" id="features">
-    <h2 data-t="fTitle"></h2><p class="lead" data-t="fLead"></p>
-    <div class="cards glow c3" data-cards="f1,f2,f3,f4,f5,f6"></div>
   </section>
 
   <section class="block wrap reveal" id="how">
     <h2 data-t="hTitle"></h2><p class="lead" data-t="hLead"></p>
     <div class="flow" id="flow"></div>
-    <ol class="steps" data-steps="h1s,h2s,h3s"></ol>
+  </section>
+
+  <section class="block wrap reveal" id="start">
+    <h2 data-t="startTitle"></h2><p class="lead" data-t="startLead"></p>
+    <div class="roles">
+      <div class="role s"><h3 data-t="sTitle"></h3><ol id="sSteps"></ol></div>
+      <div class="role m"><h3 data-t="mTitle"></h3><ol id="mSteps"></ol></div>
+    </div>
+  </section>
+
+  <section class="block wrap reveal" id="connect">
+    <h2 id="cTitle"></h2><p class="lead" id="cLead"></p>
+    <div class="chooser" id="chooser"></div>
+  </section>
+
+  <section class="block wrap reveal" id="features">
+    <h2 data-t="fTitle"></h2><p class="lead" data-t="fLead"></p>
+    <div class="cards glow c3" data-cards="f1,f2,f3,f4,f5,f6"></div>
   </section>
 
   <section class="block wrap reveal" id="cs2">
@@ -73,8 +87,8 @@
       <h2 data-t="ctaTitle"></h2>
       <p data-t="ctaText"></p>
       <div class="cta">
-        <a class="btn primary shine" href="panel/moderator.html" data-t="open"></a>
-        <a class="btn ghost" data-dl data-t="download" target="_blank" rel="noopener"></a>
+        <a class="btn primary shine" data-dl data-os-label target="_blank" rel="noopener"></a>
+        <a class="btn ghost" href="#connect" data-t="howConnect"></a>
       </div>
     </div>
   </section>

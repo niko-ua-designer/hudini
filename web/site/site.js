@@ -12,7 +12,17 @@
     return 'en';
   }
   let lang = pick();
-  const DL = 'https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4';
+  // Release page for now; phase 8 points these at the Hudini-<os>-<version>.zip assets and SHA256SUMS.txt.
+  const REL = 'https://github.com/niko-ua-designer/hudini/releases';
+  const OSES = [['windows', 'Windows'], ['linux', 'Linux'], ['macos', 'macOS']];
+  function detectOs(){
+    const u = (navigator.userAgentData?.platform || navigator.platform || '') + ' ' + (navigator.userAgent || '');
+    if(/android|iphone|ipad/i.test(u)) return 'windows';   // phones cannot run it; show the default
+    if(/mac/i.test(u)) return 'macos';
+    if(/linux|x11|cros/i.test(u)) return 'linux';
+    return 'windows';
+  }
+  const myOs = detectOs();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Line icons (24×24, stroke = currentColor).
@@ -52,149 +62,8 @@
   };
   const ic = (k, cls) => `<svg class="i${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${P[k]}</svg>`;
 
-  // Landing texts. Values are trusted HTML written here, never user input.
-  const T = {
-    en: {
-      home:'Home', panel:'Panel', features:'Features', how:'How it works', privacy:'Privacy', help:'Help',
-      badge:'1.0 RC4 · free',
-      h1:'A stream overlay run by <span>your moderator</span>',
-      sub:'Show text, pictures, GIFs, timers, polls and effects on the streamer’s screen. The streamer only starts the app, you do the rest.',
-      open:'Open the panel', download:ic('dl') + 'Download Hudini Host', free:'Free · open source · Windows, macOS, Linux',
-      demoAria:'Animated demo: a moderator clicks buttons in the panel and the elements appear on stream',
-      dOnline:'online · Hudini Host', dText:'Text', dPoll:'Poll', dTimer:'Timer', dCount:'Counter', dSticker:'Sticker', dScen:'Scenario', dHide:'Hide all', dChat:'Twitch chat',
-      dMsg:'GG! Next round 🔥', dPollQ:'Which map next?', dPollFoot:'Type a number in chat 1–3 · votes:', dBreak:'BREAK', dDeaths:'Deaths',
-      dToast:'Scenario <b>!pog</b> → sticker + confetti', dPower:'Powerful feature', dCap:'CS2 HUD · live data from the game', dRound:'Round', dKills:'5 kills', dSeries:'Major · map 2 of 3',
-      fTitle:'What it can do', fLead:'Everything you place in the panel appears on stream within a fraction of a second.',
-      f1:['image', 'Anything on screen', 'Text, pictures, GIFs, videos, YouTube, Twitch and websites. Drag, resize, rotate, animate.'],
-      f2:['timer', 'Timers and counters', 'Countdowns, stopwatches, "until" timers, clocks and counters with flip-clock style.'],
-      f3:['chat', 'Chat and polls <i class="lvl">β</i>', 'Show a chat message on stream with one click, run polls and count chat commands.'],
-      f4:['bolt', 'Scenarios <i class="lvl">β</i>', '"If someone types !cringe, show the meme for 5 seconds and fire confetti."'],
-      f5:['cs', 'CS2 <i class="lvl">β</i>', 'Live K/D/A, HP, money and DOUBLE/TRIPLE/ACE popups via Valve’s official integration.'],
-      f6:['users', 'Together', 'Invite a second moderator and edit the screen at the same time.'],
-      hTitle:'How it works', hLead:'Three parts that find each other by themselves.',
-      nP:'Moderator’s panel', nPs:'in the browser', nH:'Hudini Host', nHs:'on the streamer’s PC', nO:'OBS', nOs:'Browser source', wire:'AES-256 · signed',
-      h1s:'<b>The streamer</b> runs Hudini Host and adds the link it shows to OBS as a Browser source (1920×1080).',
-      h2s:'<b>The moderator</b> opens the panel and sends the streamer one link. The panel finds the streamer’s app automatically.',
-      h3s:'<b>Everything</b> you do in the panel appears on stream right away: drag, show, hide, play.',
-      csTitle:'CS2 HUD like a <span class="grad">tournament broadcast</span>',
-      csLead:'Hudini reads live data from the game and draws a HUD like a pro broadcast. The streamer just plays.',
-      csList:['K/D/A of every player', 'HP, armor and money', 'Kill feed with weapons and headshots', 'DOUBLE / TRIPLE / ACE popups', 'Team names, logos and score', 'Tournament HUD with the observed player', 'Works through Valve’s official Game State Integration: no cheats, nothing injected into the game'],
-      csAria:'Animated CS2 HUD example: scoreboard and duel card', mmPlayer:'Player', mmDuel:'Clutch 1v1',
-      pTitle:'Privacy and security', pLead:'Built so that nobody in the middle can read or change what is on stream.',
-      p1:['lock', 'Encrypted and signed', 'Every change is encrypted (AES-256) and signed with the moderator’s key. The widget ignores anything unsigned.'],
-      p2:['home', 'Files stay with the streamer', 'Uploads are stored encrypted on the streamer’s PC with limits they set. No cloud storage.'],
-      p3:['hide', 'No accounts, no trackers', 'Keys live in your browser and in the link after #, which never reaches a server.'],
-      p4:['code', 'Open source', 'The code is public under AGPL-3.0, presets and animations under MIT.'],
-      lTitle:'What β and α mean', lText:'Everything without a mark is stable. <i class="lvl">β</i> beta works but is still being tested on more computers. <i class="lvl alpha">α</i> alpha is an experiment.',
-      ctaTitle:'Ready to run the stream <span class="grad">like a show</span>?', ctaText:'The panel opens right in the browser. Send the streamer Hudini Host, and in five minutes you are on screen.',
-      issues:'Report a problem', license:'License', helpLink:'Help',
-    },
-    ru: {
-      home:'Главная', panel:'Пульт', features:'Возможности', how:'Как работает', privacy:'Приватность', help:'Справка',
-      badge:'1.0 RC4 · бесплатно',
-      h1:'Оверлей для стрима, которым управляет <span>модератор</span>',
-      sub:'Показывай на экране стримера текст, картинки, GIF, таймеры, голосования и эффекты. Стример только запускает программу, остальное делаешь ты.',
-      open:'Открыть пульт', download:ic('dl') + 'Скачать Hudini Host', free:'Бесплатно · открытый код · Windows, macOS, Linux',
-      demoAria:'Анимированное демо: модератор нажимает кнопки в пульте, и элементы появляются на стриме',
-      dOnline:'онлайн · Hudini Host', dText:'Текст', dPoll:'Опрос', dTimer:'Таймер', dCount:'Счётчик', dSticker:'Стикер', dScen:'Сценарий', dHide:'Скрыть всё', dChat:'Чат Twitch',
-      dMsg:'GG! Ещё раунд 🔥', dPollQ:'Какую карту дальше?', dPollFoot:'Пиши в чат число 1–3 · голосов:', dBreak:'ПЕРЕРЫВ', dDeaths:'Смерти',
-      dToast:'Сценарий <b>!pog</b> → стикер + конфетти', dPower:'Мощная фича', dCap:'CS2 HUD · живые данные из игры', dRound:'Раунд', dKills:'5 убийств', dSeries:'Major · карта 2 из 3',
-      fTitle:'Что умеет', fLead:'Всё, что ставишь в пульте, появляется на стриме за долю секунды.',
-      f1:['image', 'Что угодно на экране', 'Текст, картинки, GIF, видео, YouTube, Twitch и сайты. Двигай, меняй размер, крути, анимируй.'],
-      f2:['timer', 'Таймеры и счётчики', 'Обратный отсчёт, секундомер, «отсчёт до», часы и счётчики, в том числе флип-часы.'],
-      f3:['chat', 'Чат и голосования <i class="lvl">β</i>', 'Сообщение из чата на стрим в один клик, голосования и счётчики команд.'],
-      f4:['bolt', 'Сценарии <i class="lvl">β</i>', '«Если кто-то написал !кринж — показать мем на 5 секунд и запустить конфетти».'],
-      f5:['cs', 'CS2 <i class="lvl">β</i>', 'K/D/A, HP, деньги и всплывашки DOUBLE/TRIPLE/ACE через официальную интеграцию Valve.'],
-      f6:['users', 'Вместе', 'Пригласи второго модератора и меняйте экран одновременно.'],
-      hTitle:'Как это работает', hLead:'Три части, которые находят друг друга сами.',
-      nP:'Пульт модератора', nPs:'в браузере', nH:'Hudini Host', nHs:'на ПК стримера', nO:'OBS', nOs:'источник «Браузер»', wire:'AES-256 · подпись',
-      h1s:'<b>Стример</b> запускает Hudini Host и ставит в OBS ссылку из программы как источник «Браузер» (1920×1080).',
-      h2s:'<b>Модератор</b> открывает пульт и отправляет стримеру одну ссылку. Пульт сам находит программу стримера.',
-      h3s:'<b>Всё</b>, что делаешь в пульте, сразу появляется на стриме: двигай, показывай, прячь, запускай.',
-      csTitle:'CS2 HUD как на <span class="grad">турнирной трансляции</span>',
-      csLead:'Hudini берёт живые данные из игры и рисует HUD как у профессиональной трансляции. Стример просто играет.',
-      csList:['K/D/A каждого игрока', 'HP, броня и деньги', 'Килфид с оружием и хедшотами', 'Всплывашки DOUBLE / TRIPLE / ACE', 'Названия, логотипы и счёт команд', 'Турнирный HUD с карточкой наблюдаемого игрока', 'Работает через официальную Game State Integration от Valve: без читов и без вмешательства в игру'],
-      csAria:'Анимированный пример CS2 HUD: таблица счёта и карточка дуэли', mmPlayer:'Игрок', mmDuel:'Клатч 1 на 1',
-      pTitle:'Приватность и безопасность', pLead:'Устроено так, чтобы никто посередине не мог прочитать или подменить то, что на стриме.',
-      p1:['lock', 'Шифрование и подпись', 'Каждое изменение шифруется (AES-256) и подписывается ключом модератора. Виджет не принимает ничего без подписи.'],
-      p2:['home', 'Файлы у стримера', 'Загрузки хранятся зашифрованными на ПК стримера, с его лимитами. Никакого облака.'],
-      p3:['hide', 'Без аккаунтов и трекеров', 'Ключи живут в твоём браузере и в ссылке после #, а эта часть не уходит на сервер.'],
-      p4:['code', 'Открытый код', 'Код открыт под AGPL-3.0, пресеты и анимации под MIT.'],
-      lTitle:'Что значат β и α', lText:'Всё без метки стабильное. <i class="lvl">β</i> бета работает, но ещё проверяется на разных компьютерах. <i class="lvl alpha">α</i> альфа — эксперимент.',
-      ctaTitle:'Готов вести стрим <span class="grad">как шоу</span>?', ctaText:'Пульт открывается прямо в браузере. Отправь стримеру Hudini Host, и через пять минут ты уже на экране.',
-      issues:'Сообщить о проблеме', license:'Лицензия', helpLink:'Справка',
-    },
-    uk: {
-      home:'Головна', panel:'Пульт', features:'Можливості', how:'Як працює', privacy:'Приватність', help:'Довідка',
-      badge:'1.0 RC4 · безкоштовно',
-      h1:'Оверлей для стриму, яким керує <span>модератор</span>',
-      sub:'Показуй на екрані стримера текст, картинки, GIF, таймери, голосування й ефекти. Стример лише запускає програму, решту робиш ти.',
-      open:'Відкрити пульт', download:ic('dl') + 'Завантажити Hudini Host', free:'Безкоштовно · відкритий код · Windows, macOS, Linux',
-      demoAria:'Анімоване демо: модератор натискає кнопки в пульті, і елементи з’являються на стримі',
-      dOnline:'онлайн · Hudini Host', dText:'Текст', dPoll:'Опитування', dTimer:'Таймер', dCount:'Лічильник', dSticker:'Стікер', dScen:'Сценарій', dHide:'Сховати все', dChat:'Чат Twitch',
-      dMsg:'GG! Ще раунд 🔥', dPollQ:'Яку карту далі?', dPollFoot:'Пиши в чат число 1–3 · голосів:', dBreak:'ПЕРЕРВА', dDeaths:'Смерті',
-      dToast:'Сценарій <b>!pog</b> → стікер + конфеті', dPower:'Потужна фіча', dCap:'CS2 HUD · живі дані з гри', dRound:'Раунд', dKills:'5 вбивств', dSeries:'Major · карта 2 з 3',
-      fTitle:'Що вміє', fLead:'Усе, що ставиш у пульті, з’являється на стримі за частку секунди.',
-      f1:['image', 'Будь-що на екрані', 'Текст, картинки, GIF, відео, YouTube, Twitch і сайти. Рухай, змінюй розмір, крути, анімуй.'],
-      f2:['timer', 'Таймери й лічильники', 'Зворотний відлік, секундомір, «відлік до», годинник і лічильники, зокрема фліп-годинник.'],
-      f3:['chat', 'Чат і голосування <i class="lvl">β</i>', 'Повідомлення з чату на стрим в один клік, голосування й лічильники команд.'],
-      f4:['bolt', 'Сценарії <i class="lvl">β</i>', '«Якщо хтось написав !крінж — показати мем на 5 секунд і запустити конфеті».'],
-      f5:['cs', 'CS2 <i class="lvl">β</i>', 'K/D/A, HP, гроші й спливашки DOUBLE/TRIPLE/ACE через офіційну інтеграцію Valve.'],
-      f6:['users', 'Разом', 'Запроси другого модератора й змінюйте екран одночасно.'],
-      hTitle:'Як це працює', hLead:'Три частини, які знаходять одна одну самі.',
-      nP:'Пульт модератора', nPs:'у браузері', nH:'Hudini Host', nHs:'на ПК стримера', nO:'OBS', nOs:'джерело «Браузер»', wire:'AES-256 · підпис',
-      h1s:'<b>Стример</b> запускає Hudini Host і ставить в OBS посилання з програми як джерело «Браузер» (1920×1080).',
-      h2s:'<b>Модератор</b> відкриває пульт і надсилає стримеру одне посилання. Пульт сам знаходить програму стримера.',
-      h3s:'<b>Усе</b>, що робиш у пульті, одразу з’являється на стримі: рухай, показуй, ховай, запускай.',
-      csTitle:'CS2 HUD як на <span class="grad">турнірній трансляції</span>',
-      csLead:'Hudini бере живі дані з гри й малює HUD як у професійної трансляції. Стример просто грає.',
-      csList:['K/D/A кожного гравця', 'HP, броня й гроші', 'Кілфід зі зброєю та хедшотами', 'Спливашки DOUBLE / TRIPLE / ACE', 'Назви, логотипи й рахунок команд', 'Турнірний HUD з карткою гравця, за яким стежить камера', 'Працює через офіційну Game State Integration від Valve: без читів і без втручання в гру'],
-      csAria:'Анімований приклад CS2 HUD: таблиця рахунку й картка дуелі', mmPlayer:'Гравець', mmDuel:'Клатч 1 на 1',
-      pTitle:'Приватність і безпека', pLead:'Влаштовано так, щоб ніхто посередині не міг прочитати чи підмінити те, що на стримі.',
-      p1:['lock', 'Шифрування й підпис', 'Кожна зміна шифрується (AES-256) і підписується ключем модератора. Віджет не приймає нічого без підпису.'],
-      p2:['home', 'Файли у стримера', 'Завантаження зберігаються зашифрованими на ПК стримера, з його лімітами. Жодної хмари.'],
-      p3:['hide', 'Без акаунтів і трекерів', 'Ключі живуть у твоєму браузері й у посиланні після #, а ця частина не йде на сервер.'],
-      p4:['code', 'Відкритий код', 'Код відкритий під AGPL-3.0, пресети й анімації під MIT.'],
-      lTitle:'Що означають β і α', lText:'Усе без позначки стабільне. <i class="lvl">β</i> бета працює, але ще перевіряється на різних комп’ютерах. <i class="lvl alpha">α</i> альфа — експеримент.',
-      ctaTitle:'Готовий вести стрим <span class="grad">як шоу</span>?', ctaText:'Пульт відкривається просто в браузері. Надішли стримеру Hudini Host, і за п’ять хвилин ти вже на екрані.',
-      issues:'Повідомити про проблему', license:'Ліцензія', helpLink:'Довідка',
-    },
-    de: {
-      home:'Start', panel:'Pult', features:'Funktionen', how:'So funktioniert’s', privacy:'Datenschutz', help:'Hilfe',
-      badge:'1.0 RC4 · kostenlos',
-      h1:'Ein Stream-Overlay, das <span>dein Mod</span> steuert',
-      sub:'Zeig Text, Bilder, GIFs, Timer, Umfragen und Effekte auf dem Bildschirm des Streamers. Der Streamer startet nur das Programm, den Rest machst du.',
-      open:'Pult öffnen', download:ic('dl') + 'Hudini Host herunterladen', free:'Kostenlos · Open Source · Windows, macOS, Linux',
-      demoAria:'Animierte Demo: Ein Mod klickt Knöpfe im Pult und die Elemente erscheinen im Stream',
-      dOnline:'online · Hudini Host', dText:'Text', dPoll:'Umfrage', dTimer:'Timer', dCount:'Zähler', dSticker:'Sticker', dScen:'Szenario', dHide:'Alles ausblenden', dChat:'Twitch-Chat',
-      dMsg:'GG! Nächste Runde 🔥', dPollQ:'Welche Map als Nächstes?', dPollFoot:'Schreib 1–3 in den Chat · Stimmen:', dBreak:'PAUSE', dDeaths:'Tode',
-      dToast:'Szenario <b>!pog</b> → Sticker + Konfetti', dPower:'Top-Funktion', dCap:'CS2 HUD · Live-Daten aus dem Spiel', dRound:'Runde', dKills:'5 Kills', dSeries:'Major · Map 2 von 3',
-      fTitle:'Was es kann', fLead:'Alles, was du im Pult platzierst, erscheint in Sekundenbruchteilen im Stream.',
-      f1:['image', 'Alles auf den Bildschirm', 'Text, Bilder, GIFs, Videos, YouTube, Twitch und Websites. Verschieben, skalieren, drehen, animieren.'],
-      f2:['timer', 'Timer und Zähler', 'Countdown, Stoppuhr, „bis“-Timer, Uhr und Zähler, auch im Flip-Clock-Stil.'],
-      f3:['chat', 'Chat und Umfragen <i class="lvl">β</i>', 'Eine Chatnachricht mit einem Klick in den Stream, Umfragen und Befehlszähler.'],
-      f4:['bolt', 'Szenarien <i class="lvl">β</i>', '„Wenn jemand !cringe schreibt, zeig das Meme 5 Sekunden und starte Konfetti.“'],
-      f5:['cs', 'CS2 <i class="lvl">β</i>', 'K/D/A, HP, Geld und DOUBLE/TRIPLE/ACE-Popups über Valves offizielle Schnittstelle.'],
-      f6:['users', 'Zusammen', 'Lade einen zweiten Mod ein und bearbeitet den Bildschirm gleichzeitig.'],
-      hTitle:'So funktioniert’s', hLead:'Drei Teile, die sich von selbst finden.',
-      nP:'Pult des Mods', nPs:'im Browser', nH:'Hudini Host', nHs:'auf dem PC des Streamers', nO:'OBS', nOs:'Browser-Quelle', wire:'AES-256 · signiert',
-      h1s:'<b>Der Streamer</b> startet Hudini Host und fügt den angezeigten Link in OBS als Browser-Quelle ein (1920×1080).',
-      h2s:'<b>Der Mod</b> öffnet das Pult und schickt dem Streamer einen Link. Das Pult findet das Programm des Streamers selbst.',
-      h3s:'<b>Alles</b>, was du im Pult machst, erscheint sofort im Stream: verschieben, zeigen, verstecken, abspielen.',
-      csTitle:'CS2 HUD wie bei einer <span class="grad">Turnierübertragung</span>',
-      csLead:'Hudini liest Live-Daten aus dem Spiel und zeichnet ein HUD wie bei einer Profi-Übertragung. Der Streamer spielt einfach.',
-      csList:['K/D/A jedes Spielers', 'HP, Rüstung und Geld', 'Killfeed mit Waffen und Headshots', 'DOUBLE / TRIPLE / ACE-Popups', 'Teamnamen, Logos und Spielstand', 'Turnier-HUD mit dem beobachteten Spieler', 'Läuft über Valves offizielle Game State Integration: keine Cheats, nichts wird ins Spiel eingeschleust'],
-      csAria:'Animiertes CS2-HUD-Beispiel: Scoreboard und Duell-Karte', mmPlayer:'Spieler', mmDuel:'Clutch 1v1',
-      pTitle:'Datenschutz und Sicherheit', pLead:'So gebaut, dass niemand dazwischen lesen oder ändern kann, was im Stream läuft.',
-      p1:['lock', 'Verschlüsselt und signiert', 'Jede Änderung wird verschlüsselt (AES-256) und mit dem Schlüssel des Mods signiert. Das Widget ignoriert alles Unsignierte.'],
-      p2:['home', 'Dateien bleiben beim Streamer', 'Uploads liegen verschlüsselt auf dem PC des Streamers, mit seinen Limits. Keine Cloud.'],
-      p3:['hide', 'Keine Konten, keine Tracker', 'Die Schlüssel liegen in deinem Browser und im Link nach dem #, der nie einen Server erreicht.'],
-      p4:['code', 'Open Source', 'Der Code ist öffentlich unter AGPL-3.0, Presets und Animationen unter MIT.'],
-      lTitle:'Was β und α bedeuten', lText:'Alles ohne Markierung ist stabil. <i class="lvl">β</i> Beta funktioniert, wird aber noch auf mehr Computern getestet. <i class="lvl alpha">α</i> Alpha ist ein Experiment.',
-      ctaTitle:'Bereit für einen Stream <span class="grad">wie eine Show</span>?', ctaText:'Das Pult öffnet sich direkt im Browser. Schick dem Streamer Hudini Host, und in fünf Minuten bist du auf dem Bildschirm.',
-      issues:'Problem melden', license:'Lizenz', helpLink:'Hilfe',
-    },
-  };
+  // Landing texts live in site-texts.js (trusted HTML written by us, never user input).
+  const T = window.HUDINI_SITE_T;
 
   // ---------- pausable clocks: a demo only advances while it is on screen and the tab is visible ----------
   const clocks = new Set();
@@ -538,13 +407,38 @@
     el.innerHTML = node('browser', t.nP, t.nPs) + wire('w1', t.wire) + node('pc', t.nH, t.nHs) + wire('w2', 'localhost') + node('obs', t.nO, t.nOs);
   }
 
+  // ---------- "How do we connect?": pick what you already have, get the steps ----------
+  let picked = 'easy';
+  function chooser(el){
+    const g = window.HUDINI_CONNECT?.[lang] || window.HUDINI_CONNECT?.en; if(!g) return;
+    document.getElementById('cTitle').textContent = g.title; document.getElementById('cLead').textContent = g.lead;
+    const id = picked === 'easy' ? 'tailscale' : picked, m = g.methods[id];
+    const list = a => `<ol>${a.map(x => `<li>${x}</li>`).join('')}</ol>`;
+    el.innerHTML = `<p class="q">${g.q}</p>
+      <div class="chips" role="radiogroup" aria-label="${g.q}">${Object.keys(g.pick).map(k => `<button type="button" role="radio" aria-checked="${k === picked}" data-pick="${k}" class="${k === picked ? 'on' : ''}">${g.pick[k]}</button>`).join('')}</div>
+      <div class="answer">
+        <div class="ahead"><h3>${m.name}</h3><span class="atag">${m.tag}</span>${picked === 'easy' ? `<span class="rec">${g.recommend}</span>` : ''}</div>
+        <p class="when">${m.when}</p>
+        <div class="two"><div class="role s"><h4>${g.secS}</h4>${list(m.s)}</div><div class="role m"><h4>${g.secM}</h4>${list(m.m)}</div></div>
+        <div class="notes"><div class="note ok"><b>${g.secCheck}</b><p>${g.check}</p></div><div class="note"><b>${g.secFix}</b>${list(m.fix)}</div></div>
+        <p class="fw">${g.firewall}</p>
+      </div>`;
+    el.onclick = e => { const b = e.target.closest('[data-pick]'); if(!b) return; picked = b.dataset.pick; chooser(el); el.querySelector(`[data-pick="${picked}"]`)?.focus(); };
+  }
+
   function card(c){ return `<div class="card"><div class="ic">${ic(c[0])}</div><h3>${c[1]}</h3><p>${c[2]}</p></div>`; }
   function landing(t){
     for(const el of document.querySelectorAll('[data-t-aria]')) el.setAttribute('aria-label', t[el.dataset.tAria] || '');
     for(const el of document.querySelectorAll('[data-cards]')) el.innerHTML = el.dataset.cards.split(',').map(k => card(t[k])).join('');
-    for(const el of document.querySelectorAll('[data-steps]')) el.innerHTML = el.dataset.steps.split(',').map(k => `<li>${t[k]}</li>`).join('');
-    for(const a of document.querySelectorAll('a[data-dl]')) a.href = DL;
+    const osName = OSES.find(o => o[0] === myOs)[1];
+    for(const a of document.querySelectorAll('a[data-dl]')) a.href = REL;
+    for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + t.dlFor.replace('{os}', osName);
+    for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
+    const other = document.getElementById('otherOs');
+    if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
     for(const a of document.querySelectorAll('a[data-help]')) a.href = 'help.html?lang=' + lang;
+    for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
+    const ch = document.getElementById('chooser'); if(ch) chooser(ch);
     const list = document.getElementById('csList');
     if(list) list.innerHTML = t.csList.map((s, i, a) => `<li${i === a.length - 1 ? ' class="wide"' : ''}>${ic('check')}<span>${s}</span></li>`).join('');
     const csTag = document.querySelector('[data-t="csTag"]'); if(csTag) csTag.innerHTML = ic('star') + t.dPower;
