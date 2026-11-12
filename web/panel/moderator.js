@@ -11,12 +11,11 @@ if(window.top!==window.self){
 }
 // ================== НАСТРОЙКИ ==================
 // Должны совпадать с widget.html
-const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt'; // общий сервер: только чтобы найти Hudini Host
 const TOPIC_PREFIX = 'stream-overlay/v1';
 // Пусто = виджет лежит рядом с этим файлом (так и есть на GitHub Pages)
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
-const PART_BYTES = 8*1048576;           // файлы уходят в программу кусками (туннель Cloudflare берёт до 100 МБ за раз)
+const PART_BYTES = 8*1048576;           // файлы уходят в программу кусками по 8 МБ
 const HOST_DL = 'https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4';
 // ===============================================
 
@@ -29,13 +28,13 @@ function rid(n){
 }
 function toast(t, ms=2400){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'), ms); }
 function setPill(el, cls, text){ el.className='pill '+cls; el.textContent=text; }
-function lsGet(k, d){ try{ const v=localStorage.getItem(k); return v==null ? d : JSON.parse(v); }catch{ return d; } }
-function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+// Данные пульта лежат в HudiniStore: в приложении это файл data/store.json на ПК, в тестах и браузере localStorage
+function lsGet(k, d){ return HudiniStore.get(k, d); }
+function lsSet(k, v){ HudiniStore.set(k, v); }
 
 const qs=new URLSearchParams(location.search);
-const brokerUrl=qs.get('broker') || BROKER_URL;
 // после перехода по ссылке оставляем в адресе только служебные параметры
-function keepQuery(){ const q=new URLSearchParams(); for(const k of ['broker','variant']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
+function keepQuery(){ const q=new URLSearchParams(); for(const k of ['variant']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
 const clientId='mod_'+rid(10);
 const topics = r => ({ base:`${TOPIC_PREFIX}/${r}`, state:`${TOPIC_PREFIX}/${r}/state`, fx:`${TOPIC_PREFIX}/${r}/fx` });
 const validCode = c => typeof c==='string' && /^[a-z0-9_-]{4,64}$/i.test(c) && !['__proto__','constructor','prototype'].includes(c.toLowerCase());
@@ -52,26 +51,11 @@ function saveRooms(){
   saveChain=saveChain.then(async()=>lsSet('overlay.vault2', vaultPass ? { locked: await lockJSON(vaultPass, data) } : { plain:data })).catch(e=>console.warn(e));
   return saveChain;
 }
-const cleanAddr = h => h && typeof h.url==='string' && /^wss?:\/\/[^\s/]+\/mqtt$/.test(h.url) && typeof h.pass==='string' && h.pass.length<200 ? { url:h.url, pass:h.pass } : undefined;
 function cleanRoom(r){
   return r && validCode(r.code) && typeof r.k==='string' && typeof r.p==='string' && r.s && typeof r.s==='object'
-    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, home:cleanAddr(r.home), manual:cleanAddr(r.manual), slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined } : null;
+    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined } : null;
 }
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
-// Комнаты из старых версий (без ключей). Их коды были видны на брокере всем, поэтому выдаём новые.
-async function migrateOld(){
-  const legacy=[], old=lsGet('overlay.rooms', null);
-  if(Array.isArray(old)) legacy.push(...old.filter(r=>validCode(r?.code)));
-  let one=null; try{ one=localStorage.getItem('overlay.room'); }catch{}
-  if(one && one[0]==='"') try{ one=JSON.parse(one); }catch{}
-  if(validCode(one) && !legacy.some(r=>r.code===one)) legacy.push({ code:one, name:'Комната 1' });
-  for(const r of legacy) rooms.push(await makeRoom(r.name||'Комната'));
-  if(legacy.length){
-    lsSet('overlay.oldCodes', [...new Set([...(lsGet('overlay.oldCodes',[])||[]), ...legacy.map(r=>r.code)])]);
-    try{ localStorage.removeItem('overlay.rooms'); localStorage.removeItem('overlay.room'); }catch{}
-  }
-  return legacy.length;
-}
 async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
 
 let state={ visible:true, els:[] };
@@ -103,25 +87,41 @@ function renderObs(){
   if(bad && !renderObs.warned){ renderObs.warned=true; toast(`⚠ У стримера источник ${bad.w}×${bad.h}, а нужно 1920×1080: оверлей будет сплюснут`, 7000); }
 }
 setInterval(renderObs, 3000);
-// Подключения. Общий сервер нужен только чтобы найти программу стримера Hudini Host: раз в минуту она
-// публикует туда свой адрес и пароль, зашифрованные ключом комнаты. Экран, файлы и CS2 идут только через программу.
-// Если общий сервер недоступен, пульт пробует последний известный адрес (он хранится в комнате).
-let pubClient=null, homeInfo=null, homeClient=null, hostNote='';
+// Подключение. Пульт говорит только с программой стримера (Hudini Host) и больше ни с кем:
+// - в приложении: ретранслятор открывает порт на 127.0.0.1, сам ходит к серверу по TLS и сверяет отпечаток сертификата из кода;
+//   пульт подключается к этому порту как к обычному брокеру (команды relay_open / relay_close, событие relay_status);
+// - в тестах: openHome({ url, pass }) прямо на адрес сервера.
+// Экран, файлы и CS2 идут только через программу. Без неё пульт работает: всё уйдёт стримеру при подключении.
+let homeInfo=null, homeClient=null, hostNote='';
+const TAURI=window.__TAURI__;
+let session=null, relayInfo=null, relayPort=0;   // сохранённая сессия приложения и последнее состояние ретранслятора
 function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/srv', topics(room).base+'/host'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/host'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
-// Адрес для файлов: тот же туннель, только https и с паролем в заголовке
+// Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
   if(!homeInfo || !client?.connected) return null;
   return { base:homeInfo.url.replace(/^ws/, 'http').replace(/\/mqtt$/, ''), auth:'Bearer '+homeInfo.pass };
 }
+// Один источник правды для индикатора связи: состояние ретранслятора + состояние MQTT
+function netName(n){ const r=(window.HudiniSessions?.NET_NAMES||{})[n] || n || ''; return window.HudiniI18n ? window.HudiniI18n.t(r) : r; }
 function hostStatus(){
-  if(client?.connected) return;
-  const pill=$('status');
-  if(homeClient){ setPill(pill, 'warn', 'подключаюсь к Hudini Host…'); pill.title='Адрес программы стримера: '+(homeInfo?.url||''); return; }
+  const pill=$('status'), R=relayInfo;
+  if(client?.connected){
+    const net=R?.net ? ' · '+netName(R.net) : '', rtt=R?.rtt_ms!=null ? ` · ${R.rtt_ms} ms` : '';
+    const slow=R?.rtt_ms>=200 ? 'bad' : R?.rtt_ms>=80 ? 'warn' : 'ok';
+    setPill(pill, slow, 'онлайн · Hudini Host'+net+rtt);
+    pill.title='Подключено к программе стримера'+(R?.addr ? ': '+R.addr : '')+(R?.reconnects ? `\nПереподключений: ${R.reconnects}` : '');
+    return;
+  }
+  if(R?.state==='badcert'){ setPill(pill, 'bad', 'отпечаток не совпал: код устарел'); pill.title='Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.'; return; }
+  if(R?.state==='offline'){ setPill(pill, 'bad', 'сервер не отвечает'); pill.title='Hudini Host не отвечает ни по одному адресу из кода. Проверь, что у тебя и у стримера включён один и тот же VPN (Tailscale, Radmin, Porthole), а программа запущена.'+(R.last_error ? '\n'+R.last_error : ''); return; }
+  if(!homeClient && hostNote){ setPill(pill, /пароль/.test(hostNote) ? 'bad' : 'warn', hostNote); pill.title='Экран стримера меняется только через программу Hudini Host.'; return; }
+  if(R?.state==='connecting' || relayPort && !homeClient){ setPill(pill, 'warn', 'подключаюсь к адресам из кода…'); pill.title='Пробую адреса из кода стримера: '+(session?.addrs?.length||1); return; }
+  if(homeClient){ setPill(pill, 'warn', 'подключаюсь к Hudini Host…'); pill.title=''; return; }
   // без программы пульт работает: всё уйдёт стримеру при подключении, поэтому это ожидание, а не ошибка
   setPill(pill, /пароль/.test(hostNote) ? 'bad' : 'warn', hostNote || '⏳ Ждём Hudini Host');
   pill.title='Экран стримера меняется только через программу Hudini Host на его компьютере.\nНажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.';
@@ -130,17 +130,16 @@ function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
   client=c;
   if(!c?.connected){ hostStatus(); return; }
-  setPill($('status'), 'ok', 'онлайн · Hudini Host'); $('status').title='Подключено к программе стримера: '+(homeInfo?.url||'');
+  hostStatus();
   if(pendingOffline){ pendingOffline=false; publishNow(1); }   // сначала свои изменения, сделанные без связи
   c.subscribe(mainTopics(), { qos:1 }); Assets.retry(); renderAll(); refreshStorage(true);
 }
 function wire(c){
   c.on('reconnect', ()=>{ if(client===c) setPill($('status'), 'warn', 'переподключение…'); });
-  c.on('offline',   ()=>{ if(client===c){ setPill($('status'), 'bad', 'нет связи с Hudini Host'); } });
+  c.on('offline',   ()=>{ if(client===c){ if(relayInfo?.state==='badcert' || relayInfo?.state==='offline') hostStatus(); else setPill($('status'), 'bad', 'нет связи с Hudini Host'); } });
   c.on('error', e=>{ console.warn(e); if(client===c) setPill($('status'), 'bad', 'ошибка связи'); });
   let chain=Promise.resolve();   // по очереди: расшифровка асинхронная, порядок важен
   c.on('message', (topic, payload, packet)=>{
-    if(topic===topics(room).base+'/srv'){ onSrv(payload); return; }
     if(client!==c) return;
     chain=chain.then(()=>onMessage(topic, payload, packet)).catch(e=>console.warn(e));
   });
@@ -148,19 +147,29 @@ function wire(c){
 function connect(){
   if(typeof mqtt==='undefined'){
     $('fatal').style.display='flex';
-    $('fatal').textContent='Не загрузилась библиотека mqtt.js (unpkg.com). Проверь интернет или блокировщик рекламы и обнови страницу.';
+    $('fatal').textContent='Не загрузилась библиотека mqtt.js. Переустанови Hudini или обнови страницу.';
     return;
   }
-  pubClient=mqttClient(brokerUrl, '', { reconnectPeriod:5000 });
-  wire(pubClient);
-  pubClient.on('connect', ()=>pubClient.subscribe(topics(room).base+'/srv', { qos:1 }));
-  tryHome(); hostStatus();
+  hostStatus();
+  reopenHome();
 }
-// Ручной адрес (для продвинутых) главнее объявлений; иначе последний известный
-function tryHome(){
-  const r=curRoom(); if(!r) return;
-  const h=r.manual || r.home;
-  if(h?.url && h?.pass) openHome({ url:h.url, user:'mod', pass:h.pass });
+// Ретранслятор приложения: порт на 127.0.0.1 и состояние связи в событиях relay_status
+async function openRelay(){
+  try{
+    if(TAURI.event && !openRelay.listening){
+      openRelay.listening=true;
+      TAURI.event.listen('relay_status', e=>{ relayInfo=e.payload; hostStatus(); noteSessionNet(); });
+    }
+    const port=await TAURI.core.invoke('relay_open', { addrs:session.addrs, fp:session.fp });
+    relayPort=port; hostStatus();
+    openHome({ url:`ws://127.0.0.1:${port}/mqtt`, pass:session.pass });
+  }catch(e){ console.warn(e); hostNote='Не удалось открыть подключение: '+String(e?.message||e); relayPort=0; hostStatus(); }
+}
+// Запоминаем, какая сеть сработала и когда последний раз заходили
+function noteSessionNet(){
+  if(!session || relayInfo?.state!=='online' || session.lastNet===relayInfo.net && Date.now()-(session.last||0)<60e3) return;
+  const list=HudiniStore.get('app.sessions', []), s=Array.isArray(list) && list.find(x=>x.id===session.id); if(!s) return;
+  s.last=Date.now(); s.lastNet=relayInfo.net; session.last=s.last; session.lastNet=s.lastNet; HudiniStore.set('app.sessions', list);
 }
 function dropHome(why){
   const h=homeClient; homeClient=null; homeInfo=null;
@@ -179,42 +188,29 @@ function openHome(info){
     if(homeClient!==c) return;
     const first=client!==c; useMain(c);
     if(first) toast('🏠 Подключено к Hudini Host', 2500);
-    const r=curRoom();
-    if(r && !r.manual && (r.home?.url!==info.url || r.home?.pass!==info.pass)){ r.home={ url:info.url, pass:info.pass }; saveRooms(); }
   });
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
     // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
     if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
-    else if(!hostCtl?.paused) hostNote='Hudini Host не принял пароль';
-    dropHome(); setTimeout(()=>{ if(!homeClient) tryHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
+    else if(!hostCtl?.paused) hostNote='Неверный пароль: попроси у стримера новый код';
+    dropHome(); setTimeout(()=>{ if(!homeClient) reopenHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
   } });
 }
-// ---- свой адрес (для продвинутых) ----
-function renderHostAdv(){
-  const m=curRoom()?.manual;
-  if(document.activeElement!==$('manUrl')) $('manUrl').value=m?.url||'';
-  $('manPass').value=''; $('manPass').placeholder = m ? 'Пароль сохранён' : 'Пароль модераторов';
-  $('manInfo').textContent = m ? '✓ Пульт подключается только к этому адресу' : '';
-  if(m) $('hostAdv').open=true;
+// Повторная попытка после паузы или отказа
+function reopenHome(){
+  if(homeInfo) return;
+  session=sessionFor(room);
+  if(session && TAURI?.core) openRelay();
+  else { if(TAURI?.core) TAURI.core.invoke('relay_close').catch(()=>{}); relayInfo=null; relayPort=0; hostStatus(); }
 }
-$('manSave').onclick=()=>{
-  const r=curRoom(), url=$('manUrl').value.trim(), pass=$('manPass').value || r.manual?.pass || '';
-  const a=cleanAddr({ url, pass }); if(!a || !pass) return toast('Нужен адрес вида wss://мой-адрес/mqtt и пароль');
-  r.manual=a; saveRooms(); dropHome(); tryHome(); renderHostAdv();
-};
-$('manClear').onclick=()=>{ const r=curRoom(); delete r.manual; saveRooms(); dropHome(); tryHome(); renderHostAdv(); toast('Пульт снова ищет программу стримера сам'); };
-// Программа стримера сообщает адрес (зашифровано ключом комнаты)
-async function onSrv(payload){
-  if(!payload.length || !KEYS) return;
-  const info=await unsealJSON(KEYS, payload, false); if(!info) return;
-  if(Number(info.ver)<2){ hostNote='Hudini Host устарел: нужна версия 1.0'; if(!homeClient) hostStatus(); return; }
-  if(info.paused){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; if(homeClient) dropHome(); else hostStatus(); return; }
-  if(hostCtl?.paused){ hostCtl.paused=false; hostNote=''; }
-  if(curRoom()?.manual) return;
-  const fresh = typeof info.url==='string' && /^wss?:\/\/[^\s/]+\/mqtt$/.test(info.url) && typeof info.pass==='string' && Math.abs(Date.now()-Number(info.t)) < 3*60*1000;
-  if(info.url===null && Math.abs(Date.now()-Number(info.t)) < 3*60*1000){ hostNote='Hudini Host выключен'; if(homeClient) dropHome('Программа стримера выключилась'); return; }
-  if(!fresh) return;
-  openHome({ url:info.url, user:'mod', pass:info.pass });
+// Сохранённая сессия приложения для комнаты (код сессии = код комнаты)
+function sessionFor(code){ const l=HudiniStore.get('app.sessions', []); return Array.isArray(l) && l.find(x=>x && x.id===code) || null; }
+// Пульт открывается с ?session=<код>: берём стримера из списка сессий. Ключи у сессии есть, если комнату создал сам сервер.
+// Правило: ключи уже сохранённой комнаты не перезаписываются.
+function roomFromSession(sess){
+  const ex=rooms.find(r=>r.code===sess.id); if(ex) return { room:ex, differs:!!sess.k && (ex.k!==sess.k || ex.p!==sess.p || JSON.stringify(ex.s)!==JSON.stringify(sess.s)) };
+  const r=sess.k ? cleanRoom({ code:sess.id, name:sess.name, k:sess.k, p:sess.p, s:sess.s }) : null;
+  return { room:r, differs:false };
 }
 $('status').onclick=()=>{ if(!client?.connected) showHostTip(); };
 const stateSeenT=new Map();   // комната → время самого нового экрана, который пульт видел или отправил
@@ -283,13 +279,11 @@ function sendFx(fx, quiet){
 async function switchRoom(code){
   if(code===room) return;
   if(homeClient) dropHome();
-  if(pubClient?.connected) pubClient.unsubscribe(topics(room).base+'/srv');
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   await useRoom(code); saveRooms();
   state={ visible:true, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
   Assets.reset();
-  if(pubClient?.connected) pubClient.subscribe(topics(room).base+'/srv', { qos:1 });
-  tryHome(); renderHostAdv(); renderSlang(); STREAM_LANG=streamLang();
+  reopenHome(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());
   renderRooms(); renderScenes(); renderScn(); $('scnEdit').hidden=true; lastEvSeq=null; updateLink(); renderAll();
 }
@@ -998,10 +992,6 @@ async function acceptInvite(text){
   let r=null;
   try{ const h=(text.includes('#') ? text.slice(text.indexOf('#')+1) : text).replace(/^invite=/,''); r=cleanRoom(JSON.parse(TD.decode(b64u.dec(h)))); }catch{}
   if(!r){ toast('Это не ссылка-приглашение модератора'); return false; }
-  // Свой адрес программы из чужой ссылки не берём. Последний известный адрес берём, только если это туннель
-  // Cloudflare, как его публикует Hudini Host; иначе пульт сам найдёт программу через общий сервер.
-  delete r.manual;
-  if(r.home && !/^wss:\/\/[a-z0-9-]+\.trycloudflare\.com\/mqtt$/.test(r.home.url)) delete r.home;
   const ex=rooms.find(x=>x.code===r.code);
   // коды комнат уникальны: чужие ключи не перезаписывают уже сохранённую комнату
   if(ex && (ex.k!==r.k || ex.p!==r.p || JSON.stringify(ex.s)!==JSON.stringify(r.s))){
@@ -1240,7 +1230,7 @@ function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($(
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); lsSet('overlay.chat',''); } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
-// ---- розыгрыш: участники живут в пульте (и в localStorage, чтобы пережить перезагрузку вкладки) ----
+// ---- розыгрыш: участники живут в пульте (и в хранилище, чтобы пережить перезагрузку пульта) ----
 const rafPool=new Map();     // id розыгрыша → Map(login → { user, color, sub })
 const rafSkip=new Map();     // id → Set(login) не ответивших победителей
 function rafEntries(id){
@@ -1718,7 +1708,7 @@ $('pToggle').onclick=()=>act(el=>{ pollToggle(el); el.closeAt=0; });
 $('pTimed').onclick=()=>act(el=>{ el.running=true; el.closeAt=Date.now()+num($('pSecs').value,60,5,3600)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000); });
 $('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
 function rafReset(el){ el.phase='idle'; el.closeAt=0; el.n=0; el.reel=[]; el.winner=''; el.wlogin=''; el.winners=[]; el.ok=false; el.cUntil=0;
-  rafPool.set(el.id, new Map()); rafSkip.delete(el.id); try{ localStorage.removeItem('hudini.raf.'+el.id); }catch{} }
+  rafPool.set(el.id, new Map()); rafSkip.delete(el.id); HudiniStore.remove('hudini.raf.'+el.id); }
 bindInput('iRTitle', (el,f)=>el.title=f.value.slice(0,80));
 bindInput('iRPrize', (el,f)=>el.prize=f.value.slice(0,120));
 bindInput('iREntry', (el,f)=>el.entry=f.value, 'change');
@@ -2401,32 +2391,63 @@ async function checkPanelUpdate(){
     if(Number(v.panel)>WIDGET_VER){ $('updBanner').hidden=false; $('updBanner').title=`Вышла версия ${v.panel}${v.notes?': '+v.notes:''}`; }
   }catch{}
 }
-$('updBanner').onclick=()=>{ if(!drag) location.reload(); };
-setInterval(checkPanelUpdate, 5*60*1000); setTimeout(checkPanelUpdate, 15000);
+// В приложении пульт обновляется вместе с программой: баннер берёт состояние у приложения (app_state, событие hudini-update)
+if(TAURI?.core){
+  const showAppUpdate=u=>{
+    const on=!!(u && u.state==='ready' && u.ver), b=$('updBanner');
+    b.hidden=!on; if(on){ b.textContent='🆕 Обновить Hudini'; b.title='Вышла версия '+u.ver; }
+  };
+  $('updBanner').onclick=()=>{ if(!drag) TAURI.core.invoke('apply_update').catch(e=>toast(String(e?.message||e))); };
+  TAURI.core.invoke('app_state').then(a=>showAppUpdate(a?.update)).catch(()=>{});
+  TAURI.event?.listen('hudini-update', e=>showAppUpdate(e.payload));
+  $('dataDir').hidden=false; $('dataDir').onclick=()=>TAURI.core.invoke('open_data').catch(e=>toast(String(e?.message||e)));
+}else{
+  $('updBanner').onclick=()=>{ if(!drag) location.reload(); };
+  setInterval(checkPanelUpdate, 5*60*1000); setTimeout(checkPanelUpdate, 15000);
+}
 
 // ================== СТАРТ ==================
+// Сессии нет или в ней нет ключей: понятное сообщение вместо пустого пульта
+function sessionProblem(text){
+  const f=$('fatal'); f.style.display='flex'; f.replaceChildren();
+  const box=document.createElement('div'), a=document.createElement('a');
+  box.style.cssText='text-align:center;max-width:420px;line-height:1.5';
+  box.append(text, document.createElement('br'));
+  a.href='../app/start.html'; a.textContent='← Сессии'; a.style.color='#a78bfa';
+  box.appendChild(a); f.appendChild(box);
+}
 async function boot(){
   if(!window.crypto?.subtle){ $('fatal').style.display='flex'; $('fatal').textContent='Пульт работает только по https:// (GitHub Pages) или с localhost: браузеру нужен модуль шифрования.'; return; }
+  await HudiniStore.ready;
   const v=lsGet('overlay.vault2', null);
   let data = v?.locked ? await askUnlock(v.locked) : (v?.plain || null);
   rooms=(data?.rooms||[]).map(cleanRoom).filter(Boolean);
-  const migrated=await migrateOld();
   const inv=location.hash.startsWith('#invite=') ? location.hash.slice(1) : null;
   history.replaceState(null, '', location.pathname+keepQuery());
-  if(!rooms.length && !inv) rooms.push(await makeRoom('Мой стример'));
-  const cur=lsGet('overlay.current', null);
+  const sid=qs.get('session'), want=sid ? sessionFor(sid) : null;
+  let cur=lsGet('overlay.current', null);
+  if(sid){
+    // комната стримера из списка сессий; чужие ключи уже сохранённую комнату не заменяют
+    if(!want) return sessionProblem('Этого стримера нет в списке сессий.');
+    const { room:r, differs }=roomFromSession(want);
+    if(!r) return sessionProblem('В коде стримера нет ключей комнаты. Попроси стримера прислать код из программы Hudini Host ещё раз.');
+    if(differs) alert('Эта комната уже есть в пульте, но с другими ключами.\nПульт открыт с твоими прежними ключами. Если стример их сменил, попроси новую ссылку-приглашение.');
+    if(!rooms.some(x=>x.code===r.code)) rooms.push(r);
+    cur=r.code;
+  }
+  if(!rooms.length && !inv && !TAURI) rooms.push(await makeRoom('Мой стример'));
   if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
   saveRooms();
-  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderHostAdv(); renderSlang(); STREAM_LANG=streamLang();
+  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderSlang(); STREAM_LANG=streamLang();
   applyBg($('bgInput').value);
   setPill($('status'), 'warn', 'подключение…');
   connect();
   if(inv) await acceptInvite(inv);
   if(!rooms.length){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); saveRooms(); renderRooms(); }
+  $('toSessions').hidden=!TAURI;
   updateLink(); renderAll();
   { const ch=lsGet('overlay.chat',''); if(ch) chatConnect(ch); }
   window.hudiniReady=true;
-  if(migrated) setTimeout(()=>alert('🔐 Защита обновлена.\n\nТеперь все команды на экран подписываются твоим ключом, а чужие отбрасываются. Старые ссылки для OBS больше не работают: нажми «📋 Копировать» и отправь стримеру НОВУЮ ссылку.'), 300);
 }
 // ================== МЕТКИ β / α ==================
 // Стабильное в 1.0 без меток. Бета: работает, но мало проверено на разных ПК. Альфа: экспериментально.

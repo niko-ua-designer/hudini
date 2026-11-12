@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Защита: скрипты только с этого сайта и mqtt.js с проверкой хеша. Даже если в текст попадёт чужой код, он не запустится. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com/mqtt@5.16.1/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https:; connect-src 'self' wss: ws://localhost:* ws://127.0.0.1:* https: http://localhost:* http://127.0.0.1:* blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- Защита: скрипты только свои (mqtt.js лежит в vendor/). Даже если в текст попадёт чужой код, он не запустится. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https:; connect-src 'self' ws://127.0.0.1:* wss://127.0.0.1:* http://127.0.0.1:* https://127.0.0.1:* ws://localhost:* http://localhost:* wss://irc-ws.chat.twitch.tv https: blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini · пульт</title>
 <meta name="theme-color" content="#0f1115">
 <link rel="icon" href="../shared/icons/icon-192.png">
@@ -13,7 +13,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
 <link rel="stylesheet" href="../shared/core.css?v=11">
-<script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
+<script src="../shared/vendor/mqtt.min.js"></script>
+<script src="../app/store.js"></script>
+<script src="../app/sessions.js"></script>
 <script src="../shared/i18n.js?v=3"></script>
 <script src="../shared/icons.js?v=1"></script>
 <script src="../shared/core.js?v=15"></script>
@@ -152,8 +154,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 #tabs .lvl{top:2px;right:2px}
 #lvlPop{position:fixed;z-index:100010;max-width:270px;background:#171a21;border:1px solid #3a3f4c;border-radius:10px;padding:10px 12px;font-size:12px;box-shadow:0 8px 30px #0008}
 #lvlPop a{color:#b9a8ff}
-#hostAdv{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
-#hostAdv summary{cursor:pointer;font-size:12px;color:var(--muted)}
+#toSessions{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;white-space:nowrap;color:var(--text);text-decoration:none}
+#toSessions[hidden]{display:none}
 #status{cursor:pointer}
 #hostTip a.primary{display:block;text-align:center;text-decoration:none;background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:6px;padding:8px 10px}
 .lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
@@ -228,6 +230,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 
 <header>
   <h1>🎩 Hudini <span data-i18n-switch></span></h1>
+  <a id="toSessions" href="../app/start.html" hidden title="Вернуться к списку стримеров">← Сессии</a>
   <span id="status" class="pill">подключение…</span>
   <span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span>
   <span class="hint hide-narrow" title="Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS">Ссылка для Hudini Host:</span>
@@ -341,6 +344,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button id="roomDel">🗑 Из списка</button>
       <button id="roomExport">⬇ Бэкап</button>
       <button id="roomImport">⬆ Из бэкапа</button>
+      <button id="dataDir" hidden title="Открыть папку, где пульт хранит ключи комнат, сцены и настройки. Файл store.json в ней — копия всего">📂 Папка с данными</button>
     </div>
     <input type="file" id="roomFile" accept=".json,application/json" hidden>
     <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта. «Бэкап» сохраняет всё (комнаты, сцены, библиотеку, анимации, сценарии) в файл под паролем.</div>
@@ -351,15 +355,6 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 
     <h2>Файлы у стримера</h2>
     <div class="row"><button id="cleanFiles2" class="grow" title="Удалить из Hudini Host файлы, которых нет на экране, в сценах, библиотеке и сценариях">🧹 Удалить неиспользуемые файлы</button></div>
-
-    <details id="hostAdv">
-      <summary>⚙ Для продвинутых: свой адрес Hudini Host</summary>
-      <div class="hint">Обычно пульт находит программу стримера сам. Свой адрес нужен, если стример поднял Tailscale Funnel или свой туннель. Адрес и пароль модераторов есть на странице программы в разделе «Для продвинутых».</div>
-      <input id="manUrl" type="url" placeholder="wss://мой-адрес/mqtt" style="margin-top:6px">
-      <input id="manPass" type="password" placeholder="Пароль модераторов" autocomplete="off" style="margin-top:6px">
-      <div class="row"><button id="manSave" class="grow">Подключиться</button><button id="manClear" title="Снова искать программу самому">Сбросить</button></div>
-      <div class="hint" id="manInfo"></div>
-    </details>
 
     <h2>Фон превью (только у тебя)</h2>
     <input id="bgInput" type="text" placeholder="Ник на Twitch или ссылка на скриншот">

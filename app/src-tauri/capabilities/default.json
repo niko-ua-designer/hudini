@@ -16,6 +16,7 @@
     "allow-relay-status",
     "allow-app-log",
     "allow-open-logs",
+    "allow-open-data",
     "allow-crash-dismiss"
   ]
 }

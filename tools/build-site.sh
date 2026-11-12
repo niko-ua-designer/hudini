@@ -12,3 +12,5 @@ cp -R web/site/. _site/
 cp -R web/shared _site/shared
 cp -R web/widget _site/widget
 cp -R web/panel _site/panel
+mkdir -p _site/app
+cp web/app/store.js web/app/sessions.js _site/app/

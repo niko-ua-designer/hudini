@@ -713,6 +713,13 @@ fn open_logs(app: AppHandle) -> Result<(), String> {
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
+// «Открыть папку с данными»: там store.json со всем, что пульт хранит (ключи комнат, сцены, настройки)
+#[tauri::command]
+fn open_data(app: AppHandle) -> Result<(), String> {
+    let dir = app.state::<Paths>().data.clone();
+    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
 // «Скрыть» баннер о прошлом падении: файл остаётся, но помечается как просмотренный
 #[tauri::command]
 fn crash_dismiss(name: String) {
@@ -850,7 +857,7 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(Server::default())
         .manage(RelayState::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, crash_dismiss])
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;

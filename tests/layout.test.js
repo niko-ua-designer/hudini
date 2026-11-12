@@ -3,10 +3,10 @@
 const T = require('./lib');
 const { step, check } = T;
 (async () => {
-  const pub = await T.publicBroker(), web = await T.webServer();
+  const web = await T.webServer();
   for(const lang of ['ru', 'en', 'uk', 'de']) for(const [w, h] of [[1366, 768], [1920, 1080]]) await step(`${lang} ${w}×${h}`, async () => {
     const p = await T.newPage('panel-' + lang, { w, h, lang });
-    await p.goto(`${web.url}/panel/moderator.html?broker=${encodeURIComponent(pub.url)}`); await p.waitForTimeout(800);
+    await p.goto(`${web.url}/panel/moderator.html`); await p.waitForTimeout(800);
     await p.click('[data-add=poll]');
     const bad = [];
     for(const tab of ['add', 'scenes', 'chat', 'auto', 'room']){
@@ -22,6 +22,6 @@ const { step, check } = T;
     check(!bad.length, 'every control fits', [...new Set(bad)]);
     await p.context().close();
   });
-  await T.closeBrowser(); await pub.close(); await web.close();
+  await T.closeBrowser(); await web.close();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

@@ -1,7 +1,8 @@
-// Shared setup for Hudini end-to-end tests: a stand-in for the public broker, a static web server for the panel,
+// Shared setup for Hudini end-to-end tests: a static web server for the panel, a TCP→TLS relay standing in for the app's,
 // a real Hudini Host started from source with Bun, and Chromium pages for the panel and the OBS widget.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
+const net = require('net'), tls = require('tls');
 const { spawn } = require('child_process');
 const { chromium } = require('playwright');
 
@@ -12,7 +13,7 @@ const ROOT = path.resolve(__dirname, '..');
 const WEB = path.join(ROOT, 'web');
 const MQTT_JS = fs.readFileSync(path.join(__dirname, 'node_modules/mqtt/dist/mqtt.min.js'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const PORTS = { pub: 18888, web: 18090, host: 17790 };   // host uses host+1 for the moderators' TLS port
+const PORTS = { web: 18090, host: 17790 };   // host uses host+1 for the moderators' TLS port
 
 // ---------- tiny test framework ----------
 const results = [];
@@ -34,12 +35,6 @@ async function until(fn, ms = 8000, every = 150){
 }
 
 // ---------- servers ----------
-async function publicBroker(){
-  const aedes = await require('aedes').Aedes.createBroker(), { createServer } = require('aedes-server-factory');
-  const srv = createServer(aedes, { ws: true });
-  await new Promise(r => srv.listen(PORTS.pub, r));
-  return { aedes, url: `ws://localhost:${PORTS.pub}`, close: () => new Promise(r => { srv.close(); aedes.close(r); }) };
-}
 const TYPES = { '.html':'text/html; charset=utf-8', '.js':'application/javascript', '.css':'text/css', '.json':'application/json',
   '.webmanifest':'application/manifest+json', '.png':'image/png', '.gif':'image/gif' };
 async function webServer(){
@@ -77,16 +72,67 @@ function startHost(env = {}){
   return host;
 }
 
+// ---------- relay (stands in for app/relay: local TCP port → TLS to the Host's moderator port) ----------
+const relays = new Map();
+function relayFor(port){
+  if(!relays.has(port)) relays.set(port, new Promise(res => {
+    const srv = net.createServer(c => {
+      const up = tls.connect({ host: '127.0.0.1', port, rejectUnauthorized: false });
+      const end = () => { c.destroy(); up.destroy(); };
+      c.pipe(up); up.pipe(c);
+      c.on('error', end); up.on('error', end); c.on('close', end); up.on('close', end);
+    });
+    srv.listen(0, '127.0.0.1', () => res({ srv, port: srv.address().port }));
+  }));
+  return relays.get(port).then(r => r.port);
+}
+async function closeRelays(){ for(const p of relays.values()) (await p).srv.close(); relays.clear(); }
+
+// The app shell as the panel sees it: window.__TAURI__ with the store in localStorage ("fake.store") and relay_open/relay_status
+function fakeTauri(){
+  const L = {}, emit = (ev, payload) => (L[ev] || []).forEach(cb => cb({ payload }));
+  const st = () => { try{ return JSON.parse(localStorage.getItem('fake.store') || '{}'); }catch{ return {}; } };
+  window.__calls = [];
+  window.__TAURI__ = {
+    core: { async invoke(cmd, args){
+      window.__calls.push([cmd, args]);
+      if(cmd === 'store_load') return st();
+      if(cmd === 'store_save'){ localStorage.setItem('fake.store', JSON.stringify(args.data)); return null; }
+      if(cmd === 'relay_open'){
+        const port = await window.__relayOpen(args.addrs[0].port);
+        setTimeout(() => emit('relay_status', { state: 'online', addr: args.addrs[0].h + ':' + args.addrs[0].port, net: args.addrs[0].net, rtt_ms: window.__rtt ?? 4, since: Date.now(), reconnects: 0, last_error: '' }), 60);
+        return port;
+      }
+      return null;
+    } },
+    event: { listen(ev, cb){ (L[ev] ||= []).push(cb); return Promise.resolve(() => {}); } },
+  };
+  window.__emit = emit;
+}
+// What the panel stored (the app's store.json)
+const stored = (page, key) => page.evaluate(k => { try{ return JSON.parse(localStorage.getItem('fake.store') || '{}')[k] ?? null; }catch{ return null; } }, key);
+
 // ---------- browser ----------
 let browser = null;
 const pageErrors = [];
-async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false } = {}){
+async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false, app = !name.startsWith('widget') } = {}){
   browser ||= await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true });
-  await ctx.route('https://unpkg.com/**', r => r.fulfill({ body: MQTT_JS, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
-  await ctx.addInitScript(([l, tour]) => { try{ localStorage.setItem('hudini.lang', l); if(!localStorage.getItem('overlay.vaultWarn')) localStorage.setItem('overlay.vaultWarn', String(Date.now()+864e5)); if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() })); }catch{} }, [lang, tour]);
+  // the OBS widget still loads mqtt.js from unpkg
+  await ctx.route('https://unpkg.com/**', r => r.fulfill({ body: MQTT_JS, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }));
+  if(app){
+    await ctx.exposeFunction('__relayOpen', port => relayFor(port));
+    await ctx.addInitScript(fakeTauri);
+  }
+  await ctx.addInitScript(([l, tour, app]) => { try{
+    localStorage.setItem('hudini.lang', l);
+    const snooze = Date.now() + 864e5;
+    if(app){ const s = JSON.parse(localStorage.getItem('fake.store') || '{}'); if(!s['overlay.vaultWarn']){ s['overlay.vaultWarn'] = snooze; localStorage.setItem('fake.store', JSON.stringify(s)); } }
+    else if(!localStorage.getItem('store:overlay.vaultWarn')) localStorage.setItem('store:overlay.vaultWarn', String(snooze));
+    if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() }));
+  }catch{} }, [lang, tour, app]);
   await ctx.route(/jtvnw\.net/, r => r.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/img.png')), contentType: 'image/png' }));
   // Twitch chat without the network: window.__irc(line) feeds a raw IRC line to the panel
   if(irc) await ctx.addInitScript(() => { const Real = window.WebSocket; window.WebSocket = function(url, p){ if(!String(url).includes('irc-ws')) return new Real(url, p);
@@ -98,19 +144,23 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
   p.on('dialog', d => d.accept());
   return p;
 }
-async function closeBrowser(){ await browser?.close(); browser = null; }
+async function closeBrowser(){ await browser?.close(); browser = null; await closeRelays(); }
 
-// Point a panel at a Host the way a saved session does: the direct TLS address and the password from the moderator code
+// Point a panel at a Host the way a saved session does: a session for the panel's room (address, password), then the relay
 async function attach(page, host){
   const { pass } = await host.api('/api/code');
-  await page.evaluate(([url, pass]) => { const r = curRoom(); r.manual = { url, pass }; saveRooms(); dropHome(); tryHome(); }, [`wss://127.0.0.1:${host.modPort}/mqtt`, pass]);
+  await page.evaluate(([port, pass]) => {
+    const list = HudiniStore.get('app.sessions', []).filter(x => x.id !== room);
+    list.push({ id: room, name: 'Test', pass, fp: '0'.repeat(64), addrs: [{ h: '127.0.0.1', port, net: 'lan' }], pinned: false, added: Date.now(), last: 0, lastNet: '' });
+    HudiniStore.set('app.sessions', list); dropHome(); reopenHome();
+  }, [host.modPort, pass]);
 }
 // Panel + Host + widget wired together, as on a real stream
 async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = {}){
-  const pub = await publicBroker(), web = await webServer();
+  const web = await webServer();
   const host = startHost(hostEnv); await host.ready();
   const panel = await newPage('panel', { irc, lang, w, h });
-  await panel.goto(`${web.url}/panel/moderator.html?broker=${encodeURIComponent(pub.url)}`);
+  await panel.goto(`${web.url}/panel/moderator.html`);
   await panel.waitForFunction(() => document.getElementById('link').value.includes('#k='));
   const link = await panel.inputValue('#link');
   const set = await host.api('/api/link', { link });
@@ -119,8 +169,8 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   const widget = await newPage('widget', { w: 1920, h: 1080 });
   await widget.goto(set.obsLink);
   await until(async () => /OBS: 1920×1080/.test(await panel.textContent('#obsStatus')), 10000);
-  return { pub, web, host, panel, widget, link, online, obsLink: set.obsLink,
-    async close(){ await host.stop(); await pub.close(); await web.close(); } };
+  return { web, host, panel, widget, link, online, obsLink: set.obsLink,
+    async close(){ await host.stop(); await web.close(); await closeRelays(); } };
 }
 function finish(){
   if(pageErrors.length) for(const e of [...new Set(pageErrors)]) check(false, 'page error: ' + e);
@@ -129,4 +179,4 @@ function finish(){
   return bad.length ? 1 : 0;
 }
 // A sealed asset made the same way the panel does it, using core.js inside a page
-module.exports = { ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, publicBroker, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };
+module.exports = { ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };

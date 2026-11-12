@@ -34,15 +34,6 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq(await until(async () => (await texts(widget)).includes('ПРИВЕТ') && await texts(widget)), ['ПРИВЕТ'], 'widget shows the text');
   });
 
-  await step('nothing is announced on the public broker any more', async () => {
-    const seen = new Set();
-    const spy = mqtt.connect(S.pub.url); await new Promise(r => spy.on('connect', r));
-    spy.subscribe('#'); spy.on('message', t => seen.add(t.split('/').pop()));
-    await panel.fill('#newText', 'ЕЩЁ'); await panel.click('#addText'); await panel.click('#confetti');
-    await sleep(1500); spy.end(true);
-    eq([...seen], [], 'the public broker sees nothing at all');
-  });
-
   await step('files are stored encrypted on disk and shown in OBS', async () => {
     await panel.setInputFiles('#fileInput', IMG);
     const img = await until(() => widget.$$eval('img.content', n => n.filter(i => i.src.startsWith('blob:') && i.naturalWidth > 0).length), 10000);
@@ -64,7 +55,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
   await step('a second moderator panel loads files from the Host', async () => {
     const inv = await panel.evaluate(() => inviteLink(curRoom()));
     const mod2 = await T.newPage('mod2');
-    await mod2.goto(inv.replace('moderator.html', 'moderator.html?broker=' + encodeURIComponent(S.pub.url)));
+    await mod2.goto(inv);
     await mod2.waitForFunction(() => typeof curRoom === 'function' && curRoom());
     await T.attach(mod2, host);
     check(await until(async () => (await mod2.getAttribute('#status', 'class')).includes('ok'), 12000), 'mod2 online');
@@ -253,10 +244,9 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     S.link = link; S.obsLink = set.obsLink;
   });
 
-  await step('public broker down: the panel does not need it', async () => {
-    await S.pub.close();
+  await step('panel reload: it reconnects through the saved session', async () => {
     await panel.reload();
-    check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 12000), 'panel online without the public broker');
+    check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 12000), 'panel online after reload');
   });
 
   await step('Host stopped: panel says so', async () => {

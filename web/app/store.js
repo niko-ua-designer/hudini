@@ -26,4 +26,7 @@
     // записать сейчас (перед уходом со страницы)
     flushNow(){ if(tauri && timer){ clearTimeout(timer); flush(); } return saving; },
   };
+  // Страницу закрывают или перезагружают раньше, чем сработал таймер записи: отдаём данные сразу
+  addEventListener('pagehide', () => window.HudiniStore.flushNow());
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') window.HudiniStore.flushNow(); });
 })();
