@@ -196,7 +196,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
 /* ---------- вкладки слева ---------- */
 #left{padding-top:0}
-#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+#tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin:0 -12px 6px;padding:6px 6px 0;background:var(--panel);border-bottom:1px solid var(--line)}
 #tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px 6px;font-size:16px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:none;color:var(--muted)}
 #tabs button span{font-size:10.5px;letter-spacing:.02em}
 #tabs button:hover{background:var(--panel2);color:var(--text)}
@@ -281,6 +281,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <button data-tab="scenes" title="Сцены и библиотека">🎞<span>Сцены</span></button>
     <button data-tab="chat" title="Чат Twitch">💬<span>Чат</span></button>
     <button data-tab="auto" title="Сценарии: если… то…">⚡<span>Сценарии</span></button>
+    <button data-tab="raffle" title="Розыгрыш с рулеткой">🎁<span>Розыгрыши</span></button>
     <button data-tab="sound" title="Громкость оверлея и каждого звука">🔊<span>Звук</span></button>
     <button data-tab="room" title="Комната, ключи, настройки">⚙<span>Комната</span></button>
   </nav>
@@ -307,7 +308,6 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button data-add="counter">🔢 Счётчик</button>
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2">🎯 CS2</button>
-      <button data-add="raffle" style="grid-column:span 2">🎁 Розыгрыш с рулеткой</button>
       <button data-add="case" style="grid-column:span 2">📦 3D-кейс за донат</button>
       <button id="addCam" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
     </div>
@@ -366,6 +366,55 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <div class="hint">Итоговая громкость на стриме = общая × громкость звука. 🔇 заглушает звук, не трогая ползунок.</div>
     <div id="mixer"></div>
     <div class="hint" id="mixerEmpty" hidden>Звуки появятся здесь, когда на экране будет видео, сайт, кейс, розыгрыш или таймер со звуком.</div>
+  </section>
+
+  <section data-pane="raffle" hidden>
+    <h2>🎁 Розыгрыши</h2>
+    <div id="rafEmpty">
+      <div class="hint">Розыгрыш с рулеткой: зрители пишут слово в чат, рулетка выбирает победителя. Он один на экран и не лежит в списке слоёв.</div>
+      <div class="row"><button id="rafCreate" class="primary grow">＋ Создать розыгрыш</button></div>
+    </div>
+    <div id="rafBody" hidden>
+      <input type="text" id="iRTitle" placeholder="Заголовок, например: Розыгрыш скина">
+      <div class="row"><input type="text" id="iRPrize" class="grow" placeholder="Приз, например: AK-47 | Redline"><button id="rPimg" title="Картинка приза">🖼</button><button id="rPimgDel" title="Убрать картинку" hidden>🗑</button></div>
+      <div class="lbl">Как участвовать</div>
+      <div class="row"><select id="iREntry" class="grow"><option value="word">Написать слово</option><option value="any">Любое сообщение</option></select><input type="text" id="iRKw" placeholder="!участвую" style="width:120px"></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubs"><span class="tgl-k"></span><span>Только для подписчиков</span></label>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubx2"><span class="tgl-k"></span><span>Подписчикам шанс x2</span></label>
+      <div class="row" style="margin-top:8px"><span class="hint">Сбор</span><input type="number" id="rSecs" min="10" max="7200" value="120" style="width:70px"><span class="hint">сек</span>
+        <label class="tgl grow"><input type="checkbox" id="iRAuto"><span class="tgl-k"></span><span class="hint">Крутить сразу по концу</span></label></div>
+      <div class="row"><button id="rStart" class="go grow">▶ Начать сбор</button><button id="rStop" class="grow">⏹ Закрыть сбор</button></div>
+      <div class="row"><button id="rSpin" class="go grow">🎰 Крутить</button><button id="rReset" title="Новый розыгрыш: участники и победители обнулятся">↺ Сброс</button></div>
+      <div class="hint" id="rInfo"></div>
+      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
+      <div class="lbl">Победитель</div>
+      <div class="row"><span class="hint">Ответить в чат за</span><input type="number" id="iRConfirm" min="0" max="600" value="0" style="width:64px"><span class="hint">сек (0 = не ждать)</span></div>
+      <div class="hint">Не ответил вовремя: рулетка крутится заново без него. «Крутить» ещё раз даёт следующего победителя, прошлые выбывают.</div>
+      <div class="lbl">Эффект победы</div>
+      <div class="row"><button id="rSnd" class="grow">🔊 Свой звук</button><button id="rSndDel" title="Убрать свой звук" hidden>🗑</button></div>
+      <div class="row"><button id="rVfx" class="grow">🎞 Своё видео-эффект</button><button id="rVfxDel" title="Убрать видео" hidden>🗑</button></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRKey"><span class="tgl-k"></span><span>Гринскрин: вырезать фон видео</span></label>
+      <div class="row" id="rKeyRow"><span class="hint">Цвет фона</span><input type="color" id="iRKc"><span class="hint">Сила</span><input type="range" id="iRKsim" min="0.05" max="0.9" step="0.01" class="grow"></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRFxc"><span class="tgl-k"></span><span>Конфетти</span></label>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRTicks"><span class="tgl-k"></span><span>Щелчки ленты</span></label>
+      <div class="row" style="margin-top:8px"><span class="hint">Акцент</span><input type="color" id="iRAccent"><span class="hint">Фон</span><input type="color" id="iRCard"></div>
+      <input type="file" id="rFile" hidden>
+      <div class="lbl">Вид рулетки</div>
+      <div class="row"><select id="iRFont" class="grow">
+        <option value="montserrat">Montserrat (жирный)</option>
+        <option value="russo">Russo One</option>
+        <option value="impact">Impact (мемный)</option>
+        <option value="pixel">Press Start 2P (пиксели)</option>
+        <option value="comfortaa">Comfortaa</option>
+        <option value="caveat">Caveat (рукописный)</option>
+      </select><span class="hint">Цвет</span><input type="color" id="iRColor"></div>
+      <div class="lbl">Положение и размер на экране</div>
+      <div class="row"><span class="hint" style="width:54px">Слева</span><input type="range" id="iRX" min="0" max="100" step="0.5" class="grow"><span class="hint" id="vRX" style="width:36px;text-align:right"></span></div>
+      <div class="row"><span class="hint" style="width:54px">Сверху</span><input type="range" id="iRY" min="0" max="100" step="0.5" class="grow"><span class="hint" id="vRY" style="width:36px;text-align:right"></span></div>
+      <div class="row"><span class="hint" style="width:54px">Размер</span><input type="range" id="iRSize" min="1" max="8" step="0.1" class="grow"><span class="hint" id="vRSize" style="width:36px;text-align:right"></span></div>
+      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRShow"><span class="tgl-k"></span><span>Показывать рулетку на экране</span></label>
+      <div class="row"><button id="rCenter" class="grow">⌖ В центр</button><button id="rDelete" class="grow" title="Убрать розыгрыш с экрана вместе с участниками">🗑 Удалить розыгрыш</button></div>
+    </div>
   </section>
 
   <section data-pane="room" hidden>
@@ -606,33 +655,6 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     </div>
 
     <!-- розыгрыш -->
-    <div data-for="raffle" class="box">
-      <div class="t">🎁 Розыгрыш</div>
-      <input type="text" id="iRTitle" placeholder="Заголовок, например: Розыгрыш скина">
-      <div class="row"><input type="text" id="iRPrize" class="grow" placeholder="Приз, например: AK-47 | Redline"><button id="rPimg" title="Картинка приза">🖼</button><button id="rPimgDel" title="Убрать картинку" hidden>🗑</button></div>
-      <div class="lbl">Как участвовать</div>
-      <div class="row"><select id="iREntry" class="grow"><option value="word">Написать слово</option><option value="any">Любое сообщение</option></select><input type="text" id="iRKw" placeholder="!участвую" style="width:120px"></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubs"><span class="tgl-k"></span><span>Только для подписчиков</span></label>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubx2"><span class="tgl-k"></span><span>Подписчикам шанс x2</span></label>
-      <div class="row" style="margin-top:8px"><span class="hint">Сбор</span><input type="number" id="rSecs" min="10" max="7200" value="120" style="width:70px"><span class="hint">сек</span>
-        <label class="tgl grow"><input type="checkbox" id="iRAuto"><span class="tgl-k"></span><span class="hint">Крутить сразу по концу</span></label></div>
-      <div class="row"><button id="rStart" class="go grow">▶ Начать сбор</button><button id="rStop" class="grow">⏹ Закрыть сбор</button></div>
-      <div class="row"><button id="rSpin" class="go grow">🎰 Крутить</button><button id="rReset" title="Новый розыгрыш: участники и победители обнулятся">↺ Сброс</button></div>
-      <div class="hint" id="rInfo"></div>
-      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
-      <div class="lbl">Победитель</div>
-      <div class="row"><span class="hint">Ответить в чат за</span><input type="number" id="iRConfirm" min="0" max="600" value="0" style="width:64px"><span class="hint">сек (0 = не ждать)</span></div>
-      <div class="hint">Не ответил вовремя: рулетка крутится заново без него. «Крутить» ещё раз даёт следующего победителя, прошлые выбывают.</div>
-      <div class="lbl">Эффект победы</div>
-      <div class="row"><button id="rSnd" class="grow">🔊 Свой звук</button><button id="rSndDel" title="Убрать свой звук" hidden>🗑</button></div>
-      <div class="row"><button id="rVfx" class="grow">🎞 Своё видео-эффект</button><button id="rVfxDel" title="Убрать видео" hidden>🗑</button></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRKey"><span class="tgl-k"></span><span>Гринскрин: вырезать фон видео</span></label>
-      <div class="row" id="rKeyRow"><span class="hint">Цвет фона</span><input type="color" id="iRKc"><span class="hint">Сила</span><input type="range" id="iRKsim" min="0.05" max="0.9" step="0.01" class="grow"></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRFxc"><span class="tgl-k"></span><span>Конфетти</span></label>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRTicks"><span class="tgl-k"></span><span>Щелчки ленты</span></label>
-      <div class="row" style="margin-top:8px"><span class="hint">Акцент</span><input type="color" id="iRAccent"><span class="hint">Фон</span><input type="color" id="iRCard"></div>
-      <input type="file" id="rFile" hidden>
-    </div>
 
     <!-- голосование -->
     <div data-for="poll" class="box">
@@ -659,7 +681,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter poll cs2 msg raffle case">
+    <div data-for="text timer counter poll cs2 msg case">
       <div class="lbl">Шрифт</div>
       <div class="row" style="margin:0"><select id="iFont" class="grow">
         <option value="montserrat">Montserrat (жирный)</option>

@@ -118,14 +118,14 @@ addEventListener('resize', fit); fit();
 
 // ================== ОТРИСОВКА ==================
 const nodes=new Map();
-let visible=true, lastState={ visible:true, els:[] };
+let visible=true, lastState={ visible:true, els:[], raffle:null };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
   lastState=s; setVolumes(s); visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
-  s.els.forEach((el,i)=>{
+  drawList(s).forEach((el,i)=>{
     seen.add(el.id);
     let node=nodes.get(el.id);
     if(node && node.dataset.type!==el.type){ node.remove(); nodes.delete(el.id); node=null; }

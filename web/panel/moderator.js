@@ -58,7 +58,7 @@ function cleanRoom(r){
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
 async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
 
-let state={ visible:true, vol:1, fxVol:1, els:[] };
+let state={ visible:true, vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
 const undoStack=[]; let changeOpen=false;
 function byId(id){ return state.els.find(e=>e.id===id); }
@@ -300,7 +300,7 @@ function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
   if(!client || !client.connected){ pendingOffline=true; return; }
   STREAM_LANG=streamLang();
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, els:state.els, fonts:state.fonts||[] };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
@@ -318,7 +318,7 @@ async function switchRoom(code){
   if(homeClient) dropHome();
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   await useRoom(code); saveRooms();
-  state={ visible:true, vol:1, fxVol:1, els:[] }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
+  state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());
@@ -346,6 +346,7 @@ function place(x, y){
   const n=state.els.length%8; return { x:42+n*2.5, y:42+n*2.5 };
 }
 function addEl(el){
+  if(el?.type==='raffle') return null;   // розыгрыш создаётся на своей вкладке
   if(state.els.length>=MAX_ELS){ toast('Слишком много элементов'); return null; }
   el.id=rid(10);
   if(el.hidden==null) el.hidden=$('addHidden').checked;
@@ -427,9 +428,13 @@ function addCase(){
   const items=[['Наклейка',2,50],['Скин на пистолет',3,25],['Скин на винтовку',4,15],['AK-47 | Redline',5,8],['Нож',6,2]].map(([n,r,p])=>({ n:sT(n), r, p, img:'' }));
   addEl({ type:'case', x:50, y:50, fs:4, font:'montserrat', color:'#ffffff', name:'HUDINI CASE', cc:'#7c5cff', items, hideAfter:12, vol:0.8 });
 }
+// Розыгрыш один на экран: state.raffle, не слой
+const raf=()=>state.raffle||null;
 function addRaffle(){
-  addEl({ type:'raffle', ...place(), x:50, y:45, fs:3, font:'montserrat', color:'#ffffff', card:'#141824', accent:'#7c5cff',
-    title:sT('Розыгрыш'), prize:'', kw:'!участвую', entry:'word', subx2:true, auto:true, phase:'idle' });
+  if(state.raffle) return;
+  const clean=sanitizeEl({ id:'raffle', type:'raffle', x:50, y:45, fs:3, font:'montserrat', color:'#ffffff', card:'#141824', accent:'#7c5cff', rot:0, op:1, anim:'none',
+    title:sT('Розыгрыш'), prize:'', kw:'!участвую', entry:'word', subx2:true, auto:true, phase:'idle', hidden:false });
+  beginChange(); state.raffle=clean; commit();
   if(!chatWs) toast('Для розыгрыша подключи чат Twitch слева', 4000);
 }
 function addPoll(){
@@ -509,7 +514,7 @@ function usedAssets(){
   const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
   const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.vfx); add(e?.logo); for(const it of e?.items||[]) add(it?.img);
     if(e?.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e?.snd); for(const v of Object.values(e?.av||{})) add(v); };
-  state.els.forEach(fromEl);
+  drawList(state).forEach(fromEl);
   for(const f of state.fonts||[]) used.add(f.id);
   add($('soundUrl').value);
   for(const it of library) if(it.room===room) fromEl(it.el);
@@ -568,17 +573,19 @@ async function addFonts(files){
   if(last) toast('Шрифт добавлен: он есть в списке «Шрифт» у всех элементов');
 }
 function fillFonts(){
-  const sel=I('iFont'); let g=sel.querySelector('optgroup[data-own]');
-  if(!g){ g=document.createElement('optgroup'); g.dataset.own=''; g.label='Свои шрифты'; sel.appendChild(g);
-    const add=document.createElement('option'); add.value='__add'; add.textContent='＋ Добавить свой шрифт…'; sel.appendChild(add); }
   const want=(state.fonts||[]).map(f=>f.id+'|'+f.name).join(',');
-  if(g.dataset.sig===want) return; g.dataset.sig=want;
-  g.replaceChildren(...(state.fonts||[]).map(f=>{ const o=new Option(f.name, 'u:'+f.id); o.dataset.i18nSkip=''; return o; }));
-  g.hidden=!g.children.length;
+  for(const [id, withAdd] of [['iFont', true], ['iRFont', false]]){
+    const sel=I(id); let g=sel.querySelector('optgroup[data-own]');
+    if(!g){ g=document.createElement('optgroup'); g.dataset.own=''; g.label='Свои шрифты'; sel.appendChild(g);
+      if(withAdd){ const add=document.createElement('option'); add.value='__add'; add.textContent='＋ Добавить свой шрифт…'; sel.appendChild(add); } }
+    if(g.dataset.sig===want) continue; g.dataset.sig=want;
+    g.replaceChildren(...(state.fonts||[]).map(f=>{ const o=new Option(f.name, 'u:'+f.id); o.dataset.i18nSkip=''; return o; }));
+    g.hidden=!g.children.length;
+  }
 }
 function removeFont(id){
   beginChange(); state.fonts=(state.fonts||[]).filter(f=>f.id!==id);
-  for(const e of state.els) if(e.font==='u:'+id) e.font='montserrat';
+  for(const e of drawList(state)) if(e.font==='u:'+id) e.font='montserrat';
   commit(); toast('Шрифт убран из списка. Файл удалит «Очистить файлы» в комнате.');
 }
 
@@ -629,7 +636,7 @@ function renderAll(){
   syncSel();
   stage.classList.toggle('all-hidden', !state.visible);
   const seen=new Set(), now=nowMs();
-  state.els.forEach((el,i)=>{
+  drawList(state).forEach((el,i)=>{
     seen.add(el.id);
     let node=nodes.get(el.id);
     if(node && node.dataset.type!==el.type){ node.remove(); node=null; }
@@ -652,7 +659,7 @@ function renderAll(){
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ n.remove(); nodes.delete(id); }
-  renderLayers(); renderMixer(); renderInspector(); renderToolbar();
+  renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
@@ -686,7 +693,7 @@ function elName(el){
 const muteMem=new Map();   // что было на ползунке до 🔇
 const hasSound = el => ['video','web','case','raffle'].includes(el.type) || (el.type==='timer' && !!el.endSound);
 const mxRows = () => [{ key:'master', name:'Общая громкость' }, { key:'fx', name:'Звуковые эффекты (кнопка «Звук», сценарии)' },
-  ...state.els.filter(hasSound).map(el=>({ key:el.id, el, name:elIcon(el)+' '+elName(el).slice(0,40) }))];
+  ...drawList(state).filter(hasSound).map(el=>({ key:el.id, el, name:elIcon(el)+' '+elName(el).slice(0,40) }))];
 function mxGet(r){ return r.key==='master' ? num(state.vol,1,0,1) : r.key==='fx' ? num(state.fxVol,1,0,1) : num(r.el.vol,1,0,1); }
 function mxSet(r, v){ if(r.key==='master') state.vol=v; else if(r.key==='fx') state.fxVol=v; else r.el.vol=v; }
 // у видео и сайта звук включается галочкой, у остальных 🔇 — это нулевая громкость
@@ -803,7 +810,6 @@ function renderInspector(){
   if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
-  if(el.type==='raffle') renderRaffle(el);
   if(el.type==='case') renderCase(el);
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
@@ -1093,7 +1099,6 @@ $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''
 $('addCam').onclick=addCam;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
-  if(a==='raffle') return addRaffle();
   if(a==='case') return addCase();
   if(a==='counter') addCounter(); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
@@ -1405,8 +1410,7 @@ function rafWanted(el, text, msg){
 }
 function rafOnChat(user, text, msg){
   let any=false;
-  for(const el of state.els){
-    if(el.type!=='raffle') continue;
+  for(const el of [raf()].filter(Boolean)){
     if(el.phase==='collect' && rafWanted(el, text, msg)){
       const m=rafEntries(el.id); if(m.has(user)) continue;
       m.set(user, { user:msg?.user||user, color:msg?.color||'#ffffff', sub:!!(msg?.sub || msg?.badge==='broadcaster') });
@@ -1448,8 +1452,7 @@ function rafSpin(el){
 }
 function rafTick(){
   let any=false; const now=Date.now();
-  for(const el of state.els){
-    if(el.type!=='raffle') continue;
+  for(const el of [raf()].filter(Boolean)){
     if(el.phase==='collect' && el.closeAt && now>=el.closeAt){ el.closeAt=0; el.phase='closed'; any=true; if(el.auto) rafSpin(el); }
     // победитель не ответил: крутим снова без него
     if(el.phase==='spin' && el.confirm && !el.ok && el.cUntil && now>=el.cUntil+1500){
@@ -1591,7 +1594,7 @@ function chatCommand(text, msg){
   const cmd=m[1].toLowerCase(), arg=(m[2]||'').trim().toLowerCase();
   const STOP=/^(стоп|stop|конец|end)$/, START=/^(старт|start|go)?$/, RESET=/^(сброс|reset)$/;
   if(cmd==='розыгрыш' || cmd==='giveaway'){
-    const el=state.els.find(e=>e.type==='raffle' && !e.hidden) || state.els.find(e=>e.type==='raffle'); if(!el) return true;
+    const el=raf(); if(!el) return true;
     if(STOP.test(arg)){ if(el.phase==='collect'){ el.phase='closed'; el.closeAt=0; } }
     else if(/^(крути|крутить|spin|roll)$/.test(arg)){ rafSpin(el); }
     else if(RESET.test(arg)){ rafReset(el); }
@@ -1867,32 +1870,60 @@ $('cToggle').onclick=()=>act(counterToggle);
 $('pToggle').onclick=()=>act(el=>{ pollToggle(el); el.closeAt=0; });
 $('pTimed').onclick=()=>act(el=>{ el.running=true; el.closeAt=Date.now()+num($('pSecs').value,60,5,3600)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000); });
 $('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
+// ---- вкладка «Розыгрыши» ----
+function actR(fn){ const el=raf(); if(el){ beginChange(); fn(el); commit(); } }
+function bindR(id, apply, evt='input'){
+  const f=$(id);
+  f.addEventListener(evt, ()=>{ const el=raf(); if(!el) return; beginChange(); apply(el, f); changed(); });
+  f.addEventListener('change', ()=>{ if(raf()) commit(); });
+}
+function renderRaffleTab(){
+  const el=raf();
+  $('rafEmpty').hidden=!!el; $('rafBody').hidden=!el;
+  if(!el) return;
+  renderRaffle(el); fillFonts();
+  setField(I('iRFont'), el.font); setField(I('iRColor'), el.color);
+  for(const [id, v, out, fmt] of [['iRX', el.x, 'vRX', x=>Math.round(x)+'%'], ['iRY', el.y, 'vRY', x=>Math.round(x)+'%'], ['iRSize', el.fs, 'vRSize', x=>x.toFixed(1)]]){
+    setField(I(id), String(v)); $(out).textContent=fmt(v);
+  }
+  I('iRShow').checked=!el.hidden;
+}
+bindR('iRFont', (el,f)=>el.font=f.value, 'change');
+bindR('iRColor', (el,f)=>el.color=f.value);
+bindR('iRX', (el,f)=>el.x=num(f.value,50,0,100));
+bindR('iRY', (el,f)=>el.y=num(f.value,45,0,100));
+bindR('iRSize', (el,f)=>el.fs=num(f.value,3,1,8));
+bindR('iRShow', (el,f)=>el.hidden=!f.checked, 'change');
+$('rCenter').onclick=()=>actR(el=>{ el.x=50; el.y=50; });
+$('rafCreate').onclick=addRaffle;
+$('rDelete').onclick=()=>{ const el=raf(); if(!el) return; if(el.n && !confirm('Удалить розыгрыш вместе с участниками?')) return;
+  beginChange(); rafReset(el); state.raffle=null; commit(); };
 function rafReset(el){ el.phase='idle'; el.closeAt=0; el.n=0; el.reel=[]; el.winner=''; el.wlogin=''; el.winners=[]; el.ok=false; el.cUntil=0;
   rafPool.set(el.id, new Map()); rafSkip.delete(el.id); HudiniStore.remove('hudini.raf.'+el.id); }
-bindInput('iRTitle', (el,f)=>el.title=f.value.slice(0,80));
-bindInput('iRPrize', (el,f)=>el.prize=f.value.slice(0,120));
-bindInput('iREntry', (el,f)=>el.entry=f.value, 'change');
-bindInput('iRKw', (el,f)=>el.kw=f.value.slice(0,30));
-bindInput('iRSubs', (el,f)=>el.subs=f.checked, 'change');
-bindInput('iRSubx2', (el,f)=>el.subx2=f.checked, 'change');
-bindInput('iRAuto', (el,f)=>el.auto=f.checked, 'change');
-bindInput('iRConfirm', (el,f)=>el.confirm=Math.round(num(f.value,0,0,600)));
-bindInput('iRKey', (el,f)=>el.key=f.checked, 'change');
-bindInput('iRKc', (el,f)=>el.kc=f.value);
-bindInput('iRKsim', (el,f)=>el.ksim=Number(f.value));
-bindInput('iRFxc', (el,f)=>el.fxc=f.checked, 'change');
-bindInput('iRTicks', (el,f)=>el.ticks=f.checked, 'change');
-bindInput('iRAccent', (el,f)=>el.accent=f.value);
-bindInput('iRCard', (el,f)=>el.card=f.value);
-$('rStart').onclick=()=>act(el=>{ el.phase='collect'; el.hidden=false; el.closeAt=Date.now()+num($('rSecs').value,120,10,7200)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе участники не придут', 4000); });
-$('rStop').onclick=()=>act(el=>{ if(el.phase==='collect'){ el.phase='closed'; el.closeAt=0; } });
-$('rSpin').onclick=()=>act(el=>{ if(el.phase==='collect'){ el.closeAt=0; } rafSpin(el); });
-$('rReset').onclick=()=>{ const el=byId(selectedId); if(el && (!el.n || confirm('Начать новый розыгрыш? Участники и победители обнулятся.'))) act1(el, rafReset); };
+bindR('iRTitle', (el,f)=>el.title=f.value.slice(0,80));
+bindR('iRPrize', (el,f)=>el.prize=f.value.slice(0,120));
+bindR('iREntry', (el,f)=>el.entry=f.value, 'change');
+bindR('iRKw', (el,f)=>el.kw=f.value.slice(0,30));
+bindR('iRSubs', (el,f)=>el.subs=f.checked, 'change');
+bindR('iRSubx2', (el,f)=>el.subx2=f.checked, 'change');
+bindR('iRAuto', (el,f)=>el.auto=f.checked, 'change');
+bindR('iRConfirm', (el,f)=>el.confirm=Math.round(num(f.value,0,0,600)));
+bindR('iRKey', (el,f)=>el.key=f.checked, 'change');
+bindR('iRKc', (el,f)=>el.kc=f.value);
+bindR('iRKsim', (el,f)=>el.ksim=Number(f.value));
+bindR('iRFxc', (el,f)=>el.fxc=f.checked, 'change');
+bindR('iRTicks', (el,f)=>el.ticks=f.checked, 'change');
+bindR('iRAccent', (el,f)=>el.accent=f.value);
+bindR('iRCard', (el,f)=>el.card=f.value);
+$('rStart').onclick=()=>actR(el=>{ el.phase='collect'; el.hidden=false; el.closeAt=Date.now()+num($('rSecs').value,120,10,7200)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе участники не придут', 4000); });
+$('rStop').onclick=()=>actR(el=>{ if(el.phase==='collect'){ el.phase='closed'; el.closeAt=0; } });
+$('rSpin').onclick=()=>actR(el=>{ if(el.phase==='collect'){ el.closeAt=0; } rafSpin(el); });
+$('rReset').onclick=()=>{ const el=raf(); if(el && (!el.n || confirm('Начать новый розыгрыш? Участники и победители обнулятся.'))) actR(rafReset); };
 $('rPimg').onclick=()=>rafUpload('pimg'); $('rSnd').onclick=()=>rafUpload('snd'); $('rVfx').onclick=()=>rafUpload('vfx');
-$('rPimgDel').onclick=()=>act(el=>el.pimg=''); $('rSndDel').onclick=()=>act(el=>el.snd=''); $('rVfxDel').onclick=()=>act(el=>el.vfx='');
+$('rPimgDel').onclick=()=>actR(el=>el.pimg=''); $('rSndDel').onclick=()=>actR(el=>el.snd=''); $('rVfxDel').onclick=()=>actR(el=>el.vfx='');
 $('rFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return; const kind=rafFileFor;
-  try{ showUpload(`Загрузка ${f.name}…`, 0); const blob = kind==='pimg' ? await shrinkImage(f) : f; const src=await uploadBlob(blob, f.name); act(el=>{ el[kind]=src; }); }
+  try{ showUpload(`Загрузка ${f.name}…`, 0); const blob = kind==='pimg' ? await shrinkImage(f) : f; const src=await uploadBlob(blob, f.name); actR(el=>{ el[kind]=src; }); }
   catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
   hideUpload();
 };
@@ -2534,7 +2565,7 @@ $('sceneList').addEventListener('click', e=>{
 function applyScene(sc, add){
   beginChange();
   const now=Date.now(), ids=new Set(add ? state.els.map(x=>x.id) : []);
-  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ if(!x.id || ids.has(x.id)) x.id=rid(10); ids.add(x.id); if(x.kf) x.kf.start=now; return sanitizeEl(x); }).filter(Boolean);
+  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ if(!x.id || ids.has(x.id)) x.id=rid(10); ids.add(x.id); if(x.kf) x.kf.start=now; return x.type==='raffle' ? null : sanitizeEl(x); }).filter(Boolean);
   state.els = add ? [...state.els, ...els].slice(0, MAX_ELS) : els;
   selectedId=null; commit();
 }

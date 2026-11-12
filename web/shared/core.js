@@ -297,11 +297,16 @@ function animApply(node, el, now){
 // Готовые анимации (kfPreset, KF_PRESETS) лежат в presets/animations.js: они под лицензией MIT.
 
 function sanitizeState(m){
-  const els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
+  let els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
+  // Розыгрыш один на экран и живёт не в списке слоёв, а в state.raffle. Старый экран: первый розыгрыш из списка переезжает.
+  const raffle = sanitizeEl(m?.raffle ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
+  els = els.filter(e => e.type!=='raffle');
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
     .filter(f => /^[a-z0-9]{6,24}$/.test(f?.id||'')).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
-  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1) };
+  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
 }
+// Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
+function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }
 
 // ---------- время ----------
 const pad = n => String(n).padStart(2,'0');
