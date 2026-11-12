@@ -412,17 +412,19 @@
   function chooser(el){
     const g = window.HUDINI_CONNECT?.[lang] || window.HUDINI_CONNECT?.en; if(!g) return;
     document.getElementById('cTitle').textContent = g.title; document.getElementById('cLead').textContent = g.lead;
-    const id = picked === 'easy' ? 'tailscale' : picked, m = g.methods[id];
+    const ids = picked === 'easy' ? ['radmin', 'porthole'] : [picked];
     const list = a => `<ol>${a.map(x => `<li>${x}</li>`).join('')}</ol>`;
-    el.innerHTML = `<p class="q">${g.q}</p>
-      <div class="chips" role="radiogroup" aria-label="${g.q}">${Object.keys(g.pick).map(k => `<button type="button" role="radio" aria-checked="${k === picked}" data-pick="${k}" class="${k === picked ? 'on' : ''}">${g.pick[k]}</button>`).join('')}</div>
-      <div class="answer">
+    const answer = id => { const m = g.methods[id]; return `<div class="answer">
         <div class="ahead"><h3>${m.name}</h3><span class="atag">${m.tag}</span>${picked === 'easy' ? `<span class="rec">${g.recommend}</span>` : ''}</div>
         <p class="when">${m.when}</p>
         <div class="two"><div class="role s"><h4>${g.secS}</h4>${list(m.s)}</div><div class="role m"><h4>${g.secM}</h4>${list(m.m)}</div></div>
+        ${m.warn ? `<p class="fw warn">${m.warn}</p>` : ''}
         <div class="notes"><div class="note ok"><b>${g.secCheck}</b><p>${g.check}</p></div><div class="note"><b>${g.secFix}</b>${list(m.fix)}</div></div>
-        <p class="fw">${g.firewall}</p>
-      </div>`;
+      </div>`; };
+    el.innerHTML = `<p class="q">${g.q}</p>
+      <div class="chips" role="radiogroup" aria-label="${g.q}">${Object.keys(g.pick).map(k => `<button type="button" role="radio" aria-checked="${k === picked}" data-pick="${k}" class="${k === picked ? 'on' : ''}">${g.pick[k]}</button>`).join('')}</div>
+      <div class="answers">${ids.map(answer).join('')}</div>
+      <p class="fw">${g.firewall}</p>`;
     el.onclick = e => { const b = e.target.closest('[data-pick]'); if(!b) return; picked = b.dataset.pick; chooser(el); el.querySelector(`[data-pick="${picked}"]`)?.focus(); };
   }
 

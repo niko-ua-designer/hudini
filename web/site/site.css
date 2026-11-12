@@ -457,3 +457,6 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 .fw b{color:var(--soft)}
 @media (max-width:820px){.roles,.answer .two,.notes{grid-template-columns:1fr}.answer{padding:18px}}
 @media (max-width:560px){.top>.btn.small{display:none}}
+.answers{display:grid;gap:18px}
+.fw.warn{margin:16px 0 0;border-left-color:var(--alpha);color:#ffb3c0;background:#ff5c7a10;border-radius:0 10px 10px 0;padding:10px 14px}
+.chooser>.fw{margin-top:18px}
