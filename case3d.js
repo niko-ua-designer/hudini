@@ -346,14 +346,15 @@
   // ================== ЗВУК ==================
   // Синтез без сэмплов: металлические щелчки из резонансов, суб-удары, подъём на фильтре, реверберация свёрткой.
   // Свой звук на любой момент модератор ставит в пульте, тогда синтез для этого момента молчит.
-  const A = { ctx:null };
+  const A = { ctx:null, muted:false };
+  const files = new Set();   // свои звуки кейса, чтобы «остановить звуки» их тоже глушила
   function ac(vol){
     if(!A.ctx){
       try{ A.ctx = new AudioContext(); }catch{ return null; }
       chain(A.ctx);
     }
     if(A.ctx.state === 'suspended') A.ctx.resume();
-    A.out.gain.value = vol * 0.62;
+    A.out.gain.value = A.muted ? 0 : vol * 0.62;
     return A.ctx;
   }
   function chain(x){
@@ -462,14 +463,16 @@
       else if(big) for(let i = 0; i < 12; i++) SFX.bell(t0 + 0.3 + i * 0.08, 1800 + Math.random() * 2400, 0.025, 0.4);
     },
   };
-  function playFile(src, vol){ try{ const u = window.resolveSrc ? window.resolveSrc(src) : src; if(!u) return; const a = new Audio(u); a.volume = vol; a.play().catch(() => {}); }catch{} }
+  function playFile(src, vol){ try{ const u = window.resolveSrc ? window.resolveSrc(src) : src; if(!u) return; if(A.muted) return; const a = new Audio(u); a.volume = vol; files.add(a); a.addEventListener('ended', () => files.delete(a)); a.play().catch(() => {}); }catch{} }
   function sound(el, k, t0, extra){
-    if(el.snd?.[k]){ if(k !== 'tick' || !sound.busy) playFile(el.snd[k], el.vol); return; }
+    const own = el.snd?.[k === 'lock2' ? 'lock' : k];
+    if(own){ if(k !== 'tick' || !sound.busy) playFile(own, el.vol); return; }
     const sfxKey = k === 'lock2' ? 'lock' : k;
     SFX[sfxKey]?.(t0, extra);
   }
   function audio(c, el, t){
-    if(!FX().audio) return;
+    if(!FX().audio || el.hidden) return;
+    if(!(c._snd && c._snd.key === el.openAt)) A.muted = false;   // новое открытие снова со звуком
     const ct = T(), x = ac(el.vol); if(!x) return;
     const S = c._snd && c._snd.key === el.openAt ? c._snd : (c._snd = { key:el.openAt, done:new Set() });
     const win = el.items[el.win];
@@ -497,6 +500,7 @@
     },
     tick(el, p){ if(!FX().audio) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
     stop(c){ dispose(c); },
+    silence(){ A.muted = true; if(A.out) A.out.gain.value = 0; for(const a of files) a.pause(); files.clear(); },
     preload: load,
     renderWav,
   };

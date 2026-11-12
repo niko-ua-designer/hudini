@@ -122,7 +122,7 @@ let visible=true, lastState={ visible:true, els:[] };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
-  lastState=s; visible=s.visible;
+  lastState=s; visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
   s.els.forEach((el,i)=>{
@@ -199,7 +199,7 @@ function playSound(src, vol){
   sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
   a.play().catch(e=>status('Звук не проигрался: '+e.message));
 }
-function stopSounds(){ for(const a of sounds) a.pause(); sounds.clear(); }
+function stopSounds(){ for(const a of sounds) a.pause(); sounds.clear(); window.Case3D?.silence?.(); }
 
 let parts=[], confettiRunning=false, lastT=0;
 function confetti(){
@@ -233,7 +233,7 @@ function blip(freq, dur, vol, type){
   o.type=type||'square'; o.frequency.setValueAtTime(freq, t); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.02);
 }
-CaseFx.audio=true;
+Object.defineProperty(CaseFx, 'audio', { get:()=>visible && !document.body.classList.contains('host-hidden') });
 RaffleFx.tick=el=>{ if(el.ticks && visible && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08, 'square'); };
 RaffleFx.open=el=>{ if(!visible || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12, 'sine'), 1050); };
 RaffleFx.win=el=>{

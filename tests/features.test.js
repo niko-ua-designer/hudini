@@ -125,6 +125,14 @@ const { step, check, eq, until, sleep } = T;
     else check(Math.abs(h1 / (await wid.evaluate(() => parseFloat(getComputedStyle([...document.querySelectorAll('.el')].find(n => n.textContent.includes('Шрифт 123')).querySelector('.txt')).fontSize))) - 1.219) < 0.03, 'auto-fit: line height matches Montserrat proportions (web font offline here)');
   });
 
+  await step('small fixes: custom "tense" case sound survives, IRC tags cannot poison prototypes, silence() mutes the case', async () => {
+    const snd = await mod.evaluate(() => sanitizeEl({ id: 'x', type: 'case', snd: { tense: 'https://example.com/a.mp3', bogus: 'https://example.com/b.mp3' } }).snd);
+    eq(Object.keys(snd), ['tense'], 'custom "tense" sound is kept, unknown moments are dropped');
+    const tags = await mod.evaluate(() => { const t = parseTags('__proto__=x;constructor=y;mod=1'); return [Object.getPrototypeOf(t) === null, ({}).x, t.mod]; });
+    eq(tags, [true, undefined, '1'], 'tags parsed into a prototype-less object');
+    check(await wid.evaluate(() => typeof Case3D.silence === 'function'), 'Case3D.silence exists on the widget');
+  });
+
   await step('HUD styles and flip digits, line icons in the panel', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'card');
     await mod.selectOption('#iCsTheme', 'ko'); await mod.click('label.tgl:has(#iCsFlip)');

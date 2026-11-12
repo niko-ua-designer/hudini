@@ -178,7 +178,7 @@ function sanitizeEl(e){
     o.win=Math.round(num(e.win,-1,-1,39)); o.jit=num(e.jit,0,-0.4,0.4);
     o.reel=(Array.isArray(e.reel)?e.reel:[]).slice(0,CASE_REEL).map(v=>Math.round(num(v,0,0,39)));
     o.hideAfter=num(e.hideAfter,12,3,120); o.vol=num(e.vol,0.8,0,1); o.q=e.q==='low'?'low':'high';
-    o.snd={}; for(const k of ['in','lock','open','tick','win']){ const v=safeSrc(e.snd?.[k]); if(v) o.snd[k]=v; }
+    o.snd={}; for(const k of ['in','tense','lock','open','tick','win']){ const v=safeSrc(e.snd?.[k]); if(v) o.snd[k]=v; }
   } else if(type==='raffle'){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');

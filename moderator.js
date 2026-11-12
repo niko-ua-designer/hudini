@@ -1141,7 +1141,7 @@ let chatWs=null;
 const chatSeen=new Map();
 const chatLog=[];
 function parseTags(str){
-  const o={}; if(!str) return o;
+  const o=Object.create(null); if(!str) return o;
   for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
     o[kv.slice(0,i)]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
   return o;

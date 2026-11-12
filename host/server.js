@@ -69,7 +69,7 @@ const PORT = okPort(process.env.OVERLAY_PORT) || okPort(cfg.port) || 7777, TPORT
 // ---------- журнал ----------
 const logs = [];
 function log(...a){
-  const line = new Date().toLocaleTimeString('ru-RU') + '  ' + a.join(' ');
+  const line = new Date().toLocaleTimeString('ru-RU') + '  ' + a.join(' ').replace(/[\r\n]+/g, ' ');
   console.log(line); logs.push(line); if(logs.length>200) logs.shift();
 }
 
@@ -592,7 +592,7 @@ function extractApp(zip, dest){
       if(path.isAbsolute(target) || /[\0\\]/.test(target) || !inside(root, path.resolve(dir, target))) throw new Error('архив повреждён: '+e.name);
       fs.symlinkSync(target, to); n++; continue;
     }
-    fs.writeFileSync(to, data); n++;
+    fs.writeFileSync(to, data, { flag:'wx' }); n++;
     if(process.platform!=='win32'){
       const m = e.mode & 0o777;
       fs.chmodSync(to, m || (/\.[a-z0-9]{1,5}$/i.test(parts.at(-1)) ? 0o644 : 0o755));
