@@ -32,6 +32,14 @@
     timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5M19 5l1.5 1.5"/>',
     count:'<path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/>',
     sticker:'<path d="M15.5 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h7.5L21 13.5V6a3 3 0 0 0-3-3z"/><path d="M13 21v-5a3 3 0 0 1 3-3h5M8.5 10h.01M14.5 10h.01M8.5 14.5s1.2 1.5 3 1.5"/>',
+    plus:'<path d="M5 12h14M12 5v14"/>',
+    film:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M3 12h18M3 16.5h4M17 3v18M17 7.5h4M17 16.5h4"/>',
+    gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>',
+    volume:'<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6M19.364 18.364a9 9 0 0 0 0-12.728"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    box:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+    eye:'<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+    undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
     bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
     cs:'<circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r=".8"/>',
     hide:'<path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6C3.8 8.4 2 12 2 12s4 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
@@ -195,39 +203,67 @@
   }
 
   // ---------- hero demo: panel on the left, stream on the right ----------
-  const CHAT = [['nightowl', 'n1'], ['pixelkat', 'n2'], ['b0rsch', 'n3'], ['m1ra', 'n4'], ['zefir', 'n5'], ['kotleta', 'n3'], ['vandal', 'n1'], ['lumen', 'n2']];
-  const MOUNTAINS = '<svg viewBox="0 0 160 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 60V30l14-7 12 6 20-19 16 13 10-5 18 15 14-11 22 14 16-7 18 9v22z" fill="#1a1733"/><path d="M0 60V42l22-8 20 5 28-14 24 12 22-6 24 9 20-4v24z" fill="#110f22"/></svg>';
   const CURSOR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2.5 19 13.6l-6.6 1.1 3.9 6.9-2.9 1.5-3.8-7L4.4 20z" fill="#fff" stroke="#14131c" stroke-width="1.4" stroke-linejoin="round"/></svg>';
   function heroDemo(el, t){
-    const B = [['text', 'text'], ['poll', 'poll'], ['timer', 'timer'], ['count', 'count'], ['sticker', 'sticker'], ['scen', 'bolt'], ['cs', 'cs', 'wide b-cs', 'CS2 HUD'], ['hide', 'hide', 'wide b-hide']];
-    const lbl = { text:t.dText, poll:t.dPoll, timer:t.dTimer, count:t.dCount, sticker:t.dSticker, scen:t.dScen, hide:t.dHide };
+    const D = t.dm, strip = document.getElementById('fnStrip');
+    const SC = ['text', 'poll', 'timer', 'kase', 'auto', 'cs'];
+    const TILES = [['timer', 'timer'], ['count', 'count'], ['poll', 'poll'], ['cs', 'cs'], ['kase', 'box', 'wide']];
+    const TABS = ['plus', 'film', 'chat', 'bolt', 'gift', 'volume', 'gear'];
+    const LIC = { text:'text', poll:'poll', timer:'timer', count:'count', kase:'box', sticker:'sticker', cs:'cs' };
+    const FIELDS = {
+      text:[[D.f.text, t.dMsg]], poll:[[D.f.question, t.dPollQ], [D.f.options, 'Mirage · Inferno · Nuke']], timer:[[D.f.time, '05:00'], [D.f.label, t.dBreak]],
+      count:[[D.f.label, t.dDeaths]], kase:[[D.f.kind, D.caseKind], [D.f.who, 'nightowl']], sticker:[[D.f.text, 'POG!']], cs:[[D.f.view, D.csView]],
+    };
+    const RC = ['#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#e4ae39'];   // case rarity colors, same order as the panel
+    const reelCards = Array.from({ length:30 }, (_, i) => i === 24 ? 4 : [0, 0, 1, 0, 2, 0, 1, 3, 0, 1][(i * 7) % 10]);
     el.innerHTML = `
-    <div class="dv-bar"><i></i><i></i><i></i><span class="dv-on"><b></b>${t.dOnline}</span><span class="dv-obs">OBS 1920×1080</span></div>
+    <div class="dv-top">
+      <span class="dv-logo"><img src="shared/icons/icon-192.png" alt="">Hudini</span>
+      <span class="dv-cap"><span class="sig"><i></i><i></i><i></i></span>${D.online} <em>24 ms</em><span class="sep"></span><b class="ok"></b>${D.obs}</span>
+      <span class="sp"></span>
+      <span class="dv-vol">${ic('volume')}<span class="sl"><i></i></span></span>
+      <span class="dv-hb">${ic('undo')}<span>${D.undo}</span></span>
+      <span class="dv-hb" data-b="hide">${ic('hide')}<span>${D.hideAll}</span></span>
+    </div>
     <div class="dv-body">
-      <div class="dv-panel">
-        <div class="dp-head"><img src="shared/icons/icon-192.png" alt="">Hudini<span class="dp-room">#etsuitoku</span></div>
-        <div class="dp-btns">${B.map(([k, i, cls, name]) => `<div class="dp-b ${cls || ''}" data-b="${k}">${ic(i)}<span>${name || lbl[k]}</span></div>`).join('')}</div>
-        <div class="dp-chat"><div class="dp-ct"><b></b>${t.dChat}</div><div class="dp-msgs"></div><div class="dv-toast">${ic('bolt')}<span>${t.dToast}</span></div></div>
+      <div class="dv-rail">${TABS.map((k, i) => `<div class="tb${i === 0 ? ' on' : ''}" data-b="${i === 3 ? 'tab-auto' : 'tab-' + k}" data-tab="${i === 3 ? 'auto' : i === 0 ? 'add' : ''}">${ic(k)}<span>${D.tabs[i]}</span></div>`).join('')}</div>
+      <div class="dv-pane">
+        <div class="pg pg-add on">
+          <h5>${D.text}</h5><div class="fk ta">${D.textPh}</div>
+          <div class="pb primary" data-b="text">${ic('plus')}${D.addText}</div>
+          <h5>${D.widgets}</h5>
+          <div class="tiles">${TILES.map(([k, i, c]) => `<div class="tl ${c || ''}" data-b="${k}">${ic(i)}<span>${D.tiles[k]}</span></div>`).join('')}</div>
+        </div>
+        <div class="pg pg-auto">
+          <h5>${D.scen}</h5>
+          <div class="rule"><div class="r1">${D.ruleIf} <code>!pog</code></div><div class="r2">${ic('bolt')}<span>${D.ruleThen}</span></div></div>
+          <div class="hit">${ic('chat')}<span>${D.ruleHit}</span></div>
+        </div>
       </div>
-      <div class="dv-stage"><div class="st">
-        <div class="st-bg"><i></i><i></i><i></i><i></i><i></i>${MOUNTAINS}</div>
-        <div class="st-live"><b></b>LIVE</div>
+      <div class="dv-main"><div class="st">
+        <div class="st-bg"></div>
         <div class="o o-text">${t.dMsg}</div>
         <div class="o o-poll"><h4>${t.dPollQ}</h4>${['Mirage', 'Inferno', 'Nuke'].map((m, i) => `<div class="pr"><span class="k">${i + 1}</span><span>${m}</span><span class="bar"><i></i></span><span class="v"></span></div>`).join('')}<div class="pf"></div></div>
         <div class="o o-timer"><div class="lb">${t.dBreak}</div><div class="flip"><span class="fd"><span></span></span><span class="fd"><span></span></span><span class="colon">:</span><span class="fd"><span></span></span><span class="fd"><span></span></span></div></div>
         <div class="o o-count"><small>${t.dDeaths}</small><b>6</b></div>
         <div class="o o-sticker">POG!</div>
-        <div class="o o-cap"><span>${ic('star')}${t.dPower}</span><p>${t.dCap}</p></div>
+        <div class="o o-case"><div class="kc-who">${D.caseWho}</div>
+          <div class="kc-win"><i class="kc-mark"></i><div class="kc-strip">${reelCards.map(r => `<div class="kc" style="--c:${RC[r]}">${ic('box')}<small>${D.rar[r]}</small></div>`).join('')}</div></div>
+          <div class="kc-res" style="--c:${RC[4]}"><small>${D.rar[4]}</small></div></div>
         <div class="cs"></div>
         <canvas class="o-conf"></canvas>
       </div></div>
+      <div class="dv-right">
+        <h5>${D.layers}</h5><div class="ly-list"></div>
+        <h5>${D.selected}</h5><div class="insp"></div>
+      </div>
     </div>
     <div class="dv-cur hidden">${CURSOR}</div>`;
-    const $ = s => el.querySelector(s), st = $('.st');
+    if(strip) strip.innerHTML = `<span class="fn-t">${D.fn}</span><div class="fn-chips">${SC.map((k, i) => `<button type="button" data-i="${i}">${D.sc[k][0]}</button>`).join('')}</div><p class="fn-cap"></p>`;
+    const $ = s => el.querySelector(s);
     const clk = makeClock(el), wait = clk.wait;
-    const btn = k => $(`[data-b="${k}"]`);
-    const on = (sel, v = true) => $(sel).classList.toggle('on', v);
-    const lit = (k, v = true) => btn(k).classList.toggle('on', v);
+    const showOn = (sel, v = true) => $(sel).classList.toggle('on', v);
+    const OV = ['.o-text', '.o-poll', '.o-timer', '.o-count', '.o-sticker', '.o-case'];
 
     // poll
     const votes = [0, 0, 0];
@@ -252,27 +288,32 @@
       const tok = ++timerTok; let s = from; clock(s);
       (async () => { while(true){ await wait(1000); if(tok !== timerTok) return; s = Math.max(0, s - 1); clock(s); } })();
     }
-    // counter
     const cnt = $('.o-count b');
     const setCount = (n, bump) => { cnt.textContent = n; if(bump) restart(cnt, 'bump'); };
-    // chat
-    const msgs = $('.dp-msgs'); let ci = 0;
-    function say(text, cmd){
-      const [n, c] = CHAT[ci++ % CHAT.length];
-      const p = document.createElement('p'); if(cmd) p.className = 'cmd';
-      p.innerHTML = `<b class="${c}">${n}</b>: ${cmd ? `<em>${text}</em>` : text}`;
-      msgs.appendChild(p);
-      while(msgs.children.length > 7) msgs.firstChild.remove();
+    // layers + inspector (the right column of the real panel)
+    const ly = $('.ly-list'), insp = $('.insp'); let nLayers = 0;
+    function addLayer(k){
+      ly.querySelectorAll('.sel').forEach(r => r.classList.remove('sel'));
+      const r = document.createElement('div'); r.className = 'ly sel';
+      r.innerHTML = `<i>${++nLayers}</i>${ic(LIC[k])}<span>${D.names[k]}</span><b>${ic('eye')}</b>`;
+      ly.prepend(r);
+      insp.innerHTML = `<div class="in-eye">${ic('eye')}<span>${D.onStream}</span></div><div class="in-fl">${ic('bolt')}<span>${D.flash}</span></div>
+        <div class="in-box"><div class="in-t">${ic(LIC[k])}<span>${D.names[k]}</span></div>${FIELDS[k].map(([l, v]) => `<label>${l}</label><div class="fk">${v}</div>`).join('')}
+        ${k === 'kase' ? `<div class="pb go" data-b="open">${ic('box')}${D.openCase}</div>` : ''}</div>`;
+    }
+    function setTab(name){
+      el.querySelectorAll('.tb').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+      el.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.classList.contains('pg-' + name)));
     }
     // confetti on the stream canvas
-    const cv = $('.o-conf'), cx = cv.getContext('2d');
+    const st = $('.st'), cv = $('.o-conf'), cx = cv.getContext('2d');
     function confetti(){
       const r = st.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
       cv.width = r.width * dpr; cv.height = r.height * dpr;
       const W = cv.width, H = cv.height, cols = ['#7c5cff', '#ff5c9a', '#ffd166', '#4fd8ff', '#8ef0a8', '#ffffff'];
       const ps = Array.from({ length:150 }, (_, i) => {
         const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = (0.5 + Math.random() * 0.75) * H * 0.0024;
-        return { x:W * (i % 2 ? 0.38 : 0.62), y:H * 0.58, vx:Math.cos(a) * v, vy:Math.sin(a) * v * 1.25, s:(3 + Math.random() * 5) * dpr * r.width / 700, r:Math.random() * 6, vr:(Math.random() - 0.5) * 0.02, c:cols[i % cols.length], life:0 };
+        return { x:W * (i % 2 ? 0.38 : 0.62), y:H * 0.58, vx:Math.cos(a) * v, vy:Math.sin(a) * v * 1.25, s:(3 + Math.random() * 5) * dpr * r.width / 700, r:Math.random() * 6, vr:(Math.random() - 0.5) * 0.02, c:cols[i % cols.length] };
       });
       let age = 0;
       const f = dt => {
@@ -284,70 +325,81 @@
       clk.ticks.add(f);
     }
     // cursor
-    const cur = $('.dv-cur');
+    const cur = $('.dv-cur'); let cp = [0, 0];
     function point(target, dx = 0.5, dy = 0.55){
-      const a = el.getBoundingClientRect(), b = target.getBoundingClientRect();
+      const a = el.getBoundingClientRect(); let b = target.getBoundingClientRect();
+      if(!b.width) b = st.getBoundingClientRect();   // the panel is hidden on narrow screens: point at the stream
       return [b.left - a.left + b.width * dx, b.top - a.top + b.height * dy];
     }
-    let cp = [0, 0];
     const moveTo = ([x, y]) => { cp = [x, y]; cur.style.transform = `translate(${x - 4}px,${y - 2}px)`; };
-    async function click(k){
-      const b = btn(k);
-      moveTo(point(b, 0.42)); await wait(900);
+    async function click(k, w){
+      const b = $(`[data-b="${k}"]`); if(!b) return;
+      moveTo(point(b, 0.42)); await w(900);
       b.classList.add('press');
       const rp = document.createElement('div'); rp.className = 'dv-rip'; rp.style.left = cp[0] + 'px'; rp.style.top = cp[1] + 'px'; el.appendChild(rp);
       wait(600).then(() => rp.remove());
-      await wait(150); b.classList.remove('press'); await wait(120);
+      await w(150); b.classList.remove('press'); await w(120);
     }
-    const OV = ['.o-text', '.o-poll', '.o-timer', '.o-count', '.o-sticker'];
-    function clearStream(){
-      OV.forEach(s => on(s, false)); timerTok++;
-      el.querySelectorAll('.dp-b').forEach(b => b.classList.remove('on'));
+    function reset(){
+      OV.forEach(s => showOn(s, false)); timerTok++; st.classList.remove('cs-mode');
+      const cs = $('.cs'); cs.replaceWith(cs.cloneNode(false));   // a fresh node: a half-played CS2 scene lets go of the old one
+      $('.o-case').classList.remove('spin', 'won');
+      ly.replaceChildren(); insp.replaceChildren(); nLayers = 0; setTab('add');
+      $('.pg-auto .rule').classList.remove('fire'); $('.pg-auto .hit').classList.remove('on');
+      votes.splice(0, 3, 0, 0, 0); poll(); setCount(6); clock(300);
     }
+    const SCENES = {
+      async text(w){ await click('text', w); addLayer('text'); showOn('.o-text'); await w(3000); },
+      async poll(w){
+        await click('poll', w); addLayer('poll'); showOn('.o-poll'); await w(700);
+        for(const v of [0, 1, 0, 2, 0, 1, 0, 0, 2, 0]){ votes[v]++; poll(); await w(420); }
+        await w(1400);
+      },
+      async timer(w){
+        await click('timer', w); addLayer('timer'); showOn('.o-timer'); runTimer(300); await w(1000);
+        await click('count', w); addLayer('count'); showOn('.o-count'); await w(800);
+        setCount(7, true); await w(900); setCount(8, true); await w(1600);
+      },
+      async kase(w){
+        await click('kase', w); addLayer('kase'); showOn('.o-case'); await w(900);
+        await click('open', w); $('.o-case').classList.add('spin'); await w(4600);
+        $('.o-case').classList.add('won'); await w(2800);
+      },
+      async auto(w){
+        await click('tab-auto', w); setTab('auto'); await w(900);
+        $('.pg-auto .hit').classList.add('on'); $('.pg-auto .rule').classList.add('fire'); await w(700);
+        confetti(); addLayer('sticker'); showOn('.o-sticker'); await w(2600);
+      },
+      async cs(w){
+        await click('cs', w); addLayer('cs'); st.classList.add('cs-mode'); moveTo(point(st, 0.5, 0.5)); await w(500);
+        await csScene($('.cs'), t, clk); await w(600);
+        await click('hide', w); reset(); await w(1400);
+      },
+    };
+    const caps = strip?.querySelector('.fn-cap');
+    const chips = strip ? [...strip.querySelectorAll('[data-i]')] : [];
+    function mark(n){ chips.forEach((c, i) => c.classList.toggle('on', i === n)); if(caps) caps.textContent = D.sc[SC[n]][1]; }
+    let tok = 0;
+    async function play(i){
+      const my = ++tok, w = async ms => { await wait(ms); if(my !== tok) throw 0; };
+      try{
+        cur.classList.remove('hidden');
+        for(let n = i; ; n = (n + 1) % SC.length){
+          mark(n); reset(); moveTo(point(st, 0.7, 0.75)); await w(500);
+          await SCENES[SC[n]](w); await w(1200);
+        }
+      }catch(e){ if(my !== tok || e === 0) return; throw e; }
+    }
+    chips.forEach(c => { c.onclick = () => { tok++; play(+c.dataset.i); }; });
 
     if(reduced){   // one still frame with the classic overlay
-      votes.splice(0, 3, 14, 9, 5); poll(); clock(272); setCount(7);
-      OV.forEach(s => on(s)); ['text', 'poll', 'timer', 'count', 'sticker'].forEach(k => lit(k));
-      ['1', '2', '1', '!pog'].forEach((m, i) => say(m, i === 3));
+      mark(0); votes.splice(0, 3, 14, 9, 5); poll(); clock(272); setCount(7);
+      for(const k of ['text', 'poll', 'timer', 'count']) addLayer(k);
+      ['.o-text', '.o-poll', '.o-timer', '.o-count'].forEach(s => showOn(s));
+      chips.forEach(c => { c.disabled = true; });
       return;
     }
-
-    async function loop(){
-      cur.classList.remove('hidden');
-      moveTo(point(st, 0.7, 0.75));
-      for(;;){
-        clearStream(); votes.splice(0, 3, 5, 3, 2); poll(); setCount(6); msgs.replaceChildren();
-        say('hi chat'); await wait(700);
-        // a. text
-        await click('text'); on('.o-text'); lit('text'); say('GG'); await wait(1400);
-        // b. poll + votes from chat
-        await click('poll'); on('.o-poll'); lit('poll'); await wait(500);
-        for(const v of ['1', '2', '1', '3', '1', '2', '1', '1']){ say(v); votes[+v - 1]++; poll(); await wait(380); }
-        // c. flip timer + counter
-        await click('timer'); runTimer(300); on('.o-timer'); lit('timer'); await wait(500);
-        await click('count'); on('.o-count'); lit('count'); await wait(700);
-        setCount(7, true); say('F'); await wait(900); setCount(8, true); await wait(700);
-        // d. scenario: !pog in chat → sticker + confetti
-        moveTo(point(st, 0.62, 0.82)); say('!pog', true); await wait(450);
-        on('.dv-toast'); lit('scen'); await wait(650);
-        on('.o-sticker'); lit('sticker'); confetti(); say('POGGERS'); await wait(2200);
-        on('.dv-toast', false); lit('scen', false);
-        // e. CS2 HUD
-        await click('cs'); clearStream(); lit('cs'); st.classList.add('cs-mode'); on('.o-cap');
-        moveTo(point(st, 0.5, 0.5));
-        await wait(500);
-        say('ACE incoming?');
-        await csScene($('.cs'), t, clk);
-        say('ACEEEE');
-        await wait(600);
-        // f. hide everything
-        await click('hide');
-        on('.cs', false); on('.o-cap', false); st.classList.remove('cs-mode'); clearStream();
-        moveTo(point(st, 0.7, 0.75));
-        await wait(1600);
-      }
-    }
-    loop();
+    play(0);
   }
 
   // ---------- CS2 section: scoreboard table ↔ duel comparison (same glass look as the HUD) ----------
