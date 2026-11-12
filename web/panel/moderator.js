@@ -108,24 +108,61 @@ function homeHttp(){
 }
 // Один источник правды для индикатора связи: состояние ретранслятора + состояние MQTT
 function netName(n){ const r=(window.HudiniSessions?.NET_NAMES||{})[n] || n || ''; return window.HudiniI18n ? window.HudiniI18n.t(r) : r; }
-function hostStatus(){
-  const pill=$('status'), R=relayInfo;
+// Модель индикатора: { cls, text, title, bars (0..4), strip: { head, why } | null }
+function statusModel(){
+  const R=relayInfo, T=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
   if(client?.connected){
-    const net=R?.net ? ' · '+netName(R.net) : '', rtt=R?.rtt_ms!=null ? ` · ${R.rtt_ms} ms` : '';
-    const slow=R?.rtt_ms>=200 ? 'bad' : R?.rtt_ms>=80 ? 'warn' : 'ok';
-    setPill(pill, slow, 'онлайн · Hudini Host'+net+rtt);
-    pill.title='Подключено к программе стримера'+(R?.addr ? ': '+R.addr : '')+(R?.reconnects ? `\nПереподключений: ${R.reconnects}` : '');
-    return;
+    const rtt=R?.rtt_ms, cls=rtt>=200 ? 'bad' : rtt>=80 ? 'warn' : 'ok', bars=rtt==null ? 4 : rtt<40 ? 4 : rtt<80 ? 3 : rtt<200 ? 2 : 1;
+    return { cls, bars, text:R?.net ? netName(R.net)+(rtt!=null ? ` · ${rtt} ms` : '') : 'онлайн · Hudini Host',
+      title:'Подключено к программе стримера'+(R?.addr ? ': '+R.addr : ''), strip:null };
   }
-  if(R?.state==='badcert'){ setPill(pill, 'bad', 'отпечаток не совпал: код устарел'); pill.title='Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.'; return; }
-  if(R?.state==='offline'){ setPill(pill, 'bad', 'сервер не отвечает'); pill.title='Hudini Host не отвечает ни по одному адресу из кода. Проверь, что у тебя и у стримера включён один и тот же VPN (Tailscale, Radmin, Porthole), а программа запущена.'+(R.last_error ? '\n'+R.last_error : ''); return; }
-  if(!homeClient && hostNote){ setPill(pill, /пароль/.test(hostNote) ? 'bad' : 'warn', hostNote); pill.title='Экран стримера меняется только через программу Hudini Host.'; return; }
-  if(R?.state==='connecting' || relayPort && !homeClient){ setPill(pill, 'warn', 'подключаюсь к адресам из кода…'); pill.title='Пробую адреса из кода стримера: '+(session?.addrs?.length||1); return; }
-  if(homeClient){ setPill(pill, 'warn', 'подключаюсь к Hudini Host…'); pill.title=''; return; }
+  if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
+    why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
+  if(R?.state==='offline') return { cls:'bad', bars:0, text:'сервер не отвечает', title:'', strip:{ head:'сервер не отвечает',
+    why:'Hudini Host не отвечает ни по одному адресу из кода. Проверь, что у тебя и у стримера включён один и тот же VPN (Tailscale, Radmin, Porthole), а программа запущена.' } };
+  if(!homeClient && hostNote){
+    const bad=/пароль|Не удалось/.test(hostNote);
+    return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad || /пауз/.test(hostNote) ? { head:hostNote, why:'' } : null };
+  }
+  if(R?.state==='connecting' || relayPort && !homeClient) return { cls:'warn', bars:1, text:'подключаюсь к адресам из кода…', title:'Пробую адреса из кода стримера: '+(session?.addrs?.length||1), strip:null };
+  if(homeClient) return { cls:'warn', bars:1, text:'подключаюсь к Hudini Host…', title:'', strip:null };
   // без программы пульт работает: всё уйдёт стримеру при подключении, поэтому это ожидание, а не ошибка
-  setPill(pill, /пароль/.test(hostNote) ? 'bad' : 'warn', hostNote || '⏳ Ждём Hudini Host');
-  pill.title='Экран стримера меняется только через программу Hudini Host на его компьютере.\nНажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.';
+  return { cls:'warn', bars:0, text:'⏳ Ждём Hudini Host', title:'Экран стримера меняется только через программу Hudini Host на его компьютере.\nНажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.', strip:null };
 }
+// Таблетка «палочки сигнала + сеть + задержка» и полоса с пояснением под шапкой
+function setStatus(cls, text, bars=0, title=''){
+  const el=$('status'); setPill(el, 'sig '+cls, text); el.title=title; el.dataset.bars=String(bars);
+  const b=document.createElement('span'); b.className='bars'; for(let i=1;i<=4;i++){ const x=document.createElement('i'); if(i<=bars) x.className='on'; b.appendChild(x); }
+  el.prepend(b);
+}
+function hostStatus(){
+  const m=statusModel();
+  setStatus(m.cls, m.text, m.bars, m.title);
+  const strip=$('connStrip'); strip.hidden=!m.strip; strip.className=m.cls;
+  if(m.strip){ $('csHead').textContent=m.strip.head; $('csWhy').textContent=m.strip.why; $('csSess').hidden=!TAURI; $('csRetry').hidden=!session; }
+  if(!$('connPop').hidden) renderConnPop();
+}
+// Подробности по клику на таблетку
+function renderConnPop(){
+  const R=relayInfo, T=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t, pop=$('connPop'), m=statusModel();
+  const rows=[['Адрес', R?.addr||(homeInfo?.url||'—')], ['Сеть', R?.net ? netName(R.net) : '—'], ['Задержка', R?.rtt_ms!=null ? R.rtt_ms+' ms' : '—'],
+    ['Подключён с', R?.state==='online' && R.since ? new Date(R.since).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '—'],
+    ['Переподключений', String(R?.reconnects||0)], ['Последняя ошибка', R?.last_error || 'ошибок нет']];
+  const h=document.createElement('h4'); h.textContent=m.text; const dl=document.createElement('dl');
+  for(const [k,v] of rows){ const dt=document.createElement('dt'), dd=document.createElement('dd'); dt.textContent=k; dd.textContent=v; dl.append(dt, dd); }
+  const kids=[h, dl];
+  if(m.strip?.why){ const w=document.createElement('div'); w.className='why'; w.textContent=m.strip.why; kids.push(w); }
+  pop.replaceChildren(...kids);
+}
+function toggleConnPop(force){
+  const pop=$('connPop'), open=force ?? pop.hidden;
+  pop.hidden=!open; if(!open) return;
+  renderConnPop();
+  const r=$('status').getBoundingClientRect(); pop.style.left=Math.max(8, Math.min(innerWidth-pop.offsetWidth-8, r.left))+'px'; pop.style.top=(r.bottom+6)+'px';
+  const away=e=>{ if(pop.contains(e.target) || $('status').contains(e.target)) return; pop.hidden=true; removeEventListener('pointerdown', away, true); };
+  setTimeout(()=>addEventListener('pointerdown', away, true), 0);
+}
+$('csRetry').onclick=()=>{ hostNote=''; relayInfo=null; dropHome(); reopenHome(); };
 function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
   client=c;
@@ -135,9 +172,9 @@ function useMain(c){
   c.subscribe(mainTopics(), { qos:1 }); Assets.retry(); renderAll(); refreshStorage(true);
 }
 function wire(c){
-  c.on('reconnect', ()=>{ if(client===c) setPill($('status'), 'warn', 'переподключение…'); });
-  c.on('offline',   ()=>{ if(client===c){ if(relayInfo?.state==='badcert' || relayInfo?.state==='offline') hostStatus(); else setPill($('status'), 'bad', 'нет связи с Hudini Host'); } });
-  c.on('error', e=>{ console.warn(e); if(client===c) setPill($('status'), 'bad', 'ошибка связи'); });
+  c.on('reconnect', ()=>{ if(client===c) setStatus('warn', 'переподключение…', 1); });
+  c.on('offline',   ()=>{ if(client===c){ if(relayInfo?.state==='badcert' || relayInfo?.state==='offline') hostStatus(); else setStatus('bad', 'нет связи с Hudini Host'); } });
+  c.on('error', e=>{ console.warn(e); if(client===c) setStatus('bad', 'ошибка связи'); });
   let chain=Promise.resolve();   // по очереди: расшифровка асинхронная, порядок важен
   c.on('message', (topic, payload, packet)=>{
     if(client!==c) return;
@@ -212,7 +249,7 @@ function roomFromSession(sess){
   const r=sess.k ? cleanRoom({ code:sess.id, name:sess.name, k:sess.k, p:sess.p, s:sess.s }) : null;
   return { room:r, differs:false };
 }
-$('status').onclick=()=>{ if(!client?.connected) showHostTip(); };
+$('status').onclick=()=>{ if(!client?.connected && !session) showHostTip(); else toggleConnPop(); };
 const stateSeenT=new Map();   // комната → время самого нового экрана, который пульт видел или отправил
 async function onMessage(topic, payload, packet){
   if(!payload.length) return;                     // пустые «удаления» не принимаем
@@ -2440,7 +2477,7 @@ async function boot(){
   saveRooms();
   renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderSlang(); STREAM_LANG=streamLang();
   applyBg($('bgInput').value);
-  setPill($('status'), 'warn', 'подключение…');
+  setStatus('warn', 'подключение…', 1);
   connect();
   if(inv) await acceptInvite(inv);
   if(!rooms.length){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); saveRooms(); renderRooms(); }

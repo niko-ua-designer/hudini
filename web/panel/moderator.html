@@ -157,6 +157,23 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 #toSessions{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;white-space:nowrap;color:var(--text);text-decoration:none}
 #toSessions[hidden]{display:none}
 #status{cursor:pointer}
+#status.sig::before{display:none}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px}
+.bars i{width:4px;background:#3a3f4c;border-radius:1px}
+.bars i:nth-child(1){height:5px}.bars i:nth-child(2){height:8px}.bars i:nth-child(3){height:11px}.bars i:nth-child(4){height:14px}
+#status.ok .bars i.on{background:var(--ok)}#status.warn .bars i.on{background:var(--warn)}#status.bad .bars i.on{background:var(--bad)}
+#connStrip{flex-basis:100%;display:flex;align-items:center;gap:10px;padding:8px 12px;margin:8px -12px -8px;border-top:1px solid #ff4d5e66;background:#ff4d5e22;color:#ffb3bb;font-size:13px}
+#connStrip[hidden]{display:none}
+#connStrip.warn{background:#f5a62320;border-color:#f5a62366;color:#ffd58a}
+#connStrip b{color:var(--text)}#connStrip .spacer{flex:1}
+#connStrip a{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;white-space:nowrap;color:var(--text);text-decoration:none}
+#connStrip a[hidden],#connStrip button[hidden]{display:none}
+#connPop{position:fixed;z-index:100010;width:310px;background:#171a21;border:1px solid #3a3f4c;border-radius:10px;padding:12px;box-shadow:0 10px 30px #000a;font-size:12.5px}
+#connPop[hidden]{display:none}
+#connPop h4{margin:0 0 8px;font-size:13px}
+#connPop dl{display:grid;grid-template-columns:120px 1fr;gap:4px 8px;margin:0}
+#connPop dt{color:var(--muted)}#connPop dd{margin:0;word-break:break-all}
+#connPop .why{margin-top:8px;color:var(--muted)}
 #hostTip a.primary{display:block;text-align:center;text-decoration:none;background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:6px;padding:8px 10px}
 .lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
 .lockbox h3{margin:0 0 6px}
@@ -244,6 +261,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
   <button id="undoBtn" title="Ctrl+Z">↶ Отменить</button>
   <button id="globalEye">🙈 Скрыть всё</button>
   <button id="clearAll" class="danger">🗑 Очистить всё</button>
+  <div id="connStrip" hidden><b id="csHead"></b><span id="csWhy"></span><span class="spacer"></span><button id="csRetry">Повторить</button><a id="csSess" href="../app/start.html" hidden>← Сессии</a></div>
 </header>
 
 <aside id="left">
@@ -742,6 +760,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     <button id="lockReset" class="danger" style="margin-top:14px;font-size:12px">Забыл пароль: стереть комнаты (вернуть из бэкапа)</button>
   </div>
 </div>
+<div id="connPop" hidden></div>
 <div id="hostTip" hidden>
   <div class="lockbox">
     <div style="font-size:36px;text-align:center">🎩</div>

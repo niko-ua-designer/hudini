@@ -165,7 +165,7 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   const link = await panel.inputValue('#link');
   const set = await host.api('/api/link', { link });
   await attach(panel, host);
-  const online = await until(async () => /Hudini Host/.test(await panel.textContent('#status')) && (await panel.getAttribute('#status', 'class')).includes('ok'), 15000);
+  const online = await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 15000);
   const widget = await newPage('widget', { w: 1920, h: 1080 });
   await widget.goto(set.obsLink);
   await until(async () => /OBS: 1920×1080/.test(await panel.textContent('#obsStatus')), 10000);
