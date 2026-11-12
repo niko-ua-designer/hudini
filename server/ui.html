@@ -76,6 +76,28 @@ details[open] summary{margin-bottom:10px}
 .tgl input:focus-visible+.sw{outline:2px solid var(--acc2);outline-offset:2px}
 .check{display:flex;gap:8px;align-items:center;cursor:pointer}
 .check input{width:auto}
+/* подключение модераторов */
+.notice{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:12px 16px;margin:14px 0 0}
+.notice span{flex:1;min-width:220px}
+.cols{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--gap)}
+.cols .card{margin:var(--gap) 0 0}
+.codebox{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#8f96a8;word-break:break-all;max-height:3.1em;overflow:hidden;position:relative}
+.codebox::after{content:'';position:absolute;inset:auto 0 0 0;height:1.4em;background:linear-gradient(transparent,#0b0d11)}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+.tag.ok{color:var(--ok);border-color:#2ecc7155}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.tbl th{color:var(--muted);font-weight:500;font-size:12px}
+.tbl button{padding:3px 10px;font-size:12px}
+.tbl input{padding:3px 8px}
+.tbl small{display:block;color:var(--muted);font-size:12px}
+.spark{display:inline-flex;gap:2px;align-items:flex-end;height:18px}
+.spark i{width:4px;border-radius:1px;display:block}
+.good{color:var(--ok)}.mid{color:var(--warn)}.slow{color:var(--bad)}
+.warnbox{background:#2b2210;border:1px solid #6b5420;border-radius:10px;padding:10px 14px;color:#f3d28a;font-size:13px;margin-top:10px}
+.dot.on{background:var(--ok)}
+.dot.off{background:#4a5060}
+@media (max-width:700px){ .cols{grid-template-columns:1fr} }
 @media (max-width:560px){ .lim{grid-template-columns:1fr} .row{flex-wrap:wrap} .row>input{flex-basis:100%} }
 </style>
 </head>
@@ -113,16 +135,34 @@ details[open] summary{margin-bottom:10px}
     <div class="row"><button id="limSave" class="primary">Сохранить</button><span class="hint" id="limUsed" style="margin:0"></span></div>
   </div>
 
-  <div class="card">
-    <h2><span class="n">1</span> Ссылка от модератора</h2>
-    <div class="hint">Попроси модератора нажать в пульте «📋 Копировать» и вставь эту ссылку сюда. Нужно сделать один раз, программа её запомнит.</div>
-    <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
-    <div class="hint" id="roomInfo"></div>
+  <div class="notice" id="cfNotice" hidden>
+    <span><b>Cloudflare больше нет.</b> Модераторы подключаются напрямую. Скопируй новый код и отправь его модератору: старые ссылки перестали работать.</span>
+    <button class="primary" id="cfOk">Понятно</button>
+  </div>
+
+  <div class="cols">
+    <div class="card first">
+      <h2>🔑 Код для модератора</h2>
+      <div class="codebox" id="codeBox">—</div>
+      <div class="row"><button id="copyCode" class="primary">Скопировать код</button><button id="newPass">Новый код</button><button id="newRoom">Пересоздать комнату</button></div>
+      <label class="tgl" style="margin-top:12px"><input type="checkbox" id="modsOn"><span class="sw"></span><span>Пускать модераторов</span></label>
+      <div class="hint">Модератор вставляет код в Hudini («Я модератор» → «Добавить по коду»). Показывай его только модератору. Отпечаток сертификата: <code id="fpTxt">—</code></div>
+    </div>
+    <div class="card">
+      <h2>👥 На связи <span class="tag" id="modCnt">0</span></h2>
+      <div id="modBox"></div>
+    </div>
   </div>
 
   <div class="card">
-    <h2><span class="n">2</span> Ссылка для OBS</h2>
-    <div class="row"><input id="obs" readonly placeholder="Появится после шага 1"><button id="copyObs">📋 Копировать</button></div>
+    <h2>🌐 Адреса, по которым тебя можно найти</h2>
+    <table class="tbl"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
+    <div class="warnbox">Через Porthole делись <b>только портом <span id="mpTxt">7778</span></b>. Порт <span id="lpTxt">7777</span> — это управление твоим Hudini, его не показывай никому.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span> Ссылка для OBS</h2>
+    <div class="row"><input id="obs" readonly placeholder="Появится, когда запустится комната"><button id="copyObs">📋 Копировать</button></div>
     <ol class="hint">
       <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
       <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
@@ -131,7 +171,7 @@ details[open] summary{margin-bottom:10px}
   </div>
 
   <div class="card">
-    <h2><span class="n">3</span> CS2 на оверлее (по желанию)</h2>
+    <h2><span class="n">2</span> CS2 на оверлее (по желанию)</h2>
     <div class="hint">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
     <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">⬇ Скачать файл вручную</button></div>
     <div class="hint" id="gsiInfo"></div>
@@ -165,14 +205,9 @@ details[open] summary{margin-bottom:10px}
   <div class="card">
     <details>
       <summary>⚙ Для продвинутых</summary>
-      <div class="hint" style="margin-top:0"><b>Код для модератора.</b> Одна строка: комната, пароль, отпечаток сертификата и адреса. Отправь её модератору лично и никому больше не показывай.</div>
-      <div class="row"><input id="modCode" readonly placeholder="код появится, когда запустится комната"><button id="copyCode">Скопировать</button></div>
-      <div class="hint" id="addrList" style="margin-top:8px"></div>
-      <div class="hint" style="margin-top:16px"><b>Свой внешний адрес.</b> Если порт модераторов проброшен на роутере: впиши <code>мой-адрес:порт</code>. Он попадёт в код.</div>
-      <div class="row"><input id="extAddr" placeholder="my-pc.example.com:7778"><button id="extSave">Сохранить</button></div>
-      <label class="hint check" style="margin-top:16px"><input type="checkbox" id="modsOn"> Пускать модераторов</label>
-      <div class="hint" style="margin-top:16px"><b>Новый код.</b> Меняет пароль и отключает всех модераторов: старый код перестаёт работать.</div>
-      <div class="row"><button id="newPass">🔑 Новый код</button><button id="newRoom">♻ Пересоздать комнату</button></div>
+      <div class="hint" style="margin-top:0"><b>Своя комната из пульта (старый способ).</b> Если у модератора уже есть комната, вставь её ссылку «📋 Копировать» из пульта. Тогда код для модератора не будет содержать ключей: комната у него уже есть.</div>
+      <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
+      <div class="hint" id="roomInfo"></div>
     </details>
   </div>
 
@@ -189,6 +224,7 @@ details[open] summary{margin-bottom:10px}
 
   <div class="card">
     <h2>📝 Журнал</h2>
+    <div class="row" style="margin:0 0 8px"><label class="check hint" style="margin:0"><input type="checkbox" id="logConn"> только подключения</label><button id="logCopy" style="margin-left:auto">Скопировать</button></div>
     <pre id="logs" data-i18n-skip></pre>
   </div>
 </div>
@@ -222,15 +258,15 @@ async function refresh(){
   $('subApp').hidden=!app; $('subBrowser').hidden=app;
   $('legacyBanner').hidden=!s.standalone;
   if(document.activeElement!==$('link') && !$('link').value && s.room) $('link').placeholder='сохранена (комната '+s.room+')';
-  $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Ссылка ещё не сохранена';
+  $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Комната создаётся…';
   if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
-  const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'нужен шаг 1');
+  const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'комната создаётся');
   const tunTxt=s.modErr?('не открылся: '+s.modErr):('порт '+s.mport+' · TLS');
   const csTxt=s.cs2Online?'данные идут':'нет данных';
   st('sObs', s.obsOnline?'ok':'bad', obsTxt);
   st('sTun', s.modErr?'bad':'ok', tunTxt);
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
-  light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Ссылка ещё не сохранена');
+  light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Комната создаётся');
   light('lObs', s.obsOnline?'ok':(s.room?'warn':''), obsTxt);
   light('lTun', s.modErr?'bad':'ok', tunTxt);
   light('lCs', s.cs2Online?'ok':'', csTxt);
@@ -242,11 +278,7 @@ async function refresh(){
   }
   $('limAsk').hidden = !!g.limitsSet; $('limCard').classList.toggle('first', !g.limitsSet);
   $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
-  if(document.activeElement!==$('extAddr')) $('extAddr').value=s.extAddr||'';
-  $('modsOn').checked=!!s.modsOn;
-  const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'локальная сеть', inet:'интернет', porthole:'Porthole', ext:'свой адрес' };
-  $('addrList').textContent='Адреса: '+(s.addrs||[]).map(a=>`${a.h}:${a.port} (${NET[a.net]||a.net})`).join(' · ')+(s.modList?.length?'\nПодключены: '+s.modList.map(m=>`${m.ip} (${NET[m.net]||m.net}${m.rtt!=null?', '+m.rtt+' мс':''})`).join(', '):'');
-  $('addrList').style.whiteSpace='pre-line';
+  renderConnect(s);
   st('sCs', s.cs2Online?'ok':'warn', csTxt);
   if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
   const c=s.cs2;
@@ -262,10 +294,10 @@ async function refresh(){
     u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
     u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
   $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
-  $('logs').textContent=(s.logs||[]).join('\n'); $('logs').scrollTop=1e9;
+  $('logs').textContent=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n'); $('logs').scrollTop=1e9;
 }
 $('saveLink').onclick=async()=>{ try{ await api('/api/link', { link:$('link').value }); $('link').value=''; toast('Сохранено ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Сначала шаг 1'); };
+$('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Комната ещё создаётся'); };
 $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
@@ -274,11 +306,61 @@ $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.tar
 $('dockUrl').value=location.origin+'/dock'; $('dockCode').textContent=location.origin+'/dock';
 $('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
 $('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('extSave').onclick=async()=>{ try{ await api('/api/extaddr', { addr:$('extAddr').value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toast(e.message); } };
+// ---- подключение модераторов ----
+const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес' };
+const NEED={ tailscale:'Tailscale у обоих', radmin:'Radmin VPN у обоих', hamachi:'Hamachi у обоих', zerotier:'ZeroTier у обоих', lan:'одна сеть с модератором', inet:'порт 7778 открыт из интернета', porthole:'Porthole, порт модераторов', ext:'проброс порта на роутере' };
+let lastCode='', hist=new Map();
+const el=(tag, text, cls)=>{ const e=document.createElement(tag); if(text!=null) e.textContent=text; if(cls) e.className=cls; return e; };
+const rttCls=ms=>ms==null?'':ms<80?'good':ms<200?'mid':'slow';
+function renderConnect(s){
+  lastCode=s.code||''; $('mpTxt').textContent=s.mport; $('lpTxt').textContent=location.port||'7777';
+  $('codeBox').textContent=lastCode||'—';
+  $('fpTxt').textContent=s.fp ? s.fp.slice(0,8)+'…'+s.fp.slice(-6) : '—';
+  $('modsOn').checked=!!s.modsOn;
+  $('cfNotice').hidden=!s.cfNotice;
+  // модераторы
+  const list=s.modList||[]; $('modCnt').textContent=list.length; $('modCnt').className='tag'+(list.length?' ok':'');
+  const box=$('modBox'); box.replaceChildren();
+  if(!list.length){ box.append(el('div','Пока никого. Когда модератор зайдёт, он появится здесь.','hint')); }
+  else{
+    const live=new Set(), t=el('table',null,'tbl'), head=el('tr'); for(const h of ['Кто','Сеть','Задержка']) head.append(el('th',h)); t.append(head);
+    for(const m of list){
+      const key=m.ip+'|'+m.since; live.add(key);
+      const h=hist.get(key)||[]; if(m.rtt!=null){ h.push(m.rtt); if(h.length>10) h.shift(); } hist.set(key,h);
+      const tr=el('tr'), who=el('td',m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})));
+      const lat=el('td', m.rtt==null?'…':m.rtt+' мс', rttCls(m.rtt)); const sp=el('div',null,'spark');
+      for(const v of h){ const i=el('i'); i.style.height=Math.max(3,Math.min(18,Math.round(v/10)))+'px'; i.style.background='var(--'+(v<80?'ok':v<200?'warn':'bad')+')'; sp.append(i); } lat.append(sp);
+      tr.append(who, el('td', NET[m.net]||m.net), lat); t.append(tr);
+    }
+    for(const k of [...hist.keys()]) if(!live.has(k)) hist.delete(k);
+    const kick=el('button','Отключить всех'); kick.onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toast(e.message); } };
+    box.append(t); const d=el('div'); d.style.marginTop='10px'; d.append(kick); box.append(d);
+  }
+  // адреса (поле «свой адрес» не трогаем, пока в нём печатают)
+  const body=$('addrBody'), typing=document.activeElement?.id==='extAddr', keep=typing ? $('extAddr').value : null;
+  if(typing && body.dataset.sig===JSON.stringify(s.addrs)+s.extAddr) return;
+  body.dataset.sig=JSON.stringify(s.addrs)+s.extAddr; body.replaceChildren();
+  for(const a of (s.addrs||[])){
+    const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot on'), document.createTextNode(NET[a.net]||a.net));
+    const c=el('td'); c.append(el('code', a.h+':'+a.port));
+    const b=el('button','Копировать'); b.onclick=async()=>{ try{ await navigator.clipboard.writeText(a.h+':'+a.port); toast('Скопировано'); }catch{} };
+    const bt=el('td'); bt.append(b); tr.append(n, c, el('td', NEED[a.net]||'', 'hint'), bt); body.append(tr);
+  }
+  const own=(s.addrs||[]).some(a=>a.net==='ext');
+  const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot '+(own?'on':'off')), document.createTextNode(NET.ext));
+  const inp=el('input'); inp.id='extAddr'; inp.placeholder='my-pc.example.com:7778'; inp.value=keep ?? s.extAddr ?? '';
+  const sv=el('button','Сохранить'); sv.onclick=async()=>{ try{ await api('/api/extaddr', { addr:inp.value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toast(e.message); } };
+  const ic=el('td'), sc=el('td'); ic.append(inp); sc.append(sv);
+  tr.append(n, ic, el('td', NEED.ext, 'hint'), sc); body.append(tr);
+}
 $('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toast(err.message); } refresh(); };
-$('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ const r=await api('/api/code/new', {}); $('modCode').value=r.code; toast('Новый код ✓'); }catch(e){ toast(e.message); } };
+$('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ await api('/api/code/new', {}); toast('Новый код ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toast(e.message); } };
-$('copyCode').onclick=async()=>{ try{ const r=await api('/api/code'); $('modCode').value=r.code; await navigator.clipboard.writeText(r.code); toast('Код скопирован ✓'); }catch(e){ toast(e.message); } };
+$('copyCode').onclick=async()=>{ if(!lastCode) return; try{ await navigator.clipboard.writeText(lastCode); }catch{ const t=el('textarea'); t.value=lastCode; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
+  const b=$('copyCode'); if(!b.dataset.html) b.dataset.html=b.innerHTML; b.textContent='Скопировано ✓'; b.classList.add('done'); clearTimeout(b._t); b._t=setTimeout(()=>{ b.innerHTML=b.dataset.html; b.classList.remove('done'); }, 1600); };
+$('cfOk').onclick=async()=>{ try{ await api('/api/notice', { id:'cf' }); }catch{} refresh(); };
+$('logConn').onchange=refresh;
+$('logCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('logs').textContent); toast('Журнал скопирован'); }catch{} };
 
 // ---- только в окне программы: автозапуск и внешние ссылки ----
 if(TAURI){

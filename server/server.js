@@ -955,6 +955,7 @@ const local = http.createServer(async (req, res) => {
         if(!cfg.modsOn) kickMods('стример закрыл вход');
         return send(res, 200, JSON.stringify({ ok:true, modsOn:cfg.modsOn }), 'application/json');
       }
+      if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
         const { action } = JSON.parse(await readBody(req, 1024));
@@ -973,7 +974,7 @@ const local = http.createServer(async (req, res) => {
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
-        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, ctl, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
+        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
         modList:[...modList.values()].map(({ ip, net, since, rtt }) => ({ ip, net, since, rtt })), role:ROLE_MOD ? 'mod' : 'streamer',
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
