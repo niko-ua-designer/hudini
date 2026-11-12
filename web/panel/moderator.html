@@ -388,7 +388,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="row"><button id="rStart" class="go grow">▶ Начать сбор</button><button id="rStop" class="grow">⏹ Закрыть сбор</button></div>
       <div class="row"><button id="rSpin" class="go grow">🎰 Крутить</button><button id="rReset" title="Новый розыгрыш: участники и победители обнулятся">↺ Сброс</button></div>
       <div class="hint" id="rInfo"></div>
-      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
+      <details><summary>👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
       <div class="lbl">Победитель</div>
       <div class="row"><span class="hint">Ответить в чат за</span><input type="number" id="iRConfirm" min="0" max="600" value="0" style="width:64px"><span class="hint">сек (0 = не ждать)</span></div>
       <div class="hint">Не ответил вовремя: рулетка крутится заново без него. «Крутить» ещё раз даёт следующего победителя, прошлые выбывают.</div>
@@ -624,7 +624,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
           <input type="text" id="iCsSeries" placeholder="Серия, например: Dust2 13:9 · Train · Mirage" style="margin-top:6px">
           <div class="hint" style="margin-top:6px">HUD на весь экран стоит на месте сам: его не двигают, чтобы ничего не съехало. Выбирай его в слоях.</div>
         </div>
-        <details id="csAvBox" style="margin-top:6px"><summary class="hint" style="cursor:pointer">🖼 Аватарки игроков</summary>
+        <details id="csAvBox"><summary>🖼 Аватарки игроков</summary>
           <div id="csAvList"></div>
           <div class="row"><input type="text" id="csAvName" class="grow" placeholder="Ник игрока"><button id="csAvAdd" title="Картинка с компьютера">📁</button><button id="csAvUrl" title="Ссылка на картинку">🔗</button></div>
           <div class="hint">Аватарка ставится всем CS2-элементам. Без неё будут инициалы в цвет команды.</div>
@@ -654,7 +654,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div id="kItems"></div>
       <div class="row"><button id="kAdd" class="grow">➕ Предмет</button><button id="kFix" title="Пропорционально подогнать шансы, чтобы вместе было 100%">⚖ До 100%</button></div>
       <div class="hint">Шанс в процентах. Редкость задаёт цвет, как в CS2. Перетащи картинку на строку предмета.</div>
-      <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">🔊 Звуки и вид</summary>
+      <details><summary>🔊 Звуки и вид</summary>
         <div class="row" style="margin-top:6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
         <div class="row"><span class="hint">Показывать итог</span><input type="number" id="iKHide" min="3" max="120" style="width:64px"><span class="hint">сек</span></div>
         <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
@@ -664,7 +664,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
         <div class="hint" style="margin-top:6px">Свой звук вместо встроенного (по желанию):</div>
         <div id="kSnd"></div>
       </details>
-      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">📜 История открытий</summary><div id="kHist" class="hint" style="max-height:140px;overflow:auto;margin-top:4px"></div></details>
+      <details><summary>📜 История открытий</summary><div id="kHist" class="hint" style="max-height:140px;overflow:auto;margin-top:4px"></div></details>
       <input type="file" id="kFile" accept="image/*" hidden>
     </div>
 

@@ -198,13 +198,30 @@ section[data-pane][hidden]{display:none}
 .tiles button.wide{flex-direction:row;min-height:54px;gap:10px;font-size:14px}
 .tiles button.wide svg.ic{width:22px;height:22px}
 
+/* one look for every sub-section: boxes and collapsible blocks share the same card and header */
+aside .box,aside details{border:1px solid var(--line);border-radius:10px;background:#13161c;padding:10px 12px;margin-top:10px}
+aside .box .box,aside .box details,aside details details{background:var(--panel2);margin-top:8px}
+aside .box>.t,aside details>summary{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
+aside .box>.t{margin-bottom:6px}
+aside details>summary{list-style:none;cursor:pointer;padding:0;user-select:none}
+aside details>summary::-webkit-details-marker{display:none}
+aside details>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+aside details[open]>summary::after{transform:rotate(45deg)}
+aside details[open]>summary{margin-bottom:6px}
+aside details>summary:hover{color:var(--text)}
+
 /* right panel and canvas toolbar: larger targets */
-#right button{padding:9px 12px;border-radius:8px;font-size:14px}
-#right input[type=text],#right input[type=number],#right input[type=url],#right select,#right textarea{padding:8px 10px;border-radius:8px}
-#right .layer{padding:6px 8px}
-#right .layer button{padding:6px 9px;font-size:15px}
+/* low specificity on purpose: compact rows (.kf, .kit, .lib, .mx, .cnt) keep their own sizes */
+:where(#right button){padding:9px 12px;border-radius:8px;font-size:14px}
+:where(#right input[type=text],#right input[type=number],#right input[type=url],#right select,#right textarea){padding:8px 10px;border-radius:8px}
+:where(#right .layer){padding:6px 8px}
+:where(#right .layer button){padding:6px 9px;font-size:15px}
 #right #bigEye{padding:12px;font-size:15px}
-#right summary{padding:6px 0;font-size:13px}
+#kItems .kit{gap:4px}
+#kItems .kit button{padding:6px 7px;min-width:0}
+#kItems .kit input,#kItems .kit select{padding:6px}
+#kItems .kit select{width:78px!important}
+#kItems .kit input[data-f=p]{width:52px!important}
 #right .row.wrap{flex-wrap:wrap}
 #toolbar{gap:8px;padding:8px 12px;min-height:52px}
 #toolbar .tgrp{border-radius:9px}
