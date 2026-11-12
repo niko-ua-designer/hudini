@@ -571,6 +571,13 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await mod.getAttribute('#status', 'class')).includes('ok'), 12000), 'unlocked and back online');
   });
 
+  await step('help drawer: connection guides are part of the help', async () => {
+    await mod.evaluate(() => window.HudiniUI.openHelp('connect'));
+    check(await until(async () => /Radmin VPN/.test(await mod.evaluate(() => document.getElementById('helpDrawer')?.textContent || '')), 8000), 'drawer lists Radmin VPN');
+    const txt = await mod.evaluate(() => document.getElementById('helpDrawer').textContent);
+    check(/Porthole/.test(txt) && /Tailscale/.test(txt) && /ZeroTier/.test(txt), 'all connection methods are in the drawer');
+  });
+
   await S.close(); await T.closeBrowser();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });
