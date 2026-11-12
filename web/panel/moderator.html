@@ -677,7 +677,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="lbl">Варианты (каждый с новой строки, до 6)</div>
       <textarea id="iPOpts" rows="4"></textarea>
       <div class="row"><button id="pToggle" class="go grow">▶ Начать</button><button id="pReset">↺ Обнулить</button></div>
-      <div class="row"><span class="hint">Закрыть само через</span><input type="number" id="pSecs" min="5" max="3600" value="60" style="width:64px"><span class="hint">сек</span><button id="pTimed" class="grow" title="Начать и закрыть через N секунд, на стриме идёт обратный отсчёт">▶ С отсчётом</button></div>
+      <div class="row wrap"><span class="hint">Закрыть само через</span><input type="number" id="pSecs" min="5" max="3600" value="60" style="width:64px"><span class="hint">сек</span><button id="pTimed" style="flex:1 0 100%" title="Начать и закрыть через N секунд, на стриме идёт обратный отсчёт">▶ С отсчётом</button></div>
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iAccent"><span class="hint">Фон</span><input type="color" id="iPCard"></div>
       <div class="hint">Зрители пишут в чат цифру (1, 2…) или !1, !2. Один голос на зрителя, передумать можно. Нужен подключённый чат Twitch.</div>
     </div>

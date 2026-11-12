@@ -9,14 +9,16 @@ const { step, check } = T;
     await p.goto(`${web.url}/panel/moderator.html`); await p.waitForTimeout(800);
     await p.click('[data-add=poll]');
     const bad = [];
-    for(const tab of ['add', 'scenes', 'chat', 'auto', 'room']){
+    for(const tab of ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room']){
       await p.click(`[data-tab=${tab}]`); await p.waitForTimeout(120);
       bad.push(...await p.evaluate(tab => [...document.querySelectorAll('button, select, .pill, input')].filter(b => {
         if(!b.offsetParent) return false;
         const r = b.getBoundingClientRect(), box = b.closest('aside, header, #toolbar'); if(r.width < 4 || !box) return false;
         const pr = box.getBoundingClientRect();
         const clipped = b.tagName === 'BUTTON' && !b.querySelector('.lvl') && b.scrollWidth > b.clientWidth + 2;
-        return clipped || r.right > pr.right + 1 || r.left < pr.left - 1;
+        // a label broken into a tall narrow column (e.g. "С отсчётом" squeezed next to an input)
+        const squeezed = b.tagName === 'BUTTON' && !b.closest('.tiles, #tabs') && r.height > 64 && r.width < 140;
+        return clipped || squeezed || r.right > pr.right + 1 || r.left < pr.left - 1;
       }).map(b => tab + ': ' + (b.id || b.textContent.trim().slice(0, 30))), tab));
     }
     check(!bad.length, 'every control fits', [...new Set(bad)]);

@@ -198,6 +198,19 @@ section[data-pane][hidden]{display:none}
 .tiles button.wide{flex-direction:row;min-height:54px;gap:10px;font-size:14px}
 .tiles button.wide svg.ic{width:22px;height:22px}
 
+/* right panel and canvas toolbar: larger targets */
+#right button{padding:9px 12px;border-radius:8px;font-size:14px}
+#right input[type=text],#right input[type=number],#right input[type=url],#right select,#right textarea{padding:8px 10px;border-radius:8px}
+#right .layer{padding:6px 8px}
+#right .layer button{padding:6px 9px;font-size:15px}
+#right #bigEye{padding:12px;font-size:15px}
+#right summary{padding:6px 0;font-size:13px}
+#right .row.wrap{flex-wrap:wrap}
+#toolbar{gap:8px;padding:8px 12px;min-height:52px}
+#toolbar .tgrp{border-radius:9px}
+#toolbar .tgrp button{padding:8px 11px;min-width:38px;font-size:17px;border-radius:8px}
+#toolbar select{padding:6px 8px;font-size:13px}
+
 @media (max-width:1560px){
   .hvol #hdrVolV{display:none}.hvol input{width:84px}
   header{gap:8px;padding:8px 12px}
