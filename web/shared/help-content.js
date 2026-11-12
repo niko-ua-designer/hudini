@@ -84,6 +84,7 @@ ru: {
 <li><kbd>Shift</kbd>+клик или рамкой — выделить несколько · <kbd>Ctrl+A</kbd> всё · <kbd>Ctrl+G</kbd> группа</li>
 <li><kbd>H</kbd> скрыть/показать · <kbd>F</kbd> показать на N секунд · <kbd>1</kbd>…<kbd>9</kbd> слой с этим номером</li>
 <li>Стрелки — сдвиг (<kbd>Shift</kbd> сильнее) · колёсико — размер · <kbd>Alt</kbd>+колёсико — поворот</li>
+<li>Элемент прилипает к краям и центрам других (голубая линия) · <kbd>Ctrl</kbd> при перетаскивании отключает привязку</li>
 <li><kbd>Пробел</kbd> таймер · <kbd>+</kbd>/<kbd>−</kbd> счётчик · <kbd>P</kbd> анимация</li>
 </ul>`],
   ],
@@ -171,6 +172,7 @@ en: {
 <li><kbd>Shift</kbd>+click or drag a box to select several · <kbd>Ctrl+A</kbd> all · <kbd>Ctrl+G</kbd> group</li>
 <li><kbd>H</kbd> hide/show · <kbd>F</kbd> show for N seconds · <kbd>1</kbd>…<kbd>9</kbd> layer with that number</li>
 <li>Arrows move (<kbd>Shift</kbd> more) · wheel resizes · <kbd>Alt</kbd>+wheel rotates</li>
+<li>An element snaps to the edges and centers of others (blue line) · hold <kbd>Ctrl</kbd> while dragging to turn snapping off</li>
 <li><kbd>Space</kbd> timer · <kbd>+</kbd>/<kbd>−</kbd> counter · <kbd>P</kbd> animation</li>
 </ul>`],
   ],
@@ -258,6 +260,7 @@ uk: {
 <li><kbd>Shift</kbd>+клік або рамкою — виділити кілька · <kbd>Ctrl+A</kbd> усе · <kbd>Ctrl+G</kbd> група</li>
 <li><kbd>H</kbd> сховати/показати · <kbd>F</kbd> показати на N секунд · <kbd>1</kbd>…<kbd>9</kbd> шар із цим номером</li>
 <li>Стрілки — зсув (<kbd>Shift</kbd> сильніше) · коліщатко — розмір · <kbd>Alt</kbd>+коліщатко — поворот</li>
+<li>Елемент прилипає до країв і центрів інших (блакитна лінія) · <kbd>Ctrl</kbd> під час перетягування вимикає прилипання</li>
 <li><kbd>Пробіл</kbd> таймер · <kbd>+</kbd>/<kbd>−</kbd> лічильник · <kbd>P</kbd> анімація</li>
 </ul>`],
   ],
@@ -345,6 +348,7 @@ de: {
 <li><kbd>Umschalt</kbd>+Klick oder Rahmen ziehen: mehrere wählen · <kbd>Strg+A</kbd> alle · <kbd>Strg+G</kbd> gruppieren</li>
 <li><kbd>H</kbd> verstecken/zeigen · <kbd>F</kbd> für N Sekunden zeigen · <kbd>1</kbd>…<kbd>9</kbd> Ebene mit dieser Nummer</li>
 <li>Pfeiltasten verschieben (<kbd>Umschalt</kbd> weiter) · Mausrad ändert die Größe · <kbd>Alt</kbd>+Mausrad dreht</li>
+<li>Ein Element rastet an Kanten und Mitten anderer ein (blaue Linie) · <kbd>Strg</kbd> beim Ziehen schaltet das Einrasten aus</li>
 <li><kbd>Leertaste</kbd> Timer · <kbd>+</kbd>/<kbd>−</kbd> Zähler · <kbd>P</kbd> Animation</li>
 </ul>`],
   ],

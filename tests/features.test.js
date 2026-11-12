@@ -256,6 +256,52 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
   });
 
+  await step('snapping to other elements: move, resize, Ctrl and highlight of the target', async () => {
+    await mod.click('[data-tab=add]');
+    await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
+    for(const t of ['Alpha', 'Beta']){ await mod.fill('#newText', t); await mod.click('#addText'); }
+    await mod.evaluate(() => { state.els[0].x = 30; state.els[0].y = 20; state.els[1].x = 70; state.els[1].y = 75; changed(); renderAll(); });
+    await sleep(1500);   // the entrance animation of new elements must finish: it changes their size
+    const box = i => mod.evaluate(i => boxOf(state.els[i].id), i);
+    const stageRect = await mod.evaluate(() => { const r = stage.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+    const centerOf = async i => { const b = await mod.locator(`.el[data-id="${await mod.evaluate(i => state.els[i].id, i)}"] .fx`).boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+    const A = await box(0), B = await box(1);
+    const dragB = async (dxPct, ctrl) => {
+      const c = await centerOf(1);
+      await mod.mouse.move(c.x, c.y); await mod.mouse.down();
+      if(ctrl) await mod.keyboard.down('Control');
+      await mod.mouse.move(c.x + dxPct / 100 * stageRect.w, c.y, { steps: 6 });
+      const guide = await mod.evaluate(() => ({ v: $('gv2').classList.contains('show'), t: !!document.querySelector('.el.snapT') }));
+      await mod.mouse.up(); if(ctrl) await mod.keyboard.up('Control');
+      return guide;
+    };
+    // Beta's left edge 0.4% to the right of Alpha's right edge, the drag ends exactly there
+    let g = await dragB(A.r + 0.4 - B.l);
+    let B2 = await box(1);
+    check(Math.abs(B2.l - A.r) < 0.15, `left edge of Beta snapped to the right edge of Alpha: ${B2.l.toFixed(2)} vs ${A.r.toFixed(2)}`);
+    check(g.v && g.t, 'blue guide and the target element are highlighted while snapping');
+    check(await mod.evaluate(() => !document.querySelector('.el.snapT') && !$('gv2').classList.contains('show')), 'highlight gone after release');
+    await mod.evaluate(i => { state.els[1].x = 70; changed(); renderAll(); });
+    const B3 = await box(1);
+    await dragB(A.r + 0.4 - B3.l, true);
+    B2 = await box(1);
+    check(Math.abs(B2.l - (A.r + 0.4)) < 0.15, `Ctrl turns snapping off: gap ${(B2.l - A.r).toFixed(2)}%`);
+    // resize: scale Beta so its right edge lands on Alpha's left edge (Beta stands left of Alpha)
+    await mod.evaluate(() => { state.els[1].x = 12; state.els[1].y = 75; state.els[1].fs = 4; changed(); renderAll(); });
+    await sleep(300);
+    await mod.evaluate(() => { selectedId = state.els[1].id; msel.clear(); renderAll(); });
+    const B4 = await box(1), cxB = (B4.l + B4.r) / 2, hwB = (B4.r - B4.l) / 2;
+    const hb = await mod.locator('.el.sel .h-size').boundingBox();
+    const hc = { x: hb.x + hb.width / 2, y: hb.y + hb.height / 2 };
+    const cB = await centerOf(1);
+    const kWant = (A.l - cxB) / hwB * 0.996;    // a bit short of the line
+    await mod.mouse.move(hc.x, hc.y); await mod.mouse.down();
+    await mod.mouse.move(cB.x + (hc.x - cB.x) * kWant, cB.y + (hc.y - cB.y) * kWant, { steps: 6 });
+    await mod.mouse.up();
+    const B5 = await box(1);
+    check(Math.abs(B5.r - A.l) < 0.2, `scaling snapped the right edge of Beta to the left edge of Alpha: ${B5.r.toFixed(2)} vs ${A.l.toFixed(2)}`);
+  });
+
   await step('editor: multi-select, align, group, undo', async () => {
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
     for(const t of ['А', 'Б', 'В']){ await mod.fill('#newText', t); await mod.click('#addText'); }

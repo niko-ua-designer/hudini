@@ -816,6 +816,50 @@ let lastHandle={};   // для двойного клика по ручке ра�
 function centerPx(el){ const r=stage.getBoundingClientRect(); return { cx:r.left+el.x/100*r.width, cy:r.top+el.y/100*r.height, r }; }
 const angleOf=(e,cx,cy)=>Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI;
 
+// ---- привязка к другим элементам: края и центры видимых, порог ~0.8% кадра ----
+const SNAP_THR = 0.8;
+function snapSetup(exclude){
+  const r=stage.getBoundingClientRect(), xs=[], ys=[];
+  for(const el of state.els){
+    if(exclude.has(el.id) || el.hidden) continue;
+    const b=boxOf(el.id); if(!b || b.r-b.l<0.05 || b.b-b.t<0.05) continue;
+    xs.push({ v:b.l, id:el.id }, { v:(b.l+b.r)/2, id:el.id }, { v:b.r, id:el.id });
+    ys.push({ v:b.t, id:el.id }, { v:(b.t+b.b)/2, id:el.id }, { v:b.b, id:el.id });
+  }
+  return { xs, ys, thrX:SNAP_THR, thrY:SNAP_THR*r.width/r.height };   // по вертикали порог в тех же пикселях
+}
+// Ближайшая линия к одной из точек (левый край, центр, правый край двигаемого). d — на сколько сдвинуть.
+function snapMove(pts, lines, thr){
+  let best=null;
+  for(const p of pts) for(const l of lines){ const d=l.v-p; if(Math.abs(d)<thr && (!best || Math.abs(d)<Math.abs(best.d))) best={ d, v:l.v, id:l.id }; }
+  return best;
+}
+// Рамка растёт от центра c на половину h в обе стороны: ловим линию краем. Возвращает новую половину.
+function snapHalf(c, h, lines, thr){
+  let best=null;
+  for(const l of lines){
+    for(const side of [-1, 1]){
+      const dist=Math.abs(c+side*h-l.v), nh=(l.v-c)*side;
+      if(dist<thr && nh>0.2 && (!best || dist<best.dist)) best={ h:nh, v:l.v, id:l.id, dist };
+    }
+  }
+  return best;
+}
+function snapScale(d, k){
+  const b=d.b0, rx=b.hw>0.1 ? snapHalf(b.cx, b.hw*k, d.sn.xs, d.sn.thrX) : null, ry=b.hh>0.1 ? snapHalf(b.cy, b.hh*k, d.sn.ys, d.sn.thrY) : null;
+  const useX = rx && (!ry || rx.dist/d.sn.thrX<=ry.dist/d.sn.thrY), best = useX ? rx : ry;
+  if(!best) return null;
+  return { k:best.h/(useX ? b.hw : b.hh), vx:useX ? best.v : null, vy:useX ? null : best.v, ids:[best.id] };
+}
+let snapShown=[];
+function showSnap(vx, vy, ids){
+  for(const [id, pos] of [['gv2', vx], ['gh2', vy]]){ const g=$(id); g.classList.toggle('show', pos!=null); if(pos!=null) g.style[id==='gv2'?'left':'top']=pos+'%'; }
+  for(const id of snapShown) nodes.get(id)?.classList.remove('snapT');
+  snapShown=(vx!=null || vy!=null) ? [...new Set(ids||[])] : [];
+  for(const id of snapShown) nodes.get(id)?.classList.add('snapT');
+}
+const noSnap = e => e.ctrlKey || e.metaKey;
+
 stage.addEventListener('pointerdown', e=>{
   if(e.button!==0) return;
   const node=e.target.closest('.el');
@@ -863,6 +907,11 @@ stage.addEventListener('pointerdown', e=>{
     drag={ mode:'move', mx:e.clientX, my:e.clientY, x0:el.x, y0:el.y, r, items, bb };
   }
   drag.id=el.id;
+  if(drag.mode!=='rot'){
+    drag.sn=snapSetup(new Set(drag.mode==='move' ? drag.items.map(i=>i.id) : [el.id]));
+    const b=drag.mode==='move' ? drag.bb : boxOf(el.id);
+    if(b) drag.b0={ cx:(b.l+b.r)/2, cy:(b.t+b.b)/2, hw:(b.r-b.l)/2, hh:(b.b-b.t)/2 };
+  }
   stage.setPointerCapture(e.pointerId);
 });
 stage.addEventListener('pointermove', e=>{
@@ -888,7 +937,15 @@ stage.addEventListener('pointermove', e=>{
     let snapX=false, snapY=false;
     if(!free && gridOn){ x=Math.round(x/gridStep)*gridStep; y=Math.round(y/gridStep)*gridStep; }
     else if(!free && single){ snapX=Math.abs(x-50)<1.2; snapY=Math.abs(y-50)<1.8; if(snapX) x=50; if(snapY) y=50; }
-    let dx=x-drag.x0, dy=y-drag.y0;
+    let dx=x-drag.x0, dy=y-drag.y0, sx=null, sy=null;
+    if(!free && !gridOn && drag.bb && drag.sn){   // сетка важнее привязки к элементам
+      const b=drag.bb;
+      if(!snapX) sx=snapMove([b.l+dx, (b.l+b.r)/2+dx, b.r+dx], drag.sn.xs, drag.sn.thrX);
+      if(!snapY) sy=snapMove([b.t+dy, (b.t+b.b)/2+dy, b.b+dy], drag.sn.ys, drag.sn.thrY);
+      if(sx) dx+=sx.d;
+      if(sy) dy+=sy.d;
+    }
+    drag.snapNow={ vx:sx?.v, vy:sy?.v, ids:[sx?.id, sy?.id].filter(Boolean) };
     if(!free && drag.bb){   // не даём рамке выделения выйти за кадр
       const b=drag.bb;
       if(b.r-b.l<100) dx=Math.min(Math.max(dx, -b.l), 100-b.r);
@@ -898,17 +955,34 @@ stage.addEventListener('pointermove', e=>{
     for(const it of drag.items){ const t=byId(it.id); if(t){ t.x=num(it.x0+dx,50,0,100); t.y=num(it.y0+dy,50,0,100); } }
   } else if(drag.mode==='stretch'){
     const p=drag.loc(e.clientX, e.clientY);
-    if(drag.axis!=='y') el.w=num(drag.w0*Math.abs(p.u)/drag.u0, 25, 1, 200);
-    if(drag.axis!=='x') el.hh=num(drag.hh0*Math.abs(p.v)/drag.v0, 10, 0.5, 300);
+    let ku=Math.abs(p.u)/drag.u0, kv=Math.abs(p.v)/drag.v0, vx=null, vy=null; const ids=[];
+    if(!noSnap(e) && drag.sn && drag.b0 && Math.abs(Math.sin(el.rot*Math.PI/180))<1e-3){   // без поворота края рамки совпадают с осями кадра
+      const b=drag.b0;
+      if(drag.axis!=='y' && b.hw>0.1){ const r=snapHalf(b.cx, b.hw*ku, drag.sn.xs, drag.sn.thrX); if(r){ ku=r.h/b.hw; vx=r.v; ids.push(r.id); } }
+      if(drag.axis!=='x' && b.hh>0.1){ const r=snapHalf(b.cy, b.hh*kv, drag.sn.ys, drag.sn.thrY); if(r){ kv=r.h/b.hh; vy=r.v; ids.push(r.id); } }
+    }
+    drag.snapNow={ vx, vy, ids };
+    if(drag.axis!=='y') el.w=num(drag.w0*ku, 25, 1, 200);
+    if(drag.axis!=='x') el.hh=num(drag.hh0*kv, 10, 0.5, 300);
     else if(!el.hh) el.hh=num(drag.hh0, 10, 0.5, 300);   // высоту фиксируем, иначе картинка поедет пропорционально
   } else if(drag.mode==='box'){
     // смещение мыши в осях элемента; рамка растёт в обе стороны от центра
     const dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
     const du=dx*Math.cos(drag.a)+dy*Math.sin(drag.a), dv=-dx*Math.sin(drag.a)+dy*Math.cos(drag.a);
-    if(drag.axis==='x') el.bw=num(drag.bw0 + 2*du/drag.sw*100, 10, 2, 100);
-    else el.bh=num(drag.bh0 + 2*dv/drag.sh*100, 10, 2, 100);
+    let bw=drag.bw0 + 2*du/drag.sw*100, bh=drag.bh0 + 2*dv/drag.sh*100, vx=null, vy=null; const ids=[];
+    if(!noSnap(e) && drag.sn && drag.b0 && Math.abs(Math.sin(drag.a))<1e-3){
+      const b=drag.b0;
+      if(drag.axis==='x'){ const r=snapHalf(b.cx, b.hw+(bw-drag.bw0)/2, drag.sn.xs, drag.sn.thrX); if(r){ bw=drag.bw0+2*(r.h-b.hw); vx=r.v; ids.push(r.id); } }
+      else { const r=snapHalf(b.cy, b.hh+(bh-drag.bh0)/2, drag.sn.ys, drag.sn.thrY); if(r){ bh=drag.bh0+2*(r.h-b.hh); vy=r.v; ids.push(r.id); } }
+    }
+    drag.snapNow={ vx, vy, ids };
+    if(drag.axis==='x') el.bw=num(bw, 10, 2, 100);
+    else el.bh=num(bh, 10, 2, 100);
   } else if(drag.mode==='size'){
-    const k=Math.hypot(e.clientX-drag.cx, e.clientY-drag.cy)/drag.d0;
+    let k=Math.hypot(e.clientX-drag.cx, e.clientY-drag.cy)/drag.d0;
+    const sk = !noSnap(e) && drag.sn && drag.b0 ? snapScale(drag, k) : null;
+    if(sk) k=sk.k;
+    drag.snapNow=sk ? { vx:sk.vx, vy:sk.vy, ids:sk.ids } : null;
     if('fs' in el) el.fs=num(drag.fs0*k,8,0.5,100);
     else { el.w=num(drag.w0*k,25,1,200); if(drag.hh0) el.hh=num(drag.hh0*k,10,0.5,300); }
   } else {
@@ -919,10 +993,12 @@ stage.addEventListener('pointermove', e=>{
     el.rot=rot;
   }
   changed();
+  const sn=drag.mode==='rot' ? null : drag.snapNow;
+  showSnap(sn?.vx, sn?.vy, sn?.ids);
 });
 function endDrag(){
   if(!drag) return;
-  const d=drag; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show');
+  const d=drag; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show'); showSnap();
   if(d.mode==='rect'){ $('selRect').style.display='none'; if(!d.moved && !d.add) select(null); else renderAll(); return; }
   commit();
 }

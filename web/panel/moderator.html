@@ -79,6 +79,8 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .guide{position:absolute;background:#ff3fa4;pointer-events:none;display:none;z-index:99998}
 .guide.show{display:block}
 #gv{left:50%;top:0;bottom:0;width:1px}#gh{top:50%;left:0;right:0;height:1px}
+#gv2{top:0;bottom:0;width:1px;background:#3fd0ff}#gh2{left:0;right:0;height:1px;background:#3fd0ff}
+.el.snapT{outline:2px dotted #3fd0ff;outline-offset:3px}
 #dropHint{position:absolute;inset:0;border:3px dashed var(--acc);background:#7c5cff22;display:none;align-items:center;justify-content:center;font-size:22px;font-weight:700;pointer-events:none;z-index:99999}
 #stage.dragover #dropHint{display:flex}
 #upload{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);border-radius:8px;padding:6px 12px;z-index:99999;font-size:13px;min-width:240px}
@@ -414,7 +416,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div id="bgLayer"></div>
       <div id="gridLayer"></div>
       <div id="elLayer"></div>
-      <div class="guide" id="gv"></div><div class="guide" id="gh"></div>
+      <div class="guide" id="gv"></div><div class="guide" id="gh"></div><div class="guide" id="gv2"></div><div class="guide" id="gh2"></div>
       <div id="selRect"></div>
       <div id="dropHint">Отпусти, чтобы добавить</div>
       <div id="upload" hidden><span id="upText"></span><div class="b"><i id="upBar"></i></div></div>
