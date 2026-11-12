@@ -32,6 +32,14 @@
     timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5M19 5l1.5 1.5"/>',
     count:'<path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/>',
     sticker:'<path d="M15.5 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h7.5L21 13.5V6a3 3 0 0 0-3-3z"/><path d="M13 21v-5a3 3 0 0 1 3-3h5M8.5 10h.01M14.5 10h.01M8.5 14.5s1.2 1.5 3 1.5"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>',
+    chain:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    unchain:'<path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71M5.17 11.75l-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71M8 2v3M2 8h3M16 19v3M19 16h3"/>',
+    copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    trash:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    'al-l':'<path d="M4 3v18M8 7h12M8 14h8"/>','al-c':'<path d="M12 3v18M5 7h14M7 14h10"/>','al-r':'<path d="M20 3v18M4 7h12M8 14h8"/>',
+    'al-t':'<path d="M3 4h18M7 8v12M14 8v8"/>','al-m':'<path d="M3 12h18M7 5v14M14 7v10"/>','al-b':'<path d="M3 20h18M7 4v12M14 8v8"/>',
     plus:'<path d="M5 12h14M12 5v14"/>',
     film:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M3 12h18M3 16.5h4M17 3v18M17 7.5h4M17 16.5h4"/>',
     gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>',
@@ -206,16 +214,20 @@
   const CURSOR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2.5 19 13.6l-6.6 1.1 3.9 6.9-2.9 1.5-3.8-7L4.4 20z" fill="#fff" stroke="#14131c" stroke-width="1.4" stroke-linejoin="round"/></svg>';
   function heroDemo(el, t){
     const D = t.dm, strip = document.getElementById('fnStrip');
-    const SC = ['text', 'poll', 'timer', 'kase', 'auto', 'cs'];
+    const SC = ['text', 'img', 'web', 'xform', 'group', 'poll', 'timer', 'kase', 'auto', 'cs'];
     const TILES = [['timer', 'timer'], ['count', 'count'], ['poll', 'poll'], ['cs', 'cs'], ['kase', 'box', 'wide']];
     const TABS = ['plus', 'film', 'chat', 'bolt', 'gift', 'volume', 'gear'];
-    const LIC = { text:'text', poll:'poll', timer:'timer', count:'count', kase:'box', sticker:'sticker', cs:'cs' };
+    const LIC = { text:'text', poll:'poll', timer:'timer', count:'count', kase:'box', sticker:'sticker', cs:'cs', img:'image', gif:'image', web:'globe', group:'chain', txt:'text' };
     const FIELDS = {
       text:[[D.f.text, t.dMsg]], poll:[[D.f.question, t.dPollQ], [D.f.options, 'Mirage · Inferno · Nuke']], timer:[[D.f.time, '05:00'], [D.f.label, t.dBreak]],
       count:[[D.f.label, t.dDeaths]], kase:[[D.f.kind, D.caseKind], [D.f.who, 'nightowl']], sticker:[[D.f.text, 'POG!']], cs:[[D.f.view, D.csView]],
+      web:[[D.f.url, 'stats.example/top']], txt:[[D.f.text, 'WOW!']],
     };
+    const BASE = { img:{ w:28, ar:0.625 }, gif:{ w:15, ar:1 } };   // default size and aspect, for the "size" and "stretch" readouts
     const RC = ['#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#e4ae39'];   // case rarity colors, same order as the panel
     const reelCards = Array.from({ length:30 }, (_, i) => i === 24 ? 4 : [0, 0, 1, 0, 2, 0, 1, 3, 0, 1][(i * 7) % 10]);
+    const AL = ['al-l', 'al-c', 'al-r', 'al-t', 'al-m', 'al-b'];
+    const rows = [['nightowl', 100, '1 200'], ['pixelkat', 72, '860'], ['b0rsch', 45, '540']];
     el.innerHTML = `
     <div class="dv-top">
       <span class="dv-logo"><img src="shared/icons/icon-192.png" alt="">Hudini</span>
@@ -231,6 +243,9 @@
         <div class="pg pg-add on">
           <h5>${D.text}</h5><div class="fk ta">${D.textPh}</div>
           <div class="pb primary" data-b="text">${ic('plus')}${D.addText}</div>
+          <h5>${D.media}</h5>
+          <div class="fk lnk" data-b="lnk"><span class="tx">${D.linkPh}</span></div>
+          <div class="two"><div class="pb primary" data-b="link">${ic('plus')}${D.byLink}</div><div class="pb">${ic('folder')}${D.file}</div></div>
           <h5>${D.widgets}</h5>
           <div class="tiles">${TILES.map(([k, i, c]) => `<div class="tl ${c || ''}" data-b="${k}">${ic(i)}<span>${D.tiles[k]}</span></div>`).join('')}</div>
         </div>
@@ -240,19 +255,39 @@
           <div class="hit">${ic('chat')}<span>${D.ruleHit}</span></div>
         </div>
       </div>
-      <div class="dv-main"><div class="st">
-        <div class="st-bg"></div>
-        <div class="o o-text">${t.dMsg}</div>
-        <div class="o o-poll"><h4>${t.dPollQ}</h4>${['Mirage', 'Inferno', 'Nuke'].map((m, i) => `<div class="pr"><span class="k">${i + 1}</span><span>${m}</span><span class="bar"><i></i></span><span class="v"></span></div>`).join('')}<div class="pf"></div></div>
-        <div class="o o-timer"><div class="lb">${t.dBreak}</div><div class="flip"><span class="fd"><span></span></span><span class="fd"><span></span></span><span class="colon">:</span><span class="fd"><span></span></span><span class="fd"><span></span></span></div></div>
-        <div class="o o-count"><small>${t.dDeaths}</small><b>6</b></div>
-        <div class="o o-sticker">POG!</div>
-        <div class="o o-case"><div class="kc-who">${D.caseWho}</div>
-          <div class="kc-win"><i class="kc-mark"></i><div class="kc-strip">${reelCards.map(r => `<div class="kc" style="--c:${RC[r]}">${ic('box')}<small>${D.rar[r]}</small></div>`).join('')}</div></div>
-          <div class="kc-res" style="--c:${RC[4]}"><small>${D.rar[4]}</small></div></div>
-        <div class="cs"></div>
-        <canvas class="o-conf"></canvas>
-      </div></div>
+      <div class="dv-main">
+        <div class="dv-tb none"><span class="si"></span><span class="sp"></span>
+          <span class="tg">${AL.map(a => `<b>${ic(a)}</b>`).join('')}</span>
+          <span class="tg"><b data-b="group" class="gb">${ic('chain')}</b><b>${ic('unchain')}</b></span>
+          <span class="tg"><b>${ic('eye')}</b><b>${ic('copy')}</b><b>${ic('trash')}</b></span></div>
+        <div class="stbox"><div class="st">
+          <div class="st-bg"></div>
+          <div class="xe x-img"><img src="img/demo-photo.jpg" alt=""></div>
+          <div class="xe x-gif"><img src="img/demo-party.gif" alt=""></div>
+          <div class="xe x-web"><div class="wb"><div class="wbar"><i></i><i></i><i></i><span>${ic('lock')}stats.example/top</span></div>
+            <div class="wbody"><h6>${D.top}</h6>${rows.map(([n, v, a], i) => `<div class="wr"><span class="wn">${i + 1} ${n}</span><span class="wbr"><i style="--v:${v}%"></i></span><span class="wv">${a} ${D.cur}</span></div>`).join('')}</div></div></div>
+          <div class="xe x-txt"><span>WOW!</span></div>
+          <div class="o o-text">${t.dMsg}</div>
+          <div class="o o-poll"><h4>${t.dPollQ}</h4>${['Mirage', 'Inferno', 'Nuke'].map((m, i) => `<div class="pr"><span class="k">${i + 1}</span><span>${m}</span><span class="bar"><i></i></span><span class="v"></span></div>`).join('')}<div class="pf"></div></div>
+          <div class="o o-timer"><div class="lb">${t.dBreak}</div><div class="flip"><span class="fd"><span></span></span><span class="fd"><span></span></span><span class="colon">:</span><span class="fd"><span></span></span><span class="fd"><span></span></span></div></div>
+          <div class="o o-count"><small>${t.dDeaths}</small><b>6</b></div>
+          <div class="o o-sticker">POG!</div>
+          <div class="o o-case"><div class="kc-who">${D.caseWho}</div>
+            <div class="k3"><div class="beam"></div><div class="crate">
+              <div class="fc f-back"></div><div class="fc f-left"></div><div class="fc f-right"></div><div class="fc f-bottom"></div>
+              <div class="fc f-glow"></div>
+              <div class="fc f-front">${ic('box')}<b>HUDINI</b><small>CASE</small></div>
+              <div class="hinge"><div class="fc f-lid"></div></div>
+            </div></div>
+            <div class="rl"><div class="kc-win"><i class="kc-mark"></i><div class="kc-strip">${reelCards.map(r => `<div class="kc" style="--c:${RC[r]}">${ic('box')}<small>${D.rar[r]}</small></div>`).join('')}</div></div></div>
+            <div class="kc-res" style="--c:${RC[4]}">${ic('box')}<small>${D.rar[4]}</small></div></div>
+          <div class="cs"></div>
+          <i class="marq"></i>
+          <div class="sel"><i class="hd rot"></i><i class="hd se"></i><i class="hd e"></i><i class="hd s"></i><span class="gtag">${D.names.group}</span></div>
+          <div class="tip"></div>
+          <canvas class="o-conf"></canvas>
+        </div></div>
+      </div>
       <div class="dv-right">
         <h5>${D.layers}</h5><div class="ly-list"></div>
         <h5>${D.selected}</h5><div class="insp"></div>
@@ -264,8 +299,21 @@
     const clk = makeClock(el), wait = clk.wait;
     const showOn = (sel, v = true) => $(sel).classList.toggle('on', v);
     const OV = ['.o-text', '.o-poll', '.o-timer', '.o-count', '.o-sticker', '.o-case'];
+    let tok = 0;   // bumped whenever the played scene changes: every pending wait and tween of the old scene stops
 
-    // poll
+    // time-based animation on the demo clock; rejects when the scene was cancelled
+    const ease = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    const mix = (a, b, p) => a + (b - a) * p;
+    function tween(ms, fn){
+      const my = tok;
+      return new Promise((res, rej) => {
+        let a = 0;
+        const f = dt => { if(my !== tok){ clk.ticks.delete(f); rej(0); return; } a += dt; const p = Math.min(1, a / ms); fn(ease(p)); if(p >= 1){ clk.ticks.delete(f); res(); } };
+        clk.ticks.add(f);
+      });
+    }
+
+    // ---- poll, flip clock, counter ----
     const votes = [0, 0, 0];
     function poll(){
       const total = votes.reduce((a, b) => a + b, 0), max = Math.max(...votes);
@@ -277,7 +325,6 @@
       });
       $('.pf').textContent = `${t.dPollFoot} ${total}`;
     }
-    // flip clock
     const digits = [...el.querySelectorAll('.fd')];
     function clock(sec){
       const s = String(Math.floor(sec / 60)).padStart(2, '0') + String(sec % 60).padStart(2, '0');
@@ -285,21 +332,83 @@
     }
     let timerTok = 0;
     function runTimer(from){
-      const tok = ++timerTok; let s = from; clock(s);
-      (async () => { while(true){ await wait(1000); if(tok !== timerTok) return; s = Math.max(0, s - 1); clock(s); } })();
+      const tk = ++timerTok; let s = from; clock(s);
+      (async () => { while(true){ await wait(1000); if(tk !== timerTok) return; s = Math.max(0, s - 1); clock(s); } })();
     }
     const cnt = $('.o-count b');
     const setCount = (n, bump) => { cnt.textContent = n; if(bump) restart(cnt, 'bump'); };
-    // layers + inspector (the right column of the real panel)
-    const ly = $('.ly-list'), insp = $('.insp'); let nLayers = 0;
-    function addLayer(k){
-      ly.querySelectorAll('.sel').forEach(r => r.classList.remove('sel'));
-      const r = document.createElement('div'); r.className = 'ly sel';
-      r.innerHTML = `<i>${++nLayers}</i>${ic(LIC[k])}<span>${D.names[k]}</span><b>${ic('eye')}</b>`;
-      ly.prepend(r);
-      insp.innerHTML = `<div class="in-eye">${ic('eye')}<span>${D.onStream}</span></div><div class="in-fl">${ic('bolt')}<span>${D.flash}</span></div>
-        <div class="in-box"><div class="in-t">${ic(LIC[k])}<span>${D.names[k]}</span></div>${FIELDS[k].map(([l, v]) => `<label>${l}</label><div class="fk">${v}</div>`).join('')}
-        ${k === 'kase' ? `<div class="pb go" data-b="open">${ic('box')}${D.openCase}</div>` : ''}</div>`;
+
+    // ---- transformable elements (picture, GIF, website, text) + selection frame, like the panel's canvas ----
+    const NODE = { img:$('.x-img'), gif:$('.x-gif'), web:$('.x-web'), txt:$('.x-txt') };
+    const G = {};   // geometry per element in stage units: 1 = 1% of the stream width
+    const sel = $('.sel'), marq = $('.marq'), tb = $('.dv-tb'), tipEl = $('.tip');
+    let selK = null, grp = null;
+    function paint(k){ const g = G[k], n = NODE[k]; for(const p of ['x', 'y', 'w', 'h', 'r']) n.style.setProperty('--' + p, g[p]); }
+    function put(k, g){ G[k] = { ...g }; paint(k); NODE[k].classList.remove('pop'); void NODE[k].offsetWidth; NODE[k].classList.add('on', 'pop'); }
+    const selGeom = () => grp ? grp.g : selK ? G[selK] : null;
+    function syncSel(){
+      const g = selGeom(); sel.classList.toggle('on', !!g); sel.classList.toggle('grp', !!grp);
+      tb.classList.toggle('none', !g);
+      if(!g) return;
+      for(const p of ['x', 'y', 'w', 'h', 'r']) sel.style.setProperty('--' + p, g[p]);
+    }
+    const tip = s => { tipEl.textContent = s || ''; tipEl.classList.toggle('on', !!s); };
+    // inspector: fields for the picked element, and live "size / stretch / rotation" sliders for pictures and groups
+    const ly = $('.ly-list'), insp = $('.insp');
+    const rng = (id, label) => `<div class="rg"><div class="rl2"><span>${label}</span><b data-v="${id}"></b></div><div class="rt"><i data-r="${id}"></i></div></div>`;
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    function setR(id, text, frac){ const v = insp.querySelector(`[data-v="${id}"]`), r = insp.querySelector(`[data-r="${id}"]`); if(v) v.textContent = text; if(r) r.style.left = clamp01(frac) * 100 + '%'; }
+    function updateInsp(){
+      if(grp){ setR('size', Math.round(grp.p.s * 100) + '%', grp.p.s / 2.5); setR('rot', Math.round(grp.p.rot) + '°', (grp.p.rot + 180) / 360); return; }
+      if(!selK || !BASE[selK]) return;
+      const g = G[selK], b = BASE[selK], str = g.h / (g.w * b.ar) * 100;
+      setR('size', Math.round(g.w / b.w * 100) + '%', g.w / b.w / 3);
+      setR('str', Math.round(str) + '%', (str - 20) / 280);
+      setR('rot', Math.round(g.r) + '°', (g.r + 180) / 360);
+    }
+    function buildInsp(k){
+      const head = `<div class="in-eye">${ic('eye')}<span>${D.onStream}</span></div>${k === 'group' ? '' : `<div class="in-fl">${ic('bolt')}<span>${D.flash}</span></div>`}`;
+      const title = `<div class="in-t">${ic(LIC[k])}<span>${D.names[k]}</span></div>`;
+      let body;
+      if(k === 'group') body = `<label>${D.f.members}</label><div class="fk">${grp.keys.length}</div>${rng('size', D.f.size)}${rng('rot', D.f.rot)}`;
+      else if(BASE[k]) body = `${rng('size', D.f.size)}${rng('str', D.f.stretch)}${rng('rot', D.f.rot)}`;
+      else body = FIELDS[k].map(([l, v]) => `<label>${l}</label><div class="fk">${v}</div>`).join('') + (k === 'kase' ? `<div class="pb go" data-b="open">${ic('box')}${D.openCase}</div>` : '');
+      insp.innerHTML = `${head}<div class="in-box">${title}${body}</div>`;
+      updateInsp();
+    }
+    // layers (newest on top); a group folds its items under one row
+    let LY = [];
+    function renderLayers(fresh){
+      const mk = (k, cls, n) => `<div class="ly ${cls}${k === fresh ? ' new' : ''}"><i>${n}</i>${ic(LIC[k])}<span>${D.names[k] || ''}</span><b>${ic('eye')}</b></div>`;
+      const out = []; let n = LY.length;
+      if(grp) out.push(mk('group', 'cur', n + 1));
+      for(const k of [...LY].reverse()){ out.push(mk(k, (grp && grp.keys.includes(k)) ? 'nest' : (k === selK && !grp ? 'cur' : ''), n--)); }
+      ly.innerHTML = out.join('');
+    }
+    function addLayer(k, pick = true){ LY.push(k); if(pick) select(k, k); else renderLayers(k); }
+    function select(k, fresh){ selK = k; grp = null; syncSel(); buildInsp(k); renderLayers(fresh); $('.si').textContent = D.names[k]; }
+    // group: bounding box of the items; moving, scaling and rotating the group moves every item around the group's center
+    function makeGroup(keys){
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for(const k of keys){ const g = G[k]; x0 = Math.min(x0, g.x - g.w / 2); x1 = Math.max(x1, g.x + g.w / 2); y0 = Math.min(y0, g.y - g.h / 2); y1 = Math.max(y1, g.y + g.h / 2); }
+      const g0 = { x:(x0 + x1) / 2, y:(y0 + y1) / 2, w:x1 - x0, h:y1 - y0, r:0 };
+      grp = { keys, g0, g:{ ...g0 }, p:{ dx:0, dy:0, s:1, rot:0 }, base:keys.map(k => ({ k, ...G[k] })) };
+      selK = null; syncSel(); buildInsp('group'); renderLayers(); $('.si').textContent = D.names.group + ' · ' + keys.length;
+    }
+    function applyGroup(){
+      const { p, g0, base } = grp, cx = g0.x + p.dx, cy = g0.y + p.dy, a = p.rot * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+      for(const b of base){ const ox = (b.x - g0.x) * p.s, oy = (b.y - g0.y) * p.s; G[b.k] = { x:cx + ox * ca - oy * sa, y:cy + ox * sa + oy * ca, w:b.w * p.s, h:b.h * p.s, r:b.r + p.rot }; paint(b.k); }
+      grp.g = { x:cx, y:cy, w:g0.w * p.s, h:g0.h * p.s, r:p.rot };
+      syncSel(); updateInsp();
+    }
+    // the pane scrolls like the real one when the cursor needs a lower button
+    let shift = 0;
+    function pane(sh){ shift = sh; $('.pg-add').style.transform = `translateY(${-sh}px)`; }
+    async function ensureVisible(b, w){
+      if(!b.closest('.pg-add')) return;
+      const pr = $('.dv-pane').getBoundingClientRect(), br = b.getBoundingClientRect();
+      const need = br.bottom - pr.bottom + 14;
+      if(need > 0){ pane(shift + need); await w(650); }
     }
     function setTab(name){
       el.querySelectorAll('.tb').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
@@ -334,22 +443,93 @@
     const moveTo = ([x, y]) => { cp = [x, y]; cur.style.transform = `translate(${x - 4}px,${y - 2}px)`; };
     async function click(k, w){
       const b = $(`[data-b="${k}"]`); if(!b) return;
+      await ensureVisible(b, w);
       moveTo(point(b, 0.42)); await w(900);
       b.classList.add('press');
       const rp = document.createElement('div'); rp.className = 'dv-rip'; rp.style.left = cp[0] + 'px'; rp.style.top = cp[1] + 'px'; el.appendChild(rp);
       wait(600).then(() => rp.remove());
       await w(150); b.classList.remove('press'); await w(120);
     }
+    // grab something on the canvas with the cursor and change it over `ms`; the cursor stays glued to the grabbed point
+    async function drag(w, target, dx, dy, ms, fn){
+      moveTo(point(target, dx, dy)); await w(850);
+      cur.classList.add('drag', 'press');
+      await tween(ms, p => { fn(p); syncSel(); moveTo(point(target, dx, dy)); });
+      cur.classList.remove('drag', 'press'); await w(350);
+    }
+    async function typeLink(s, w){
+      await click('lnk', w);
+      const box = $('.lnk'), tx = box.querySelector('.tx'); box.classList.add('act'); tx.textContent = '';
+      for(const ch of s){ tx.textContent += ch; await w(36); }
+      await w(250);
+    }
+    function clearLink(){ const box = $('.lnk'); box.classList.remove('act'); box.querySelector('.tx').textContent = D.linkPh; }
+
     function reset(){
       OV.forEach(s => showOn(s, false)); timerTok++; st.classList.remove('cs-mode');
       const cs = $('.cs'); cs.replaceWith(cs.cloneNode(false));   // a fresh node: a half-played CS2 scene lets go of the old one
-      $('.o-case').classList.remove('spin', 'won');
-      ly.replaceChildren(); insp.replaceChildren(); nLayers = 0; setTab('add');
+      const kc = $('.o-case'); kc.classList.remove('drop', 'open', 'reel', 'spin', 'won');
+      for(const k in NODE){ NODE[k].classList.remove('on', 'pop', 'msel'); }
+      selK = null; grp = null; LY = []; syncSel(); tip(null); marq.classList.remove('on'); tb.classList.remove('multi'); $('.si').textContent = '';
+      ly.replaceChildren(); insp.replaceChildren(); setTab('add'); pane(0); clearLink();
       $('.pg-auto .rule').classList.remove('fire'); $('.pg-auto .hit').classList.remove('on');
       votes.splice(0, 3, 0, 0, 0); poll(); setCount(6); clock(300);
     }
     const SCENES = {
       async text(w){ await click('text', w); addLayer('text'); showOn('.o-text'); await w(3000); },
+      async img(w){
+        await typeLink('cdn.example/sunset.jpg', w); await click('link', w); clearLink();
+        put('img', { x:30, y:29, w:BASE.img.w, h:BASE.img.w * BASE.img.ar, r:0 }); addLayer('img'); await w(1300);
+        await typeLink('cdn.example/party.gif', w); await click('link', w); clearLink();
+        put('gif', { x:72, y:29, w:BASE.gif.w + 3, h:BASE.gif.w + 3, r:0 }); addLayer('gif'); await w(3200);
+      },
+      async web(w){
+        await typeLink('stats.example/top', w); await click('link', w); clearLink();
+        put('web', { x:50, y:28, w:50, h:30, r:0 }); addLayer('web'); await w(4200);
+      },
+      async xform(w){
+        put('img', { x:50, y:28, w:BASE.img.w, h:BASE.img.w * BASE.img.ar, r:0 }); addLayer('img'); await w(900);
+        const k = 'img', g0 = { ...G[k] };
+        tip(D.tips.move);
+        await drag(w, NODE[k], 0.5, 0.5, 1300, p => { G[k].x = mix(g0.x, 34, p); G[k].y = mix(g0.y, 27, p); paint(k); updateInsp(); });
+        tip(D.tips.scale); const g1 = { ...G[k] };
+        await drag(w, $('.hd.se'), 0.5, 0.5, 1300, p => { const s = mix(1, 1.4, p); G[k].w = g1.w * s; G[k].h = g1.h * s; paint(k); updateInsp(); });
+        tip(D.tips.rotate);
+        await drag(w, $('.hd.rot'), 0.5, 0.5, 1200, p => { G[k].r = mix(0, 15, p); paint(k); updateInsp(); });
+        tip(D.tips.squeeze); const g2 = { ...G[k] };
+        await drag(w, $('.hd.e'), 0.5, 0.5, 1200, p => { G[k].w = mix(g2.w, g2.w * 0.55, p); paint(k); updateInsp(); });
+        tip(D.tips.stretch); const g3 = { ...G[k] };
+        await drag(w, $('.hd.s'), 0.5, 0.5, 1200, p => { G[k].h = mix(g3.h, g3.h * 1.6, p); paint(k); updateInsp(); });
+        await w(1500);
+      },
+      async group(w){
+        put('img', { x:24, y:31, w:24, h:15, r:-6 }); addLayer('img', false);
+        put('gif', { x:50, y:29, w:15, h:15, r:4 }); addLayer('gif', false);
+        put('txt', { x:77, y:31, w:21, h:8, r:0 }); addLayer('txt', false); renderLayers();
+        await w(700);
+        // a rubber-band frame around everything
+        tip(D.tips.select);
+        const a = [2, 13], b = [95, 47];
+        marq.style.setProperty('--mx', a[0]); marq.style.setProperty('--my', a[1]); marq.style.setProperty('--mw', 0); marq.style.setProperty('--mh', 0); marq.classList.add('on');
+        moveTo(point(st, a[0] / 100, a[1] / 56.25)); await w(900); cur.classList.add('drag', 'press');
+        await tween(1300, p => {
+          marq.style.setProperty('--mw', (b[0] - a[0]) * p); marq.style.setProperty('--mh', (b[1] - a[1]) * p);
+          moveTo(point(st, (a[0] + (b[0] - a[0]) * p) / 100, (a[1] + (b[1] - a[1]) * p) / 56.25));
+          for(const k of ['img', 'gif', 'txt']) NODE[k].classList.toggle('msel', p > 0.7);
+        });
+        cur.classList.remove('drag', 'press'); marq.classList.remove('on'); tb.classList.add('multi'); $('.si').textContent = D.names.group + ' · 3';
+        await w(500);
+        await click('group', w); tip(D.tips.group); tb.classList.remove('multi');
+        for(const k of ['img', 'gif', 'txt']) NODE[k].classList.remove('msel');
+        makeGroup(['img', 'gif', 'txt']); await w(900);
+        tip(D.tips.move);
+        await drag(w, sel, 0.5, 0.5, 1200, p => { grp.p.dx = mix(0, 6, p); grp.p.dy = mix(0, 4, p); applyGroup(); });
+        tip(D.tips.scale);
+        await drag(w, $('.hd.se'), 0.5, 0.5, 1200, p => { grp.p.s = mix(1, 1.18, p); applyGroup(); });
+        tip(D.tips.rotate);
+        await drag(w, $('.hd.rot'), 0.5, 0.5, 1200, p => { grp.p.rot = mix(0, 7, p); applyGroup(); });
+        await w(1500);
+      },
       async poll(w){
         await click('poll', w); addLayer('poll'); showOn('.o-poll'); await w(700);
         for(const v of [0, 1, 0, 2, 0, 1, 0, 0, 2, 0]){ votes[v]++; poll(); await w(420); }
@@ -361,9 +541,11 @@
         setCount(7, true); await w(900); setCount(8, true); await w(1600);
       },
       async kase(w){
-        await click('kase', w); addLayer('kase'); showOn('.o-case'); await w(900);
-        await click('open', w); $('.o-case').classList.add('spin'); await w(4600);
-        $('.o-case').classList.add('won'); await w(2800);
+        const kc = $('.o-case');
+        await click('kase', w); addLayer('kase'); kc.classList.add('on', 'drop'); await w(1900);
+        await click('open', w); kc.classList.add('open'); await w(1700);
+        kc.classList.add('reel'); await w(500); kc.classList.add('spin'); await w(4600);
+        kc.classList.add('won'); await w(3000);
       },
       async auto(w){
         await click('tab-auto', w); setTab('auto'); await w(900);
@@ -379,11 +561,10 @@
     const caps = strip?.querySelector('.fn-cap');
     const chips = strip ? [...strip.querySelectorAll('[data-i]')] : [];
     function mark(n){ chips.forEach((c, i) => c.classList.toggle('on', i === n)); if(caps) caps.textContent = D.sc[SC[n]][1]; }
-    let tok = 0;
     async function play(i){
       const my = ++tok, w = async ms => { await wait(ms); if(my !== tok) throw 0; };
       try{
-        cur.classList.remove('hidden');
+        cur.classList.remove('hidden', 'drag', 'press');
         for(let n = i; ; n = (n + 1) % SC.length){
           mark(n); reset(); moveTo(point(st, 0.7, 0.75)); await w(500);
           await SCENES[SC[n]](w); await w(1200);
