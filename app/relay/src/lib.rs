@@ -309,10 +309,29 @@ async fn monitor(inner: Arc<Inner>) {
     }
 }
 
+/// Пауза после ошибки `accept` (например, кончились дескрипторы): слушатель жив, через миг пробуем снова
+const ACCEPT_RETRY: Duration = Duration::from_millis(100);
+
+/// Следующее входящее соединение. Ошибка `accept` не останавливает ретранслятор: статус при этом остался бы «online»,
+/// а пульт больше никуда бы не попадал.
+async fn accept_next<T, F, Fut>(accept: &mut F) -> T
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = io::Result<T>>,
+{
+    loop {
+        match accept().await {
+            Ok(c) => return c,
+            Err(_) => sleep(ACCEPT_RETRY).await,
+        }
+    }
+}
+
 async fn serve(inner: Arc<Inner>, listener: TcpListener, stop: watch::Receiver<bool>) {
     let limit = Arc::new(Semaphore::new(inner.opts.max_clients));
+    let mut accept = || listener.accept();
     loop {
-        let Ok((local, _)) = listener.accept().await else { return };
+        let (local, _) = accept_next(&mut accept).await;
         let Ok(permit) = limit.clone().try_acquire_owned() else { continue };
         let inner = inner.clone();
         let mut stop = stop.clone();
@@ -398,7 +417,8 @@ impl Drop for Relay {
 
 #[cfg(test)]
 mod tests {
-    use super::response_complete;
+    use super::{accept_next, response_complete};
+    use std::io;
 
     #[test]
     fn response_end_detection() {
@@ -412,5 +432,23 @@ mod tests {
         // неполные заголовки и ответ без длины
         assert!(!response_complete(b"HTTP/1.1 200 OK\r\nContent-Len"));
         assert!(!response_complete(b"HTTP/1.1 200 OK\r\n\r\npong"));
+    }
+
+    #[tokio::test]
+    async fn accept_errors_do_not_stop_the_listener() {
+        // две ошибки подряд (как при нехватке дескрипторов), потом соединение: оно должно дойти
+        let mut calls = 0;
+        let mut accept = || {
+            calls += 1;
+            let n = calls;
+            async move {
+                if n <= 2 {
+                    Err(io::Error::other("too many open files"))
+                } else {
+                    Ok(n)
+                }
+            }
+        };
+        assert_eq!(accept_next(&mut accept).await, 3);
     }
 }
