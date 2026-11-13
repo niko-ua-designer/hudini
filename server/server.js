@@ -580,11 +580,12 @@ function widgetHtml(){
 // Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
 // Два вида сборок:
 // • один файл без окна (запуск из исходников, разработка): HudiniHost-windows.exe.zip и т.п.;
-// • приложение Hudini с окном и треем (OVERLAY_APP): Hudini-<система>-<версия>.zip, внутри папка «Hudini/»
+// • приложение Hudini с окном и треем (OVERLAY_APP): HudiniHost-<система>-<версия>.zip, внутри папка «HudiniHost/»
 //   с программой, этим сервером и README. Меняем всё, кроме data/, и запускаем программу с окном заново.
 const REPO = 'niko-ua-designer/hudini';
 const ASSET = { win32:'HudiniHost-windows.exe', linux:'HudiniHost-linux', darwin: os.arch()==='arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel' }[process.platform];
 const APP_OS = { win32:'windows', linux:'linux', darwin:'macos' }[process.platform];   // для macOS одна universal-сборка
+const ASSET_OS = ASSET.replace(/^HudiniHost-/, '').replace(/\.exe$/, '');   // windows | linux | mac-arm64 | mac-intel
 // Программа с окном: на macOS это папка «Hudini.app», файл внутри неё; иначе сам файл программы
 const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(APP_EXE) || [])[1] || APP_EXE;
 const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
@@ -616,8 +617,11 @@ function pickRelease(list){
 function pickAsset(assets, ver){
   assets = Array.isArray(assets) ? assets : [];
   if(!APP) return assets.find(a => a.name===ASSET+'.zip');
-  const re = new RegExp('^Hudini-'+APP_OS+'-[\\w.]+\\.zip$');
-  return assets.find(a => a.name===`Hudini-${APP_OS}-${prettyVer(ver)}.zip`) || assets.find(a => re.test(a.name||''));
+  // Сейчас релизы выходят как HudiniHost-<система>-<версия>.zip (эти имена ждёт rc.4); Hudini-<система>-<версия>.zip — будущее имя
+  const names = [`Hudini-${APP_OS}`, `HudiniHost-${ASSET_OS}`];
+  for(const n of names){ const a = assets.find(a => a.name===`${n}-${prettyVer(ver)}.zip`); if(a) return a; }
+  for(const n of names){ const re = new RegExp('^'+n+'-\\d[\\w.]*\\.zip$'), a = assets.find(a => re.test(a.name||'')); if(a) return a; }
+  return undefined;
 }
 // Разбор .zip: список записей, данные распаковываются по запросу
 function unzipAll(buf){

@@ -51,18 +51,19 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   build('1.0.0', path.join(rel, ASSET));
   const zip = zipOne(path.join(rel, ASSET), 'Hudini/' + ASSET);   // same layout as the portable release zip
   fs.writeFileSync(path.join(rel, ASSET + '.zip'), zip);
-  // New release layout (app with window and tray): Hudini-<os>-<version>.zip, folder «Hudini/» with several files
-  const APP_OS = { linux:'linux', darwin:'macos', win32:'windows' }[process.platform];
-  const APP_ZIP = `Hudini-${APP_OS}-1.0.zip`;
+  // Release layout of the app (window and tray), as .github/workflows/host.yml builds it: HudiniHost-<os>-<version>.zip
+  // (the names rc.4 looks for), folder «HudiniHost/» with several files
+  const APP_OS = ASSET.replace(/^HudiniHost-/, '').replace(/\.exe$/, '');
+  const APP_ZIP = `HudiniHost-${APP_OS}-1.0.zip`;
   const newServer = fs.readFileSync(path.join(rel, ASSET));
   const fakeApp = '#!/bin/sh\necho "$@" > "$(dirname "$0")/launched.txt"\n';   // the new «app»: records how it was started
   const appZip = zipMany([
-    { name: 'Hudini/', mode: 0o755 },
-    { name: 'Hudini/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
-    { name: 'Hudini/hudini-server', data: newServer },   // no unix mode: made executable by name
-    { name: 'Hudini/README.txt', data: Buffer.from('new readme') },
-    { name: 'Hudini/data/' },
-    { name: 'Hudini/data/overlay-host.json', data: Buffer.from('{"modPass":"from-zip"}') },
+    { name: 'HudiniHost/', mode: 0o755 },
+    { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+    { name: 'HudiniHost/hudini-server', data: newServer },   // no unix mode: made executable by name
+    { name: 'HudiniHost/README.txt', data: Buffer.from('new readme') },
+    { name: 'HudiniHost/data/' },
+    { name: 'HudiniHost/data/overlay-host.json', data: Buffer.from('{"modPass":"from-zip"}') },
   ]);
   fs.writeFileSync(path.join(rel, APP_ZIP), appZip);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
@@ -180,11 +181,11 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   });
 
   if(process.platform !== 'win32') await step('app mode: a zip whose symlink points outside the app folder is refused', async () => {
-    const evil = `Hudini-${APP_OS}-1.0.1.zip`;
+    const evil = `HudiniHost-${APP_OS}-1.0.1.zip`;
     fs.writeFileSync(path.join(rel, evil), zipMany([
-      { name: 'Hudini/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
-      { name: 'Hudini/esc', data: Buffer.from('../..'), mode: 0o120777 },   // symlink to two levels up
-      { name: 'Hudini/esc/pwned.txt', data: Buffer.from('x') },
+      { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'HudiniHost/esc', data: Buffer.from('../..'), mode: 0o120777 },   // symlink to two levels up
+      { name: 'HudiniHost/esc/pwned.txt', data: Buffer.from('x') },
     ]));
     list = [{ tag_name: 'v1.0.1', assets: [{ name: evil, browser_download_url: url(evil) }, ...assets.slice(2)] }];
     sums = sha(fs.readFileSync(path.join(rel, evil))) + '  ' + evil + '\n'; sigVer = '1.0.1';
