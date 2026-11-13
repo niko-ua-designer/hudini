@@ -194,14 +194,15 @@ setInterval(()=>{
 
 // ================== ЭФФЕКТЫ ==================
 const sounds=new Set();
-const pendingSounds=new Map();
+const pendingSounds=new Map();   // id файла → { vol, at }: звук ждёт, пока файл скачается
+const PENDING_MS=10000;            // дольше не ждём: звук через минуту после события только мешает
 function playSound(src, vol){
   if(hostHidden()) return;
   const id=assetId(src);
-  if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, vol); return; } src=u; }
+  if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, { vol, at:Date.now() }); return; } src=u; }
   const a=new Audio(src); a.volume=num(num(vol,0.7,0,1)*masterVol(),0.7,0,1);
   sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
-  a.play().catch(e=>status('Звук не проигрался: '+e.message));
+  a.play().catch(e=>{ sounds.delete(a); status('Звук не проигрался: '+e.message); });
 }
 function stopSounds(){ for(const a of sounds) a.pause(); sounds.clear(); window.Case3D?.silence?.(); }
 
@@ -260,10 +261,12 @@ function playVfx(el){
   const v=document.createElement('video'); v.playsInline=true; v.muted=false; v.volume=num(el.vol*masterVol(),1,0,1); v.src=src;
   if(!assetId(el.vfx)) v.crossOrigin='anonymous';
   const layer=document.createElement(el.key?'canvas':'div'); layer.className='vfx';
-  const done=()=>{ v.pause(); layer.remove(); }; layer._done=done; setTimeout(done, 30000); v.onended=done; v.onerror=done;
+  let gl=null, over=false;
+  const done=()=>{ if(over) return; over=true; v.pause(); v.removeAttribute('src'); v.load(); layer.remove(); gl?.getExtension('WEBGL_lose_context')?.loseContext(); };   // контекст WebGL отдаём сразу, не ждём сборщика
+  layer._done=done; setTimeout(done, 30000); v.onended=done; v.onerror=done;
   if(!el.key){ layer.appendChild(v); document.body.appendChild(layer); v.play().catch(()=>{ v.muted=true; v.play().catch(done); }); return; }
   layer.width=1920; layer.height=1080; document.body.appendChild(layer);
-  const gl=layer.getContext('webgl', { premultipliedAlpha:true, alpha:true });
+  gl=layer.getContext('webgl', { premultipliedAlpha:true, alpha:true });
   if(!gl){ layer.remove(); el={ ...el, key:false }; return playVfx(el); }
   const sh=(type, code)=>{ const x=gl.createShader(type); gl.shaderSource(x, code); gl.compileShader(x); return x; };
   const pr=gl.createProgram();
@@ -348,7 +351,8 @@ async function start(){
   };
   Assets.onReady=id=>{
     applyState(lastState);   // файл догрузился: дорисовать картинку/видео
-    if(pendingSounds.has(id)){ const v=pendingSounds.get(id); pendingSounds.delete(id); playSound('asset:'+id, v); }
+    for(const [k,p] of pendingSounds) if(Date.now()-p.at>PENDING_MS) pendingSounds.delete(k);
+    if(pendingSounds.has(id)){ const p=pendingSounds.get(id); pendingSounds.delete(id); playSound('asset:'+id, p.vol); }
   };
   // Сообщаем пульту, что виджет жив (зашифровано ключом комнаты)
   const wid=Math.random().toString(36).slice(2,8);
