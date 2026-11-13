@@ -130,6 +130,7 @@ function applyState(s){
   const seen=new Set(), now=nowMs();
   drawList(s).forEach((el,i)=>{
     seen.add(el.id);
+    if(el.ttl && now>=el.ttl) el.hidden=true;   // «показать на N секунд»: время вышло, прячем и без пульта
     let node=nodes.get(el.id);
     if(node && node.dataset.type!==el.type){ chatUnbind(node); node.remove(); nodes.delete(el.id); node=null; }
     const isNew=!node;
@@ -179,6 +180,7 @@ requestAnimationFrame(animLoop);
 // Таймеры и счётчики тикают сами, без сети
 setInterval(()=>{
   const now=nowMs();
+  if(drawList(lastState).some(el=>el.ttl && !el.hidden && now>=el.ttl)) applyState(lastState);
   for(const node of nodes.values()){
     const el=node._el; if(!el) continue;
     const s=tickNode(node, el, now);
