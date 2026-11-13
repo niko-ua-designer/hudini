@@ -294,10 +294,15 @@ fn save_cfg(data: &Path, cfg: &AppCfg) {
     let _ = write_atomic(&data.join("app.json"), serde_json::json!({ "role": cfg.role, "remember": cfg.remember }).to_string().as_bytes());
 }
 
-// Файл целиком или никак: пишем рядом и переименовываем (обрыв посередине не оставит половину файла)
+// Файл целиком или никак: пишем рядом, сбрасываем на диск и переименовываем (обрыв посередине или отключение
+// питания не оставят половину файла или пустой файл)
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, bytes)?;
+    {
+        let mut f = fs::File::create(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+    }
     fs::rename(&tmp, path)
 }
 
@@ -1122,8 +1127,28 @@ const STORE_MAX: usize = 32 * 1024 * 1024;
 
 #[tauri::command]
 fn store_load(app: AppHandle) -> serde_json::Value {
-    let path = app.state::<Paths>().data.join("store.json");
-    fs::read_to_string(path).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}))
+    let data = app.state::<Paths>().data.clone();
+    let path = data.join("store.json");
+    let bytes = match fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                applog(&format!("store.json: cannot read: {e}"));
+            }
+            return serde_json::json!({});
+        }
+    };
+    match serde_json::from_slice::<serde_json::Value>(&bytes) {
+        Ok(v) if v.is_object() => v,
+        _ => {
+            // файл испорчен: откладываем его в сторону, иначе следующее сохранение затёрло бы его,
+            // а из отложенной копии ключи комнат ещё можно достать вручную
+            let aside = data.join(format!("store.corrupt-{}.json", stamp().2));
+            let moved = fs::rename(&path, &aside).is_ok();
+            applog(&format!("store.json is damaged ({} bytes): {}", bytes.len(), if moved { format!("moved aside as {}", aside.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()) } else { "could not move it aside".to_string() }));
+            serde_json::json!({})
+        }
+    }
 }
 
 #[tauri::command]
