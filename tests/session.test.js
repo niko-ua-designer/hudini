@@ -134,6 +134,25 @@ const cls = p => p.getAttribute('#status', 'class');
     await p.context().close();
   });
 
+  await step('settings read at start come from the app store, not defaults (and are not overwritten)', async () => {
+    const k = await keysFrom();
+    const anim = { name: 'мой прыжок', frames: [] };
+    // the real app answers store_load over IPC a little later; the fake answers at once
+    const p0 = T.newPage;
+    T.newPage = async (...a) => { const pg = await p0(...a); await pg.addInitScript(() => { const inv = window.__TAURI__.core.invoke; window.__TAURI__.core.invoke = async (cmd, args) => { if(cmd === 'store_load') await new Promise(r => setTimeout(r, 150)); return inv(cmd, args); }; }); return pg; };
+    let p;
+    try{ p = await open('panel-s9', '?session=room_set9', { 'app.sessions': [sess('room_set9', k)], 'overlay.anims': [anim], 'overlay.grid': true, 'overlay.cmd': { mode: 'off', list: '' } }); }
+    finally{ T.newPage = p0; }
+    await p.waitForFunction(() => window.hudiniReady);
+    eq(await p.evaluate(() => myAnims.length), 1, 'own animations loaded');
+    check(await p.evaluate(() => gridOn && $('gridOn').checked), 'grid setting loaded');
+    eq(await p.evaluate(() => cmdCfg.mode), 'off', 'chat commands setting loaded');
+    await p.evaluate(() => { gridStep = 10; lsSet('overlay.gridStep', 10); });
+    check(await until(async () => (await T.stored(p, 'overlay.gridStep')) === 10), 'a later save is written');
+    eq((await T.stored(p, 'overlay.anims'))?.length, 1, 'stored animations survive');
+    await p.context().close();
+  });
+
   await T.closeBrowser(); await host.stop(); await web.close();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });
