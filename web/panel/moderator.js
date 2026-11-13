@@ -331,13 +331,17 @@ function mergeOffline(msg, t){
 let pubChain=Promise.resolve();
 function sealedPublish(topic, data, opts, keys=KEYS){
   const bytes = data instanceof Uint8Array ? data : TE.encode(JSON.stringify(data));
+  // очередь ждёт только шифрования и передачи в mqtt.js (порядок он хранит сам), а не подтверждения:
+  // клиент, закрытый при смене комнаты, подтверждения не пришлёт, и очередь встала бы навсегда
+  let acked;
   const p = pubChain.then(async()=>{
     if(!client?.connected) throw new Error('нет связи');
-    const box=await seal(keys, bytes, true);
-    await new Promise((res, rej)=>client.publish(topic, box, opts, e=>e?rej(e):res()));
+    const box=await seal(keys, bytes, true), c=client;
+    if(!c?.connected) throw new Error('нет связи');
+    acked=new Promise((res, rej)=>c.publish(topic, box, opts, e=>e?rej(e):res()));
   });
   pubChain=p.catch(e=>console.warn(e));
-  return p;
+  return p.then(()=>acked);
 }
 Assets.onReady=()=>renderAll();
 // Файлы скачиваем из программы стримера и проверяем подпись
