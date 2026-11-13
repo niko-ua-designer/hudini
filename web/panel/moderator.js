@@ -559,8 +559,8 @@ async function refreshStorage(announce){
 // Файлы, которые нужны этой комнате: на экране, в сценах, библиотеке, сценариях и поле звука
 function usedAssets(){
   const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
-  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.vfx); add(e?.logo); for(const it of e?.items||[]) add(it?.img);
-    if(e?.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e?.snd); for(const v of Object.values(e?.av||{})) add(v); };
+  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.vfx); add(e?.logo); if(Array.isArray(e?.items)) for(const it of e.items) add(it?.img);
+    if(e?.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e?.snd); if(e?.av && typeof e.av==='object') for(const v of Object.values(e.av)) add(v); };
   drawList(state).forEach(fromEl);
   for(const f of state.fonts||[]) used.add(f.id);
   add($('soundUrl').value);
@@ -1337,18 +1337,21 @@ $('roomImport').onclick=()=>$('roomFile').click();
 $('roomFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   let data; try{ data=JSON.parse(await f.text()); }catch{ return toast('Это не файл бэкапа оверлея'); }
+  if(!data || typeof data!=='object' || Array.isArray(data)) return toast('Это не файл бэкапа оверлея');
   if(data.overlayBackup===2){
     const pass=prompt('Пароль от файла бэкапа:', ''); if(!pass) return;
-    data=await unlockJSON(pass, data.box); if(!data) return toast('Неверный пароль');
-  }
+    data=await unlockJSON(pass, data.box); if(!data || typeof data!=='object') return toast('Неверный пароль');
+  } else if(!confirm('Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.')) return;
+  const arr=v=>Array.isArray(v) ? v : [];
   let added=0, libAdded=0, animAdded=0;
-  for(const raw of (data.rooms||[])){ const r=cleanRoom(raw); if(r && !rooms.some(x=>x.code===r.code)){ rooms.push(r); added++; } }
-  for(const r of (data.overlayRooms||[])) if(validCode(r?.code) && !r.k){ rooms.push(await makeRoom(r.name)); added++; }   // старый бэкап без ключей
-  for(const it of (data.library||[])){ const el=sanitizeEl({ ...it?.el, id:'x' }); if(el && validCode(it.room) && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push({ name:String(it.name||'Элемент').slice(0,60), room:it.room, el:it.el }); libAdded++; } }
-  for(const a of (data.anims||[])){ const fr=sanitizeFrames(a?.f); if(fr.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f:fr }); animAdded++; } }
-  if(data.scenes && typeof data.scenes==='object') for(const [code, list] of Object.entries(data.scenes)) if(validCode(code) && Array.isArray(list)){ scenes[code]=[...(scenes[code]||[]), ...list.filter(x=>x && Array.isArray(x.els)).map(x=>({ name:String(x.name||'Сцена').slice(0,40), els:x.els }))]; }
-  if(data.scenarios && typeof data.scenarios==='object') for(const [code, list] of Object.entries(data.scenarios)) if(validCode(code) && Array.isArray(list)){
-    const have=new Set((scnStore[code]||[]).map(x=>x.id)); scnStore[code]=[...(scnStore[code]||[]), ...list.filter(x=>x && x.trig && Array.isArray(x.acts) && !have.has(x.id))]; }
+  for(const raw of arr(data.rooms)){ const r=cleanRoom(raw); if(r && !rooms.some(x=>x.code===r.code)){ rooms.push(r); added++; } }
+  for(const r of arr(data.overlayRooms)) if(validCode(r?.code) && !r.k){ rooms.push(await makeRoom(r.name)); added++; }   // старый бэкап без ключей
+  for(const raw of arr(data.library)){ const it=cleanLibItem(raw); if(it && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push(it); libAdded++; } }
+  for(const a of arr(data.anims)){ const fr=sanitizeFrames(a?.f); if(fr.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f:fr }); animAdded++; } }
+  const inScenes=cleanScenes(data.scenes), inScn=cleanScnStore(data.scenarios);
+  for(const [code, list] of Object.entries(inScenes)) scenes[code]=[...(scenes[code]||[]), ...list].slice(0, 200);
+  for(const [code, list] of Object.entries(inScn)){
+    const have=new Set((scnStore[code]||[]).map(x=>x.id)); scnStore[code]=[...(scnStore[code]||[]), ...list.filter(x=>!have.has(x.id))].slice(0, 200); }
   saveRooms(); saveLib(); saveAnims(); saveScenes(); saveScn(); renderRooms(); renderLib(); renderKfPresets(); renderScenes(); renderScn();
   toast(`Добавлено: комнат ${added}, элементов ${libAdded}, анимаций ${animAdded}`);
 };
@@ -2490,7 +2493,16 @@ setInterval(()=>{
 }, 150);
 
 // ================== БИБЛИОТЕКА ЭЛЕМЕНТОВ ==================
-let library=lsGet('overlay.lib', []); if(!Array.isArray(library)) library=[];
+// Элемент библиотеки хранится без id; в хранилище и бэкапе он мог быть испорчен, поэтому проверяем как элемент экрана
+function cleanLibItem(it){
+  if(!it || typeof it!=='object' || !validCode(it.room) || !it.el || typeof it.el!=='object' || it.el.type==='raffle') return null;
+  const el=sanitizeEl({ ...it.el, id:'x' }); if(!el) return null;
+  delete el.id;
+  return { name:String(it.name||'Элемент').slice(0,60), room:it.room, el };
+}
+let library=[];
+function loadLib(){ const v=lsGet('overlay.lib', []); library=(Array.isArray(v) ? v : []).map(cleanLibItem).filter(Boolean); }
+loadLib();
 function saveLib(){ lsSet('overlay.lib', library); }
 function renderLib(){
   const box=$('libList'); box.replaceChildren();
@@ -2539,7 +2551,7 @@ async function getAssetBlob(fromRoom, id){
 
 // ================== СЦЕНАРИИ: «если … → то …» ==================
 // Хранятся в этом браузере для каждой комнаты; выполняются, пока пульт открыт.
-let scnStore=lsGet('overlay.scn', {}); if(!scnStore || typeof scnStore!=='object' || Array.isArray(scnStore)) scnStore={};
+let scnStore=Object.create(null);   // комната → список; без прототипа, чтобы код комнаты вроде toString не ломал поиск
 const scnList=()=> (scnStore[room] ||= []);
 function saveScn(){ lsSet('overlay.scn', scnStore); }
 const sleep=ms=>new Promise(r=>setTimeout(r, ms));
@@ -2554,6 +2566,38 @@ const ACTS={
   text:{ n:'✏ Поменять текст', el:'text', tpl:true }, chatmsg:{ n:'💬 Показать это сообщение чата' },
   timer:{ n:'⏱ Запустить таймер заново', el:'timer' }, wait:{ n:'⏳ Подождать N сек', secs:2 },
 };
+// Сценарий из хранилища или бэкапа: только известные условия и действия и только их поля
+const SCN_ID=/^[a-z0-9]{1,16}$/;
+function cleanScn(x){
+  if(!x || typeof x!=='object' || typeof x.id!=='string' || !SCN_ID.test(x.id)) return null;
+  const t=x.trig;
+  if(!t || typeof t!=='object' || typeof t.type!=='string' || !Object.hasOwn(TRIGS, t.type)) return null;
+  const trig={ type:t.type };
+  if(t.type==='chat'){ trig.cmd=str(t.cmd,40); trig.who=['all','subs','mods'].includes(t.who) ? t.who : 'all'; }
+  if(t.type==='cs2'){ trig.ev=typeof t.ev==='string' && Object.hasOwn(CS2EV, t.ev) ? t.ev : 'kill'; trig.n=Math.round(num(t.n,3,2,5)); }
+  if(t.type==='timer' || t.type==='counter') trig.el=str(t.el,40);
+  if(t.type!=='manual') trig.cd=num(t.cd,10,0,3600);
+  const acts=(Array.isArray(x.acts) ? x.acts : []).slice(0,40).map(a=>{
+    if(!a || typeof a!=='object' || typeof a.t!=='string' || !Object.hasOwn(ACTS, a.t)) return null;
+    const d=ACTS[a.t], o={ t:a.t };
+    if(d.el) o.el=str(a.el,40);
+    if(d.secs!=null) o.secs=num(a.secs,d.secs,0,600);
+    if(d.num!=null) o.num=Math.round(num(a.num,d.num,-1e6,1e6));
+    if(d.url){ o.url=str(a.url,2000); o.vol=num(a.vol,0.8,0,1); }
+    if(d.scene) o.scene=str(a.scene,40);
+    if(d.tpl) o.tpl=str(a.tpl,500);
+    return o;
+  }).filter(Boolean);
+  return { id:x.id, name:str(x.name,60), on:x.on!==false, trig, acts };
+}
+function cleanScnStore(v){
+  const out=Object.create(null);
+  if(v && typeof v==='object' && !Array.isArray(v)) for(const [code, list] of Object.entries(v))
+    if(validCode(code) && Array.isArray(list)) out[code]=list.slice(0,200).map(cleanScn).filter(Boolean);
+  return out;
+}
+function loadScn(){ scnStore=cleanScnStore(lsGet('overlay.scn', null)); }
+loadScn();
 function fillTpl(t, ctx){ return String(t).replace(/\{(user|args|msg|name|n)\}/g, (_,k)=>String(ctx[k]??'')); }
 function flashFor(el, secs){ beginChange(); el.hidden=false; el.ttl=Date.now()+secs*1000; if(el.type==='video'||el.type==='web') el.restart=Date.now(); if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); } commit(); }
 async function runAction(a, ctx){
@@ -2576,7 +2620,7 @@ async function runAction(a, ctx){
   }
 }
 async function runScenario(sc, ctx={}){
-  const row=document.querySelector(`.scn[data-id="${sc.id}"]`); row?.classList.add('fired'); setTimeout(()=>row?.classList.remove('fired'), 900);
+  const row=document.querySelector(`.scn[data-id="${CSS.escape(String(sc.id))}"]`); row?.classList.add('fired'); setTimeout(()=>row?.classList.remove('fired'), 900);
   for(const a of sc.acts||[]){ try{ await runAction(a, ctx); }catch(e){ console.warn(e); } }
 }
 function matchTrig(t, ctx){
@@ -2664,7 +2708,7 @@ function renderScn(){
     const on=document.createElement('input'); on.type='checkbox'; on.checked=sc.on; on.dataset.a='on'; on.title='Включён';
     const nm=document.createElement('div'); nm.className='nm';
     const b=document.createElement('b'); b.textContent=sc.name||'Без названия';
-    const sp=document.createElement('span'); sp.textContent=`${trigText(sc.trig)} → ${(sc.acts||[]).map(a=>ACTS[a.t]?.n.split(' ')[0]).join(' ')}`;
+    const sp=document.createElement('span'); sp.textContent=`${trigText(sc.trig)} → ${(sc.acts||[]).map(a=>Object.hasOwn(ACTS, a.t) ? ACTS[a.t].n.split(' ')[0] : '?').join(' ')}`;
     nm.append(b, sp);
     const run=document.createElement('button'); run.textContent='▶'; run.dataset.a='run'; run.title='Запустить сейчас';
     const ed=document.createElement('button'); ed.textContent='✎'; ed.dataset.a='edit'; ed.title='Изменить';
@@ -2732,7 +2776,7 @@ function editScn(orig){
       const ts=document.createElement('select'); for(const [k,v] of Object.entries(ACTS)) opt(ts,k,v.n); ts.value=a.t;
       ts.onchange=()=>{ sc.acts[i]={ t:ts.value }; drawActs(); };
       row.append(n, ts);
-      const d=ACTS[a.t]||{};
+      const d=Object.hasOwn(ACTS, a.t) ? ACTS[a.t] : {};
       if(d.el){ const s=elSelect(d.el, a.el); s.onchange=()=>a.el=s.value; row.appendChild(s); }
       if(d.secs!=null){ const x=inp('number', a.secs??d.secs); x.step='0.5'; x.min='0'; x.title='секунд'; x.style.maxWidth='64px'; x.oninput=()=>a.secs=Number(x.value); row.appendChild(x); }
       if(d.num!=null){ const x=inp('number', a.num??d.num); x.title='на сколько (можно минус)'; x.style.maxWidth='64px'; x.oninput=()=>a.num=Number(x.value); row.appendChild(x); }
@@ -2777,7 +2821,19 @@ function editScn(orig){
 }
 
 // ================== СЦЕНЫ ==================
-let scenes=lsGet('overlay.scenes', {}); if(!scenes || typeof scenes!=='object' || Array.isArray(scenes)) scenes={};
+// Сцены по комнатам: без прототипа, элементы проверены (хранилище и бэкап могли испортить)
+function cleanScenes(v){
+  const out=Object.create(null);
+  if(v && typeof v==='object' && !Array.isArray(v)) for(const [code, list] of Object.entries(v)){
+    if(!validCode(code) || !Array.isArray(list)) continue;
+    out[code]=list.slice(0,200).filter(x=>x && typeof x==='object' && Array.isArray(x.els)).map(x=>({ name:String(x.name||'Сцена').slice(0,40),
+      els:x.els.slice(0,MAX_ELS).map(e=>e && typeof e==='object' && e.type!=='raffle' ? sanitizeEl({ ...e, id:typeof e.id==='string' && e.id ? e.id : rid(10) }) : null).filter(Boolean) }));
+  }
+  return out;
+}
+let scenes=Object.create(null);
+function loadScenes(){ scenes=cleanScenes(lsGet('overlay.scenes', null)); }
+loadScenes();
 function saveScenes(){ lsSet('overlay.scenes', scenes); }
 function renderScenes(){
   const box=$('sceneList'); box.replaceChildren();
@@ -2997,6 +3053,7 @@ function sessionProblem(text){
 async function boot(){
   if(!window.crypto?.subtle){ $('fatal').style.display='flex'; $('fatal').textContent='Пульт работает только по https:// (GitHub Pages) или с localhost: браузеру нужен модуль шифрования.'; return; }
   await HudiniStore.ready;
+  loadLib(); loadScenes(); loadScn();   // в приложении хранилище могло загрузиться позже, чем выполнился этот файл
   const v=lsGet('overlay.vault2', null);
   let data = v?.locked ? await askUnlock(v.locked) : (v?.plain || null);
   rooms=(data?.rooms||[]).map(cleanRoom).filter(Boolean);
@@ -3016,7 +3073,9 @@ async function boot(){
   if(!rooms.length && !inv && !TAURI) rooms.push(await makeRoom('Мой стример'));
   if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
   saveRooms();
-  renderRooms(); renderKfPresets(); renderLib(); renderScenes(); renderScn(); renderLockBtns(); renderSlang(); STREAM_LANG=streamLang();
+  // испорченные данные в хранилище не должны мешать подключиться: каждая часть рисуется отдельно
+  for(const f of [renderRooms, renderKfPresets, renderLib, renderScenes, renderScn, renderLockBtns, renderSlang]) try{ f(); }catch(e){ console.warn('boot', e); }
+  STREAM_LANG=streamLang();
   applyBg($('bgInput').value);
   setStatus('warn', 'подключение…', 1);
   connect();

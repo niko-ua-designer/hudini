@@ -773,6 +773,34 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('a hostile backup or broken stored data cannot stop the panel', async () => {
+    const p = await T.newPage('hostile', { app: false });
+    const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const code = await p.evaluate(() => room);
+    const file = path.join(fs.mkdtempSync(path.join(require('os').tmpdir(), 'hudini-bk-')), 'backup.json');
+    fs.writeFileSync(file, JSON.stringify({
+      scenarios: { [code]: [{ id: 'x1', name: 'pack', on: true, trig: { type: 'manual' }, acts: [{ t: 'constructor' }, { t: 'flash', el: 'q', secs: '9', evil: 1 }] },
+        { id: 'a"b', trig: { type: 'manual' }, acts: [] }, { id: 'z2', trig: { type: 'toString' }, acts: [] }], toString: [{ id: 't1', trig: { type: 'manual' }, acts: [] }] },
+      scenes: { [code]: [{ name: 's', els: [{ id: 'k', type: 'text', text: 'ok' }, { type: 'nope' }, 5] }] },
+      library: [{ name: 'l', room: code, el: { type: 'text', text: 'lib', items: 7 } }, { name: 'bad', room: code, el: { type: 'web', url: 'http://127.0.0.1:7777/' } }],
+    }));
+    await p.setInputFiles('#roomFile', file);
+    check(await until(() => dialogs.some(m => /без пароля/.test(m))), 'a backup without a password asks first');
+    const got = await until(() => p.evaluate(() => scnStore[room]?.length && { scn: scnStore[room], scenes: scenes[room].map(s => s.els.map(e => e.text)), lib: library.map(l => l.el.text), toStr: scnStore.toString?.length, used: usedAssets().size }));
+    eq(got?.scn, [{ id: 'x1', name: 'pack', on: true, trig: { type: 'manual' }, acts: [{ t: 'flash', el: 'q', secs: 9 }] }], 'only known actions and fields of a scenario are kept');
+    eq([got?.scenes, got?.lib, got?.used], [[['ok']], ['lib'], 0], 'scene and library elements are checked like screen elements');
+    eq(got?.toStr, 1, 'a room code like toString works as a key');
+    await p.evaluate(c => {
+      localStorage.setItem('store:overlay.scn', JSON.stringify({ [c]: [{ id: 'y', trig: { type: 'manual' }, acts: [{ t: 'constructor' }] }] }));
+      localStorage.setItem('store:overlay.scenes', JSON.stringify({ [c]: [{ name: 'x', els: [{ id: 'e', type: 'case', items: 5 }] }] }));
+    }, code);
+    await p.reload();
+    check(await until(() => p.evaluate(() => window.hudiniReady), 15000), 'the panel starts with broken stored scenarios and scenes');
+    eq(await p.evaluate(() => [document.querySelectorAll('.scn').length, scnStore[room][0].acts.length]), [1, 0], 'the scenario is listed without the unknown action');
+    await p.context().close();
+  });
+
   await step('help drawer: connection guides are part of the help', async () => {
     await mod.evaluate(() => window.HudiniUI.openHelp('connect'));
     check(await until(async () => /Radmin VPN/.test(await mod.evaluate(() => document.getElementById('helpDrawer')?.textContent || '')), 8000), 'drawer lists Radmin VPN');

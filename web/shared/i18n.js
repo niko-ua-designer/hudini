@@ -1343,6 +1343,7 @@ const HUDINI_DICT = {
     "Слишком много вкладок": "Too many tabs",
     "Нужен адрес сайта http(s)://…": "A website address http(s)://… is needed",
     "Такой ник нельзя": "This nickname is not allowed",
+    "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "This backup file has no password: add its rooms, scenes and scenarios? Open only files you trust.",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2685,6 +2686,7 @@ const HUDINI_DICT = {
     "Слишком много вкладок": "Забагато вкладок",
     "Нужен адрес сайта http(s)://…": "Потрібна адреса сайту http(s)://…",
     "Такой ник нельзя": "Такий нік не можна",
+    "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "Файл бекапу без пароля: додати з нього кімнати, сцени та сценарії? Відкривай лише файли, яким довіряєш.",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4027,6 +4029,7 @@ const HUDINI_DICT = {
     "Слишком много вкладок": "Zu viele Tabs",
     "Нужен адрес сайта http(s)://…": "Es wird eine Website-Adresse http(s)://… benötigt",
     "Такой ник нельзя": "Dieser Nickname ist nicht erlaubt",
+    "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "Diese Backup-Datei hat kein Passwort: Räume, Szenen und Szenarien daraus hinzufügen? Öffne nur Dateien, denen du vertraust.",
   },
 };
 
