@@ -774,8 +774,10 @@ async function doCheck(applyIfIdle){
     if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
   }catch(e){ upd.state='error'; upd.err=e.message; log('⚠ Обновление:', e.message); }
 }
-// «Простой»: OBS-виджет не подключён и модераторов нет
-function isIdle(){ return status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
+// «Простой»: OBS-виджет не подключён и модераторов нет.
+// Роль модератора простоя не знает (пульт работает в окне программы, сервер его не видит): там обновление ставит только
+// кнопка в программе (APPLY), сервер лишь сообщает «UPDATE ready».
+function isIdle(){ return !ROLE_MOD && status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
 function stopForRestart(){
   shuttingDown=true;
   try{ local.closeAllConnections?.(); local.close(); modSrv.closeAllConnections?.(); modSrv.close(); }catch{}

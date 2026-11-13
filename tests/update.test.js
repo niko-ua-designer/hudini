@@ -69,7 +69,8 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
   let sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
   let list = [], sigVer = '1.0.0', sigMode = 'ok';   // sigMode: ok | bad (signed by another key) | none
-  const port = 19300, url = f => `http://localhost:${port}/${f}`;
+  const OFF = Number(process.env.HUDINI_TEST_PORT_OFFSET || 0), HPORT = 17830 + OFF;
+  const port = 19300 + OFF, url = f => `http://localhost:${port}/${f}`;
   const assets = [{ name: APP_ZIP, browser_download_url: url(APP_ZIP) }, { name: ASSET + '.zip', browser_download_url: url(ASSET + '.zip') }, { name: 'SHA256SUMS.txt', browser_download_url: url('SHA256SUMS.txt') }, { name: 'SHA256SUMS.txt.sig', browser_download_url: url('SHA256SUMS.txt.sig') }];
   // the app-mode install starts from the same rc build
   const inst = path.join(dir, 'Hudini'); fs.mkdirSync(path.join(inst, 'data'), { recursive: true });
@@ -87,8 +88,8 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)) return s.end(fs.readFileSync(f)); s.statusCode = 404; s.end();
   });
   await new Promise(r => srv.listen(port, r));
-  const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_OPEN: '1', OVERLAY_ADMIN_TOKEN: T.ADMIN_TOKEN, OVERLAY_SITE: 'off', OVERLAY_PORT: '17830' };
-  const status = async () => { try{ return await (await fetch('http://127.0.0.1:17830/api/status', { headers: { 'x-hudini-token': T.ADMIN_TOKEN } })).json(); }catch{ return null; } };
+  const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_OPEN: '1', OVERLAY_ADMIN_TOKEN: T.ADMIN_TOKEN, OVERLAY_SITE: 'off', OVERLAY_PORT: String(HPORT) };
+  const status = async () => { try{ return await (await fetch(`http://127.0.0.1:${HPORT}/api/status`, { headers: { 'x-hudini-token': T.ADMIN_TOKEN } })).json(); }catch{ return null; } };
   const run = () => { const p = spawn(path.join(app, ASSET), [], { cwd: app, env, detached: true }); p.unref(); return p; };
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
@@ -152,7 +153,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4242', OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
-    check(await until(() => /^READY 17830$/m.test(out), 10000), 'prints READY <port> for the app');
+    check(await until(() => new RegExp(`^READY ${HPORT}$`, 'm').test(out), 10000), 'prints READY <port> for the app');
     p.stdin.write('VISIBLE 0\n');   // window hidden in the tray
     const launched = path.join(inst, 'launched.txt');
     check(await until(() => fs.existsSync(launched), 30000), 'new app started after the update');
@@ -172,12 +173,37 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
-    check(await until(() => /^READY 17830$/m.test(out), 10000), 'new server ready');
+    check(await until(() => new RegExp(`^READY ${HPORT}$`, 'm').test(out), 10000), 'new server ready');
     const s = await until(async () => { const x = await status(); return x && x.upd.state === 'latest' && x; }, 15000);
     check(s && s.version === '1.0.0' && s.app === true && s.standalone === false, 'runs 1.0.0 in app mode');
     check(!fs.existsSync(path.join(inst, 'Hudini.old')) && !fs.existsSync(path.join(inst, 'hudini-server.old')), '.old files removed on start');
     p.stdin.end();
     check(await until(() => p.exitCode !== null, 5000), 'exits when stdin closes (no orphan process)');
+  });
+
+  if(process.platform !== 'win32') await step('moderator role: the update waits for APPLY from the app', async () => {
+    const next = `HudiniHost-${APP_OS}-1.0.1.zip`;
+    fs.writeFileSync(path.join(rel, next), zipMany([
+      { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'HudiniHost/hudini-server', data: newServer },
+      { name: 'HudiniHost/README.txt', data: Buffer.from('new readme') },
+    ]));
+    list = [{ tag_name: 'v1.0.1', assets: [{ name: next, browser_download_url: url(next) }, ...assets.slice(2)] }];
+    sums = sha(fs.readFileSync(path.join(rel, next))) + '  ' + next + '\n'; sigVer = '1.0.1';
+    const launched = path.join(inst, 'launched.txt'); fs.rmSync(launched, { force: true });
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_ROLE: 'mod', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4343', OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = ''; p.stdout.on('data', d => { out += d; });
+    check(await until(() => /^READY 0$/m.test(out), 10000), 'moderator role ready without ports');
+    check(await until(() => /^UPDATE ready 1\.0\.1$/m.test(out), 30000), 'announces the downloaded update to the app');
+    await T.sleep(3000);
+    check(!fs.existsSync(launched) && p.exitCode === null && !/^RESTART$/m.test(out), 'does not restart the app on its own');
+    p.stdin.write('APPLY\n');
+    check(await until(() => fs.existsSync(launched), 10000), 'APPLY from the app installs it and relaunches');
+    eq(fs.existsSync(launched) && fs.readFileSync(launched, 'utf8').trim(), '--updated --wait-pid 4343', 'relaunched with wait-pid');
+    check(await until(() => p.exitCode !== null, 5000), 'old server exited');
+    fs.rmSync(launched, { force: true });
+    for(const n of fs.readdirSync(inst)) if(/\.old\d*$/.test(n)) fs.rmSync(path.join(inst, n), { recursive: true, force: true });
   });
 
   if(process.platform !== 'win32') await step('app mode: a zip whose symlink points outside the app folder is refused', async () => {
