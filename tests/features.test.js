@@ -790,6 +790,28 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('a screen from another moderator during a drag is kept, the dragged element keeps its position', async () => {
+    const p = await T.newPage('drag-remote', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    await p.evaluate(() => {
+      window.__sent = [];
+      useMain({ connected: true, subscribe(){}, unsubscribe(){}, publish(topic, box, opts, cb){ __sent.push(box); cb(); }, on(){}, end(){} });
+      state = { visible: true, vol: 1, fxVol: 1, els: [sanitizeEl({ id: 'm1', type: 'text', text: 'MINE', x: 30, y: 30 })], raffle: null }; renderAll();
+    });
+    const box = await p.locator('.el[data-id="m1"] .content').boundingBox();
+    await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await p.mouse.down();
+    await p.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 20, { steps: 4 });
+    const mid = await p.evaluate(async () => {
+      await onMessage(topics(room).state, await sealJSON(KEYS, { v: 2, from: 'mod_E', t: Date.now() + 5, els: [{ id: 'm1', type: 'text', text: 'MINE EDITED', x: 30, y: 30 }, { id: 'e1', type: 'text', text: 'FROM_E' }] }, true), { retain: false });
+      return { texts: state.els.map(e => e.text), moved: byId('m1').x > 32, dragging: !!drag };
+    });
+    eq(mid, { texts: ['MINE EDITED', 'FROM_E'], moved: true, dragging: true }, 'the other screen is taken at once, the dragged element stays under the mouse');
+    await p.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 20, { steps: 3 }); await p.mouse.up();
+    const sent = await until(() => p.evaluate(async () => { const m = await unsealJSON(KEYS, __sent.at(-1), true); return m.els.length === 2 && m.els.map(e => e.text + (e.x > 32 ? ' moved' : '')); }));
+    eq(sent, ['MINE EDITED moved', 'FROM_E'], 'the drag result keeps the other moderator\'s change');
+    await p.context().close();
+  });
+
   await step('a hostile backup or broken stored data cannot stop the panel', async () => {
     const p = await T.newPage('hostile', { app: false });
     const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });

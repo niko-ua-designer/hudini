@@ -291,9 +291,19 @@ async function onMessage(topic, payload, packet){
   if(t<(stateSeenT.get(room)||0)) return;          // старый экран, присланный повторно: не принимаем и не переподписываем
   stateSeenT.set(room, t);
   if(msg.from===clientId && !packet.retain) return;   // своё эхо
-  if(drag) return;                                 // не мешаем, пока тащим
-  acceptState(sanitizeState(msg));
+  const s=sanitizeState(msg);
+  if(drag && drag.mode!=='rect'){
+    // тащим: чужой экран принимаем, а у элементов под мышью оставляем своё положение и размер, и сразу отправляем их
+    for(const id of dragIds()){
+      const mine=byId(id), r=s.els.find(e=>e.id===id);
+      if(mine && r && mine.type===r.type) for(const k of GEOM_KEYS) if(k in mine) r[k]=mine[k];
+    }
+    acceptState(s); scheduleSend(); return;
+  }
+  acceptState(s);
 }
+const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
+function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
 function acceptState(s){
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
@@ -1117,7 +1127,7 @@ stage.addEventListener('pointermove', e=>{
     selectedId=[...msel].pop()||null;
     renderAll(); return;
   }
-  const el=byId(drag.id); if(!el){ drag=null; return; }
+  const el=byId(drag.id); if(!el){ drag=null; changeOpen=false; return; }   // элемент удалил другой модератор
   if(drag.mode==='move'){
     let x=drag.x0+(e.clientX-drag.mx)/drag.r.width*100;
     let y=drag.y0+(e.clientY-drag.my)/drag.r.height*100;
