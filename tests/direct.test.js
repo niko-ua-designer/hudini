@@ -145,6 +145,61 @@ const dial = (url, password) => new Promise(res => {
     check(st.storage && st.storage.used === 0, 'nothing half-written is counted: ' + JSON.stringify(st.storage));
   });
 
+  await step('moderators\' port: no memory for clients that have not logged in', async () => {
+    const WebSocket = require('ws');
+    const rss = () => { try{ return Number(/VmRSS:\s+(\d+)/.exec(fs.readFileSync(`/proc/${host.proc.pid}/status`, 'utf8'))[1]) / 1024; }catch{ return 0; } };
+    const varint = n => { const v = []; do{ let b = n % 128; n = Math.floor(n / 128); if(n) b |= 128; v.push(b); }while(n); return v; };
+    // opens a socket, sends the CONNECT header with the declared length, then `chunks` frames; resolves with what happened
+    const flood = (url, declared, chunk, chunks) => new Promise(res => {
+      const ws = new WebSocket(url, 'mqtt', { rejectUnauthorized: false }); let sent = 0; const t0 = Date.now();
+      ws.on('error', () => {}); ws.on('close', () => res({ closed: true, sent, ms: Date.now() - t0 }));
+      ws.on('open', async () => {
+        ws.send(Buffer.from([0x10, ...varint(declared)]));
+        for(let k = 0; k < chunks && ws.readyState === 1; k++){ ws.send(Buffer.alloc(chunk)); sent += chunk; await sleep(30); }
+        await sleep(1500); if(ws.readyState === 1){ ws.terminate(); res({ closed: false, sent }); }
+      });
+    });
+    const url = `wss://127.0.0.1:${MPORT}/mqtt`;
+    const small = await flood(url, 10 * 1048576, 8192, 40);   // declares 10 MB, trickles 320 KB
+    check(small.closed && small.sent <= 128 * 1024, 'cut off after ~64 KB without a password: ' + JSON.stringify(small));
+    const before = rss();
+    const big = await Promise.all([0, 1, 2].map(() => flood(url, 250 * 1048576, 15 * 1048576, 16)));   // declares 250 MB in 15 MB frames
+    check(big.every(x => x.closed), 'a 250 MB CONNECT is dropped: ' + JSON.stringify(big));
+    await sleep(500);
+    if(before) check(rss() - before < 150, `memory stays flat: ${Math.round(before)} → ${Math.round(rss())} MB`);
+    eq(host.proc.exitCode, null, 'Host still running');
+    // a moderator with the password still sends a large screen state (over the 64 KB limit)
+    const { pass } = await host.api('/api/code'), room = (await host.api('/api/status')).room;
+    const a = await dial(url, pass), b = await dial(url, pass);
+    check(a.ok && b.ok, 'moderators connect');
+    const topic = `stream-overlay/v1/${room}/state`, size = 12 * 1048576;
+    const got = new Promise(r => { b.c.on('message', (t, m) => { if(t === topic) r(m.length); }); });
+    await new Promise(r => b.c.subscribe(topic, r));
+    a.c.publish(topic, Buffer.alloc(size, 7));
+    eq(await Promise.race([got, sleep(15000).then(() => 'timeout')]), size, '12 MB state goes through after login');
+    a.c.end(true); b.c.end(true);
+    if(lan){
+      const opened = [];
+      for(let i = 0; i < 10; i++) opened.push(await new Promise(r => {
+        const ws = new WebSocket(`wss://${lan.address}:${MPORT}/mqtt`, 'mqtt', { rejectUnauthorized: false });
+        ws.on('open', () => r(ws)); ws.on('error', () => r(null));
+      }));
+      eq(opened.map(Boolean).filter(Boolean).length, 8, 'at most 8 connections from one non-loopback address');
+      opened.forEach(ws => ws && ws.terminate());
+    }
+    await sleep(300);
+    const idle = [];
+    for(let i = 0; i < 18; i++) idle.push(await new Promise(r => {
+      const ws = new WebSocket(url, 'mqtt', { rejectUnauthorized: false });
+      ws.on('open', () => r(ws)); ws.on('error', () => r(null));
+    }));
+    eq(idle.filter(Boolean).length, 16, 'at most 16 connections waiting for login at once');
+    idle.forEach(ws => ws && ws.terminate());
+    await sleep(300);
+    const again = await dial(url, pass);
+    check(again.ok, 'a moderator logs in once they are gone'); again.c.end(true);
+  });
+
   await step('logs on disk and no crash log after a normal exit', async () => {
     const dir = path.join(host.dir, 'logs'), files = fs.readdirSync(dir);
     const main = files.find(f => /^host-\d{4}-\d\d-\d\d\.log$/.test(f));

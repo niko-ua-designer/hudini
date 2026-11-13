@@ -272,6 +272,7 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(ctl.paused) return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false);   // стример поставил модераторов на паузу
   if(!cfg.modsOn) return cb(Object.assign(new Error('off'), { returnCode:3 }), false);   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
+  if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
 // Кто что пишет: модераторы — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
@@ -303,16 +304,56 @@ aedes.on('clientDisconnect', c => {
 
 // Самое большое сообщение — состояние экрана; файлы идут отдельно через /files
 const WS_MAX = 16*1048576, MOD_CONNS = 64;
+// Порт модераторов открыт всем в сети. aedes копит пакет целиком, сколько бы байт ни объявил его заголовок,
+// и делает это ещё до проверки пароля. Поэтому: до входа клиент может прислать не больше PRE_AUTH байт,
+// после входа один пакет MQTT не больше WS_MAX. Кадр WebSocket (до WS_MAX) буферизуется раньше нас,
+// поэтому ещё не вошедших соединений одновременно не больше PENDING, а с одного адреса (кроме 127.0.0.1, там Porthole) — не больше IP_CONNS.
+const PRE_AUTH = 64*1024, IP_CONNS = 8, PENDING = 16;
+// Следит за заголовками пакетов MQTT в потоке байт: длина пакета больше max → bad()
+function mqttGuard(max, bad){
+  let skip = 0, hdr = [];   // skip — сколько байт текущего пакета ещё впереди; hdr — начатый заголовок (тип + длина)
+  return buf => {
+    for(let i = 0; i < buf.length;){
+      if(skip){ const k = Math.min(skip, buf.length-i); skip -= k; i += k; continue; }
+      hdr.push(buf[i++]);
+      if(hdr.length===1) continue;
+      if(hdr.at(-1) & 128){ if(hdr.length>=5) return bad(); continue; }   // длина — не больше 4 байт
+      let len = 0; for(let j = hdr.length-1; j>=1; j--) len = len*128 + (hdr[j] & 127);
+      hdr = [];
+      if(len > max) return bad();
+      skip = len;
+    }
+  };
+}
 function wsServer(mod){
   const wss = new WebSocketServer({ noServer:true, maxPayload:WS_MAX, handleProtocols: p => p.has('mqtt') ? 'mqtt' : false });
+  const perIp = new Map();
   return (req, socket, head) => {
     if(new URL(req.url, 'http://x').pathname !== '/mqtt'){ socket.destroy(); return; }
     // локально подключается только виджет OBS с этого же адреса: чужой сайт в браузере стримера сюда не пустим
     if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin)))){ socket.destroy(); return; }
-    if(mod && (!cfg.modsOn || wss.clients.size >= MOD_CONNS)){ socket.destroy(); return; }
+    const ip = ipOf(req);
+    if(mod){
+      let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
+      if(!cfg.modsOn || wss.clients.size >= MOD_CONNS || pending >= PENDING || (!isLoop(ip) && (perIp.get(ip)||0) >= IP_CONNS)){ socket.destroy(); return; }
+    }
     wss.handleUpgrade(req, socket, head, ws => {
-      const stream = createWebSocketStream(ws); stream._mod = mod; stream._ip = ipOf(req); stream._ws = ws;
+      const stream = createWebSocketStream(ws); stream._mod = mod; stream._ip = ip; stream._ws = ws; ws._stream = stream;
       stream.on('error', ()=>{});
+      if(mod){
+        perIp.set(ip, (perIp.get(ip)||0) + 1);
+        ws.on('close', () => { const n = (perIp.get(ip)||1) - 1; if(n>0) perIp.set(ip, n); else perIp.delete(ip); });
+        const kill = () => { stream.destroy(); ws.terminate(); };
+        // этот слушатель стоит раньше потока: лишний кадр рвёт соединение и до aedes не доходит
+        const guard = mqttGuard(WS_MAX, kill);
+        let pre = 0;
+        ws.prependListener('message', data => {
+          if(stream.destroyed) return;
+          const b = Buffer.isBuffer(data) ? data : Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
+          if(!stream._authed && (pre += b.length) > PRE_AUTH) return kill();
+          guard(b);
+        });
+      }
       aedes.handle(stream, req);
     });
   };
