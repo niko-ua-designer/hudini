@@ -171,3 +171,41 @@ async fn bad_input_is_refused() {
     assert!(Relay::open(vec![Addr { h: "a b".into(), port: 1, net: "lan".into() }], &cert.fp).await.is_err());
     assert!(Relay::open(vec![addr(0, "lan")], &cert.fp).await.is_err());
 }
+
+// Сервер принимает TLS, но на ping отвечает ошибкой: ретранслятор не должен переподключаться каждую секунду,
+// пауза между попытками растёт (1 с, 2 с, …), пока ping ни разу не прошёл
+#[tokio::test]
+async fn failing_ping_backs_off() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let cert = make_cert();
+    let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    let accepted = Arc::new(AtomicUsize::new(0));
+    let acc = cert.acceptor.clone();
+    let count = accepted.clone();
+    let srv = tokio::spawn(async move {
+        loop {
+            let Ok((tcp, _)) = l.accept().await else { return };
+            let acc = acc.clone();
+            let count = count.clone();
+            tokio::spawn(async move {
+                let Ok(mut tls) = acc.accept(tcp).await else { return };
+                count.fetch_add(1, Ordering::SeqCst);
+                let mut buf = [0u8; 1024];
+                while let Ok(n) = tls.read(&mut buf).await {
+                    if n == 0 || tls.write_all(b"HTTP/1.1 500 Oops\r\nContent-Length: 0\r\n\r\n").await.is_err() {
+                        return;
+                    }
+                }
+            });
+        }
+    });
+    let opts = Options { ping_every: Duration::from_millis(80), connect_timeout: Duration::from_millis(800), max_backoff: Duration::from_secs(5), max_clients: 8 };
+    let relay = Relay::open_with(vec![addr(port, "lan")], &cert.fp, opts).await.unwrap();
+    // по 2 соединения на попытку (одна неудача прощается): около 0 с и 1 с, следующая только около 3 с
+    sleep(Duration::from_millis(2500)).await;
+    let n = accepted.load(Ordering::SeqCst);
+    assert!((2..=4).contains(&n), "{n} connections in 2.5 s");
+    drop(relay);
+    srv.abort();
+}

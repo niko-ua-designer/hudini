@@ -274,10 +274,9 @@ async fn monitor(inner: Arc<Inner>) {
     loop {
         if conn.is_none() {
             match inner.dial_any().await {
-                Ok((c, _)) => {
-                    conn = Some(c);
-                    backoff = Duration::from_secs(1);
-                }
+                // паузу сбрасываем только после удачного ping: сервер, который принимает TLS, но не отвечает,
+                // иначе дёргали бы каждую секунду
+                Ok((c, _)) => conn = Some(c),
                 Err(_) => {
                     sleep(backoff).await;
                     backoff = (backoff * 2).min(inner.opts.max_backoff);
@@ -289,6 +288,7 @@ async fn monitor(inner: Arc<Inner>) {
         match res {
             Ok(d) => {
                 fails = 0;
+                backoff = Duration::from_secs(1);
                 let ms = d.as_millis().min(u32::MAX as u128) as u32;
                 inner.publish(|s| s.rtt_ms = Some(ms));
             }
