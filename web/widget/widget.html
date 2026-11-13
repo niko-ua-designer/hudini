@@ -305,11 +305,12 @@ function onFx(f){
 
 // ================== СИНХРОНИЗАЦИЯ ЧАСОВ ==================
 // Пульт присылает своё время; берём самое «быстрое» из последних измерений (меньше всего задержки сети)
-const offs=[];
+// Часы пульта дальше 5 минут от наших не берём: одно такое время сдвинуло бы все таймеры и кейсы
+const offs=[], CLOCK_MAX=5*60*1000;
 function clockSample(t){
-  if(!Number.isFinite(t)) return;
+  if(!Number.isFinite(t) || Math.abs(t-Date.now())>=CLOCK_MAX) return;
   offs.push(t-Date.now()); if(offs.length>12) offs.shift();
-  CLOCK_OFFSET=Math.max(...offs);
+  CLOCK_OFFSET=Math.min(CLOCK_MAX, Math.max(-CLOCK_MAX, ...offs));
 }
 
 // ================== СВЯЗЬ ==================
@@ -391,8 +392,8 @@ async function start(){
     if(topic===T.state){
       const t=Number(msg.t)||0;
       if(t<lastStateT) return;                       // повтор старого сообщения
-      if(t>lastStateT){ lastStateT=t; try{ localStorage.setItem(tKey, String(t)); }catch{} }
       applyState(sanitizeState(msg));
+      if(t>lastStateT){ lastStateT=t; try{ localStorage.setItem(tKey, String(t)); }catch{} }   // только после того, как экран принят
     } else if(topic===T.fx){
       // эффекты: только свежие и каждый один раз (против повторной отправки перехваченных)
       const t=Number(msg.t)||0, key=t+':'+msg.n;
