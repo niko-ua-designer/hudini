@@ -1,6 +1,26 @@
 # Releasing Hudini
 
-## 1.0.0-rc.4 (ready on branch `rc4`)
+## 1.0.0 (branch `v1`)
+
+One app, Hudini (Tauri 2, `app/`), for both roles; the Bun server runs next to it as the `hudini-server` sidecar.
+The version is already `1.0.0` in `server/server.js`, `server/package.json`, `app/src-tauri/Cargo.toml` and
+`tauri.conf.json`; download links point to `releases/latest`.
+
+1. All suites green: `cd tests && node run.js`; relay: `cargo test --manifest-path app/relay/Cargo.toml`.
+2. Optional dry run: Actions → "Hudini Host release" → Run workflow on `v1` with "dry_run" checked.
+   Download one zip and check its layout (see step 4).
+3. Merge `v1` into `main` (fast-forward). GitHub Pages publishes the new site in 1–2 minutes.
+4. Push the tag: `git tag v1.0.0 && git push origin v1.0.0` (strictly `vX.Y.Z`). The workflow publishes the release
+   as latest. **The file names stay as in rc.4**, because rc.4 installs look for them when they update themselves:
+   - `HudiniHost-windows-1.0.zip`, `HudiniHost-linux-1.0.zip`, `HudiniHost-mac-arm64-1.0.zip`, `HudiniHost-mac-intel-1.0.zip`:
+     a `HudiniHost/` folder with the app (`HudiniHost[.exe]`; macOS: `Hudini.app`), `hudini-server`, `data/` and README.txt.
+   - `HudiniHost-windows.exe.zip` and the other single-file names, `SHA256SUMS.txt` and `SHA256SUMS.txt.sig`
+     (signed with the same key as rc.4).
+   Renaming the zips to `Hudini-<os>-<version>.zip` can happen from 1.0.1 on: the 1.0 updater accepts both names.
+5. Live test with [rc-checklist.md](rc-checklist.md), including the rc.4 → 1.0.0 self-update on Windows.
+   On macOS rc.4 cannot update itself (it expects `Hudini Host.app`): Mac users install 1.0 by hand, keeping `data/`.
+
+## 1.0.0-rc.4 (released)
 
 Hudini Host becomes a desktop app (Tauri 2, `app/`): a window plus a tray icon, optional autostart,
 and the Bun server (`server/server.js`) runs next to it as the `hudini-server` sidecar.
@@ -44,14 +64,3 @@ and the Bun server (`server/server.js`) runs next to it as the `hudini-server` s
 2. Push the tag: `git tag v1.0.0-rc.2 && git push origin v1.0.0-rc.2`. The "Hudini Host release" workflow builds
    Windows, Linux and macOS binaries and publishes a pre-release.
 3. Live test with [rc-checklist.md](rc-checklist.md).
-
-## 1.0.0
-
-1. Set `const VERSION = '1.0.0'` in `server/server.js`.
-2. Point the download links back to `releases/latest`
-   (`web/site/site.js`, `web/shared/help-content.js`, `web/panel/moderator.html`, `web/panel/moderator.js`, `README.md`, `server/README.md`)
-   and change the zip names there from `…-1.0rc4.zip` to `…-1.0.zip`.
-3. Commit to `main`, then `git tag v1.0.0 && git push origin v1.0.0`.
-   The workflow publishes the release as latest. The old `host-v1.0.0`…`host-v1.4.0` releases are already
-   pre-releases "Overlay Host beta 0.1.0"…"0.5.0" (step 4 of 1.0.0-rc.4).
-   rc builds update themselves to 1.0.0.
