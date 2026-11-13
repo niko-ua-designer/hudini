@@ -365,6 +365,7 @@ async function switchRoom(code){
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   if(offlineWait){ clearTimeout(offlineWait.timer); offlineWait=null; }
   if(homeClient) dropHome();
+  rafFlush(); rafPool.clear(); rafSkip.clear(); pollVotes.clear();   // участники и голоса у каждой комнаты свои
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
@@ -1518,14 +1519,26 @@ $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
 // ---- розыгрыш: участники живут в пульте (и в хранилище, чтобы пережить перезагрузку пульта) ----
+// Участники у каждой комнаты свои: при смене комнаты карты очищаются, в хранилище ключ с кодом комнаты
 const rafPool=new Map();     // id розыгрыша → Map(login → { user, color, sub })
 const rafSkip=new Map();     // id → Set(login) не ответивших победителей
+const rafKey=id=>`hudini.raf.${room}.${id}`;
 function rafEntries(id){
-  if(!rafPool.has(id)){ const m=new Map(lsGet('hudini.raf.'+id, [])); rafPool.set(id, m); }
+  if(!rafPool.has(id)){
+    let list=lsGet(rafKey(id), null);
+    // раньше ключ был без комнаты: участников забирает комната, которая первой откроет розыгрыш
+    if(list==null){ list=lsGet('hudini.raf.'+id, null); if(list!=null){ HudiniStore.remove('hudini.raf.'+id); lsSet(rafKey(id), list); } }
+    let m; try{ m=new Map(Array.isArray(list) ? list : []); }catch{ m=new Map(); }
+    rafPool.set(id, m);
+  }
   return rafPool.get(id);
 }
-let rafSaveT=null;
-function rafSave(id){ clearTimeout(rafSaveT); rafSaveT=setTimeout(()=>lsSet('hudini.raf.'+id, [...rafEntries(id)].slice(-20000)), 800); }
+let rafSaveT=null, rafSaveFn=null;
+function rafSave(id){
+  const k=rafKey(id), m=rafEntries(id);
+  clearTimeout(rafSaveT); rafSaveFn=()=>{ rafSaveT=rafSaveFn=null; lsSet(k, [...m].slice(-20000)); }; rafSaveT=setTimeout(rafSaveFn, 800);
+}
+function rafFlush(){ if(rafSaveFn){ clearTimeout(rafSaveT); rafSaveFn(); } }
 function rafWanted(el, text, msg){
   if(el.subs && !(msg?.sub || msg?.badge==='broadcaster')) return false;
   if(el.entry==='any') return true;
@@ -2115,7 +2128,8 @@ $('rafCreate').onclick=addRaffle;
 $('rDelete').onclick=()=>{ const el=raf(); if(!el) return; if(el.n && !confirm('Удалить розыгрыш вместе с участниками?')) return;
   beginChange(); rafReset(el); state.raffle=null; commit(); };
 function rafReset(el){ el.phase='idle'; el.closeAt=0; el.n=0; el.reel=[]; el.winner=''; el.wlogin=''; el.winners=[]; el.ok=false; el.cUntil=0;
-  rafPool.set(el.id, new Map()); rafSkip.delete(el.id); HudiniStore.remove('hudini.raf.'+el.id); }
+  clearTimeout(rafSaveT); rafSaveT=rafSaveFn=null;
+  rafPool.set(el.id, new Map()); rafSkip.delete(el.id); HudiniStore.remove(rafKey(el.id)); }
 bindR('iRTitle', (el,f)=>el.title=f.value.slice(0,80));
 bindR('iRPrize', (el,f)=>el.prize=f.value.slice(0,120));
 bindR('iREntry', (el,f)=>el.entry=f.value, 'change');

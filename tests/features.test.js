@@ -821,6 +821,25 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('giveaway entries belong to their room; the old key moves to the first room that opens it', async () => {
+    const p = await T.newPage('raffle-rooms', { app: false });
+    await p.addInitScript(() => { if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', '1'); localStorage.setItem('store:hudini.raf.raffle', JSON.stringify([['old_one', { user: 'old_one', color: '#ffffff', sub: false }]])); } });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const r = await p.evaluate(async () => {
+      const join = u => onChat(u, '!участвую', { login: u, user: u, color: '#ffffff' });
+      addRaffle(); raf().phase = 'collect';
+      const legacy = [...rafEntries('raffle').keys()];
+      join('alice_a'); join('bob_a');
+      const A = room, B = await makeRoom('B'); rooms.push(B); await switchRoom(B.code);
+      addRaffle(); raf().phase = 'collect'; join('dave_b');
+      const pool = [...rafEntries('raffle').keys()];
+      await switchRoom(A);
+      return { legacy, pool, back: [...rafEntries('raffle').keys()], oldKey: localStorage.getItem('store:hudini.raf.raffle') };
+    });
+    eq(r, { legacy: ['old_one'], pool: ['dave_b'], back: ['old_one', 'alice_a', 'bob_a'], oldKey: null }, 'each room has its own entries');
+    await p.context().close();
+  });
+
   await step('help drawer: connection guides are part of the help', async () => {
     await mod.evaluate(() => window.HudiniUI.openHelp('connect'));
     check(await until(async () => /Radmin VPN/.test(await mod.evaluate(() => document.getElementById('helpDrawer')?.textContent || '')), 8000), 'drawer lists Radmin VPN');
