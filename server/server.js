@@ -822,16 +822,27 @@ function applyAppUpdate(){
   appSay('RESTART');   // программа с окном закрывается сама
   setTimeout(()=>process.exit(0), 400);
 }
+// Вызывается из таймеров: ошибка здесь не должна ронять сервер, а программа не должна остаться без своего файла
 async function applyUpdate(){
   if(!upd.staged) return;
-  if(APP) return applyAppUpdate();
-  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
+  if(APP){
+    try{ return applyAppUpdate(); }
+    catch(e){ upd.staged=null; upd.state='error'; upd.err='не смог поставить обновление: '+e.message; log('⚠ Обновление:', upd.err); return; }
+  }
   const exe=process.execPath, old=exe+'.old';
   try{ fs.rmSync(old, { force:true }); }catch{}
-  fs.renameSync(exe, old);               // работающий файл можно переименовать, но не перезаписать
-  fs.renameSync(upd.staged.path, exe);
+  try{ fs.renameSync(exe, old); }   // работающий файл можно переименовать, но не перезаписать
+  catch(e){ upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Обновление:', upd.err); return; }
+  try{ fs.renameSync(upd.staged.path, exe); }
+  catch(e){
+    try{ fs.renameSync(old, exe); }catch(e2){ log('⚠ Не вернул старую версию на место:', e2.message); }
+    try{ fs.rmSync(upd.staged.path, { force:true }); }catch{}
+    upd.staged=null; upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Обновление:', upd.err); return;
+  }
+  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
   stopForRestart();
   const child=spawn(exe, [], { cwd:BASE, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
+  child.on('error', e => log('⚠ Не запустилась новая версия:', e.message));
   child.unref();
   setTimeout(()=>process.exit(0), 400);
 }

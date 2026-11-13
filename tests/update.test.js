@@ -146,6 +146,18 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     await stopAll();
   });
 
+  await step('standalone: a file that cannot be replaced leaves the old version running', async () => {
+    sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
+    const blocker = path.join(app, ASSET + '.old'); fs.mkdirSync(path.join(blocker, 'x'), { recursive: true });   // rename onto it fails
+    run();
+    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+    check(s && /не смог заменить программу/.test(s.upd.err), 'error reported: ' + (s && s.upd.err));
+    eq(s && s.version, '0.9.0', 'kept running the old version');
+    check(fs.existsSync(path.join(app, ASSET)), 'program file still in place');
+    await stopAll();
+    fs.rmSync(blocker, { recursive: true, force: true });
+  });
+
   if(process.platform !== 'win32') await step('app mode: picks Hudini-<os>-<ver>.zip, unpacks all files, relaunches the app', async () => {
     list = [{ tag_name: 'v1.0.0', assets }];
     sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
