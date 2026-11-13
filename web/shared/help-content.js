@@ -98,7 +98,7 @@ ru: {
 <li>Поставь Hudini, выбери «Я модератор», войди к стримеру по новому коду.</li>
 <li>В пульте: ⚙ Комната → <b>Из бэкапа</b>, выбери файл и введи пароль.</li>
 </ol>
-<p><b>Стример:</b> поставь новую версию. Комната создастся заново, поэтому возьми <b>ссылку для OBS</b> и <b>код для модератора</b> из окна Hudini ещё раз. Старый Hudini Host больше не нужен.</p>`],
+<p><b>Стример:</b> поставь новую версию. Комната создастся заново, поэтому возьми <b>ссылку для OBS</b> и <b>код для модератора</b> из окна Hudini ещё раз. Старый Hudini Host больше не нужен. <b>На Mac</b> rc.4 сам не обновится: скачай архив для macOS с сайта, распакуй и запусти Hudini.app.</p>`],
 ['trouble', 'Если что-то не работает', `
 <ul>
 <li><b>Капсула вверху пишет «Ждём Hudini Host»</b>: нет связи со стримером. Проверь, что Hudini у стримера запущен, что вы в одной сети (VPN, Porthole или проброс порта), что код свежий (если адреса менялись, нужен новый) и что Windows не блокирует программу. Подробнее в разделе «Как подключиться».</li>
@@ -218,7 +218,7 @@ en: {
 <li>Install Hudini, choose "I'm the moderator" and join the streamer with the new code.</li>
 <li>In the panel: ⚙ Room → <b>From backup</b>, pick the file and enter the password.</li>
 </ol>
-<p><b>Streamer:</b> install the new version. The room is created again, so take the <b>link for OBS</b> and the <b>code for the moderator</b> from the Hudini window once more. The old Hudini Host is no longer needed.</p>`],
+<p><b>Streamer:</b> install the new version. The room is created again, so take the <b>link for OBS</b> and the <b>code for the moderator</b> from the Hudini window once more. The old Hudini Host is no longer needed. <b>On a Mac</b> rc.4 does not update itself: download the macOS archive from the site, unpack it and start Hudini.app.</p>`],
 ['trouble', 'If something does not work', `
 <ul>
 <li><b>The capsule at the top says "Waiting for Hudini Host"</b>: there is no connection to the streamer. Check that Hudini runs on the streamer's side, that you are on one network (VPN, Porthole or a forwarded port), that the code is fresh (if the addresses changed you need a new one) and that Windows is not blocking the program. See "How do we connect?".</li>
@@ -338,7 +338,7 @@ uk: {
 <li>Постав Hudini, обери «Я модератор», увійди до стримера за новим кодом.</li>
 <li>У пульті: ⚙ Кімната → <b>З бекапу</b>, обери файл і введи пароль.</li>
 </ol>
-<p><b>Стример:</b> постав нову версію. Кімната створиться заново, тому візьми <b>посилання для OBS</b> і <b>код для модератора</b> з вікна Hudini ще раз. Старий Hudini Host більше не потрібен.</p>`],
+<p><b>Стример:</b> постав нову версію. Кімната створиться заново, тому візьми <b>посилання для OBS</b> і <b>код для модератора</b> з вікна Hudini ще раз. Старий Hudini Host більше не потрібен. <b>На Mac</b> rc.4 сам не оновиться: завантаж архів для macOS із сайту, розпакуй і запусти Hudini.app.</p>`],
 ['trouble', 'Якщо щось не працює', `
 <ul>
 <li><b>Капсула вгорі пише «Чекаємо Hudini Host»</b>: немає зв'язку зі стримером. Перевір, що Hudini у стримера запущений, що ви в одній мережі (VPN, Porthole або прокинутий порт), що код свіжий (якщо адреси змінилися, потрібен новий) і що Windows не блокує програму. Докладніше в розділі «Як підключитися».</li>
@@ -458,7 +458,7 @@ de: {
 <li>Installiere Hudini, wähle „Ich bin der Mod“ und tritt dem Streamer mit dem neuen Code bei.</li>
 <li>Im Pult: ⚙ Raum → <b>Aus Backup</b>, Datei wählen und Passwort eingeben.</li>
 </ol>
-<p><b>Streamer:</b> Installiere die neue Version. Der Raum wird neu erstellt, hole dir also den <b>Link für OBS</b> und den <b>Code für den Mod</b> noch einmal aus dem Hudini-Fenster. Das alte Hudini Host brauchst du nicht mehr.</p>`],
+<p><b>Streamer:</b> Installiere die neue Version. Der Raum wird neu erstellt, hole dir also den <b>Link für OBS</b> und den <b>Code für den Mod</b> noch einmal aus dem Hudini-Fenster. Das alte Hudini Host brauchst du nicht mehr. <b>Auf dem Mac</b> aktualisiert sich rc.4 nicht selbst: Lade das macOS-Archiv von der Website, entpacke es und starte Hudini.app.</p>`],
 ['trouble', 'Wenn etwas nicht klappt', `
 <ul>
 <li><b>Die Kapsel oben sagt „Warte auf Hudini Host“</b>: keine Verbindung zum Streamer. Prüfe, ob Hudini beim Streamer läuft, ob ihr im selben Netzwerk seid (VPN, Porthole oder Portweiterleitung), ob der Code aktuell ist (haben sich Adressen geändert, braucht ihr einen neuen) und ob Windows das Programm blockiert. Mehr unter „Wie verbinden wir uns?“.</li>
