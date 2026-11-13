@@ -801,6 +801,26 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('room keys are checked before a room is used', async () => {
+    const p = await T.newPage('badroom', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const r = await p.evaluate(async () => {
+      addText('OLD ROOM TEXT');
+      const before = room, bad = { code: 'badroom123', name: 'Bad', k: 'AAAA', p: 'AAAA', s: { kty: 'EC' } };
+      const inv = new URL(location.href); inv.search = ''; inv.hash = 'invite=' + b64u.enc(TE.encode(JSON.stringify(bad)));
+      const res = await acceptInvite(inv.href);
+      const out = { res, same: room === before, els: state.els.map(e => e.text), hasBad: rooms.some(r => r.code === 'badroom123') };
+      rooms.push(bad); out.sw = await switchRoom('badroom123'); out.same2 = room === before && !!KEYS;
+      await saveRooms(); lsSet('overlay.current', 'badroom123');
+      return out;
+    });
+    eq(r, { res: false, same: true, els: ['OLD ROOM TEXT'], hasBad: false, sw: false, same2: true }, 'an invite with broken keys is refused, a broken room is not opened');
+    await p.reload(); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    check(await p.evaluate(() => room !== 'badroom123' && !!KEYS && document.getElementById('link').value.includes('#k=')), 'a broken saved room: the panel starts in another one');
+    check(await until(async () => /повреждены/.test(await p.textContent('#toast'))), 'and says why');
+    await p.context().close();
+  });
+
   await step('help drawer: connection guides are part of the help', async () => {
     await mod.evaluate(() => window.HudiniUI.openHelp('connect'));
     check(await until(async () => /Radmin VPN/.test(await mod.evaluate(() => document.getElementById('helpDrawer')?.textContent || '')), 8000), 'drawer lists Radmin VPN');

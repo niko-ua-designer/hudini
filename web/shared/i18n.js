@@ -1344,6 +1344,9 @@ const HUDINI_DICT = {
     "Нужен адрес сайта http(s)://…": "A website address http(s)://… is needed",
     "Такой ник нельзя": "This nickname is not allowed",
     "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "This backup file has no password: add its rooms, scenes and scenarios? Open only files you trust.",
+    "Ключи в приглашении повреждены: попроси новую ссылку": "The keys in this invite are damaged: ask for a new link",
+    "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "This room's keys are damaged: get a new invite or a backup",
+    "Ключи сохранённой комнаты повреждены: открыта другая комната": "The keys of the saved room are damaged: another room is open",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2687,6 +2690,9 @@ const HUDINI_DICT = {
     "Нужен адрес сайта http(s)://…": "Потрібна адреса сайту http(s)://…",
     "Такой ник нельзя": "Такий нік не можна",
     "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "Файл бекапу без пароля: додати з нього кімнати, сцени та сценарії? Відкривай лише файли, яким довіряєш.",
+    "Ключи в приглашении повреждены: попроси новую ссылку": "Ключі в запрошенні пошкоджені: попроси нове посилання",
+    "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Ключі цієї кімнати пошкоджені: візьми нове запрошення або бекап",
+    "Ключи сохранённой комнаты повреждены: открыта другая комната": "Ключі збереженої кімнати пошкоджені: відкрито іншу кімнату",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4030,6 +4036,9 @@ const HUDINI_DICT = {
     "Нужен адрес сайта http(s)://…": "Es wird eine Website-Adresse http(s)://… benötigt",
     "Такой ник нельзя": "Dieser Nickname ist nicht erlaubt",
     "Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.": "Diese Backup-Datei hat kein Passwort: Räume, Szenen und Szenarien daraus hinzufügen? Öffne nur Dateien, denen du vertraust.",
+    "Ключи в приглашении повреждены: попроси новую ссылку": "Die Schlüssel in dieser Einladung sind beschädigt: bitte um einen neuen Link",
+    "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Die Schlüssel dieses Raums sind beschädigt: hol dir eine neue Einladung oder ein Backup",
+    "Ключи сохранённой комнаты повреждены: открыта другая комната": "Die Schlüssel des gespeicherten Raums sind beschädigt: ein anderer Raum ist geöffnet",
   },
 };
 

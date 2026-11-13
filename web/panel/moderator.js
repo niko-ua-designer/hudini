@@ -58,7 +58,10 @@ function cleanRoom(r){
     ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined, chat:cleanChannel(r.chat) || undefined } : null;
 }
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
-async function useRoom(code){ room=code; KEYS=await importRoomKeys(curRoom()); }
+// Ключи проверяем импортом: испорченная комната не становится текущей
+async function roomKeys(code){ const r=rooms.find(x=>x.code===code); if(!r) throw new Error('нет такой комнаты'); return importRoomKeys(r); }
+async function roomKeysOk(r){ try{ await importRoomKeys(r); return true; }catch{ return false; } }
+async function useRoom(code){ const k=await roomKeys(code); room=code; KEYS=k; }
 
 let state={ visible:true, vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
@@ -262,10 +265,10 @@ function reopenHome(){
 function sessionFor(code){ const l=HudiniStore.get('app.sessions', []); return Array.isArray(l) && l.find(x=>x && x.id===code) || null; }
 // Пульт открывается с ?session=<код>: берём стримера из списка сессий. Ключи у сессии есть, если комнату создал сам сервер.
 // Правило: ключи уже сохранённой комнаты не перезаписываются.
-function roomFromSession(sess){
+async function roomFromSession(sess){
   const ex=rooms.find(r=>r.code===sess.id); if(ex) return { room:ex, differs:!!sess.k && (ex.k!==sess.k || ex.p!==sess.p || JSON.stringify(ex.s)!==JSON.stringify(sess.s)) };
   const r=sess.k ? cleanRoom({ code:sess.id, name:sess.name, k:sess.k, p:sess.p, s:sess.s }) : null;
-  return { room:r, differs:false };
+  return { room:r && await roomKeysOk(r) ? r : null, differs:false };
 }
 $('status').onclick=()=>{ if(!client?.connected && !session) showHostTip(); else toggleConnPop(); };
 const stateSeenT=new Map();   // комната → время самого нового экрана, который пульт видел или отправил
@@ -355,13 +358,16 @@ function sendFx(fx, quiet){
 }
 async function switchRoom(code){
   if(code===room) return;
+  let keys;
+  try{ keys=await roomKeys(code); }
+  catch(e){ console.warn('room keys', e); toast('Ключи этой комнаты повреждены: возьми новое приглашение или бэкап', 5000); renderRooms(); return false; }
   // отложенная отправка и колесо относятся к старой комнате: иначе они сработают уже с пустым экраном новой
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   if(offlineWait){ clearTimeout(offlineWait.timer); offlineWait=null; }
   if(homeClient) dropHome();
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
-  await useRoom(code); saveRooms();
+  room=code; KEYS=keys; saveRooms();
   state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
@@ -1287,6 +1293,7 @@ async function acceptInvite(text){
   let r=null;
   try{ const h=(text.includes('#') ? text.slice(text.indexOf('#')+1) : text).replace(/^invite=/,''); r=cleanRoom(JSON.parse(TD.decode(b64u.dec(h)))); }catch{}
   if(!r){ toast('Это не ссылка-приглашение модератора'); return false; }
+  if(!await roomKeysOk(r)){ toast('Ключи в приглашении повреждены: попроси новую ссылку', 5000); return false; }
   const ex=rooms.find(x=>x.code===r.code);
   // коды комнат уникальны: чужие ключи не перезаписывают уже сохранённую комнату
   if(ex && (ex.k!==r.k || ex.p!==r.p || JSON.stringify(ex.s)!==JSON.stringify(r.s))){
@@ -1344,7 +1351,7 @@ $('roomFile').onchange=async e=>{
   } else if(!confirm('Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.')) return;
   const arr=v=>Array.isArray(v) ? v : [];
   let added=0, libAdded=0, animAdded=0;
-  for(const raw of arr(data.rooms)){ const r=cleanRoom(raw); if(r && !rooms.some(x=>x.code===r.code)){ rooms.push(r); added++; } }
+  for(const raw of arr(data.rooms)){ const r=cleanRoom(raw); if(r && !rooms.some(x=>x.code===r.code) && await roomKeysOk(r)){ rooms.push(r); added++; } }
   for(const r of arr(data.overlayRooms)) if(validCode(r?.code) && !r.k){ rooms.push(await makeRoom(r.name)); added++; }   // старый бэкап без ключей
   for(const raw of arr(data.library)){ const it=cleanLibItem(raw); if(it && !library.some(l=>JSON.stringify(l.el)===JSON.stringify(it.el))){ library.push(it); libAdded++; } }
   for(const a of arr(data.anims)){ const fr=sanitizeFrames(a?.f); if(fr.length && !myAnims.some(m=>m.name===a.name)){ myAnims.push({ name:String(a.name).slice(0,40), mode:KF_MODES.includes(a.mode)?a.mode:'loop', end:KF_ENDS.includes(a.end)?a.end:'stay', f:fr }); animAdded++; } }
@@ -3064,14 +3071,22 @@ async function boot(){
   if(sid){
     // комната стримера из списка сессий; чужие ключи уже сохранённую комнату не заменяют
     if(!want) return sessionProblem('Этого стримера нет в списке сессий.');
-    const { room:r, differs }=roomFromSession(want);
+    const { room:r, differs }=await roomFromSession(want);
     if(!r) return sessionProblem('В коде стримера нет ключей комнаты. Попроси стримера прислать код из программы Hudini Host ещё раз.');
     if(differs) alert('Эта комната уже есть в пульте, но с другими ключами.\nПульт открыт с твоими прежними ключами. Если стример их сменил, попроси новую ссылку-приглашение.');
     if(!rooms.some(x=>x.code===r.code)) rooms.push(r);
     cur=r.code;
   }
   if(!rooms.length && !inv && !TAURI) rooms.push(await makeRoom('Мой стример'));
-  if(rooms.length) await useRoom(rooms.some(r=>r.code===cur) ? cur : rooms[0].code);
+  if(rooms.length){
+    // сохранённая текущая комната могла испортиться: берём следующую рабочую, в крайнем случае новую
+    for(const code of new Set([cur, ...rooms.map(r=>r.code)])){
+      if(!rooms.some(r=>r.code===code)) continue;
+      try{ await useRoom(code); break; }catch(e){ console.warn('room keys', e); }
+    }
+    if(!room){ const r=await makeRoom('Мой стример'); rooms.push(r); await useRoom(r.code); }
+    if(rooms.some(r=>r.code===cur) && room!==cur) setTimeout(()=>toast('Ключи сохранённой комнаты повреждены: открыта другая комната', 6000), 500);
+  }
   saveRooms();
   // испорченные данные в хранилище не должны мешать подключиться: каждая часть рисуется отдельно
   for(const f of [renderRooms, renderKfPresets, renderLib, renderScenes, renderScn, renderLockBtns, renderSlang]) try{ f(); }catch(e){ console.warn('boot', e); }
