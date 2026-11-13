@@ -1305,6 +1305,11 @@ const HUDINI_DICT = {
     "» уже есть: переключаюсь": "» already exists: switching to it",
     ": такой формат не загрузить. Подойдут PNG, JPG, GIF, WebP, видео, звук и шрифты": ": this format can't be uploaded. Use PNG, JPG, GIF, WebP, video, sound or fonts",
     "Этот адрес нельзя показать на экране: это пульт или программа Hudini": "This address can't be shown on stream: it's the Hudini panel or app",
+    "Группа": "Group",
+    "Разгруппировать": "Ungroup",
+    "Переименовать (F2 или двойной клик)": "Rename (F2 or double-click)",
+    "Скрыть или показать всю папку": "Hide or show the whole folder",
+    "Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько": "Show / hide (H). Hold and drag over the eyes to hide several",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2609,6 +2614,11 @@ const HUDINI_DICT = {
     "» уже есть: переключаюсь": "» вже є: перемикаюся",
     ": такой формат не загрузить. Подойдут PNG, JPG, GIF, WebP, видео, звук и шрифты": ": такий формат не завантажити. Підійдуть PNG, JPG, GIF, WebP, відео, звук і шрифти",
     "Этот адрес нельзя показать на экране: это пульт или программа Hudini": "Цю адресу не можна показати на екрані: це пульт або програма Hudini",
+    "Группа": "Група",
+    "Разгруппировать": "Розгрупувати",
+    "Переименовать (F2 или двойной клик)": "Перейменувати (F2 або подвійний клік)",
+    "Скрыть или показать всю папку": "Сховати або показати всю папку",
+    "Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько": "Показати / сховати (H). Затисни й проведи по очах, щоб сховати кілька",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -3913,6 +3923,11 @@ const HUDINI_DICT = {
     "» уже есть: переключаюсь": "» gibt es schon: wechsle dorthin",
     ": такой формат не загрузить. Подойдут PNG, JPG, GIF, WebP, видео, звук и шрифты": ": dieses Format geht nicht. Möglich sind PNG, JPG, GIF, WebP, Video, Sound und Schriften",
     "Этот адрес нельзя показать на экране: это пульт или программа Hudini": "Diese Adresse kann nicht auf dem Stream erscheinen: das ist das Hudini-Panel oder die App",
+    "Группа": "Gruppe",
+    "Разгруппировать": "Gruppierung aufheben",
+    "Переименовать (F2 или двойной клик)": "Umbenennen (F2 oder Doppelklick)",
+    "Скрыть или показать всю папку": "Ganzen Ordner aus- oder einblenden",
+    "Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько": "Zeigen / verstecken (H). Gedrückt über die Augen ziehen, um mehrere zu verstecken",
   },
 };
 

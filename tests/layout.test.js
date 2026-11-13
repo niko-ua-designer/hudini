@@ -8,6 +8,9 @@ const { step, check } = T;
     const p = await T.newPage('panel-' + lang, { w, h, lang });
     await p.goto(`${web.url}/panel/moderator.html`); await p.waitForTimeout(800);
     await p.click('[data-add=poll]');
+    await p.click('[data-add=poll]');   // две вещи и папка с длинным именем: строки слоёв не должны вылезать
+    await p.keyboard.press('Escape'); await p.keyboard.press('Control+KeyA'); await p.click('#tGroup');
+    await p.evaluate(() => { state.els.forEach(e => { if(e.g) e.gn = 'Очень длинное название папки слоёв для проверки'; }); renderAll(); });
     const bad = [];
     for(const tab of ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room']){
       await p.click(`[data-tab=${tab}]`); await p.waitForTimeout(120);

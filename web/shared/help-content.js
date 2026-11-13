@@ -40,6 +40,7 @@ ru: {
 <li><b>Слева рейка вкладок</b>: ➕ Добавить (текст, картинки, видео, сайты, виджеты, эффекты), 🎞 Сцены и библиотека, 💬 Чат, ⚡ Сценарии, 🎁 Розыгрыши, 🔊 Звук, ⚙ Комната.</li>
 <li><b>В центре холст</b> — экран стримера. Тащи элемент, меняй размер за угол, <b>растягивай картинку за боковые маркеры</b>, крути за кружок. Над холстом выравнивание, группировка 🔗, показать/скрыть, копия и удаление. Картинку можно перетащить из папки или вставить через <kbd>Ctrl+V</kbd>.</li>
 <li><b>Справа слои</b> и настройки выбранного элемента: шрифт, цвет, анимации, «показать на N секунд». Глазик 👁 прячет со стрима, не удаляя.</li>
+<li><b>Папки в слоях.</b> Выдели несколько элементов (Shift+клик по слоям выделяет диапазон, Ctrl+клик добавляет один) и нажми Ctrl+G: они станут папкой «Группа 1», которая двигается вместе. Двойной клик по имени или F2 переименует папку, ▸ сворачивает её. 👁 и ⚡ папки действуют на всё внутри. Чтобы скрыть сразу много слоёв, зажми 👁 и проведи по строкам.</li>
 <li><b>Сцены</b> запоминают весь экран, а <b>библиотека</b> хранит отдельные элементы.</li>
 <li><b>Ctrl+C / Ctrl+V</b> копируют элементы, в том числе в другую комнату. Подробнее о клавишах в конце справки.</li>
 </ul>`],
@@ -157,6 +158,7 @@ en: {
 <li><b>Tab rail on the left</b>: ➕ Add (text, pictures, video, websites, widgets, effects), 🎞 Scenes and library, 💬 Chat, ⚡ Scenarios, 🎁 Giveaways, 🔊 Sound, ⚙ Room.</li>
 <li><b>The canvas in the middle</b> is the streamer's screen. Drag an element, resize it by a corner, <b>stretch a picture by the side handles</b>, rotate it by the circle. Above the canvas: align, group 🔗, show/hide, copy and delete. Drag a picture in from a folder or paste it with <kbd>Ctrl+V</kbd>.</li>
 <li><b>Layers on the right</b> and the settings of the selected element: font, color, animations, "show for N seconds". The eye 👁 hides it from the stream without deleting it.</li>
+<li><b>Folders in layers.</b> Select several elements (Shift+click selects a range of layers, Ctrl+click adds one) and press Ctrl+G: they become a folder called "Group 1" that moves together. Double-click the name or press F2 to rename it, ▸ folds it. The folder's 👁 and ⚡ act on everything inside. To hide many layers at once, hold 👁 and drag over the rows.</li>
 <li><b>Scenes</b> remember the whole screen, the <b>library</b> keeps single elements.</li>
 <li><b>Ctrl+C / Ctrl+V</b> copy elements, also into another room. Keys are listed at the end of this help.</li>
 </ul>`],
@@ -274,6 +276,7 @@ uk: {
 <li><b>Ліворуч рейка вкладок</b>: ➕ Додати (текст, картинки, відео, сайти, віджети, ефекти), 🎞 Сцени й бібліотека, 💬 Чат, ⚡ Сценарії, 🎁 Розіграші, 🔊 Звук, ⚙ Кімната.</li>
 <li><b>У центрі полотно</b> — екран стримера. Тягни елемент, змінюй розмір за кут, <b>розтягуй картинку за бічні маркери</b>, крути за гурток. Над полотном вирівнювання, групування 🔗, показати/сховати, копія й видалення. Картинку можна перетягнути з теки або вставити через <kbd>Ctrl+V</kbd>.</li>
 <li><b>Праворуч шари</b> і налаштування вибраного елемента: шрифт, колір, анімації, «показати на N секунд». Око 👁 ховає зі стриму, не видаляючи.</li>
+<li><b>Папки в шарах.</b> Виділи кілька елементів (Shift+клік по шарах виділяє діапазон, Ctrl+клік додає один) і натисни Ctrl+G: вони стануть папкою «Група 1», яка рухається разом. Подвійний клік по назві або F2 перейменує папку, ▸ згортає її. 👁 і ⚡ папки діють на все всередині. Щоб сховати одразу багато шарів, затисни 👁 і проведи по рядках.</li>
 <li><b>Сцени</b> запам'ятовують весь екран, а <b>бібліотека</b> зберігає окремі елементи.</li>
 <li><b>Ctrl+C / Ctrl+V</b> копіюють елементи, зокрема в іншу кімнату. Клавіші описані наприкінці довідки.</li>
 </ul>`],
@@ -391,6 +394,7 @@ de: {
 <li><b>Tab-Leiste links</b>: ➕ Hinzufügen (Text, Bilder, Video, Websites, Widgets, Effekte), 🎞 Szenen und Bibliothek, 💬 Chat, ⚡ Szenarien, 🎁 Verlosungen, 🔊 Ton, ⚙ Raum.</li>
 <li><b>In der Mitte die Fläche</b> — der Bildschirm des Streamers. Element ziehen, an der Ecke skalieren, <b>ein Bild an den seitlichen Griffen strecken</b>, am Kreis drehen. Über der Fläche: ausrichten, gruppieren 🔗, zeigen/verstecken, kopieren und löschen. Ein Bild lässt sich aus einem Ordner hineinziehen oder mit <kbd>Strg+V</kbd> einfügen.</li>
 <li><b>Rechts die Ebenen</b> und die Einstellungen des gewählten Elements: Schrift, Farbe, Animationen, „für N Sekunden zeigen“. Das Auge 👁 versteckt es im Stream, ohne zu löschen.</li>
+<li><b>Ordner in den Ebenen.</b> Wähle mehrere Elemente (Shift+Klick wählt einen Bereich von Ebenen, Strg+Klick fügt eine hinzu) und drücke Strg+G: Sie werden zu einem Ordner „Gruppe 1“, der sich gemeinsam bewegt. Doppelklick auf den Namen oder F2 benennt ihn um, ▸ klappt ihn zu. 👁 und ⚡ des Ordners wirken auf alles darin. Um viele Ebenen auf einmal zu verstecken, halte 👁 gedrückt und ziehe über die Zeilen.</li>
 <li><b>Szenen</b> merken sich den ganzen Bildschirm, die <b>Bibliothek</b> einzelne Elemente.</li>
 <li><b>Strg+C / Strg+V</b> kopieren Elemente, auch in einen anderen Raum. Die Tasten stehen am Ende dieser Hilfe.</li>
 </ul>`],

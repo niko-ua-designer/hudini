@@ -544,6 +544,68 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => mod.evaluate(() => state.els.length === 6)), 'Ctrl+X cuts the selection');
   });
 
+  await step('layers: folders, rename, fold, mass hide, range select, drag over eyes', async () => {
+    await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
+    for(const t of ['А', 'Б', 'В', 'Г']){ await mod.fill('#newText', t); await mod.click('#addText'); }
+    await mod.keyboard.press('Escape');
+    const ids = await mod.evaluate(() => state.els.map(e => e.id));
+    const row = i => `#layers .layer[data-id="${ids[i]}"]`;
+    await mod.click(row(0) + ' .name'); await mod.click(row(1) + ' .name', { modifiers: ['Control'] });
+    eq(await mod.evaluate(() => msel.size), 2, 'Ctrl+click adds a row');
+    await mod.click('#tGroup');
+    eq(await mod.$$eval('#layers .layer.folder', n => n.length), 1, 'one folder row');
+    check((await mod.textContent('#layers .layer.folder .name')).trim() === 'Группа 1', 'folder is named "Группа 1"');
+    check(await mod.evaluate(() => { const ix = state.els.map((e, i) => e.g ? i : -1).filter(i => i >= 0); return ix.length === 2 && ix[1] - ix[0] === 1; }), 'group members stand next to each other');
+    // переименование двойным кликом
+    await mod.dblclick('#layers .layer.folder .name');
+    await mod.fill('#layers .folderName', 'Алерты'); await mod.keyboard.press('Enter');
+    check(await mod.evaluate(() => state.els.filter(e => e.g).every(e => e.gn === 'Алерты')), 'rename sets the name on every member');
+    check((await mod.textContent('#layers .layer.folder .name')).trim() === 'Алерты', 'folder row shows the new name');
+    await mod.keyboard.press('Escape'); await mod.click('#layers .layer.folder .ico');
+    await mod.keyboard.press('F2');
+    check(!!(await mod.$('#layers .folderName')), 'F2 starts renaming');
+    await mod.keyboard.press('Escape');
+    check(!(await mod.$('#layers .folderName')) && await mod.evaluate(() => state.els.find(e => e.g).gn === 'Алерты'), 'Esc cancels the rename');
+    // сворачивание живёт после перерисовки
+    await mod.click('#layers .layer.folder [data-act=fold]');
+    eq(await mod.$$eval('#layers .layer.in', n => n.length), 0, 'folded: members are hidden in the list');
+    await mod.evaluate(() => renderAll());
+    eq(await mod.$$eval('#layers .layer.in', n => n.length), 0, 'folded state survives a re-render');
+    await mod.click('#layers .layer.folder [data-act=fold]');
+    eq(await mod.$$eval('#layers .layer.in', n => n.length), 2, 'unfolded');
+    // 👁 папки
+    await mod.click('#layers .layer.folder [data-act=eye]');
+    check(await mod.evaluate(() => state.els.filter(e => e.g).every(e => e.hidden)) && await mod.evaluate(() => state.els.filter(e => !e.g).every(e => !e.hidden)), 'folder eye hides only its members');
+    check(await until(async () => (await wid.$$eval('.el', n => n.filter(x => x.style.opacity === '0').length)) === 2), 'stream hides both members');
+    await mod.click('#layers .layer.folder [data-act=eye]');
+    check(await mod.evaluate(() => state.els.every(e => !e.hidden)), 'folder eye shows them again');
+    // диапазон Shift и 👁 на всё выделение
+    await mod.click(row(3) + ' .name'); await mod.click('#layers .layer.folder .ico', { modifiers: ['Shift'] });
+    eq(await mod.evaluate(() => msel.size), 4, 'Shift+click selects the range, folder included');
+    await mod.click(row(2) + ' [data-act=eye]');
+    check(await mod.evaluate(() => state.els.every(e => e.hidden)), 'eye of a selected row hides the whole selection');
+    await mod.click('#undoBtn');
+    check(await mod.evaluate(() => state.els.every(e => !e.hidden)), 'one undo shows all of them again');
+    // протяжка по глазкам
+    await mod.keyboard.press('Escape'); await mod.click('#stage', { position: { x: 3, y: 3 } });
+    const eye = sel => mod.locator(sel + ' [data-act=eye]').boundingBox();
+    const b1 = await eye(row(3)), b2 = await eye(row(2)), b3 = await eye('#layers .layer.folder');
+    await mod.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2); await mod.mouse.down();
+    await mod.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2, { steps: 6 });
+    await mod.mouse.move(b3.x + b3.width / 2, b3.y + b3.height / 2, { steps: 6 }); await mod.mouse.up();
+    check(await mod.evaluate(() => state.els.every(e => e.hidden)), 'dragging across the eyes hides every row passed');
+    await mod.click('#undoBtn');
+    check(await mod.evaluate(() => state.els.every(e => !e.hidden)), 'the whole drag is one undo step');
+    // порядок: папка двигается блоком
+    await mod.click('#layers .layer.folder .ico'); await mod.locator('#bUp').dispatchEvent('click');
+    eq(await mod.evaluate(() => state.els.map(e => e.text).join('')), 'ВАБГ', 'folder jumps over the neighbour as a block');
+    await mod.click(row(0) + ' .name'); await mod.locator('#bUp').dispatchEvent('click'); await mod.locator('#bUp').dispatchEvent('click');
+    eq(await mod.evaluate(() => state.els.map(e => e.text).join('')), 'ВБАГ', 'a member moves only inside its group, not out of it');
+    // разгруппировать
+    await mod.click('#layers .layer.folder [data-act=ungroup]');
+    check(await mod.evaluate(() => state.els.every(e => !e.g && !e.gn)) && !(await mod.$('#layers .layer.folder')), 'ungroup removes the folder and the name');
+  });
+
   await step('scenes: save and restore the screen', async () => {
     mod.removeAllListeners('dialog'); mod.on('dialog', d => d.accept('Начало'));
     await mod.click('[data-tab=scenes]'); await mod.click('#sceneSave');

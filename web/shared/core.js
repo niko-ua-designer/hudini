@@ -235,7 +235,7 @@ function sanitizeEl(e){
     }
   }
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
-  if(e.g) o.g=str(e.g,12).replace(/[^a-z0-9]/gi,'');
+  if(e.g){ o.g=str(e.g,12).replace(/[^a-z0-9]/gi,''); if(o.g && e.gn) o.gn=str(e.gn,40); else if(!o.g) delete o.g; }
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
   // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
   if(BOXABLE.has(o.type)){ o.bw=num(e.bw,0,0,100); o.bh=num(e.bh,0,0,100); }

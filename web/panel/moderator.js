@@ -759,26 +759,78 @@ function renderMixer(){
     const m=d.querySelector('.mxm'); m.textContent=off?'🔇':'🔊'; m.title=off?'Включить звук':'Заглушить';
   }
 }
+const gT=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
+// Слои: одиночные элементы и папки (группы). Участники группы показываются под папкой; группа из одного элемента папкой не считается.
+let selFolder=null, layerAnchor=null;
+const gfold=new Set((()=>{ const v=lsGet('overlay.gfold', []); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; })());
+function saveFold(){ lsSet('overlay.gfold', [...gfold]); }
+function layerUnits(){   // сверху вниз: { el } или { g, name, els }
+  const rev=[...state.els].reverse(), cnt=new Map(), seen=new Set(), out=[];
+  for(const e of rev) if(e.g) cnt.set(e.g, (cnt.get(e.g)||0)+1);
+  for(const e of rev){
+    if(e.g && cnt.get(e.g)>1){
+      if(seen.has(e.g)) continue; seen.add(e.g);
+      const els=rev.filter(x=>x.g===e.g);
+      out.push({ g:e.g, name:els.find(x=>x.gn)?.gn||gT('Группа'), els });
+    } else out.push({ el:e });
+  }
+  return out;
+}
+function layerOrder(){ return layerUnits().flatMap(u=>u.els||[u.el]).map(e=>e.id); }
 function renderLayers(){
   const box=$('layers'); box.replaceChildren();
   if(!state.els.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пока пусто'; box.appendChild(d); return; }
-  [...state.els].reverse().forEach((el, li)=>{
-    const row=document.createElement('div');
-    row.className='layer'+(el.id===selectedId?' sel':msel.has(el.id)?' msel':'')+(el.hidden?' hid':'')+(el.ttl?' flashing':'');
+  const li=new Map([...state.els].reverse().map((e,i)=>[e.id,i]));
+  const units=layerUnits();
+  for(const g of [...gfold]) if(!units.some(u=>u.g===g)) gfold.delete(g);
+  const btnTo=(row, act, txt, title)=>{ const b=document.createElement('button'); b.dataset.act=act; b.textContent=txt; b.title=title; row.appendChild(b); };
+  const elRow=(el, inside)=>{
+    const row=document.createElement('div'), n=li.get(el.id);
+    row.className='layer'+(inside?' in':'')+(el.id===selectedId?' sel':msel.has(el.id)?' msel':'')+(el.hidden?' hid':'')+(el.ttl?' flashing':'');
     row.dataset.id=el.id;
-    const num=document.createElement('span'); num.className='num'; num.textContent=li<9?li+1:''; num.title=li<9?`Клавиша ${li+1}: показать на N сек`:'';
+    const num=document.createElement('span'); num.className='num'; num.textContent=n<9?n+1:''; num.title=n<9?`Клавиша ${n+1}: показать на N сек`:'';
     const ico=document.createElement('span'); ico.className='ico'; ico.textContent=elIcon(el);
-    const name=document.createElement('span'); name.className='name'; name.textContent=(el.g?'🔗 ':'')+elName(el); name.title=name.textContent;
+    const name=document.createElement('span'); name.className='name'; name.textContent=elName(el); name.title=name.textContent;
     row.append(num, ico, name);
-    const btn=(act, txt, title)=>{ const b=document.createElement('button'); b.dataset.act=act; b.textContent=txt; b.title=title; row.appendChild(b); };
-    if(el.type==='timer' && (el.mode==='countdown'||el.mode==='stopwatch')) btn('ttoggle', el.running?'⏸':'▶', 'Старт / пауза (Пробел)');
-    if(el.type==='counter'){ btn('cminus','−','−шаг'); btn('cplus','+','+шаг'); }
-    if(el.type==='poll') btn('ptoggle', el.running?'⏸':'▶', 'Начать / закончить голосование');
-    if(el.kf) btn('kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
-    btn('eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H)');
-    btn('flash', '⚡', 'Показать на N секунд (F)');
-    box.appendChild(row);
-  });
+    if(el.type==='timer' && (el.mode==='countdown'||el.mode==='stopwatch')) btnTo(row, 'ttoggle', el.running?'⏸':'▶', 'Старт / пауза (Пробел)');
+    if(el.type==='counter'){ btnTo(row, 'cminus','−','−шаг'); btnTo(row, 'cplus','+','+шаг'); }
+    if(el.type==='poll') btnTo(row, 'ptoggle', el.running?'⏸':'▶', 'Начать / закончить голосование');
+    if(el.kf) btnTo(row, 'kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
+    btnTo(row, 'eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько');
+    btnTo(row, 'flash', '⚡', 'Показать на N секунд (F)');
+    return row;
+  };
+  for(const u of units){
+    if(!u.g){ box.appendChild(elRow(u.el, false)); continue; }
+    const folded=gfold.has(u.g), allHid=u.els.every(e=>e.hidden);
+    const f=document.createElement('div');
+    f.className='layer folder'+(selFolder===u.g&&u.els.some(e=>msel.has(e.id))?' sel':u.els.every(e=>msel.has(e.id))?' msel':'')+(allHid?' hid':'')+(u.els.some(e=>e.ttl)?' flashing':'');
+    f.dataset.g=u.g;
+    btnTo(f, 'fold', folded?'▸':'▾', 'Свернуть / развернуть');
+    const ico=document.createElement('span'); ico.className='ico'; ico.textContent='📁';
+    const name=document.createElement('span'); name.className='name'; name.dataset.i18nSkip=''; name.textContent=u.name+(folded?` (${u.els.length})`:''); ico.title='Переименовать (F2 или двойной клик)';
+    f.append(ico, name);
+    btnTo(f, 'eye', allHid?'🙈':'👁', 'Скрыть или показать всю папку');
+    btnTo(f, 'flash', '⚡', 'Показать на N секунд (F)');
+    btnTo(f, 'ungroup', '⛓️‍💥', 'Разгруппировать');
+    box.appendChild(f);
+    if(!folded) for(const e of u.els) box.appendChild(elRow(e, true));
+  }
+}
+function renameFolder(g){
+  const f=document.querySelector(`#layers .folder[data-g="${g}"]`); if(!f) return;
+  const name=f.querySelector('.name'), cur=state.els.find(e=>e.g===g&&e.gn)?.gn||gT('Группа');
+  const inp=document.createElement('input'); inp.type='text'; inp.maxLength=40; inp.value=cur; inp.dataset.i18nSkip=''; inp.className='folderName';
+  name.replaceWith(inp); inp.focus(); inp.select();
+  let done=false;
+  const end=save=>{
+    if(done) return; done=true;
+    const v=inp.value.trim().slice(0,40);
+    if(save && v && v!==cur){ beginChange(); state.els.forEach(e=>{ if(e.g===g) e.gn=v; }); commit(); } else renderLayers();
+  };
+  inp.addEventListener('keydown', e=>{ e.stopPropagation(); if(e.key==='Enter') end(true); else if(e.key==='Escape') end(false); });
+  inp.addEventListener('blur', ()=>end(true));
+  inp.addEventListener('click', e=>e.stopPropagation());
 }
 // --- инспектор ---
 const I=id=>$(id);
@@ -863,6 +915,7 @@ function renderInspector(){
 const msel=new Set();
 function groupOf(id){ const el=byId(id); return el?.g ? state.els.filter(e=>e.g===el.g).map(e=>e.id) : [id]; }
 function select(id, mode='replace'){
+  selFolder=null;
   if(!id){ msel.clear(); selectedId=null; renderAll(); return; }
   const ids=groupOf(id);
   if(mode==='toggle' && msel.has(id)){ ids.forEach(i=>msel.delete(i)); if(!msel.has(selectedId)) selectedId=[...msel][0]||null; }
@@ -1708,10 +1761,57 @@ function flashSecs(){ return num($('flashSecs').value, 5, 1, 600); }
 function toggleHidden(el){ beginChange(); el.hidden=!el.hidden; delete el.ttl; commit(); }
 function flash(el){ beginChange(); el.hidden=false; el.ttl=Date.now()+flashSecs()*1000; if(el.type==='video'||el.type==='web') el.restart=Date.now(); if(el.kf){ el.kf.playing=true; el.kf.start=Date.now(); } commit(); }
 $('flashSecs').addEventListener('input', renderInspector);
+// --- массовое скрытие: 👁 строки, папки, выделения; протяжка по глазкам ---
+function eyeTargets(row){   // что скрывает глазок этой строки
+  if(row.dataset.g) return state.els.filter(e=>e.g===row.dataset.g);
+  const el=byId(row.dataset.id); if(!el) return [];
+  return msel.has(el.id) && msel.size>1 ? selList() : [el];
+}
+let eyeDrag=null;
+$('layers').addEventListener('pointerdown', e=>{
+  const b=e.target.closest('button[data-act=eye]'); if(!b || e.button!==0) return;
+  const row=b.closest('.layer'); if(!row) return;
+  const list=eyeTargets(row); if(!list.length) return;
+  const hide=list.some(x=>!x.hidden);
+  eyeDrag={ hide, done:new Set() };
+  beginChange();
+  const apply=l=>{ for(const x of l){ x.hidden=hide; delete x.ttl; } };
+  apply(list); eyeDrag.done.add(row.dataset.g||row.dataset.id);
+  changed();
+  const move=ev=>{
+    const r=document.elementFromPoint(ev.clientX, ev.clientY)?.closest('#layers .layer'); if(!r) return;
+    const key=r.dataset.g||r.dataset.id; if(eyeDrag.done.has(key)) return;
+    eyeDrag.done.add(key);
+    apply(r.dataset.g ? state.els.filter(x=>x.g===r.dataset.g) : [byId(r.dataset.id)].filter(Boolean)); changed();
+  };
+  const up=()=>{ removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); eyeDrag=null; commit(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  e.preventDefault();
+});
+function selectRange(toId){
+  const order=layerOrder(), a=order.indexOf(layerAnchor), b=order.indexOf(toId);
+  if(a<0 || b<0) return select(toId, 'replace');
+  const [i,j]=a<b?[a,b]:[b,a];
+  msel.clear(); order.slice(i,j+1).forEach(id=>groupOf(id).forEach(x=>msel.add(x)));
+  selectedId=toId; selFolder=null; renderAll();
+}
 $('layers').addEventListener('click', e=>{
   const row=e.target.closest('.layer'); if(!row) return;
-  const el=byId(row.dataset.id); if(!el) return;
   const act=e.target.closest('button')?.dataset.act;
+  if(act==='eye' && e.detail!==0) return;   // мышь уже обработана в pointerdown
+  const mod=e.shiftKey?'range':(e.ctrlKey||e.metaKey)?'toggle':'replace';
+  if(row.dataset.g){
+    const g=row.dataset.g, members=state.els.filter(x=>x.g===g);
+    if(e.detail>=2 && !act && e.target.closest('.name,.ico')){ renameFolder(g); return; }   // двойной клик: первый клик уже перерисовал список, поэтому ловим по click, а не dblclick
+    if(act==='eye'){ const hide=members.some(x=>!x.hidden); beginChange(); members.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
+    else if(act==='flash'){ beginChange(); const t=Date.now()+flashSecs()*1000; members.forEach(x=>{ x.hidden=false; x.ttl=t; if(x.type==='video'||x.type==='web') x.restart=Date.now(); if(x.kf){ x.kf.playing=true; x.kf.start=Date.now(); } }); commit(); }
+    else if(act==='fold'){ gfold.has(g)?gfold.delete(g):gfold.add(g); saveFold(); renderLayers(); }
+    else if(act==='ungroup'){ beginChange(); members.forEach(x=>{ delete x.g; delete x.gn; }); if(selFolder===g) selFolder=null; commit(); toast('Группа разбита'); }
+    else if(mod==='range' && layerAnchor) selectRange(members[0].id);
+    else { layerAnchor=members[0].id; select(members[0].id, mod==='toggle'?'toggle':'replace'); selFolder=g; renderLayers(); }
+    return;
+  }
+  const el=byId(row.dataset.id); if(!el) return;
   if(act==='eye') toggleHidden(el);
   else if(act==='flash') flash(el);
   else if(act==='ttoggle') act1(el, timerToggle);
@@ -1719,7 +1819,11 @@ $('layers').addEventListener('click', e=>{
   else if(act==='ptoggle') act1(el, pollToggle);
   else if(act==='cplus') act1(el, e=>e.value+=e.step);
   else if(act==='cminus') act1(el, e=>e.value-=e.step);
-  else select(el.id, e.shiftKey||e.ctrlKey||e.metaKey ? 'toggle' : 'replace');
+  else {
+    selFolder=null;
+    if(mod==='range' && layerAnchor) selectRange(el.id);
+    else { layerAnchor=el.id; select(el.id, mod); }
+  }
 });
 
 // ================== ДЕЙСТВИЯ ==================
@@ -1985,7 +2089,37 @@ $('rFile').onchange=async e=>{
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
 $('bRatio').onclick=()=>act(el=>el.hh=0);
-function moveLayer(dir){ const i=state.els.findIndex(e=>e.id===selectedId), j=i+dir; if(i<0||j<0||j>=state.els.length) return; beginChange(); [state.els[i],state.els[j]]=[state.els[j],state.els[i]]; commit(); }
+// участники группы стоят подряд: блок встаёт на место самого верхнего участника, порядок внутри сохраняется
+function packGroups(){
+  const out=[], done=new Set();
+  const top=new Map(); state.els.forEach((e,i)=>{ if(e.g) top.set(e.g, i); });
+  state.els.forEach((e,i)=>{
+    if(!e.g){ out.push(e); return; }
+    if(top.get(e.g)!==i || done.has(e.g)) return;
+    done.add(e.g); out.push(...state.els.filter(x=>x.g===e.g));
+  });
+  state.els=out;
+}
+function moveLayer(dir){
+  const sel=byId(selectedId); if(!sel) return;
+  const g=sel.g && state.els.filter(e=>e.g===sel.g).length>1 ? sel.g : null;
+  const moveBlock=!!(g && selFolder===g);                  // выбрана папка: двигается блок целиком
+  let block;
+  if(g && !moveBlock){                                      // участник двигается только внутри своей группы
+    const i=state.els.findIndex(e=>e.id===sel.id), j=i+dir;
+    if(j<0 || j>=state.els.length || state.els[j].g!==g) return;
+    beginChange(); [state.els[i],state.els[j]]=[state.els[j],state.els[i]]; commit(); return;
+  }
+  block = moveBlock ? state.els.filter(e=>e.g===g) : [sel];
+  const ids=new Set(block.map(e=>e.id)), first=state.els.findIndex(e=>ids.has(e.id));
+  const rest=state.els.filter(e=>!ids.has(e.id));
+  // соседний юнит: одиночный элемент или группа целиком
+  let at=first;                                             // индекс в rest, перед которым стоит блок
+  const unitAt=k=>{ const e=rest[k]; return e.g ? rest.map((x,n)=>x.g===e.g?n:-1).filter(n=>n>=0) : [k]; };
+  if(dir>0){ if(at>=rest.length) return; const u=unitAt(at); at=u[u.length-1]+1; }
+  else { if(at<=0) return; const u=unitAt(at-1); at=u[0]; }
+  beginChange(); state.els=[...rest.slice(0,at), ...block, ...rest.slice(at)]; packGroups(); commit();
+}
 $('bUp').onclick=()=>moveLayer(1);
 $('bDown').onclick=()=>moveLayer(-1);
 function duplicate(){
@@ -1997,8 +2131,17 @@ function duplicate(){
 }
 function remove(){ if(!msel.size) return; beginChange(); state.els=state.els.filter(e=>!msel.has(e.id)); msel.clear(); selectedId=null; commit(); }
 function hideSel(){ const list=selList(); if(!list.length) return; const hide=list.some(x=>!x.hidden); beginChange(); list.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
-function groupSel(){ const list=selList(); if(list.length<2) return toast('Выдели 2+ элемента (Shift+клик или рамкой)'); beginChange(); const g=rid(6); list.forEach(x=>x.g=g); commit(); toast('🔗 Сгруппировано: двигаются вместе'); }
-function ungroupSel(){ const list=selList().filter(x=>x.g); if(!list.length) return; beginChange(); list.forEach(x=>delete x.g); commit(); toast('Группа разбита'); }
+function groupSel(){
+  const list=selList(); if(list.length<2) return toast('Выдели 2+ элемента (Shift+клик или рамкой)');
+  beginChange();
+  const named=list.find(x=>x.gn)?.gn;
+  const used=new Set(state.els.filter(x=>x.gn).map(x=>x.gn)), base=gT('Группа');
+  let n=1; while(used.has(`${base} ${n}`)) n++;
+  const g=rid(6), name=named||`${base} ${n}`;
+  list.forEach(x=>{ x.g=g; x.gn=name; });
+  packGroups(); selFolder=g; commit(); toast('🔗 Сгруппировано: двигаются вместе');
+}
+function ungroupSel(){ const list=selList().filter(x=>x.g); if(!list.length) return; beginChange(); list.forEach(x=>{ delete x.g; delete x.gn; }); selFolder=null; commit(); toast('Группа разбита'); }
 // ---- рамки элементов и выравнивание ----
 function boxOf(id){
   const n=nodes.get(id), r=stage.getBoundingClientRect(); if(!n) return null;
@@ -2076,6 +2219,7 @@ document.addEventListener('keydown', e=>{
   const el=byId(selectedId); if(!el) return;
   if(ctrl && e.code==='KeyD'){ e.preventDefault(); duplicate(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); remove(); return; }
+  if(e.code==='F2' && el.g){ e.preventDefault(); renameFolder(el.g); return; }
   if(e.code==='KeyH' && !ctrl){ hideSel(); return; }
   if(e.code==='KeyF' && !ctrl){ selList().forEach(x=>flash(x)); return; }
   if(e.code==='KeyP' && !ctrl){ if(el.kf) act1(el, kfToggle); else toast('У элемента нет анимации движения'); return; }

@@ -245,6 +245,14 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 .el.full.sel{outline:2px dashed var(--acc);outline-offset:-2px}
 .layer.msel{border-color:#b9a8ff;background:#211c3c}
 .layer .grp{font-size:10px;color:#b9a8ff}
+.layer.folder{background:#201b38;border-color:#3b2f6e;font-weight:600}
+.layer.folder.sel{border-color:var(--acc);background:#2a2252}
+.layer.folder.msel{border-color:#b9a8ff}
+.layer.folder.hid .name{opacity:.45;text-decoration:none}
+.layer.in{margin-left:18px;position:relative}
+.layer.in::before{content:"";position:absolute;left:-10px;top:-5px;bottom:50%;width:8px;border-left:2px solid #3b2f6e;border-bottom:2px solid #3b2f6e;border-bottom-left-radius:5px;pointer-events:none}
+.layer .folderName{flex:1;min-width:0;font-size:13px;padding:2px 6px}
+.layer button[data-act=eye]{touch-action:none}
 #multiBanner{background:#211c3c;border:1px solid #b9a8ff;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:6px}
 
 #fatal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100001;padding:30px;text-align:center;font-size:16px}
