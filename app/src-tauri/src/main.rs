@@ -1021,9 +1021,21 @@ fn apply_update(app: AppHandle) {
 #[derive(Default)]
 struct RelayState(Mutex<Option<(hudini_relay::Relay, tauri::async_runtime::JoinHandle<()>)>>);
 
+// Адреса стримера в журнал не пишем: вместо адреса сеть и номер в коде («tailscale#1»), порт остаётся.
+// Длинные адреса заменяем первыми, чтобы 10.0.0.1 не съел часть 10.0.0.12.
+fn mask_hosts(text: &str, hosts: &[(String, String)]) -> String {
+    let mut out = text.to_string();
+    for (host, tag) in hosts {
+        out = out.replace(host.as_str(), tag);
+    }
+    out
+}
+
 #[tauri::command]
 async fn relay_open(app: AppHandle, addrs: Vec<hudini_relay::Addr>, fp: String) -> Result<u16, String> {
     let count = addrs.len();
+    let mut hosts: Vec<(String, String)> = addrs.iter().enumerate().map(|(i, a)| (a.h.clone(), format!("{}#{}", if a.net.is_empty() { "addr" } else { a.net.as_str() }, i + 1))).collect();
+    hosts.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
     let relay = hudini_relay::Relay::open(addrs, &fp).await.map_err(|e| e.to_string())?;
     let port = relay.port();
     applog(&format!("relay: opened on 127.0.0.1:{port}, {count} address(es)"));
@@ -1037,7 +1049,8 @@ async fn relay_open(app: AppHandle, addrs: Vec<hudini_relay::Addr>, fp: String) 
             // в журнал только смены состояния и адреса, без задержки раз в 2 секунды
             let key = format!("{} {} {} {}", status.state, status.addr, status.net, status.last_error);
             if key != last {
-                applog(&format!("relay: {} via {} {} (reconnects {}){}", status.state, status.addr, status.net, status.reconnects, if status.last_error.is_empty() { String::new() } else { format!(": {}", status.last_error) }));
+                let line = format!("relay: {} via {} {} (reconnects {}){}", status.state, status.addr, status.net, status.reconnects, if status.last_error.is_empty() { String::new() } else { format!(": {}", status.last_error) });
+                applog(&mask_hosts(&line, &hosts));
                 last = key;
             }
             let _ = handle.emit("relay_status", status);
