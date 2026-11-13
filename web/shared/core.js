@@ -455,11 +455,13 @@ function gemSvg(){
     '<path d="M20 8h24l14 16-26 32L6 24z" fill="url(#'+id+')"/><path d="M6 24h52M20 8l-4 16 16 32 16-32-4-16M32 8l-16 16M32 8l16 16" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>';
   return s;
 }
+// Картинка предмета: если файл ещё качается, src проставит paintCase, когда он придёт
+function caseImg(src){ const im=rh('img'); im.alt=''; im.draggable=false; const u=resolveSrc(src); if(u) im.src=u; else im.dataset.asset=src; return im; }
 function itemCard(it, cls){
   const c=rh('div','cs-card'+(cls?' '+cls:'')); c.style.setProperty('--r', RARITY7[it?.r??2]);
   const pic=rh('div','cs-pic');
   if(it?.sp){ c.classList.add('sp'); c.style.setProperty('--r','#35d0ff'); }   // карточка «Перекрут»
-  if(it?.img){ const im=rh('img'); im.alt=''; im.draggable=false; im.src=resolveSrc(it.img); pic.appendChild(im); }
+  if(it?.img) pic.appendChild(caseImg(it.img));
   else if(it?.sp) pic.appendChild(rh('div','cs-respin','↻'));
   else pic.appendChild(gemSvg());
   c.append(pic, rh('div','cs-nm', it?.n||'?'));
@@ -468,7 +470,7 @@ function itemCard(it, cls){
 function paintCase(c, el){
   for(const it of el.items) if(it.img) resolveSrc(it.img);
   for(const v of Object.values(el.snd)) resolveSrc(v);
-  const sig=JSON.stringify([el.openAt, el.items, el.reel, el.win, el.reel2, el.win2, el.kind, el.kindNow, el.bmode, el.uhhText, el.upText, el.donor, el.amount, el.name, el.cc, el.logo && resolveSrc(el.logo), STREAM_LANG]);
+  const sig=JSON.stringify([el.openAt, el.items, el.reel, el.win, el.reel2, el.win2, el.kind, el.kindNow, el.bmode, el.uhhText, el.upText, el.donor, el.amount, el.name, el.cc, STREAM_LANG]);   // логотип рисует только 3D-крышка
   if(c._sig!==sig){
     c._sig=sig; c.replaceChildren(); c._t0=el.openAt;
     const g=rh('div','cs-3d'); c.appendChild(g); c._gl=g;
@@ -489,11 +491,13 @@ function paintCase(c, el){
     const rev=rh('div','cs-rev'+(w?.r===6?' gold':'')); if(w) rev.style.setProperty('--r', RARITY7[w.r]);
     rev.append(rh('div','cs-rays'), rh('canvas','cs-sparks'));
     const card=rh('div','cs-big'); const pic=rh('div','cs-bpic');
-    if(w?.img){ const im=rh('img'); im.alt=''; im.src=resolveSrc(w.img); pic.appendChild(im); } else pic.appendChild(gemSvg());
+    pic.appendChild(w?.img ? caseImg(w.img) : gemSvg());
     card.append(pic, rh('div','cs-rar', w ? st(RARITY_NAME[w.r]) : ''), rh('div','cs-bname', w?.n||''), rh('div','cs-who', (el.donor||st('Зритель'))+' '+st('выбил')));
     rev.appendChild(card); c.appendChild(rev);
     c._strip=strip; c._last=-1; c._last2=-1; c._sparks=null;
   }
+  // картинки, которые догрузились после того, как кейс нарисован (без пересборки: лента не дёргается)
+  for(const im of c.querySelectorAll('img[data-asset]')){ const u=resolveSrc(im.dataset.asset); if(u){ im.src=u; delete im.dataset.asset; } }
   caseKick(c, el);
 }
 // Вид этого открытия (у рандомного он выпал при открытии), время сцены и итоговый предмет

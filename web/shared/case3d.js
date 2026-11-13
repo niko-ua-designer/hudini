@@ -84,7 +84,9 @@
     const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 640;
     const x = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
     const gold = g => { g.addColorStop(0, '#fff4cf'); g.addColorStop(0.35, '#e9c46a'); g.addColorStop(0.6, '#a7772b'); g.addColorStop(1, '#f6dc94'); return g; };
+    let last = null;   // последний логотип: перерисовка после загрузки шрифтов его не стирает
     const draw = img => {
+      last = img;
       const W = cv.width, H = cv.height;
       const bg = x.createRadialGradient(W / 2, H * 0.4, 40, W / 2, H / 2, W * 0.7); bg.addColorStop(0, '#20232b'); bg.addColorStop(1, '#0b0c10');
       x.fillStyle = bg; x.fillRect(0, 0, W, H);
@@ -107,11 +109,17 @@
       tex.needsUpdate = true;
     };
     draw(null);
-    const src = el.logo ? (window.resolveSrc ? window.resolveSrc(el.logo) : el.logo) : '';
-    if(src){ const im = new Image(); im.onload = () => { draw(im); done?.(); }; im.src = src; }
-    if(document.fonts?.ready) document.fonts.ready.then(() => draw(null)).catch(() => {});
+    // логотип можно поставить и позже: файл мог ещё качаться, когда сцену собрали
+    tex.setLogo = src => {
+      if(src === tex.logoSrc) return; tex.logoSrc = src;
+      if(!src){ draw(null); return; }
+      const im = new Image(); im.onload = () => { if(tex.logoSrc === src){ draw(im); done?.(); } }; im.src = src;
+    };
+    tex.setLogo(logoSrc(el));
+    if(document.fonts?.ready) document.fonts.ready.then(() => draw(last)).catch(() => {});
     return tex;
   }
+  function logoSrc(el){ return el.logo ? (window.resolveSrc ? window.resolveSrc(el.logo) : el.logo) : ''; }
   function radialTex(THREE, inner, outer){
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
     const g = x.createRadialGradient(128, 128, 0, 128, 128, 128); g.addColorStop(0, inner); g.addColorStop(1, outer); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
@@ -183,7 +191,7 @@
     for(const xx of [-1.2, 1.2]){ const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.5, 20), mGold); hg.rotation.z = Math.PI / 2; hg.position.set(xx, 0, 0.04); lidP.add(hg); }
     // утопленная табличка с тиснением
     const plateEdge = new THREE.Mesh(slab(THREE, 2.34, 1.5, 0.035, 0.12, 0.012), mGold); plateEdge.position.set(0, LH - 0.005, D / 2 - 0.02); lidP.add(plateEdge);
-    const lt = lidTexture(THREE, el);
+    const lt = lidTexture(THREE, el); S.lid = lt;
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.24, 1.4), new THREE.MeshPhysicalMaterial({ map:lt, metalness:0.5, roughness:0.32, clearcoat:1, clearcoatRoughness:0.05, emissive:new THREE.Color('#ffffff'), emissiveMap:lt, emissiveIntensity:0.12 }));
     plate.rotation.x = -Math.PI / 2; plate.position.set(0, LH + 0.032, D / 2 - 0.02); lidP.add(plate);
     // неоновая рамка на крышке вокруг таблички
@@ -517,6 +525,9 @@
       let S = scenes.get(c);
       if(S && S.key !== el.openAt){ dispose(c); S = null; }
       if(!S){ S = build(c, el); if(!S){ c._gl?.classList.add('nogl'); return; } scenes.set(c, S); }
+      // кейс пересобрал DOM посреди открытия (язык, правка, ...): переносим холст в новое место, а не рисуем в потерянный
+      if(c._gl && S.renderer.domElement.parentNode !== c._gl){ c._gl.replaceChildren(S.renderer.domElement); S.size = [0, 0]; }
+      S.lid?.setLogo(logoSrc(el));
       try{ render(S, c, el, t); }catch(e){ console.warn(e); failed = true; dispose(c); }
     },
     tick(el, p){ if(!FX().audio) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
