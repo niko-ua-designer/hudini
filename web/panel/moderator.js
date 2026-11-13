@@ -707,7 +707,7 @@ function renderAll(){
   drawList(state).forEach((el,i)=>{
     seen.add(el.id);
     let node=nodes.get(el.id);
-    if(node && node.dataset.type!==el.type){ node.remove(); node=null; }
+    if(node && node.dataset.type!==el.type){ window.chatUnbind?.(node); node.remove(); node=null; }   // лента чата сразу отписывается от канала
     if(!node){ node=buildNode(el); addHandles(node); elLayer.appendChild(node); nodes.set(el.id,node); }
     node._el=el;
     paintNode(node, el, i+1);
@@ -726,7 +726,7 @@ function renderAll(){
     node.querySelector('.tag').textContent = el.ttl ? 'на стриме ⏱' : 'скрыто';
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
-  for(const [id,n] of nodes) if(!seen.has(id)){ n.remove(); nodes.delete(id); }
+  for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
   renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
