@@ -49,7 +49,7 @@ Step-by-step guides for each way (streamer side, moderator side, how to check, w
 | `web/widget/` | `widget.html`, the OBS browser source |
 | `web/panel/` | The moderator panel (`moderator.html`, `moderator.js`, `ui.js`, `ui.css`) |
 | `web/app/` | App start screen, saved sessions, log and data storage pages |
-| `web/site/` | Landing page, help, `version.json` |
+| `web/site/` | Landing page, help, the "Report a problem" helper (`report.html`), the moving page, `version.json` |
 | `server/` | Hudini server (Bun, built into one file) |
 | `app/` | The desktop app (Tauri 2) and the connection relay (`app/relay`, Rust) |
 | `tests/` | End-to-end tests (Playwright) |

@@ -672,6 +672,7 @@
     const other = document.getElementById('otherOs');
     if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
     for(const a of document.querySelectorAll('a[data-help]')) a.href = 'help.html?lang=' + lang;
+    for(const a of document.querySelectorAll('a[data-rep]')) a.href = 'report.html?lang=' + lang;
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
     const ch = document.getElementById('chooser'); if(ch) chooser(ch);
     const list = document.getElementById('csList');

@@ -1,0 +1,15 @@
+name: Idea
+description: A feature or a change you would like to see in Hudini
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Do not paste your room code (`hudini1:...`) anywhere: it is an access key.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What should Hudini do, and why do you need it?
+    validations:
+      required: true
