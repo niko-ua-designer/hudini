@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- tools/build-site.sh adds the relay origin (SUPPORT_API in support.js) to the connect-src directive below -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Hudini · Report a problem</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#08090f">
+<link rel="icon" href="shared/icons/icon-192.png">
+<link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css?v=5">
+<script src="site-texts.js?v=1"></script>
+<script src="support-texts.js?v=1"></script>
+<script src="site.js?v=3" defer></script>
+<script src="support.js?v=1" defer></script>
+</head>
+<body data-page="support">
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="top">
+  <a class="logo" href="index.html"><img src="shared/icons/icon-192.png" alt="">Hudini</a>
+  <nav><a href="index.html" data-t="home">Home</a><a data-help href="help.html" data-t="help">Help</a></nav>
+  <select class="lang" aria-label="Language"></select>
+</header>
+
+<main class="wrap sp">
+  <section class="hero">
+    <span class="pill"><b></b><span data-s="badge"></span></span>
+    <h1 data-s="h1"></h1>
+    <p class="sub" data-s="sub"></p>
+  </section>
+
+  <p class="sp-off" id="off" data-s="off" hidden></p>
+
+  <!-- the form -->
+  <form id="form" class="sp-card" novalidate hidden>
+    <fieldset class="sp-kinds"><legend data-s="kind"></legend>
+      <label><input type="radio" name="kind" value="bug" checked><span data-s="kBug"></span></label>
+      <label><input type="radio" name="kind" value="idea"><span data-s="kIdea"></span></label>
+      <label><input type="radio" name="kind" value="lag"><span data-s="kLag"></span></label>
+      <label><input type="radio" name="kind" value="other"><span data-s="kOther"></span></label>
+    </fieldset>
+    <label class="sp-f"><span data-s="text"></span><textarea id="fText" rows="6" maxlength="4000" data-ph="textPh"></textarea></label>
+    <div class="sp-row">
+      <label class="sp-f"><span data-s="role"></span><select id="fRole"><option value="" data-s="rNone"></option><option value="streamer" data-s="rStreamer"></option><option value="moderator" data-s="rModerator"></option></select></label>
+      <label class="sp-f"><span data-s="conn"></span><select id="fConn"><option value="" data-s="cNone"></option><option value="radmin" data-s="cRadmin"></option><option value="porthole" data-s="cPorthole"></option><option value="tailscale" data-s="cTailscale"></option><option value="zerotier" data-s="cZerotier"></option><option value="portforward" data-s="cPortforward"></option><option value="lan" data-s="cLan"></option><option value="other" data-s="cOther"></option></select></label>
+    </div>
+    <label class="sp-f"><span data-s="contact"></span><input id="fContact" type="text" maxlength="200" autocomplete="off"><small data-s="contactHint"></small></label>
+    <label class="sp-f"><span data-s="log"></span><textarea id="fLog" rows="4" spellcheck="false"></textarea><small data-s="logHint"></small></label>
+    <div class="sp-hp" aria-hidden="true"><label>Website <input id="fHp" type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <p class="sp-err" id="err" role="alert"></p>
+    <button class="btn primary" id="sendBtn" type="submit" data-s="send"></button>
+    <p class="sp-small" data-s="privacy"></p>
+  </form>
+
+  <!-- after sending -->
+  <section id="done" class="sp-card" hidden>
+    <h2 data-s="okH"></h2>
+    <p data-s="okP"></p>
+    <input id="ownLink" class="sp-link" type="text" readonly>
+    <div class="sp-act">
+      <button class="btn" id="copyBtn" type="button" data-s="copy"></button>
+      <button class="btn primary" id="openBtn" type="button" data-s="openTicket"></button>
+      <a class="btn" id="tgBtn" target="_blank" rel="noopener noreferrer" hidden data-s="tgBtn"></a>
+    </div>
+    <p class="sp-small" id="tgHint" data-s="tgHint" hidden></p>
+  </section>
+
+  <!-- a ticket -->
+  <section id="view" class="sp-card" hidden>
+    <div class="sp-head"><h2><span data-s="ticket"></span> <code id="vId"></code></h2><span class="sp-st" id="vStatus"></span></div>
+    <div id="thread" class="sp-thread" aria-live="polite"></div>
+    <p class="sp-err" id="vErr" role="alert"></p>
+    <p class="sp-small" id="vNote" hidden></p>
+    <form id="reply" novalidate>
+      <textarea id="rText" rows="3" maxlength="2000" data-ph="replyPh"></textarea>
+      <button class="btn primary" type="submit" data-s="reply"></button>
+    </form>
+    <p class="sp-small" data-s="refresh"></p>
+  </section>
+
+  <section id="mineBox" class="sp-card" hidden>
+    <h2 data-s="mine"></h2>
+    <ul id="mine" class="sp-mine"></ul>
+    <p class="sp-small" data-s="mineNote"></p>
+  </section>
+  <p class="sp-center" id="newWrap" hidden><button class="btn small" id="newBtn" type="button" data-s="newReport"></button></p>
+</main>
+</body>
+</html>
