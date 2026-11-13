@@ -356,6 +356,15 @@ fn is_loading_page(u: &Url) -> bool {
     is_app_url(u) && u.path() == "/app/index.html"
 }
 
+// Пульт модератора из пакета приложения: только он открывает вкладки браузера и ретранслятор
+fn is_panel_page(u: &Url) -> bool {
+    is_app_url(u) && u.path() == "/panel/moderator.html"
+}
+
+fn on_panel(app: &AppHandle) -> bool {
+    app.get_webview(MAIN).and_then(|w| w.url().ok()).is_some_and(|u| is_panel_page(&u))
+}
+
 // Только наш сервер: http://localhost:<порт сервера>/ (другие программы на localhost в окно не пускаем)
 fn is_server_url(u: &Url, port: u16) -> bool {
     port != 0 && u.scheme() == "http" && matches!(u.host_str(), Some("localhost") | Some("127.0.0.1")) && u.port() == Some(port)
@@ -798,6 +807,10 @@ async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), Str
     let url = browser_url(&url)?;
     let b = app.state::<Browser>();
     let _turn = b.turn.lock().await;
+    // окно уже ушло с пульта (просьба пришла, пока он закрывался): вкладку не создаём, иначе она осталась бы поверх нового экрана
+    if !on_panel(&app) {
+        return Err("the panel is not open".into());
+    }
     *b.active.lock().unwrap_or_else(|e| e.into_inner()) = Some(label.clone());
     if let Some(wv) = app.get_webview(&label) {
         // Пульт присылает сохранённый адрес вкладки при каждом переключении. Переходим, только если он просит новый
@@ -882,6 +895,31 @@ async fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
         wv.close().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+// Окно ушло с пульта («← Сессии», «Сменить роль», страница загрузки): вкладки браузера остались бы поверх нового экрана,
+// а ретранслятор держал бы соединение со стримером. Закрываем и то, и другое.
+async fn leave_panel(app: AppHandle) {
+    let b = app.state::<Browser>();
+    let _turn = b.turn.lock().await;
+    *b.active.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    b.shown.store(true, Ordering::SeqCst);
+    b.requested.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    b.loaded.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    let mut tabs = 0;
+    for (label, wv) in app.webviews() {
+        if label.starts_with("web-") {
+            let _ = wv.close();
+            tabs += 1;
+        }
+    }
+    let relay = app.state::<RelayState>().0.lock().unwrap().take();
+    if tabs > 0 || relay.is_some() {
+        applog(&format!("left the panel: closed {tabs} browser tab(s){}", if relay.is_some() { " and the relay" } else { "" }));
+    }
+    if let Some((_, t)) = relay {
+        t.abort(); // ретранслятор закрывается при выбросе
+    }
 }
 
 #[tauri::command]
@@ -971,6 +1009,10 @@ async fn relay_open(app: AppHandle, addrs: Vec<hudini_relay::Addr>, fp: String) 
             let _ = handle.emit("relay_status", status);
         }
     });
+    if !on_panel(&app) {
+        task.abort(); // пульт закрыли, пока ретранслятор открывался
+        return Err("the panel is not open".into());
+    }
     let old = app.state::<RelayState>().0.lock().unwrap().replace((relay, task));
     if let Some((_, t)) = old {
         t.abort(); // прежний ретранслятор закрывается при выбросе
@@ -1112,6 +1154,11 @@ fn main() {
                     true
                 })
                 .on_page_load(|w, payload| {
+                    // любая страница, кроме пульта: закрываем вкладки браузера и ретранслятор (в отдельной задаче:
+                    // обработчик идёт в главном потоке, а закрытие ждёт очереди browser_open)
+                    if payload.event() == PageLoadEvent::Started && !is_panel_page(payload.url()) {
+                        tauri::async_runtime::spawn(leave_panel(w.app_handle().clone()));
+                    }
                     // страница управления сервера: показываем баннер о прошлом падении (один раз за запуск)
                     if payload.event() == PageLoadEvent::Finished {
                         let app = w.app_handle();
