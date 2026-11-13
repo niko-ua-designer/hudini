@@ -5,7 +5,7 @@ const { execFileSync } = require('child_process');
 const T = require('./lib.js');
 const { check, step, eq, webServer, newPage, closeBrowser, finish } = T;
 
-const ROOT = T.ROOT, SITE = path.join(ROOT, '_site'), SITE_PORT = 18091;
+const ROOT = T.ROOT, SITE = path.join(ROOT, '_site'), SITE_PORT = T.PORTS.web + 1;
 const TYPES = { '.html':'text/html; charset=utf-8', '.js':'application/javascript', '.css':'text/css', '.json':'application/json', '.png':'image/png', '.woff2':'font/woff2' };
 async function siteServer(){
   const srv = http.createServer((req, res) => {

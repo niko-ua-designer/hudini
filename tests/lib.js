@@ -13,7 +13,9 @@ const ROOT = path.resolve(__dirname, '..');
 const WEB = path.join(ROOT, 'web');
 const MQTT_JS = fs.readFileSync(path.join(__dirname, 'node_modules/mqtt/dist/mqtt.min.js'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const PORTS = { web: 18090, host: 17790 };   // host uses host+1 for the moderators' TLS port
+// HUDINI_TEST_PORT_OFFSET shifts every port, so two stacks (a test run and a video recording) can run side by side
+const OFF = Number(process.env.HUDINI_TEST_PORT_OFFSET || 0);
+const PORTS = { web: 18090 + OFF, host: 17790 + OFF };   // host uses host+1 for the moderators' TLS port
 
 // ---------- tiny test framework ----------
 const results = [];
@@ -168,7 +170,7 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   const online = await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 15000);
   const widget = await newPage('widget', { w: 1920, h: 1080 });
   await widget.goto(set.obsLink);
-  await until(async () => /OBS: 1920×1080/.test(await panel.textContent('#obsStatus')), 10000);
+  await until(async () => /OBS: виден · 1920×1080/.test(await panel.textContent('#obsStatus')), 10000);
   return { web, host, panel, widget, link, online, obsLink: set.obsLink,
     async close(){ await host.stop(); await web.close(); await closeRelays(); } };
 }

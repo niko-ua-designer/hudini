@@ -15,7 +15,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
 
   await step('panel connects to Hudini Host directly (TLS)', async () => {
     check(S.online, 'panel status is online via Hudini Host');
-    check(/OBS: 1920×1080/.test(await panel.textContent('#obsStatus')), 'panel sees the OBS widget');
+    check(/OBS: виден · 1920×1080/.test(await panel.textContent('#obsStatus')), 'panel sees the OBS widget');
     check(!S.obsLink.includes('broker.emqx') && S.obsLink.startsWith(host.base + '/widget/widget.html'), 'OBS link points to the Host');
   });
 
