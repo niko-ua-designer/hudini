@@ -28,6 +28,10 @@ the moderator connects to it directly over a network both share (VPN, Porthole, 
 - A backup made with the old panel (library, animations, scenes, scenarios) is a file protected with a password you choose; it contains the room keys.
 - Nothing is sent to us. The app only asks GitHub Releases for updates.
 
+## Support relay
+
+The website's "Report a problem" page sends reports to a small Cloudflare Worker (`support/worker/`) that forwards them to the developer's Telegram bot. It is separate from the stream data path: no room codes, keys or stream data go through it, and the app does not talk to it. It stores the report text, the optional contact the author typed, version and system, the conversation, and hashes of the ticket secret (never the secret). IP addresses are not stored or logged. Tickets expire after 30 days without activity. Do not paste room codes into a report. Details: [docs/SUPPORT.md](docs/SUPPORT.md) and [docs/SUPPORT-THREAT-MODEL.md](docs/SUPPORT-THREAT-MODEL.md).
+
 ## Known limits
 
 - Anyone with a room code is a moderator, and the code holds the room keys: send it only to people you trust, and do not share logs with it.

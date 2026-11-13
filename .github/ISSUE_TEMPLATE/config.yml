@@ -6,3 +6,6 @@ contact_links:
   - name: Guides and connection help
     url: https://niko-ua-designer.github.io/hudini/
     about: Connection guides for Radmin VPN, Porthole, Tailscale, ZeroTier and port forwarding.
+  - name: Report a problem on the website
+    url: https://niko-ua-designer.github.io/hudini/support.html
+    about: No GitHub account needed.

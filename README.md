@@ -76,7 +76,7 @@ Single files can be run on their own, for example `node core.test.js`.
 ## Security and problems
 
 See [SECURITY.md](SECURITY.md) for the security model and how to report a vulnerability.
-For bugs, open an issue: the form asks for the logs from `data/logs/`.
+For bugs, open an issue: the form asks for the logs from `data/logs/`. No GitHub account? Use "Report a problem" on the website: https://niko-ua-designer.github.io/hudini/support.html
 
 ## License
 
