@@ -730,11 +730,14 @@ struct Browser {
     rect: Mutex<(i32, i32, u32, u32)>,
     active: Mutex<Option<String>>,
     shown: AtomicBool,
+    // создание и закрытие вкладок по очереди: пульт при загрузке может прислать два browser_open подряд,
+    // и второй не должен пытаться создать webview с тем же именем
+    turn: tauri::async_runtime::Mutex<()>,
 }
 
 impl Default for Browser {
     fn default() -> Self {
-        Browser { rect: Mutex::new((0, 0, 320, 480)), active: Mutex::new(None), shown: AtomicBool::new(true) }
+        Browser { rect: Mutex::new((0, 0, 320, 480)), active: Mutex::new(None), shown: AtomicBool::new(true), turn: tauri::async_runtime::Mutex::new(()) }
     }
 }
 
@@ -777,11 +780,16 @@ fn browser_sync(app: &AppHandle) {
     }
 }
 
+// async обязательно: синхронные команды идут в главном потоке, и создание webview из них на Windows (WebView2) виснет.
+// Остальные browser_* только двигают, прячут, закрывают уже созданные webview или выполняют в них js: это не создание,
+// поэтому они остаются синхронными (browser_close асинхронная только ради очереди с browser_open).
 #[tauri::command]
-fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), String> {
+async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), String> {
     let label = browser_label(&id)?;
     let url = browser_url(&url)?;
-    *app.state::<Browser>().active.lock().unwrap_or_else(|e| e.into_inner()) = Some(label.clone());
+    let b = app.state::<Browser>();
+    let _turn = b.turn.lock().await;
+    *b.active.lock().unwrap_or_else(|e| e.into_inner()) = Some(label.clone());
     if let Some(wv) = app.get_webview(&label) {
         if wv.url().map(|u| u != url).unwrap_or(true) {
             wv.navigate(url).map_err(|e| e.to_string())?;
@@ -790,7 +798,7 @@ fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), String> {
         return Ok(());
     }
     let window = app.get_window(MAIN).ok_or("no window")?;
-    let (x, y, w, h) = *app.state::<Browser>().rect.lock().unwrap_or_else(|e| e.into_inner());
+    let (x, y, w, h) = *b.rect.lock().unwrap_or_else(|e| e.into_inner());
     let popup = app.clone();
     let loaded = app.clone();
     let popup_label = label.clone();
@@ -835,10 +843,11 @@ fn browser_visible(app: AppHandle, visible: bool) {
 }
 
 #[tauri::command]
-fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
+async fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
     let label = browser_label(&id)?;
+    let b = app.state::<Browser>();
+    let _turn = b.turn.lock().await;
     {
-        let b = app.state::<Browser>();
         let mut active = b.active.lock().unwrap_or_else(|e| e.into_inner());
         if active.as_deref() == Some(label.as_str()) {
             *active = None;
