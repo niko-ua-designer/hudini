@@ -218,10 +218,14 @@ fn clip(text: &str, max: usize) -> String {
     format!("{}…", &text[..end])
 }
 
+fn applog_file() -> Option<PathBuf> {
+    Some(LOG_DIR.get()?.join(format!("app-{}.log", stamp().0)))
+}
+
 fn applog(text: &str) {
-    let Some(dir) = LOG_DIR.get() else { return };
-    let (date, iso, _) = stamp();
-    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(dir.join(format!("app-{date}.log"))) {
+    let Some(path) = applog_file() else { return };
+    let (_, iso, _) = stamp();
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "{iso} {}", clip(text, 4000).replace('\n', "\n  "));
     }
 }
@@ -719,9 +723,43 @@ fn app_state(app: AppHandle) -> serde_json::Value {
     serde_json::json!({ "role": cfg.role, "remember": cfg.remember, "running": running, "version": env!("CARGO_PKG_VERSION"), "update": update, "crash": crash })
 }
 
-// Ошибки страниц (window.onerror, unhandledrejection) попадают в журнал приложения
+// Ошибки страниц (window.onerror, unhandledrejection) попадают в журнал приложения. Страница, которая сыплет
+// ошибками в цикле, не должна раздуть журнал: не больше PAGE_LOG_PER_MIN строк в минуту (о лишних одна строка
+// в следующую минуту) и ничего, если журнал за день уже больше APP_LOG_MAX.
+const PAGE_LOG_PER_MIN: u32 = 30;
+const APP_LOG_MAX: u64 = 5 * 1024 * 1024;
+
+struct PageLog {
+    since: Instant,
+    lines: u32,
+    dropped: u32,
+}
+
+static PAGE_LOG: Mutex<Option<PageLog>> = Mutex::new(None);
+
 #[tauri::command]
 fn app_log(text: String) {
+    let dropped = {
+        let mut g = PAGE_LOG.lock().unwrap_or_else(|e| e.into_inner());
+        let st = g.get_or_insert(PageLog { since: Instant::now(), lines: 0, dropped: 0 });
+        let mut dropped = 0;
+        if st.since.elapsed() >= Duration::from_secs(60) {
+            dropped = st.dropped;
+            *st = PageLog { since: Instant::now(), lines: 0, dropped: 0 };
+        }
+        if st.lines >= PAGE_LOG_PER_MIN {
+            st.dropped += 1;
+            return;
+        }
+        st.lines += 1;
+        dropped
+    };
+    if applog_file().and_then(|p| fs::metadata(p).ok()).is_some_and(|m| m.len() > APP_LOG_MAX) {
+        return;
+    }
+    if dropped > 0 {
+        applog(&format!("page: … {dropped} more line(s) dropped"));
+    }
     applog(&format!("page: {}", clip(&text, 2000)));
 }
 
