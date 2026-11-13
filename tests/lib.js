@@ -119,7 +119,7 @@ let browser = null;
 const pageErrors = [];
 async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false, app = !name.startsWith('widget') } = {}){
   browser ||= await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: Number(process.env.HUDINI_TEST_DSF || 1), ignoreHTTPSErrors: true });   // HUDINI_TEST_DSF=2: sharper screen recordings
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
   // the OBS widget still loads mqtt.js from unpkg
