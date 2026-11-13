@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/niko-ua-designer/hudini/security/advisories/new
+    about: Report vulnerabilities privately, not in a public issue.
+  - name: Guides and connection help
+    url: https://niko-ua-designer.github.io/hudini/
+    about: Connection guides for Radmin VPN, Porthole, Tailscale, ZeroTier and port forwarding.

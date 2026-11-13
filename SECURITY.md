@@ -2,25 +2,35 @@
 
 ## Reporting a problem
 
-Please report vulnerabilities privately: **Security → Report a vulnerability** on
-<https://github.com/niko-ua-designer/hudini/security/advisories/new>. Do not open a public issue for them.
-You will get an answer within a few days; a fix goes into the next release candidate.
+Report vulnerabilities privately: **Security → Report a vulnerability** on
+<https://github.com/niko-ua-designer/hudini/security/advisories/new> (GitHub private vulnerability reporting).
+Do not open a public issue for them. Non-sensitive problems can go to
+[issues](https://github.com/niko-ua-designer/hudini/issues). Never post a room code (`hudini1:...`) or logs that contain one.
 
-## What Hudini protects, and how
+## Model
+
+Hudini has no server of its own and does not use Cloudflare or any other relay. The streamer's PC is the only server;
+the moderator connects to it directly over a network both share (VPN, Porthole, port forwarding).
 
 | What could go wrong | Protection |
 |---|---|
-| Someone else puts things on the stream | Every change is encrypted (AES-256-GCM) and signed with the moderator key (ECDSA P-256). The widget ignores unsigned, foreign or out-of-date messages. |
-| Someone reads what is going to the stream | Content and files are encrypted end to end; Hudini Host, the tunnel and the public broker see only ciphertext. Keys travel in the part of the link after `#`, which is never sent to a server. |
-| A website in the streamer's browser talks to Hudini Host | The management page and `/api` live on `http://127.0.0.1:<port>` with Host and Origin checks; the OBS widget lives on `http://localhost:<port>` and cannot read settings or the moderators password; the local MQTT WebSocket accepts only the widget origin. |
-| Someone on the internet reaches the tunnel | Only `/mqtt` and `/files` are exposed, both behind a random 144-bit password with per-address back-off. Moderators may publish only the screen state and effects; game data and the address announcement come only from Hudini Host. |
-| A forged update installs malware | Releases carry `SHA256SUMS.txt.sig`, an Ed25519 signature over the version and the checksums. Hudini Host installs nothing without a valid signature from the key built into it; the private key lives only in the GitHub `release` environment, which needs the owner's approval. |
-| A malicious update archive writes outside the app folder | Unpacking rejects absolute paths, `..`, symlinks that point outside, NTFS streams and oversized archives. |
-| Viewer chat is used to inject code | Chat text, names and emotes are rendered as text only; scenarios have a minimum cooldown and a rate limit. |
-| A compromised dependency | Dependencies are pinned by lock files and GitHub Actions by commit SHA; Dependabot, CodeQL and secret scanning run on the repository. |
+| Someone on the network reads or alters moderator traffic | The moderator port (TCP 7778) speaks TLS (1.2 or newer). The certificate is self-signed and created on the streamer's PC; the moderator's relay accepts only a certificate whose SHA-256 fingerprint equals the one in the room code. Name, expiry and chain are not trusted, so a foreign certificate is rejected. |
+| A stranger joins as a moderator | The room code `hudini1:` is base64url JSON: room, password, certificate fingerprint, addresses and the room keys. The password is random (18 bytes) and is checked in constant time. After 5 wrong tries from one address the server pauses that address (1 min, doubling up to 30 min). Through Porthole all guests come from 127.0.0.1, so there the limit is 5 wrong tries per minute. The streamer can pause or switch off moderators. |
+| A moderator changes what they should not | Moderators may publish only the screen state and effects. Game data (CS2), the host announcement and settings come only from the streamer's app. Room messages are AES-256-GCM encrypted and signed (ECDSA P-256); the widget ignores unsigned or foreign messages. |
+| A web page or another program controls the streamer's app | The management page and `/api/*` are served on `127.0.0.1` only and need the `hudini_admin` cookie (HttpOnly, SameSite=Strict, set by a one-time `/auth?t=` token) or the `X-Hudini-Token` header, with a Host check. The OBS widget is served from `localhost`, a different origin, and cannot read settings. The moderator port serves only `/ping`, `/files` and the room WebSocket, never `/api`. |
+| A forged update | Releases carry `SHA256SUMS.txt.sig`, an Ed25519 signature over the version and the checksums. The app installs nothing without a valid signature from the key built into it. |
+| Chat is used to inject code | Chat text, names and emotes are rendered as text only. |
+
+## Where data lives
+
+- Everything of the moderator stays on the moderator's PC in `data/store.json` next to the app: saved streamers (room codes with keys), scenes, library, settings. The file is plain JSON and is not encrypted; protect the folder like a password store.
+- The streamer's settings, TLS key (`data/tls/`, mode 0600) and logs (`data/logs/`) stay on the streamer's PC.
+- A backup made with the old panel (library, animations, scenes, scenarios) is a file protected with a password you choose; it contains the room keys.
+- Nothing is sent to us. The app only asks GitHub Releases for updates.
 
 ## Known limits
 
-- Whoever has the OBS link (or is a moderator) holds the room key: treat the OBS link like a password.
-- The moderator panel keeps room keys in the browser's storage on `niko-ua-designer.github.io`; set a vault password in the panel to encrypt them.
+- Anyone with a room code is a moderator, and the code holds the room keys: send it only to people you trust, and do not share logs with it.
+- Port 7778 is reachable by everyone on the shared network. In a Porthole lobby, invite only your moderator.
+- If the streamer's certificate is regenerated (the old one is replaced about 30 days before it expires, or `data/tls/` is deleted), old codes stop working and the moderator needs a new code.
 - Release binaries are not code-signed with Authenticode or Apple notarization yet: download them only from the GitHub release page.

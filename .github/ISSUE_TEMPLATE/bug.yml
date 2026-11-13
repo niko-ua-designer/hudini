@@ -1,0 +1,62 @@
+name: Bug report
+description: Something does not work in Hudini
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not paste your room code (`hudini1:...`) anywhere: it is an access key.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Hudini version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS (Apple Silicon), macOS (Intel), Linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Role where it happens
+      options: [Streamer, Moderator, Both]
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection method
+      options: [Radmin VPN, Porthole (Steam), Tailscale, ZeroTier, Hamachi, Port forwarding, Same PC or local network, Not related to connection]
+  - type: textarea
+    id: applog
+    attributes:
+      label: App log
+      description: "Click Open logs in Hudini, or open the `data/logs` folder next to the app, and paste the latest `app-*.log`."
+      render: text
+  - type: textarea
+    id: crashlog
+    attributes:
+      label: Crash log
+      description: "If Hudini crashed, paste `data/logs/crash-*.log`."
+      render: text
