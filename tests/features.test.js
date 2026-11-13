@@ -878,6 +878,16 @@ const { step, check, eq, until, sleep } = T;
     await p.evaluate(() => dispatchEvent(new Event('blur')));
     eq(await p.evaluate(() => [!!eyeDrag, changeOpen]), [false, false], 'leaving the window ends it too');
     await p.mouse.up();
+    // в браузере кончилось место: пульт говорит об этом один раз
+    const said = await p.evaluate(async () => {
+      const orig = Storage.prototype.setItem; let shown = 0;
+      addEventListener('hudini-store-error', () => shown++);
+      Storage.prototype.setItem = function(){ throw new DOMException('quota', 'QuotaExceededError'); };
+      try{ lsSet('x', 1); lsSet('y', 2); }finally{ Storage.prototype.setItem = orig; }
+      await new Promise(r => setTimeout(r, 50));
+      return [shown, document.getElementById('toast').textContent];
+    });
+    eq(said, [1, 'Не удалось сохранить: в браузере кончилось место'], 'a failed save is reported once');
     await p.context().close();
   });
 

@@ -1348,6 +1348,8 @@ const HUDINI_DICT = {
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "This room's keys are damaged: get a new invite or a backup",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "The keys of the saved room are damaged: another room is open",
     "на экране максимум": "the screen holds at most",
+    "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
+    "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2695,6 +2697,8 @@ const HUDINI_DICT = {
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Ключі цієї кімнати пошкоджені: візьми нове запрошення або бекап",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "Ключі збереженої кімнати пошкоджені: відкрито іншу кімнату",
     "на экране максимум": "на екрані максимум",
+    "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
+    "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4042,6 +4046,8 @@ const HUDINI_DICT = {
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Die Schlüssel dieses Raums sind beschädigt: hol dir eine neue Einladung oder ein Backup",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "Die Schlüssel des gespeicherten Raums sind beschädigt: ein anderer Raum ist geöffnet",
     "на экране максимум": "auf dem Bildschirm höchstens",
+    "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
+    "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
   },
 };
 

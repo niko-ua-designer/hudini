@@ -31,6 +31,8 @@ function setPill(el, cls, text){ el.className='pill '+cls; el.textContent=text; 
 // Данные пульта лежат в HudiniStore: в приложении это файл data/store.json на ПК, в тестах и браузере localStorage
 function lsGet(k, d){ return HudiniStore.get(k, d); }
 function lsSet(k, v){ HudiniStore.set(k, v); }
+// хранилище сообщает о неудачной записи один раз
+addEventListener('hudini-store-error', e=>toast(e.detail?.app ? 'Не удалось сохранить данные пульта на диск' : 'Не удалось сохранить: в браузере кончилось место', 8000));
 
 const qs=new URLSearchParams(location.search);
 // после перехода по ссылке оставляем в адресе только служебные параметры

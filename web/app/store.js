@@ -4,11 +4,18 @@
 (function(){
   'use strict';
   const tauri = window.__TAURI__?.core;
-  let data = {}, timer = null, saving = Promise.resolve();
+  let data = {}, timer = null, saving = Promise.resolve(), warned = false;
   const lsKeys = () => { try{ return Object.keys(localStorage).filter(k => k.startsWith('store:')); }catch{ return []; } };
+  // Запись не удалась (в браузере кончилось место, в приложении ошибка диска): один раз сообщаем странице событием
+  // hudini-store-error, страница сама решает, как показать
+  const failed = e => {
+    console.warn('HudiniStore: не удалось сохранить', e);
+    if(warned) return; warned = true;
+    try{ dispatchEvent(new CustomEvent('hudini-store-error', { detail: { app: !!tauri, error: String(e?.message || e) } })); }catch{}
+  };
   const flush = () => {
     timer = null;
-    if(tauri) saving = saving.then(() => tauri.invoke('store_save', { data })).catch(e => console.warn('store_save', e));
+    if(tauri) saving = saving.then(() => tauri.invoke('store_save', { data })).catch(failed);
   };
   const ready = (async () => {
     if(tauri){ try{ const d = await tauri.invoke('store_load'); if(d && typeof d === 'object' && !Array.isArray(d)) data = d; }catch(e){ console.warn('store_load', e); } }
@@ -20,7 +27,7 @@
     set(k, v){
       data[k] = v;
       if(tauri){ clearTimeout(timer); timer = setTimeout(flush, 250); }
-      else try{ localStorage.setItem('store:' + k, JSON.stringify(v)); }catch{}
+      else try{ localStorage.setItem('store:' + k, JSON.stringify(v)); }catch(e){ failed(e); }
     },
     remove(k){ delete data[k]; if(tauri){ clearTimeout(timer); timer = setTimeout(flush, 250); } else try{ localStorage.removeItem('store:' + k); }catch{} },
     // записать сейчас (перед уходом со страницы)
