@@ -2080,7 +2080,9 @@ bindInput('iPOpts',  (el,f)=>{ const o=f.value.split('\n').map(x=>x.trim()).filt
 bindInput('iAccent', (el,f)=>el.accent=f.value);
 bindInput('iPCard',  (el,f)=>el.card=f.value);
 // web
-bindInput('iUrl',    (el,f)=>{ const u=safeUrl(f.value); if(u){ el.url=u; nodes.get(el.id)?.remove(); nodes.delete(el.id); } }, 'change');
+bindInput('iUrl',    (el,f)=>{ const u=safeUrl(f.value);
+  if(u && blockedEmbed(u)){ f.value=el.url; return toast('Этот адрес нельзя показать на экране: это пульт или программа Hudini', 4000); }   // как при создании
+  if(u){ el.url=u; nodes.get(el.id)?.remove(); nodes.delete(el.id); } }, 'change');
 bindInput('iWebSound',(el,f)=>el.sound=f.checked);
 bindInput('iWebVol', (el,f)=>el.vol=+f.value);
 bindInput('iAr',     (el,f)=>el.ar=f.value);
@@ -2932,13 +2934,25 @@ async function checkPanelUpdate(){
 // В приложении это настоящий webview поверх колонки (вход в Twitch, кнопки модератора работают как в обычном браузере),
 // вне приложения (сайт, тесты) — iframe: там Twitch и многие сайты встраивание запрещают.
 const WEB_KEY='overlay.browser', WEB_NATIVE=!!TAURI?.core;
+// Адрес этого ПК или домашней сети (включая IPv4 внутри IPv6 и имя с точкой на конце)
+function localHost(host){
+  let h=String(host||'').toLowerCase().replace(/^\[|\]$/g,'').replace(/\.+$/,'');
+  let m=/^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if(m){ const a=parseInt(m[1],16), b=parseInt(m[2],16); h=`${a>>8}.${a&255}.${b>>8}.${b&255}`; }
+  else if((m=/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/.exec(h))) h=m[1];
+  if(h==='localhost' || h.endsWith('.localhost') || h==='::1' || h==='::') return true;
+  const v4=/^(\d+)\.(\d+)\.\d+\.\d+$/.exec(h);
+  if(v4){ const a=+v4[1], b=+v4[2];
+    return a===0 || a===127 || a===10 || (a===172 && b>=16 && b<=31) || (a===192 && b===168) || (a===169 && b===254) || (a===100 && b>=64 && b<=127); }
+  return h.includes(':') && (/^f[cd]/.test(h) || /^fe[89ab]/.test(h));   // fc00::/7, fe80::/10
+}
 function webUrl(raw){   // http(s) и только чужие сайты; без схемы считаем https
   raw=String(raw||'').trim(); if(!raw) return null;
   if(!/^https?:\/\//i.test(raw)){ if(/^(javascript|data|file|blob|vbscript|about|mailto|tauri|chrome|ftp):/i.test(raw)) return null; raw='https://'+raw; }
   let u; try{ u=new URL(raw); }catch{ return null; }
   if(!/^https?:$/.test(u.protocol)) return null;
-  const h=u.hostname.toLowerCase().replace(/^\[|\]$/g,'');
-  if(h==='localhost' || h.endsWith('.localhost') || h==='::1' || h==='::' || /^127\./.test(h) || h==='0.0.0.0') return null;
+  if(localHost(u.hostname)) return null;
+  if(/^https?:$/.test(location.protocol) && u.origin===location.origin) return null;   // сам пульт и страницы рядом с ним
   return u.href;
 }
 const webCfg=(()=>{
@@ -2976,7 +2990,7 @@ function webPlace(force){
 // то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
 function webBlocked(){
   const slot=$('webSlot').getBoundingClientRect();
-  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','persistBox'].some(id=>{
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','persistBox','lvlPop','upload','langPick'].some(id=>{
     const el=$(id); if(!el || el.hidden) return false;
     const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
     const r=el.getBoundingClientRect();

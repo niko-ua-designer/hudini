@@ -4149,7 +4149,7 @@ const HUDINI_DICT = {
   const css = 'position:fixed;inset:0;z-index:2147483000;background:#0b0d11f0;display:flex;align-items:center;justify-content:center;font:15px/1.4 system-ui,sans-serif;color:#e6e8ee';
   function picker(){
     const wrap = document.createElement('div');
-    wrap.setAttribute('data-i18n-skip', ''); wrap.style.cssText = css;
+    wrap.id = 'langPick'; wrap.setAttribute('data-i18n-skip', ''); wrap.style.cssText = css;
     const box = document.createElement('div');
     box.style.cssText = 'background:#171a21;border:1px solid #2a2f3a;border-radius:14px;padding:26px 28px;width:min(340px,90vw);display:flex;flex-direction:column;gap:10px;text-align:center';
     box.innerHTML = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg><b style="font-size:18px">Hudini</b><div style="color:#8b91a1;font-size:13px;margin-bottom:6px">Language · Язык · Мова · Sprache</div>';

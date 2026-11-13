@@ -840,6 +840,23 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('addresses of this PC and the home network are refused everywhere', async () => {
+    const p = await T.newPage('web-addr', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const bad = ['http://localhost.:7777/', 'http://[::ffff:127.0.0.1]:7777/', 'http://2130706433/', 'http://10.1.2.3/', 'http://172.20.0.1/', 'http://192.168.0.1/', 'http://169.254.1.1/', 'http://100.100.1.1/', 'http://[fd00::1]/', 'http://[fe80::1]/'];
+    eq(await p.evaluate(list => list.filter(u => webUrl(u)), bad), [], 'the browser column refuses local and private addresses');
+    eq(await p.evaluate(() => [webUrl('http://172.32.0.1/'), webUrl('example.com')]), ['http://172.32.0.1/', 'https://example.com/'], 'public addresses still open');
+    const r = await p.evaluate(() => {
+      state = { visible: true, vol: 1, fxVol: 1, els: [sanitizeEl({ id: 'w', type: 'web', url: 'https://example.com/' })], raffle: null }; selectedId = 'w'; renderAll();
+      const f = document.getElementById('iUrl'); f.value = 'http://127.0.0.1:7777/'; f.dispatchEvent(new Event('change'));
+      return [state.els[0]?.url, f.value, /нельзя показать/.test(document.getElementById('toast').textContent)];
+    });
+    eq(r, ['https://example.com/', 'https://example.com/', true], 'a site element cannot be changed to a local address');
+    const sb = await p.getAttribute('#webFrame', 'sandbox');
+    check(/allow-scripts/.test(sb) && !/allow-top-navigation/.test(sb), 'the browser iframe is sandboxed without top navigation: ' + sb);
+    await p.context().close();
+  });
+
   await step('a hostile backup or broken stored data cannot stop the panel', async () => {
     const p = await T.newPage('hostile', { app: false });
     const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });

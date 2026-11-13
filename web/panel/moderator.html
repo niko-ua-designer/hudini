@@ -871,7 +871,7 @@ body.web #web{display:flex}
     <button id="webExt" title="Открыть в системном браузере">↗</button>
   </div>
   <div id="webSlot">
-    <iframe id="webFrame" hidden referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-write" title="Браузер"></iframe>
+    <iframe id="webFrame" hidden referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation" title="Браузер"></iframe>
     <div id="webEmpty">
       <div id="webEmptyChat">
         <div class="hint">Укажи канал Twitch, и здесь откроется его чат. Войди в свой аккаунт Twitch один раз: кнопки модератора заработают как в обычном браузере.</div>
