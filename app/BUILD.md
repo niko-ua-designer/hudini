@@ -117,7 +117,7 @@ updates only from those, an app build (OVERLAY_APP set) only from the new ones.
 - Windows 10/11 with WebView2 (preinstalled on Windows 11 and current Windows 10).
 - Linux: `libwebkit2gtk-4.1-0`, `libayatana-appindicator3-1` (tray), a notification daemon for notifications.
 - macOS 10.15+. If macOS starts the app from a quarantined download (App Translocation, read-only path), the
-  app keeps its data in `~/Library/Application Support/io.github.nikouadesigner.hudinihost/data` and cannot
+  app keeps its data in `~/Library/Application Support/io.github.nikouadesigner.hudini/data` and cannot
   update itself; moving `Hudini.app` (or the whole folder) to another place with Finder fixes that.
 
 ## How the parts talk
