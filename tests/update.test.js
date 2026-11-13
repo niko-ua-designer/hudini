@@ -224,6 +224,24 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     p.stdin.end(); await until(() => p.exitCode !== null, 5000);
   });
 
+  if(process.platform !== 'win32') await step('app mode: chained symlinks that end outside the app folder are refused', async () => {
+    const evil = `HudiniHost-${APP_OS}-1.0.2.zip`;
+    fs.writeFileSync(path.join(rel, evil), zipMany([
+      { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'HudiniHost/B', data: Buffer.from('.'), mode: 0o120777 },      // B → the app folder itself
+      { name: 'HudiniHost/A', data: Buffer.from('B/..'), mode: 0o120777 },   // looks like the app folder, really its parent
+    ]));
+    list = [{ tag_name: 'v1.0.2', assets: [{ name: evil, browser_download_url: url(evil) }, ...assets.slice(2)] }];
+    sums = sha(fs.readFileSync(path.join(rel, evil))) + '  ' + evil + '\n'; sigVer = '1.0.2';
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'ignore', 'ignore'] });
+    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+    check(s && /архив повреждён: HudiniHost\/A/.test(s.upd.err), 'chained symlink refused: ' + (s && s.upd.err));
+    check(!fs.existsSync(path.join(inst, 'A')) && !fs.existsSync(path.join(inst, 'data', 'update', '1.0.2')), 'nothing installed, staging folder removed');
+    eq(s && s.version, '1.0.0', 'kept running');
+    p.stdin.end(); await until(() => p.exitCode !== null, 5000);
+  });
+
   srv.close(); fs.rmSync(dir, { recursive: true, force: true });
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

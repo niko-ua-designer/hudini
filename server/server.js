@@ -701,31 +701,40 @@ function extractApp(zip, dest){
   fs.rmSync(dest, { recursive:true, force:true }); fs.mkdirSync(dest, { recursive:true });
   const root = fs.realpathSync(dest);
   let n = 0, total = 0;
-  for(const e of list){
-    const rel = e.name.slice(strip.length);
-    const parts = rel.split('/').filter(Boolean);
-    if(!parts.length || parts[0]==='data') continue;   // настройки и файлы стримера остаются как есть
-    // без абсолютных путей, «..», имён дисков, NUL и двоеточий (потоки NTFS)
-    if(rel.startsWith('/') || /^[a-z]:/i.test(rel) || parts.some(x => x==='..' || x==='.' || /[\0:]/.test(x))) throw new Error('архив повреждён: '+e.name);
-    const to = path.join(root, ...parts);
-    if(e.dir){ fs.mkdirSync(to, { recursive:true }); if(!inside(root, fs.realpathSync(to))) throw new Error('архив повреждён: '+e.name); continue; }
-    fs.mkdirSync(path.dirname(to), { recursive:true });
-    const dir = fs.realpathSync(path.dirname(to));
-    if(!inside(root, dir) || isLink(to)) throw new Error('архив повреждён: '+e.name);
-    const data = e.data();
-    total += data.length; if(total > 1024*1048576) throw new Error('архив повреждён: слишком большой');
-    if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app): только внутрь архива
-      const target = data.toString('utf8');
-      if(path.isAbsolute(target) || /[\0\\]/.test(target) || !inside(root, path.resolve(dir, target))) throw new Error('архив повреждён: '+e.name);
-      fs.symlinkSync(target, to); n++; continue;
+  const links = [];
+  try{
+    for(const e of list){
+      const rel = e.name.slice(strip.length);
+      const parts = rel.split('/').filter(Boolean);
+      if(!parts.length || parts[0]==='data') continue;   // настройки и файлы стримера остаются как есть
+      // без абсолютных путей, «..», имён дисков, NUL и двоеточий (потоки NTFS)
+      if(rel.startsWith('/') || /^[a-z]:/i.test(rel) || parts.some(x => x==='..' || x==='.' || /[\0:]/.test(x))) throw new Error('архив повреждён: '+e.name);
+      const to = path.join(root, ...parts);
+      if(e.dir){ fs.mkdirSync(to, { recursive:true }); if(!inside(root, fs.realpathSync(to))) throw new Error('архив повреждён: '+e.name); continue; }
+      fs.mkdirSync(path.dirname(to), { recursive:true });
+      const dir = fs.realpathSync(path.dirname(to));
+      if(!inside(root, dir) || isLink(to)) throw new Error('архив повреждён: '+e.name);
+      const data = e.data();
+      total += data.length; if(total > 1024*1048576) throw new Error('архив повреждён: слишком большой');
+      if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app): только внутрь архива
+        const target = data.toString('utf8');
+        if(path.isAbsolute(target) || /[\0\\]/.test(target) || !inside(root, path.resolve(dir, target))) throw new Error('архив повреждён: '+e.name);
+        fs.symlinkSync(target, to); links.push({ to, name:e.name }); n++; continue;
+      }
+      fs.writeFileSync(to, data, { flag:'wx' }); n++;
+      if(process.platform!=='win32'){
+        const m = e.mode & 0o777;
+        fs.chmodSync(to, m || (/\.[a-z0-9]{1,5}$/i.test(parts.at(-1)) ? 0o644 : 0o755));
+      }
     }
-    fs.writeFileSync(to, data, { flag:'wx' }); n++;
-    if(process.platform!=='win32'){
-      const m = e.mode & 0o777;
-      fs.chmodSync(to, m || (/\.[a-z0-9]{1,5}$/i.test(parts.at(-1)) ? 0o644 : 0o755));
+    if(!n) throw new Error('архив пустой');
+    // Цепочку ссылок (B → «.», A → «B/..») проверка по тексту пути не видит: смотрим, куда каждая ссылка ведёт на деле.
+    // Ссылка в никуда тоже отказ: куда она укажет потом, заранее не узнать.
+    for(const l of links){
+      let real = ''; try{ real = fs.realpathSync(l.to); }catch{}
+      if(!real || !inside(root, real)) throw new Error('архив повреждён: '+l.name);
     }
-  }
-  if(!n) throw new Error('архив пустой');
+  }catch(e){ try{ fs.rmSync(dest, { recursive:true, force:true }); }catch{} throw e; }
   return dest;
 }
 const isLink = p => { try{ return fs.lstatSync(p).isSymbolicLink(); }catch{ return false; } };
