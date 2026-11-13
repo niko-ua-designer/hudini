@@ -72,7 +72,8 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','raffle','case'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case'];
+const CHAT_THEMES = ['glass','bubbles','minimal','neon','panel','accent'];
 // Общая громкость оверлея: звук на стриме = общая × громкость элемента. Виджет задаёт её из состояния.
 let MASTER_VOL = 1, FX_VOL = 1;
 function setVolumes(s){ MASTER_VOL = num(s?.vol, 1, 0, 1); FX_VOL = num(s?.fxVol, 1, 0, 1); }
@@ -124,7 +125,7 @@ function outline(color, wEm){
 }
 
 // Элементы, у которых размер можно задать рамкой: тогда они не прыгают от данных
-const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg']);
+const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg','chat']);
 // Розыгрыш: сбор → (закрыт) → лента. Время ленты общее для пульта и виджета, поэтому все видят одно и то же
 const RAFFLE_PHASES = ['idle','collect','closed','spin'];
 // Кейс: время сцены от openAt, одинаковое у пульта и виджета
@@ -178,6 +179,13 @@ function sanitizeEl(e){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
     o.maxw=num(e.maxw,38,10,100);
+  } else if(type==='chat'){
+    o.chan=cleanChan(e.chan);
+    o.theme=CHAT_THEMES.includes(e.theme)?e.theme:'glass';
+    o.fs=num(e.fs,2.4,0.8,10); o.font=fontOf(e.font);
+    o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
+    o.fade=Math.round(num(e.fade,0,0,600)); o.dir=e.dir==='up'?'up':'down'; o.align=e.align==='right'?'right':'left';
+    o.max=Math.round(num(e.max,12,3,50)); o.badges=e.badges!==false;
   } else if(type==='case'){
     o.x=50; o.y=50; o.rot=0; o.fs=num(e.fs,4,1,12); o.font=fontOf(e.font); o.color=hex(e.color,'#ffffff');
     o.name=str(e.name,40)||'HUDINI CASE'; o.logo=safeSrc(e.logo)||''; o.cc=hex(e.cc,'#7c5cff');
@@ -238,7 +246,7 @@ function sanitizeEl(e){
   if(e.g){ o.g=str(e.g,12).replace(/[^a-z0-9]/gi,''); if(o.g && e.gn) o.gn=str(e.gn,40); else if(!o.g) delete o.g; }
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
   // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
-  if(BOXABLE.has(o.type)){ o.bw=num(e.bw,0,0,100); o.bh=num(e.bh,0,0,100); }
+  if(BOXABLE.has(o.type)){ o.bw=num(e.bw,o.type==='chat'?26:0,0,100); o.bh=num(e.bh,o.type==='chat'?55:0,0,100); }
   return o;
 }
 // ---------- анимация движения по ключевым кадрам ----------
@@ -639,6 +647,7 @@ function buildNode(el){
   } else if(el.type==='image'){ c=document.createElement('img'); c.alt=''; c.draggable=false; }
   else if(el.type==='cs2'){ c=document.createElement('div'); c.className='cs2'; }
   else if(el.type==='msg'){ c=document.createElement('div'); c.className='msg'; }
+  else if(el.type==='chat'){ c=document.createElement('div'); c.className='chat'; }
   else if(el.type==='raffle'){ c=document.createElement('div'); c.className='raf'; }
   else if(el.type==='case'){ c=document.createElement('div'); c.className='case'; }
   else if(el.type==='poll'){
@@ -698,6 +707,12 @@ function paintNode(node, el, z){
     c.style.maxWidth=`calc(var(--u) * ${(el.maxw*16/9).toFixed(2)})`;
     const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.badge]);
     if(c._sig!==sig){ const had=!!c._sig; c._sig=sig; paintMsg(c, el); if(had){ c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); } }
+  } else if(el.type==='chat'){
+    c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
+    c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
+    node.style.width='';
+    c.dataset.theme=el.theme; c.dataset.align=el.align; c.classList.toggle('nob', !el.badges);
+    chatBind(c, el);
   } else if(el.type==='cs2'){
     const full=CS2_FULL.has(el.view);
     node.style.width = full ? '100%' : ''; node.classList.toggle('full', full);
@@ -1407,13 +1422,11 @@ function cs2Popup(c, ev){
 }
 // ---------- сообщение из чата ----------
 const BADGE = { mod:'🛡', vip:'💎', sub:'⭐', broadcaster:'🎥' };
-function paintMsg(c, el){
-  const head=h('div','m-head');
-  if(el.badge) head.append(h('span','m-badge', BADGE[el.badge]));
-  const nm=h('span','m-user', el.user||st('Зритель')); nm.style.color=el.ucolor; head.append(nm);
+// тело сообщения: текст и эмоуты Twitch картинками
+function msgBody(text, emotes){
   const body=h('div','m-text');
-  const cp=Array.from(el.text);                       // Twitch считает позиции эмоутов по символам
-  const em=[...el.emotes].sort((a,b)=>a[1]-b[1]); let i=0;
+  const cp=Array.from(text);                       // Twitch считает позиции эмоутов по символам
+  const em=[...emotes].sort((a,b)=>a[1]-b[1]); let i=0;
   for(const [id,a,b] of em){
     if(a<i || a>=cp.length) continue;
     if(a>i) body.append(document.createTextNode(cp.slice(i,a).join('')));
@@ -1422,5 +1435,105 @@ function paintMsg(c, el){
     body.append(img); i=b+1;
   }
   if(i<cp.length) body.append(document.createTextNode(cp.slice(i).join('')));
-  c.replaceChildren(head, body);
+  return body;
+}
+function paintMsg(c, el){
+  const head=h('div','m-head');
+  if(el.badge) head.append(h('span','m-badge', BADGE[el.badge]));
+  const nm=h('span','m-user', el.user||st('Зритель')); nm.style.color=el.ucolor; head.append(nm);
+  c.replaceChildren(head, msgBody(el.text, el.emotes));
+}
+
+// ---------- чат Twitch: анонимное чтение, одно соединение на канал ----------
+function cleanChan(ch){ return String(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
+function parseTags(str){
+  const o=Object.create(null); if(!str) return o;
+  for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
+    o[kv.slice(0,i)]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
+  return o;
+}
+function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]
+  const out=[]; if(!tag) return out;
+  for(const part of tag.split('/')){ const [id, ranges]=part.split(':'); if(!id || !ranges) continue;
+    for(const r of ranges.split(',')){ const [a,b]=r.split('-').map(Number); if(Number.isFinite(a)&&Number.isFinite(b)) out.push([id,a,b]); } }
+  return out;
+}
+function badgeOf(b){ b=b||''; return /broadcaster\//.test(b)?'broadcaster':/moderator\//.test(b)?'mod':/vip\//.test(b)?'vip':/(subscriber|founder)\//.test(b)?'sub':''; }
+const NAME_COLORS=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac'];
+function nameColor(login){ let n=0; for(const ch of login) n=(n*31+ch.charCodeAt(0))>>>0; return NAME_COLORS[n%NAME_COLORS.length]; }
+// одна строка IRC → { type:'msg', msg } | { type:'del', id } | { type:'clear', login } | null
+function ircMessage(line){
+  let m=line.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\w+ :(.*)$/);
+  if(m){
+    const tags=parseTags(m[1]), text=m[3].replace(/^\x01ACTION |\x01$/g,''), badge=badgeOf(tags.badges);
+    return { type:'msg', msg:{ id:tags.id||Math.random().toString(36).slice(2,10), login:m[2], user:tags['display-name']||m[2],
+      color:/^#[0-9a-f]{6}$/i.test(tags.color||'')?tags.color:nameColor(m[2]), text, emotes:parseEmotes(tags.emotes), badge,
+      mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', t:Date.now() } };
+  }
+  m=line.match(/^(?:@(\S+) )?:\S+ CLEARMSG #\w+ :/);
+  if(m){ const id=parseTags(m[1])['target-msg-id']; return id ? { type:'del', id } : null; }
+  m=line.match(/^(?:@(\S+) )?:\S+ CLEARCHAT #\w+(?: :(\S+))?\s*$/);
+  if(m) return { type:'clear', login:(m[2]||'').toLowerCase() };
+  return null;
+}
+const TwitchChat={
+  _c:new Map(),
+  subscribe(ch, cb){      // → функция отписки; когда подписчиков не осталось, соединение закрывается
+    ch=cleanChan(ch); if(!ch) return ()=>{};
+    let c=this._c.get(ch);
+    if(!c){ c={ ch, subs:new Set(), ws:null, timer:0, closed:false }; this._c.set(ch, c); this._open(c); }
+    c.subs.add(cb);
+    return ()=>{
+      c.subs.delete(cb);
+      if(c.subs.size || c.closed) return;
+      c.closed=true; clearTimeout(c.timer); this._c.delete(ch);
+      try{ c.ws && c.ws.close(); }catch{}
+    };
+  },
+  _open(c){
+    const ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443'); c.ws=ws;
+    ws.onopen=()=>{ ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands'); ws.send('PASS SCHMOOPIIE'); ws.send('NICK justinfan'+(10000+Math.random()*80000|0)); ws.send('JOIN #'+c.ch); };
+    ws.onmessage=ev=>{
+      for(const line of String(ev.data).split('\r\n')){
+        if(!line) continue;
+        if(line.startsWith('PING')){ ws.send('PONG'+line.slice(4)); continue; }
+        const r=ircMessage(line); if(!r) continue;
+        for(const cb of [...c.subs]){ try{ cb(r); }catch(e){ console.error(e); } }
+      }
+    };
+    ws.onclose=()=>{ if(c.closed || c.ws!==ws) return; c.timer=setTimeout(()=>{ if(!c.closed) this._open(c); }, 3000); };
+  }
+};
+// лента элемента «Чат»: подписка на канал, строки, исчезание, удалённое модератором
+function chatBind(c, el){
+  c._el=el; c._wasConn=c._wasConn || c.isConnected;
+  if(c._dir && c._dir!==el.dir) c.replaceChildren(...[...c.children].reverse());
+  c._dir=el.dir; c.dataset.dir=el.dir;
+  if(c._chan===el.chan) return;
+  if(c._unsub){ c._unsub(); c._unsub=null; }
+  c.replaceChildren(); c._chan=el.chan;
+  if(el.chan) c._unsub=TwitchChat.subscribe(el.chan, ev=>chatEvent(c, ev));
+}
+function chatEvent(c, ev){
+  if(!c.isConnected && c._wasConn){ if(c._unsub) c._unsub(); c._unsub=null; c._chan=null; return; }   // элемент убрали с экрана
+  const el=c._el; if(!el) return;
+  if(ev.type==='msg') chatAdd(c, el, ev.msg);
+  else if(ev.type==='del'){ for(const r of [...c.children]) if(r.dataset.id===ev.id) chatDrop(r); }
+  else if(ev.type==='clear'){ for(const r of [...c.children]) if(!ev.login || r.dataset.login===ev.login) chatDrop(r); }
+}
+function chatDrop(r){ if(r._gone) return; r._gone=true; clearTimeout(r._t); r.classList.add('gone'); setTimeout(()=>r.remove(), 320); }
+function paintChatLine(row, m){
+  const name=h('span','cl-name');
+  if(m.badge) name.append(h('span','m-badge', BADGE[m.badge]));
+  const u=h('span','m-user', m.user); u.style.color=m.color; name.append(u);
+  row.style.setProperty('--uc', m.color);
+  row.append(name, ...msgBody(m.text, m.emotes).childNodes);
+}
+function chatAdd(c, el, m){
+  const row=h('div','cl'); row.dataset.id=m.id; row.dataset.login=m.login.toLowerCase();
+  paintChatLine(row, m);
+  if(el.dir==='up') c.prepend(row); else c.append(row);
+  const live=[...c.children].filter(r=>!r._gone);
+  for(const old of (el.dir==='up' ? live.reverse() : live).slice(0, Math.max(0, live.length-el.max))) old.remove();
+  if(el.fade>0) row._t=setTimeout(()=>chatDrop(row), el.fade*1000);
 }

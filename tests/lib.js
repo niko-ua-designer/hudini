@@ -169,7 +169,7 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   const set = await host.api('/api/link', { link });
   await attach(panel, host);
   const online = await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 15000);
-  const widget = await newPage('widget', { w: 1920, h: 1080 });
+  const widget = await newPage('widget', { w: 1920, h: 1080, irc });
   await widget.goto(set.obsLink);
   await until(async () => /OBS: виден · 1920×1080/.test(await panel.textContent('#obsStatus')), 10000);
   return { web, host, panel, widget, link, online, obsLink: set.obsLink,

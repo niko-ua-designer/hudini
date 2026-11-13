@@ -606,6 +606,58 @@ const { step, check, eq, until, sleep } = T;
     check(await mod.evaluate(() => state.els.every(e => !e.g && !e.gn)) && !(await mod.$('#layers .layer.folder')), 'ungroup removes the folder and the name');
   });
 
+  await step('chat on stream: themes, feed, delete, fade, direction, channel', async () => {
+    await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
+    await mod.click('[data-tab=add]'); await mod.click('#addChatFeed');
+    eq(await mod.evaluate(() => state.els.length && state.els[0].type), 'chat', 'the tile adds a chat element');
+    await mod.fill('#iChChan', 'https://twitch.tv/Chan'); await mod.press('#iChChan', 'Enter');
+    eq(await mod.evaluate(() => state.els[0].chan), 'chan', 'channel is cleaned to a bare name');
+    const line = (user, text, id, emotes = '') => `@badge-info=;badges=;color=#1E90FF;display-name=${user};emotes=${emotes};id=${id};mod=0;subscriber=0 :${user.toLowerCase()}!${user.toLowerCase()}@x.tmi.twitch.tv PRIVMSG #chan :${text}`;
+    const send = l => wid.evaluate(x => window.__irc(x), l);
+    const rows = () => wid.$$eval('.chat .cl', n => n.length);
+    check(await until(() => wid.$('.chat[data-theme=glass]')), 'the stream shows the chat element with the default theme');
+    check(await until(() => wid.evaluate(() => !!window.__irc)), 'the widget opened its own chat connection');
+    await send(line('Kappa_Fan', 'Kappa привет стрим!', 'm1', '25:0-4'));
+    await send(line('Vasya', 'второе', 'm2'));
+    await send(line('Evil', '<img src=x onerror=alert(1)>', 'm3'));
+    check(await until(async () => (await rows()) === 3), 'three messages in the feed');
+    eq(await wid.$$eval('.chat .cl:first-child .m-emote', n => n.length), 1, 'emote is an image');
+    check(await wid.$eval('.chat .cl:last-child', n => n.textContent.includes('<img') && !n.querySelector('img')), 'HTML in a message stays plain text');
+    // удаление модератором и бан
+    await send('@login=vasya;room-id=1;target-msg-id=m2;tmi-sent-ts=1 :tmi.twitch.tv CLEARMSG #chan :второе');
+    check(await until(async () => (await rows()) === 2), 'a deleted message leaves the stream');
+    await send('@ban-duration=600;room-id=1;target-user-id=2 :tmi.twitch.tv CLEARCHAT #chan :kappa_fan');
+    check(await until(async () => (await rows()) === 1), 'a timeout removes that viewer messages');
+    await send(':tmi.twitch.tv CLEARCHAT #chan');
+    check(await until(async () => (await rows()) === 0), 'clear chat empties the feed');
+    // исчезание
+    await mod.evaluate(() => { state.els[0].fade = 1; changed(); });
+    await sleep(900);   // настройка доходит до виджета раньше сообщения
+    await send(line('Anna', 'исчезну', 'm4'));
+    check(await until(async () => (await rows()) === 1), 'message shown');
+    check(await until(async () => (await rows()) === 0, 5000), 'message fades away after the set time');
+    await mod.evaluate(() => { state.els[0].fade = 0; changed(); });
+    await sleep(900);
+    // порядок и тема
+    await send(line('A1', 'первое', 'm5')); await send(line('A2', 'второе', 'm6'));
+    check(await until(async () => (await rows()) === 2), 'two messages again');
+    check(await wid.$eval('.chat .cl:first-child', n => n.textContent.includes('первое')), 'new messages at the bottom by default');
+    await mod.evaluate(() => { state.els[0].dir = 'up'; changed(); });
+    check(await until(() => wid.$eval('.chat .cl:first-child', n => n.textContent.includes('второе'))), 'switching to new-on-top flips the feed');
+    for(const theme of ['bubbles', 'minimal', 'neon', 'panel', 'accent']){
+      await mod.evaluate(t => { state.els[0].theme = t; changed(); }, theme);
+      check(await until(() => wid.$(`.chat[data-theme=${theme}]`)), 'theme ' + theme);
+    }
+    await mod.evaluate(() => { state.els[0].theme = 'bogus'; changed(); });
+    eq(await mod.evaluate(() => sanitizeEl(state.els[0]).theme), 'glass', 'unknown theme falls back to glass');
+    // смена канала
+    await mod.evaluate(() => { state.els[0].chan = 'other'; changed(); });
+    check(await until(async () => (await rows()) === 0), 'switching the channel clears the feed');
+    await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
+    check(await until(async () => (await wid.$$('.chat')).length === 0), 'removed from the stream');
+    await mod.fill('#newText', 'А'); await mod.click('#addText');   // дальше шагам нужен непустой экран
+  });
+
   await step('scenes: save and restore the screen', async () => {
     mod.removeAllListeners('dialog'); mod.on('dialog', d => d.accept('Начало'));
     await mod.click('[data-tab=scenes]'); await mod.click('#sceneSave');

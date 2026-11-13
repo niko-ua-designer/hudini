@@ -11,6 +11,7 @@ const { step, check } = T;
     await p.click('[data-add=poll]');   // две вещи и папка с длинным именем: строки слоёв не должны вылезать
     await p.keyboard.press('Escape'); await p.keyboard.press('Control+KeyA'); await p.click('#tGroup');
     await p.evaluate(() => { state.els.forEach(e => { if(e.g) e.gn = 'Очень длинное название папки слоёв для проверки'; }); renderAll(); });
+    await p.click('#addChatFeed');   // выбран чат на стриме: проверяем и его инспектор
     const bad = [];
     for(const tab of ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room']){
       await p.click(`[data-tab=${tab}]`); await p.waitForTimeout(120);

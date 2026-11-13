@@ -677,7 +677,7 @@ function elIcon(el){
   if(el.type==='raffle') return '🎁';
   if(el.type==='case') return '📦';
   if(el.type==='cs2') return '🎯';
-  if(el.type==='msg') return '💬';
+  if(el.type==='msg' || el.type==='chat') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
 }
 function elName(el){
@@ -685,6 +685,7 @@ function elName(el){
   if(el.type==='timer') return (el.label||MODE_NAME[el.mode])+' · '+twState(el, nowMs()).text;
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
+  if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
@@ -884,6 +885,12 @@ function renderInspector(){
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
   if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
+  if(el.type==='chat'){
+    setField(I('iChChan'), el.chan); setField(I('iChTheme'), el.theme); setField(I('iChCard'), el.card); setField(I('iChAccent'), el.accent);
+    setField(I('iChFade'), String(el.fade)); $('vChFade').textContent = el.fade ? el.fade+' сек' : 'не исчезают';
+    setField(I('iChDir'), el.dir); setField(I('iChAlign'), el.align); setField(I('iChBadges'), el.badges, 'checked');
+    setField(I('iChMax'), String(el.max)); $('vChMax').textContent=String(el.max);
+  }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
   if(el.type==='case') renderCase(el);
@@ -1174,6 +1181,11 @@ $('newUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addUrl').cli
 $('pickFile').onclick=()=>$('fileInput').click();
 $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''; };
 $('addCam').onclick=addCam;
+$('addChatFeed').onclick=()=>{
+  const ch=cleanChan(curRoom()?.chat||'');
+  if(!ch) toast('Сначала укажи канал Twitch во вкладке «Чат»: пока лента пустая', 4000);
+  addEl({ type:'chat', chan:ch, x:16, y:64, fs:2.4, font:'montserrat', color:'#ffffff', card:'#15171d', accent:'#a78bfa', theme:'glass', fade:0, dir:'down', align:'left', max:12, badges:true, bw:26, bh:55 });
+};
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
   if(a==='case') return addCase();
@@ -1372,21 +1384,6 @@ $('bgClick').onclick=()=>setBgInteract(!stage.classList.contains('bg-interact'))
 let chatWs=null;
 const chatSeen=new Map();
 const chatLog=[];
-function parseTags(str){
-  const o=Object.create(null); if(!str) return o;
-  for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
-    o[kv.slice(0,i)]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
-  return o;
-}
-function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]
-  const out=[]; if(!tag) return out;
-  for(const part of tag.split('/')){ const [id, ranges]=part.split(':'); if(!id || !ranges) continue;
-    for(const r of ranges.split(',')){ const [a,b]=r.split('-').map(Number); if(Number.isFinite(a)&&Number.isFinite(b)) out.push([id,a,b]); } }
-  return out;
-}
-function badgeOf(b){ b=b||''; return /broadcaster\//.test(b)?'broadcaster':/moderator\//.test(b)?'mod':/vip\//.test(b)?'vip':/(subscriber|founder)\//.test(b)?'sub':''; }
-const NAME_COLORS=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac'];
-function nameColor(login){ let h=0; for(const ch of login) h=(h*31+ch.charCodeAt(0))>>>0; return NAME_COLORS[h%NAME_COLORS.length]; }
 function chatConnect(ch){
   chatDisconnect();
   ch=cleanChannel(ch);
@@ -1400,12 +1397,9 @@ function chatConnect(ch){
       if(!line) continue;
       if(line.startsWith('PING')){ ws.send('PONG'+line.slice(4)); continue; }
       if(/ 366 /.test(line)) setPill($('chatStatus'), 'ok', '#'+ch);
-      const m=line.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\w+ :(.*)$/);
-      if(!m) continue;
-      const tags=parseTags(m[1]), text=m[3].replace(/^\x01ACTION |\x01$/g,'');
-      const badge=badgeOf(tags.badges);
-      const msg={ id:tags.id||rid(8), login:m[2], user:tags['display-name']||m[2], color:/^#[0-9a-f]{6}$/i.test(tags.color||'')?tags.color:nameColor(m[2]),
-        text, emotes:parseEmotes(tags.emotes), badge, mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', t:Date.now() };
+      const r=ircMessage(line);
+      if(r?.type!=='msg') continue;
+      const msg=r.msg;
       onChat(msg.login, msg.text, msg);
       addChatRow(msg);
     }
@@ -1976,6 +1970,15 @@ bindInput('iCsTnT', (el,f)=>el.tnT=f.value.slice(0,30));
 bindInput('iCsSeries', (el,f)=>el.series=f.value.slice(0,120));
 bindInput('iCsSide',   (el,f)=>el.side=f.value);
 bindInput('iMaxw',      (el,f)=>el.maxw=Number(f.value));
+bindInput('iChChan',    (el,f)=>el.chan=cleanChan(f.value), 'change');
+bindInput('iChTheme',   (el,f)=>el.theme=f.value, 'change');
+bindInput('iChCard',    (el,f)=>el.card=f.value);
+bindInput('iChAccent',  (el,f)=>el.accent=f.value);
+bindInput('iChFade',    (el,f)=>el.fade=Math.round(Number(f.value)));
+bindInput('iChDir',     (el,f)=>el.dir=f.value, 'change');
+bindInput('iChAlign',   (el,f)=>el.align=f.value, 'change');
+bindInput('iChBadges',  (el,f)=>el.badges=f.checked, 'change');
+bindInput('iChMax',     (el,f)=>el.max=Math.round(Number(f.value)));
 bindInput('iMsgAccent', (el,f)=>el.accent=f.value);
 bindInput('iMsgCard',   (el,f)=>el.card=f.value);
 bindInput('iCsMinK',   (el,f)=>el.minK=Number(f.value));

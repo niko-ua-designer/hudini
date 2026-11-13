@@ -106,7 +106,7 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .h-rot{left:50%;top:-36px;margin-left:-7px;border-radius:50%;cursor:grab}
 .h-sw,.h-shh{display:none!important;border-radius:3px;background:var(--acc);border-color:#fff}
 .el.sel[data-type="image"] .h-sw,.el.sel[data-type="video"] .h-sw,.el.sel[data-type="image"] .h-shh,.el.sel[data-type="video"] .h-shh{display:block!important}
-.el.sel:is([data-type="text"],[data-type="timer"],[data-type="counter"],[data-type="poll"],[data-type="cs2"],[data-type="msg"]):not(.full) :is(.h-sw,.h-shh){display:block!important}
+.el.sel:is([data-type="text"],[data-type="timer"],[data-type="counter"],[data-type="poll"],[data-type="cs2"],[data-type="msg"],[data-type="chat"]):not(.full) :is(.h-sw,.h-shh){display:block!important}
 .h-sw{right:-10px;top:50%;margin-top:-10px;width:10px;height:20px;cursor:ew-resize}
 .h-shh{bottom:-10px;left:50%;margin-left:-10px;width:20px;height:10px;cursor:ns-resize}
 .h-rot::after{content:"";position:absolute;left:4px;top:12px;width:2px;height:20px;background:var(--acc)}
@@ -245,6 +245,8 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 .el.full.sel{outline:2px dashed var(--acc);outline-offset:-2px}
 .layer.msel{border-color:#b9a8ff;background:#211c3c}
 .layer .grp{font-size:10px;color:#b9a8ff}
+.chat:empty{min-height:calc(var(--u) * 6);outline:2px dashed #ffffff55;outline-offset:-2px;border-radius:.5em}
+.chat:empty::before{content:'💬';opacity:.6;font-size:2em;padding:.3em}
 .layer.folder{background:#201b38;border-color:#3b2f6e;font-weight:600}
 .layer.folder.sel{border-color:var(--acc);background:#2a2252}
 .layer.folder.msel{border-color:#b9a8ff}
@@ -318,6 +320,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2" class="wide" style="grid-column:span 2">🎯 CS2</button>
       <button data-add="case" style="grid-column:span 2" class="wide">📦 3D-кейс</button>
+      <button id="addChatFeed" class="wide" style="grid-column:span 2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
       <button id="addCam" class="wide" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
     </div>
 
@@ -595,6 +598,32 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
       <div class="row"><span class="hint">Полоска</span><input type="color" id="iMsgAccent"><span class="hint">Фон</span><input type="color" id="iMsgCard"></div>
     </div>
 
+    <!-- чат на стриме -->
+    <div data-for="chat" class="box">
+      <div class="t">💬 Чат на стриме</div>
+      <div class="hint">Лента всех сообщений канала. Размер меняют ручки на рамке на холсте. Сообщение по одному показывается кликом в «💬 Чат».</div>
+      <div class="lbl">Канал Twitch</div>
+      <input type="text" id="iChChan" placeholder="имя канала" maxlength="40" autocomplete="off">
+      <div class="lbl">Тема</div>
+      <select id="iChTheme">
+        <option value="glass">Стекло</option>
+        <option value="bubbles">Пузыри</option>
+        <option value="minimal">Минимализм</option>
+        <option value="neon">Неон</option>
+        <option value="panel">Панель</option>
+        <option value="accent">Карточки с полоской</option>
+      </select>
+      <div class="row"><span class="hint">Фон</span><input type="color" id="iChCard"><span class="hint">Акцент</span><input type="color" id="iChAccent"></div>
+      <div class="lbl"><span>Сообщение исчезает через</span><span id="vChFade"></span></div>
+      <input type="range" id="iChFade" min="0" max="120" step="1">
+      <div class="lbl">Новые сообщения</div>
+      <div class="row" style="margin:0"><select id="iChDir" class="grow"><option value="down">Снизу</option><option value="up">Сверху</option></select>
+        <select id="iChAlign" class="grow"><option value="left">Слева</option><option value="right">Справа</option></select></div>
+      <label class="chk" style="margin-top:6px"><input type="checkbox" id="iChBadges"> Значки (модератор, VIP, подписчик)</label>
+      <div class="lbl"><span>Сколько сообщений держать</span><span id="vChMax"></span></div>
+      <input type="range" id="iChMax" min="3" max="50" step="1">
+    </div>
+
     <!-- CS2 -->
     <div data-for="cs2" class="box">
       <div class="t">🎯 CS2</div>
@@ -703,7 +732,7 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
     </div>
 
     <!-- шрифт и цвет -->
-    <div data-for="text timer counter poll cs2 msg case">
+    <div data-for="text timer counter poll cs2 msg chat case">
       <div class="lbl">Шрифт</div>
       <div class="row" style="margin:0"><select id="iFont" class="grow">
         <option value="montserrat">Montserrat (жирный)</option>
