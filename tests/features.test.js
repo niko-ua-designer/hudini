@@ -773,6 +773,23 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('clock skew: edits from a panel with a slow clock are still newer than what it has seen', async () => {
+    const p = await T.newPage('skew', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const r = await p.evaluate(async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const sent = [];
+      useMain({ connected: true, subscribe(){}, unsubscribe(){}, publish(topic, box, opts, cb){ sent.push(box); cb(); }, on(){}, end(){} });
+      const ahead = Date.now() + 120000;   // у другого модератора часы спешат на 2 минуты
+      await onMessage(topics(room).state, await sealJSON(KEYS, { v: 2, from: 'mod_B', t: ahead, els: [{ id: 'b1', type: 'text', text: 'FROM_B' }] }, true), { retain: false });
+      addText('MINE'); await sleep(100);
+      const last = await unsealJSON(KEYS, sent.at(-1), true);
+      return { newer: last.t > ahead, els: last.els.map(e => e.text) };
+    });
+    eq(r, { newer: true, els: ['FROM_B', 'MINE'] }, 'our screen is stamped after the newest one seen');
+    await p.context().close();
+  });
+
   await step('a hostile backup or broken stored data cannot stop the panel', async () => {
     const p = await T.newPage('hostile', { app: false });
     const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });

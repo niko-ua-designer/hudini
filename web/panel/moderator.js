@@ -342,7 +342,9 @@ function publishNow(qos=0){
   if(!client || !client.connected){ if(room) pendingOffline=room; return; }
   if(offlineWait) return;   // ещё ждём сохранённый экран: отправим после него
   STREAM_LANG=streamLang();
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
+  // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
+  const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
