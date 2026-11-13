@@ -327,6 +327,7 @@ async function switchRoom(code){
   history.replaceState(null, '', location.pathname+keepQuery());
   renderRooms(); renderScenes(); renderScn(); $('scnEdit').hidden=true; lastEvSeq=null; updateLink(); renderAll();
   { const ch=curRoom()?.chat; if(ch) chatConnect(ch); }
+  window.__webChatRefresh?.();
 }
 
 // ================== ИЗМЕНЕНИЯ / ОТМЕНА ==================
@@ -1388,7 +1389,7 @@ function chatConnect(ch){
   chatDisconnect();
   ch=cleanChannel(ch);
   if(!ch) return;
-  { const r=curRoom(); if(r && r.chat!==ch){ r.chat=ch; saveRooms(); } } $('chatChan').value=ch;
+  { const r=curRoom(); if(r && r.chat!==ch){ r.chat=ch; saveRooms(); window.__webChatRefresh?.(); } } $('chatChan').value=ch;
   const ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443'); chatWs=ws;
   setPill($('chatStatus'), 'warn', 'подключение…'); $('chatBtn').textContent='Отключить';
   ws.onopen=()=>{ ws.send('CAP REQ :twitch.tv/tags'); ws.send('PASS SCHMOOPIIE'); ws.send('NICK justinfan'+(10000+Math.random()*80000|0)); ws.send('JOIN #'+ch); };
@@ -1461,7 +1462,7 @@ function showChatMsg(m){
   toast(`💬 ${m.user}: ${m.text.slice(0,40)}`);
 }
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
-$('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r){ delete r.chat; saveRooms(); } } else chatConnect($('chatChan').value); };
+$('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r){ delete r.chat; saveRooms(); window.__webChatRefresh?.(); } } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
 const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
 // ---- розыгрыш: участники живут в пульте (и в хранилище, чтобы пережить перезагрузку пульта) ----
@@ -2785,6 +2786,147 @@ async function checkPanelUpdate(){
   }catch{}
 }
 // В приложении пульт обновляется вместе с программой: баннер берёт состояние у приложения (app_state, событие hudini-update)
+// ================== БРАУЗЕР СПРАВА ==================
+// В приложении это настоящий webview поверх колонки (вход в Twitch, кнопки модератора работают как в обычном браузере),
+// вне приложения (сайт, тесты) — iframe: там Twitch и многие сайты встраивание запрещают.
+const WEB_KEY='overlay.browser', WEB_NATIVE=!!TAURI?.core;
+function webUrl(raw){   // http(s) и только чужие сайты; без схемы считаем https
+  raw=String(raw||'').trim(); if(!raw) return null;
+  if(!/^https?:\/\//i.test(raw)){ if(/^(javascript|data|file|blob|vbscript|about|mailto|tauri|chrome|ftp):/i.test(raw)) return null; raw='https://'+raw; }
+  let u; try{ u=new URL(raw); }catch{ return null; }
+  if(!/^https?:$/.test(u.protocol)) return null;
+  const h=u.hostname.toLowerCase().replace(/^\[|\]$/g,'');
+  if(h==='localhost' || h.endsWith('.localhost') || h==='::1' || h==='::' || /^127\./.test(h) || h==='0.0.0.0') return null;
+  return u.href;
+}
+const webCfg=(()=>{
+  const v=lsGet(WEB_KEY, null)||{};
+  const tabs=(Array.isArray(v.tabs)?v.tabs:[]).filter(t=>t && /^[a-z0-9]{1,12}$/.test(String(t.id)) && t.id!=='chat').slice(0,8).map(t=>({ id:String(t.id), url:webUrl(t.url)||'' }));
+  return { open:v.open===true, tabs, active:tabs.some(t=>t.id===v.active)?v.active:'chat' };
+})();
+const webCur={};   // id → адрес, который сейчас открыт во вкладке (приходит из приложения)
+let webFallback=false, webShown=null, webLastRect='';
+function webSave(){ lsSet(WEB_KEY, { open:webCfg.open, tabs:webCfg.tabs, active:webCfg.active }); }
+function webChatUrl(){ const ch=cleanChan(curRoom()?.chat||''); return ch ? `https://www.twitch.tv/popout/${ch}/chat?popout=` : null; }
+function webEmbedChatUrl(){ const ch=cleanChan(curRoom()?.chat||''); return ch ? `https://www.twitch.tv/embed/${ch}/chat?parent=${encodeURIComponent(location.hostname||'localhost')}&darkpopout` : null; }
+function webTab(id=webCfg.active){ return id==='chat' ? { id:'chat', url:webChatUrl()||'' } : (webCfg.tabs.find(t=>t.id===id) || { id:'chat', url:webChatUrl()||'' }); }
+function webTabName(t){
+  if(t.id==='chat') return window.HudiniI18n ? window.HudiniI18n.t('Чат канала') : 'Чат канала';
+  try{ return new URL(webCur[t.id]||t.url).hostname.replace(/^www\./,''); }catch{ return window.HudiniI18n ? window.HudiniI18n.t('Новая вкладка') : 'Новая вкладка'; }
+}
+function webRenderTabs(){
+  const box=$('webTabs'); box.replaceChildren();
+  for(const t of [{ id:'chat' }, ...webCfg.tabs]){
+    const b=document.createElement('button'); b.dataset.id=t.id; b.className=t.id===webCfg.active?'on':'';
+    const l=document.createElement('span'); l.className='tl'; l.textContent=webTabName(t); if(t.id!=='chat') l.setAttribute('data-i18n-skip',''); b.appendChild(l);
+    if(t.id!=='chat'){ const x=document.createElement('span'); x.className='x'; x.dataset.close=t.id; x.textContent='✕'; x.title='Закрыть вкладку'; b.appendChild(x); }
+    box.appendChild(b);
+  }
+  const add=document.createElement('button'); add.dataset.add='1'; add.textContent='+'; add.title='Новая вкладка'; box.appendChild(add);
+}
+function webRect(){ const r=$('webSlot').getBoundingClientRect(), d=window.devicePixelRatio||1; return { x:Math.round(r.left*d), y:Math.round(r.top*d), w:Math.round(r.width*d), h:Math.round(r.height*d) }; }
+function webPlace(force){
+  if(!WEB_NATIVE || webFallback || !webCfg.open) return;
+  const r=webRect(); if(r.w<8 || r.h<8) return;
+  const key=`${r.x},${r.y},${r.w},${r.h}`; if(!force && key===webLastRect) return; webLastRect=key;
+  TAURI.core.invoke('browser_place', r).catch(()=>{});
+}
+// то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
+function webBlocked(){
+  const slot=$('webSlot').getBoundingClientRect();
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','persistBox'].some(id=>{
+    const el=$(id); if(!el || el.hidden) return false;
+    const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
+    const r=el.getBoundingClientRect();
+    return r.width>0 && r.height>0 && r.left<slot.right && r.right>slot.left && r.top<slot.bottom && r.bottom>slot.top;
+  });
+}
+function webSync(){   // показывать webview только когда колонка открыта, у вкладки есть адрес и ничто не лежит сверху
+  const tab=webTab(), has=tab.id==='chat' ? !!webChatUrl() : !!webUrl(tab.url);
+  const want=webCfg.open && has && !webBlocked();
+  if(WEB_NATIVE && !webFallback && want!==webShown){ webShown=want; TAURI.core.invoke('browser_visible', { visible:want }).catch(()=>{}); }
+  $('webEmpty').hidden=has; $('webEmptyChat').hidden=tab.id!=='chat'; $('webEmptyNew').hidden=tab.id==='chat';
+}
+async function webShow(){   // открыть активную вкладку
+  webRenderTabs();
+  const tab=webTab(), url=tab.id==='chat' ? webChatUrl() : webUrl(tab.url);
+  $('webUrl').readOnly = tab.id==='chat';
+  $('webUrl').value = webCur[tab.id] || url || '';
+  const native=WEB_NATIVE && !webFallback;
+  $('webBack').disabled = $('webFwd').disabled = !native || !url;
+  $('webReload').disabled = !url;
+  $('webExt').disabled = !url;
+  if(!webCfg.open) return;
+  if(!url){ $('webFrame').hidden=true; $('webFrame').removeAttribute('src'); webShown=null; webSync(); return; }
+  if(native){
+    webPlace(true);
+    try{ await TAURI.core.invoke('browser_open', { id:tab.id, url }); webShown=null; webSync(); return; }
+    catch(e){ console.warn('browser_open', e); webFallback=true; }   // например, система без дочерних webview: остаётся iframe
+  }
+  const src = tab.id==='chat' ? webEmbedChatUrl() : url;
+  if($('webFrame').getAttribute('src')!==src) $('webFrame').src=src;
+  $('webFrame').hidden=false; $('webNote').hidden=false; webSync();
+}
+function setWebOpen(open){
+  webCfg.open=!!open; webSave();
+  document.body.classList.toggle('web', webCfg.open); $('webBtn').classList.toggle('on', webCfg.open);
+  if(webCfg.open) requestAnimationFrame(()=>requestAnimationFrame(()=>webShow()));
+  else if(WEB_NATIVE && !webFallback){ webShown=false; TAURI.core.invoke('browser_visible', { visible:false }).catch(()=>{}); }
+  window.dispatchEvent(new Event('resize'));
+}
+function webSelect(id){ webCfg.active=id; webSave(); webShow(); }
+function webNewTab(){
+  if(webCfg.tabs.length>=8) return toast('Слишком много вкладок');
+  const id='t'+Math.random().toString(36).slice(2,8).replace(/[^a-z0-9]/g,'a');
+  webCfg.tabs.push({ id, url:'' }); webCfg.active=id; webSave(); webShow(); $('webUrl').focus();
+}
+function webCloseTab(id){
+  const i=webCfg.tabs.findIndex(t=>t.id===id); if(i<0) return;
+  webCfg.tabs.splice(i,1); delete webCur[id];
+  if(webCfg.active===id) webCfg.active='chat';
+  if(WEB_NATIVE) TAURI.core.invoke('browser_close', { id }).catch(()=>{});
+  webSave(); webShow();
+}
+$('webBtn').onclick=()=>setWebOpen(!webCfg.open);
+$('webTabs').addEventListener('click', e=>{
+  const x=e.target.closest('[data-close]'); if(x) return webCloseTab(x.dataset.close);
+  if(e.target.closest('[data-add]')) return webNewTab();
+  const b=e.target.closest('button[data-id]'); if(b) webSelect(b.dataset.id);
+});
+$('webUrl').addEventListener('keydown', e=>{
+  if(e.key!=='Enter' || $('webUrl').readOnly) return;
+  const url=webUrl($('webUrl').value); if(!url) return toast('Нужен адрес сайта http(s)://…');
+  const t=webCfg.tabs.find(x=>x.id===webCfg.active); if(!t) return;
+  t.url=url; delete webCur[t.id]; webSave(); webShow();
+});
+$('webBack').onclick=()=>TAURI.core.invoke('browser_nav', { id:webCfg.active, op:'back' }).catch(()=>{});
+$('webFwd').onclick=()=>TAURI.core.invoke('browser_nav', { id:webCfg.active, op:'forward' }).catch(()=>{});
+$('webReload').onclick=()=>{
+  if(WEB_NATIVE && !webFallback) TAURI.core.invoke('browser_nav', { id:webCfg.active, op:'reload' }).catch(()=>{});
+  else { const f=$('webFrame'), s=f.getAttribute('src'); if(s){ f.removeAttribute('src'); f.src=s; } }
+};
+$('webExt').onclick=()=>{ const u=webCur[webCfg.active] || webTab().url || webChatUrl(); if(u && webUrl(u)) window.open(webUrl(u), '_blank', 'noopener'); };
+$('webChanGo').onclick=()=>{ const v=$('webChan').value; if(cleanChan(v)) chatConnect(v); };
+$('webChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('webChanGo').click(); });
+if(WEB_NATIVE && TAURI.event) TAURI.event.listen('hudini-browser', e=>{
+  const p=e.payload||{}, id=p.id==='chat' ? 'chat' : String(p.id||'');
+  if(typeof p.url!=='string') return;
+  webCur[id]=p.url;
+  if(id===webCfg.active && document.activeElement!==$('webUrl')) $('webUrl').value=p.url;
+  const t=webCfg.tabs.find(x=>x.id===id); if(t && webUrl(p.url)) { t.url=webUrl(p.url); webSave(); }
+  webRenderTabs();
+});
+window.__webChatRefresh=()=>{ if(webCfg.open && webCfg.active==='chat'){ delete webCur.chat; webShow(); } else webSync(); };   // сменился канал комнаты
+// положение и перекрытие: слежение за размером, окном и тем, что открылось поверх
+if(window.ResizeObserver) new ResizeObserver(()=>webPlace()).observe($('webSlot'));
+addEventListener('resize', ()=>webPlace());
+setInterval(()=>{ if(webCfg.open){ webPlace(); webSync(); } }, 400);   // колонку могли сдвинуть перетаскиванием окон, а меню открылись и закрылись
+let webSyncQ=0;
+new MutationObserver(()=>{ if(webCfg.open && !webSyncQ) webSyncQ=requestAnimationFrame(()=>{ webSyncQ=0; webSync(); }); }).observe(document.body, { subtree:true, attributes:true, attributeFilter:['hidden','class'], childList:true });
+document.body.classList.toggle('web', webCfg.open); $('webBtn').classList.toggle('on', webCfg.open);
+webRenderTabs();
+if(webCfg.open) requestAnimationFrame(()=>requestAnimationFrame(()=>webShow()));
+
 if(TAURI?.core){
   const showAppUpdate=u=>{
     const on=!!(u && u.state==='ready' && u.ver), b=$('updBanner');

@@ -7,7 +7,7 @@
   const HELP_URL = '../help.html';
   const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
   const TABS = ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room'];
-  const DEF = { v:1, lw:300, rw:310, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
+  const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
   // Ready layouts: one click, then everything can still be tuned by hand
   const PRESETS = {
     classic:{ name:'Классика', lw:300, rw:310, compact:false, fs:14, free:false },
@@ -27,7 +27,7 @@
     if(o.fold && typeof o.fold === 'object') for(const [k, v] of Object.entries(o.fold).slice(0, 80)) if(/^[a-z]+:\d{1,2}$/.test(k) && v === true) fold[k] = true;
     const win = {};
     for(const k of ['left', 'right']){ const w = o.win?.[k]; if(w && typeof w === 'object') win[k] = { x:n(w.x, 0, 8000, 0), y:n(w.y, 0, 8000, 0), w:n(w.w, 220, 1400, 300), h:n(w.h, 200, 3000, 600) }; }
-    return { v:1, lw:n(o.lw, 220, 560, DEF.lw), rw:n(o.rw, 240, 600, DEF.rw), swap:o.swap === true, compact:o.compact === true,
+    return { v:1, lw:n(o.lw, 220, 560, DEF.lw), rw:n(o.rw, 240, 600, DEF.rw), bw:n(o.bw, 260, 720, DEF.bw), swap:o.swap === true, compact:o.compact === true,
       fs:n(o.fs, 12, 17, DEF.fs), motion:['auto', 'bright', 'soft', 'min'].includes(o.motion) ? o.motion : 'auto', free:o.free === true, win, tabs:[...new Set(tabs)], fold,
       tour:n(o.tour, 0, 99, 0), persist:n(o.persist, 0, 4e12, 0) };
   }
@@ -54,7 +54,7 @@
   // ---------- apply ----------
   function apply(){
     const b = document.body;
-    b.style.setProperty('--lw', ui.lw + 'px'); b.style.setProperty('--rw', ui.rw + 'px'); b.style.setProperty('--fs', ui.fs + 'px');
+    b.style.setProperty('--lw', ui.lw + 'px'); b.style.setProperty('--rw', ui.rw + 'px'); b.style.setProperty('--bw', ui.bw + 'px'); b.style.setProperty('--fs', ui.fs + 'px');
     b.classList.toggle('swap', ui.swap); b.classList.toggle('compact', ui.compact);
     // motion: "auto" follows the system setting (reduced motion → almost none), otherwise soft
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -135,6 +135,17 @@
       });
       r.addEventListener('dblclick', () => { ui[side] = DEF[side]; apply(); save(); });
     }
+    // the browser column on the far right: its resizer sits on its left edge and drags the width the other way
+    const web = $('web'), rb = document.createElement('div'); rb.className = 'rz'; rb.id = 'rzB'; rb.title = 'Потяни, чтобы изменить ширину · двойной клик — по умолчанию';
+    web.appendChild(rb);
+    rb.addEventListener('pointerdown', e => {
+      e.preventDefault(); rb.setPointerCapture(e.pointerId); rb.classList.add('on');
+      const x0 = e.clientX, w0 = ui.bw;
+      const move = ev => { ui.bw = Math.min(720, Math.max(260, w0 - (ev.clientX - x0))); apply(); };
+      const up = () => { rb.classList.remove('on'); rb.removeEventListener('pointermove', move); save(); };
+      rb.addEventListener('pointermove', move); rb.addEventListener('pointerup', up, { once:true }); rb.addEventListener('pointercancel', up, { once:true });
+    });
+    rb.addEventListener('dblclick', () => { ui.bw = DEF.bw; apply(); save(); });
   }
 
   // ---------- tabs: drag to reorder ----------

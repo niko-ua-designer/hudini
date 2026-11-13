@@ -658,6 +658,52 @@ const { step, check, eq, until, sleep } = T;
     await mod.fill('#newText', 'А'); await mod.click('#addText');   // дальше шагам нужен непустой экран
   });
 
+  await step('browser on the right: tabs, address check, hides under menus, restored, iframe fallback', async () => {
+    const calls = () => mod.evaluate(() => window.__calls.filter(c => c[0].startsWith('browser_')));
+    const opened = async () => (await calls()).filter(c => c[0] === 'browser_open').map(c => c[1]);
+    await mod.evaluate(() => { window.__calls.length = 0; chatConnect('chan'); });
+    check(!(await mod.evaluate(() => document.body.classList.contains('web'))), 'the column starts closed');
+    await mod.click('#webBtn');
+    check(await mod.evaluate(() => document.body.classList.contains('web')), 'the globe button opens the column');
+    check(await until(async () => (await opened()).some(a => a.id === 'chat' && a.url === 'https://www.twitch.tv/popout/chan/chat?popout=')), 'the chat tab opens the popout chat of the room channel');
+    check((await calls()).some(c => c[0] === 'browser_place' && c[1].w > 100 && c[1].h > 100 && c[1].x > 300), 'the native view is placed inside the column: ' + JSON.stringify((await calls()).filter(c => c[0] === 'browser_place').at(-1)?.[1]));
+    // свои вкладки
+    await mod.click('#webTabs [data-add]');
+    await mod.fill('#webUrl', 'javascript:alert(1)'); await mod.press('#webUrl', 'Enter');
+    check(!(await opened()).some(a => /javascript/.test(a.url)), 'a javascript: address is refused');
+    await mod.fill('#webUrl', 'http://127.0.0.1:7778/'); await mod.press('#webUrl', 'Enter');
+    check(!(await opened()).some(a => /127\.0\.0\.1/.test(a.url)), 'local addresses are refused');
+    await mod.fill('#webUrl', 'example.com'); await mod.press('#webUrl', 'Enter');
+    check(await until(async () => (await opened()).some(a => a.id !== 'chat' && a.url === 'https://example.com/')), 'an address without a scheme becomes https');
+    eq(await mod.$$eval('#webTabs button[data-id]', n => n.length), 2, 'two tabs');
+    // меню поверх колонки: нативный webview прячется и возвращается
+    await mod.evaluate(() => { window.__calls.length = 0; });
+    await mod.click('#moreBtn');
+    check(await until(async () => (await calls()).some(c => c[0] === 'browser_visible' && c[1].visible === false)), 'the view hides under an open menu');
+    await mod.keyboard.press('Escape');
+    check(await until(async () => (await calls()).some(c => c[0] === 'browser_visible' && c[1].visible === true)), 'and comes back when the menu closes');
+    // смена канала меняет адрес чата
+    await mod.evaluate(() => { window.__calls.length = 0; chatConnect('other'); });
+    await mod.click('#webTabs button[data-id=chat]');
+    check(await until(async () => (await opened()).some(a => a.id === 'chat' && a.url.includes('/popout/other/chat'))), 'another channel opens that chat');
+    // вкладки сохраняются
+    const saved = await T.stored(mod, 'overlay.browser');
+    check(saved?.open === true && saved.tabs?.length === 1 && saved.tabs[0].url === 'https://example.com/', 'open state and tabs are stored: ' + JSON.stringify(saved));
+    // закрытие вкладки
+    await mod.evaluate(() => { window.__calls.length = 0; });
+    await mod.click('#webTabs [data-close]');
+    check(await until(async () => (await calls()).some(c => c[0] === 'browser_close')), 'closing a tab closes its view');
+    eq(await mod.$$eval('#webTabs button[data-id]', n => n.length), 1, 'only the chat tab is left');
+    await mod.click('#webBtn');
+    check(!(await mod.evaluate(() => document.body.classList.contains('web'))), 'the globe button closes the column');
+    // без приложения: iframe со встроенным чатом
+    const web = await T.newPage('web-iframe', { irc: true, app: false });
+    await web.goto(`${S.web.url}/panel/moderator.html`); await web.waitForFunction(() => window.hudiniReady);
+    await web.evaluate(() => chatConnect('chan')); await web.click('#webBtn');
+    check(await until(() => web.evaluate(() => { const f = document.getElementById('webFrame'); return !f.hidden && /twitch\.tv\/embed\/chan\/chat\?parent=/.test(f.getAttribute('src') || ''); })), 'without the app the chat is an iframe embed');
+    await web.context().close();
+  });
+
   await step('scenes: save and restore the screen', async () => {
     mod.removeAllListeners('dialog'); mod.on('dialog', d => d.accept('Начало'));
     await mod.click('[data-tab=scenes]'); await mod.click('#sceneSave');

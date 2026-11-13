@@ -20,9 +20,9 @@ use std::time::{Duration, Instant};
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent};
+use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder};
 use tauri::window::Color;
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_notification::NotificationExt;
@@ -720,6 +720,147 @@ fn open_data(app: AppHandle) -> Result<(), String> {
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
+// ---------- браузер справа: дочерние webview в окне пульта ----------
+// Нужен настоящий браузер (вход в Twitch, кнопки модератора в popout-чате), поэтому не iframe: Twitch и многие сайты
+// запрещают встраивание. Webview лежит поверх страницы пульта в прямоугольнике, который присылает пульт (browser_place,
+// физические пиксели). Права приложения (capabilities) выданы только webview «main», дочерние их не получают.
+struct Browser {
+    rect: Mutex<(i32, i32, u32, u32)>,
+    active: Mutex<Option<String>>,
+    shown: AtomicBool,
+}
+
+impl Default for Browser {
+    fn default() -> Self {
+        Browser { rect: Mutex::new((0, 0, 320, 480)), active: Mutex::new(None), shown: AtomicBool::new(true) }
+    }
+}
+
+fn browser_label(id: &str) -> Result<String, String> {
+    if (1..=12).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()) {
+        Ok(format!("web-{id}"))
+    } else {
+        Err("bad tab id".into())
+    }
+}
+
+// Только http(s) и только чужие сайты: страницы самого Hudini (сервер на 127.0.0.1) во встроенный браузер не пускаем
+fn browser_url(raw: &str) -> Result<Url, String> {
+    let u = Url::parse(raw).map_err(|e| e.to_string())?;
+    if !matches!(u.scheme(), "http" | "https") {
+        return Err("only http(s) addresses".into());
+    }
+    let host = u.host_str().ok_or("no host")?.to_ascii_lowercase();
+    let ip = host.trim_matches(['[', ']']).parse::<std::net::IpAddr>().ok();
+    if host == "localhost" || host.ends_with(".localhost") || ip.is_some_and(|i| i.is_loopback() || i.is_unspecified()) {
+        return Err("local addresses are not allowed".into());
+    }
+    Ok(u)
+}
+
+// Показываем только активную вкладку и только когда ничто в пульте (меню, справка) не должно быть поверх неё
+fn browser_sync(app: &AppHandle) {
+    let b = app.state::<Browser>();
+    let active = b.active.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let shown = b.shown.load(Ordering::SeqCst);
+    for (label, wv) in app.webviews() {
+        if !label.starts_with("web-") {
+            continue;
+        }
+        if shown && active.as_deref() == Some(label.as_str()) {
+            let _ = wv.show();
+        } else {
+            let _ = wv.hide();
+        }
+    }
+}
+
+#[tauri::command]
+fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), String> {
+    let label = browser_label(&id)?;
+    let url = browser_url(&url)?;
+    *app.state::<Browser>().active.lock().unwrap_or_else(|e| e.into_inner()) = Some(label.clone());
+    if let Some(wv) = app.get_webview(&label) {
+        if wv.url().map(|u| u != url).unwrap_or(true) {
+            wv.navigate(url).map_err(|e| e.to_string())?;
+        }
+        browser_sync(&app);
+        return Ok(());
+    }
+    let window = app.get_window(MAIN).ok_or("no window")?;
+    let (x, y, w, h) = *app.state::<Browser>().rect.lock().unwrap_or_else(|e| e.into_inner());
+    let popup = app.clone();
+    let loaded = app.clone();
+    let popup_label = label.clone();
+    let tab = id.clone();
+    let builder = WebviewBuilder::new(label, WebviewUrl::External(url))
+        .on_navigation(|u| browser_url(u.as_str()).is_ok() || u.as_str() == "about:blank")
+        // ссылки «в новом окне» открываем в этой же вкладке
+        .on_new_window(move |u, _features| {
+            if let (Ok(u), Some(wv)) = (browser_url(u.as_str()), popup.get_webview(&popup_label)) {
+                let _ = wv.navigate(u);
+            }
+            NewWindowResponse::Deny
+        })
+        .on_page_load(move |_wv, payload| {
+            if let PageLoadEvent::Finished = payload.event() {
+                let _ = loaded.emit("hudini-browser", serde_json::json!({ "id": tab, "url": payload.url().as_str() }));
+            }
+        });
+    window.add_child(builder, PhysicalPosition::new(x, y), PhysicalSize::new(w, h)).map_err(|e| e.to_string())?;
+    browser_sync(&app);
+    Ok(())
+}
+
+// Прямоугольник под браузер (физические пиксели окна): пульт присылает его при каждом изменении раскладки
+#[tauri::command]
+fn browser_place(app: AppHandle, x: i32, y: i32, w: u32, h: u32) {
+    let (w, h) = (w.clamp(1, 16384), h.clamp(1, 16384));
+    *app.state::<Browser>().rect.lock().unwrap_or_else(|e| e.into_inner()) = (x, y, w, h);
+    for (label, wv) in app.webviews() {
+        if label.starts_with("web-") {
+            let _ = wv.set_position(PhysicalPosition::new(x, y));
+            let _ = wv.set_size(PhysicalSize::new(w, h));
+        }
+    }
+}
+
+// Спрятать браузер, пока поверх него открыто меню или справка пульта (нативный webview всегда выше страницы)
+#[tauri::command]
+fn browser_visible(app: AppHandle, visible: bool) {
+    app.state::<Browser>().shown.store(visible, Ordering::SeqCst);
+    browser_sync(&app);
+}
+
+#[tauri::command]
+fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
+    let label = browser_label(&id)?;
+    {
+        let b = app.state::<Browser>();
+        let mut active = b.active.lock().unwrap_or_else(|e| e.into_inner());
+        if active.as_deref() == Some(label.as_str()) {
+            *active = None;
+        }
+    }
+    if let Some(wv) = app.get_webview(&label) {
+        wv.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn browser_nav(app: AppHandle, id: String, op: String) -> Result<(), String> {
+    let label = browser_label(&id)?;
+    let wv = app.get_webview(&label).ok_or("no such tab")?;
+    let js = match op.as_str() {
+        "back" => "history.back()",
+        "forward" => "history.forward()",
+        "reload" => "location.reload()",
+        _ => return Err("bad operation".into()),
+    };
+    wv.eval(js).map_err(|e| e.to_string())
+}
+
 // «Скрыть» баннер о прошлом падении: файл остаётся, но помечается как просмотренный
 #[tauri::command]
 fn crash_dismiss(name: String) {
@@ -857,7 +998,8 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(Server::default())
         .manage(RelayState::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss])
+        .manage(Browser::default())
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;

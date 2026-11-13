@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "host-ui",
   "description": "The management page served by the Hudini server (http://127.0.0.1:<port>/): may only read and switch autostart.",
-  "windows": [
+  "webviews": [
     "main"
   ],
   "remote": {

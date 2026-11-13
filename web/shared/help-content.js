@@ -51,6 +51,7 @@ ru: {
 ['chat', 'Чат, голосования, счётчики β', `
 <p>Вкладка 💬 Чат читает чат Twitch без входа в аккаунт. Клик по сообщению показывает его на стриме.</p>
 <p>Кнопка <b>💬 Чат на стриме</b> во вкладке «Добавить» выводит на стрим ленту всех сообщений канала сбоку. Тему оформления (стекло, пузыри, минимализм, неон, панель, карточки), исчезание сообщений через N секунд, порядок (новые снизу или сверху) и значки настраивают справа. Сообщение, которое модератор удалил, или зритель, которого забанили или отправили в таймаут, сразу пропадают и с экрана. Показ одного сообщения кликом работает как раньше.</p>
+<p>Кнопка <b>🌐</b> в шапке открывает браузер справа. По умолчанию там чат Twitch твоего канала: войди в свой аккаунт один раз, и все кнопки модератора (удалить, таймаут, бан) работают как на сайте. Кнопка «+» добавляет вкладки с любыми сайтами. Ширина колонки меняется за её левый край. Это работает в программе Hudini; на сайте вместо неё встроенный чат.</p>
 <p><b>Голосование</b>: зрители пишут цифру варианта. Один зритель — один голос, засчитывается последний выбор. <b>Счётчик</b> в режиме «По сообщениям в чате» считает команду или слово (например, «F»), можно только от модераторов.</p>
 <p>Подключай чат только в одном пульте, иначе всё посчитается дважды.</p>
 <p><b>Команды в чате</b> (Чат → «Команды в чате», выбери, кому можно): <code>!опрос</code>, <code>!опрос 60</code> — закрыть само через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
@@ -170,6 +171,7 @@ en: {
 ['chat', 'Chat, polls, counters β', `
 <p>The 💬 Chat tab reads Twitch chat without logging in. Click a message to show it on stream.</p>
 <p>The <b>💬 Chat on stream</b> button in the Add tab puts a feed of all channel messages on the side of the stream. Set the theme (glass, bubbles, minimal, neon, panel, cards), how long a message stays, the order (new at the bottom or on top) and the badges on the right. A message a moderator deletes, or a viewer who is banned or timed out, disappears from the screen right away. Showing a single message by click works as before.</p>
+<p>The <b>🌐</b> button in the header opens a browser on the right. By default it shows the Twitch chat of your channel: log in once and all moderator buttons (delete, timeout, ban) work like on the site. The «+» button adds tabs with any website. Drag the column's left edge to resize it. This works in the Hudini app; on the website an embedded chat is shown instead.</p>
 <p><b>Poll</b>: viewers type the number of an option. One viewer, one vote; the last choice counts. The <b>counter</b> in "By chat messages" mode counts a command or a word (for example "F"), optionally from moderators only.</p>
 <p>Connect the chat in one panel only, otherwise everything is counted twice.</p>
 <p><b>Chat commands</b> (Chat → “Chat commands”, choose who may use them): <code>!poll</code>, <code>!poll 60</code> to close by itself in 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
@@ -289,6 +291,7 @@ uk: {
 ['chat', 'Чат, голосування, лічильники β', `
 <p>Вкладка 💬 Чат читає чат Twitch без входу в акаунт. Клік по повідомленню показує його на стримі.</p>
 <p>Кнопка <b>💬 Чат на стрімі</b> на вкладці «Додати» виводить на стрім стрічку всіх повідомлень каналу збоку. Тему оформлення (скло, бульбашки, мінімалізм, неон, панель, картки), зникання повідомлень через N секунд, порядок (нові знизу або зверху) та значки налаштовують праворуч. Повідомлення, яке модератор видалив, або глядач, якого забанили чи відправили в таймаут, одразу зникають і з екрана. Показ одного повідомлення кліком працює як раніше.</p>
+<p>Кнопка <b>🌐</b> у шапці відкриває браузер праворуч. За замовчуванням там чат Twitch твого каналу: увійди у свій акаунт один раз, і всі кнопки модератора (видалити, таймаут, бан) працюють як на сайті. Кнопка «+» додає вкладки з будь-якими сайтами. Ширина колонки змінюється за її лівий край. Це працює в програмі Hudini; на сайті замість неї вбудований чат.</p>
 <p><b>Голосування</b>: глядачі пишуть цифру варіанта. Один глядач — один голос, зараховується останній вибір. <b>Лічильник чату</b> рахує команду чи слово (наприклад, «F»).</p>
 <p>Підключай чат лише в одному пульті, інакше все порахується двічі.</p>
 <p><b>Команди в чаті</b> (Чат → «Команди в чаті», вибери, кому можна): <code>!опрос</code>, <code>!опрос 60</code> — закрити саме через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
@@ -408,6 +411,7 @@ de: {
 ['chat', 'Chat, Umfragen, Zähler β', `
 <p>Der Tab 💬 Chat liest den Twitch-Chat ohne Anmeldung. Ein Klick auf eine Nachricht zeigt sie im Stream.</p>
 <p>Die Schaltfläche <b>💬 Chat im Stream</b> im Tab „Hinzufügen“ zeigt am Rand des Streams einen Feed aller Kanalnachrichten. Design (Glas, Blasen, Minimal, Neon, Panel, Karten), wie lange eine Nachricht stehen bleibt, die Reihenfolge (neue unten oder oben) und die Abzeichen stellst du rechts ein. Eine vom Moderator gelöschte Nachricht oder ein gesperrter bzw. stummgeschalteter Zuschauer verschwindet sofort auch vom Bildschirm. Einzelne Nachrichten per Klick zeigen funktioniert wie bisher.</p>
+<p>Die Schaltfläche <b>🌐</b> in der Kopfzeile öffnet rechts einen Browser. Standardmäßig zeigt er den Twitch-Chat deines Kanals: Melde dich einmal an, und alle Moderatorknöpfe (löschen, Timeout, Bann) funktionieren wie auf der Seite. Mit «+» fügst du Tabs mit beliebigen Websites hinzu. Die Breite änderst du am linken Rand der Spalte. Das funktioniert in der Hudini-App; auf der Website wird stattdessen ein eingebetteter Chat gezeigt.</p>
 <p><b>Umfrage</b>: Zuschauer schreiben die Nummer einer Option. Ein Zuschauer, eine Stimme; die letzte Wahl zählt. Der <b>Chat-Zähler</b> zählt einen Befehl oder ein Wort (zum Beispiel „F“).</p>
 <p>Verbinde den Chat nur in einem Pult, sonst wird alles doppelt gezählt.</p>
 <p><b>Chat-Befehle</b> (Chat → „Chat-Befehle“, wähle, wer sie nutzen darf): <code>!poll</code>, <code>!poll 60</code> schließt nach 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],

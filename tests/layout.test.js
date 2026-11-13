@@ -12,6 +12,9 @@ const { step, check } = T;
     await p.keyboard.press('Escape'); await p.keyboard.press('Control+KeyA'); await p.click('#tGroup');
     await p.evaluate(() => { state.els.forEach(e => { if(e.g) e.gn = 'Очень длинное название папки слоёв для проверки'; }); renderAll(); });
     await p.click('#addChatFeed');   // выбран чат на стриме: проверяем и его инспектор
+    await p.click('#webBtn'); await p.waitForTimeout(300);   // и колонку браузера справа
+    const stageW = await p.evaluate(() => document.getElementById('stageBox').clientWidth);
+    check(stageW > 330, 'the canvas keeps a usable width with the browser open: ' + stageW);
     const bad = [];
     for(const tab of ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room']){
       await p.click(`[data-tab=${tab}]`); await p.waitForTimeout(120);

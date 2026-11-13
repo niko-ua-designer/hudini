@@ -3,6 +3,13 @@
 /* ---------- layout from settings (CSS variables set by ui.js) ---------- */
 body{grid-template-columns:calc(var(--lw,300px) + var(--rail,100px)) 1fr var(--rw,310px);font-size:var(--fs,14px)}
 body.swap{grid-template-columns:var(--rw,310px) 1fr calc(var(--lw,300px) + var(--rail,100px));grid-template-areas:"top top top" "right main left"}
+/* browser column on the far right (body.web is set by the panel) */
+body.web{grid-template-columns:calc(var(--lw,300px) + var(--rail,100px)) 1fr var(--rw,310px) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "left main right web"}
+body.web.swap{grid-template-columns:var(--rw,310px) 1fr calc(var(--lw,300px) + var(--rail,100px)) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "right main left web"}
+body.free.web #web{position:fixed;z-index:61;right:0;top:48px;bottom:0;width:var(--bw,360px)}
+#rzB{position:absolute;top:0;bottom:0;left:0;width:6px;cursor:col-resize;z-index:50;touch-action:none}
+#rzB:hover,#rzB.on{background:var(--acc)}
+body.free #rzB{display:none}
 body.swap #left{border-right:0;border-left:1px solid var(--line)}
 body.swap #right{border-left:0;border-right:1px solid var(--line)}
 body.compact aside{padding:6px 8px 30px}
