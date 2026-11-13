@@ -34,6 +34,28 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     eq(await until(async () => (await texts(widget)).includes('ПРИВЕТ') && await texts(widget)), ['ПРИВЕТ'], 'widget shows the text');
   });
 
+  await step('hostile screen data: one bad element is dropped, ids are unique', async () => {
+    const r = await widget.evaluate(() => {
+      const vals = [null, undefined, 1e308, -1e308, 'x', '', [], {}, ['#ffffff'], ['asset:abcdef12'], { toString: 1 }, { valueOf: 1 }, '__proto__', true, 'javascript:alert(1)', 'https://a.b/x'];
+      const keys = ['id', 'x', 'y', 'text', 'src', 'url', 'fs', 'color', 'font', 'emotes', 'items', 'reel', 'av', 'snd', 'votes', 'opts', 'kf', 'g', 'gn', 'chan', 'win', 'kind', 'theme', 'max', 'mode', 'tz', 'value', 'endSound', 'logo', 'pimg', 'vfx', 'kc', 'card', 'bc', 'ttl'];
+      const TY = ['text', 'image', 'video', 'timer', 'counter', 'web', 'poll', 'cs2', 'msg', 'chat', 'raffle', 'case'];
+      let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      let thrown = 0; const bad = new Set();
+      for(let i = 0; i < 3000; i++){
+        const e = {}; for(const k of keys) if(rnd() < 0.4) e[k] = vals[rnd() * vals.length | 0];
+        e.type = TY[i % TY.length]; e.id = 'e' + i;
+        try{
+          const s = sanitizeState({ els: [e, { id: 'ok', type: 'text', text: 'ok' }], raffle: rnd() < 0.2 ? { ...e } : undefined, fonts: [{ id: { toString: 1 } }] });
+          if(!s.els.some(x => x.id === 'ok')) bad.add('good element lost');
+          for(const x of drawList(s)) for(const k of ['color', 'src', 'card', 'kc', 'bc', 'url', 'text', 'logo', 'chan']) if(k in x && typeof x[k] !== 'string') bad.add(x.type + '.' + k);
+        }catch{ thrown++; }
+      }
+      const dup = sanitizeState({ els: [{ id: 'a', type: 'text', text: '1' }, { id: 'a', type: 'web', url: 'https://example.com/' }, { id: 'raffle1', type: 'text' }], raffle: { id: 'a', phase: 'idle' } });
+      return { thrown, bad: [...bad], ids: drawList(dup).map(x => x.id + ':' + x.type) };
+    });
+    eq(r, { thrown: 0, bad: [], ids: ['a:text', 'raffle1:text', 'raffle2:raffle'] }, 'fuzzed elements never break the screen; duplicate ids keep the first, a colliding raffle is renamed');
+  });
+
   await step('files are stored encrypted on disk and shown in OBS', async () => {
     await panel.setInputFiles('#fileInput', IMG);
     const img = await until(() => widget.$$eval('img.content', n => n.filter(i => i.src.startsWith('blob:') && i.naturalWidth > 0).length), 10000);

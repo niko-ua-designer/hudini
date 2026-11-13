@@ -93,12 +93,14 @@ let CLOCK_OFFSET = 0;
 const nowMs = () => Date.now() + CLOCK_OFFSET;
 
 // ---------- проверка данных ----------
-function num(v, d, min, max){ v = Number(v); if(!Number.isFinite(v)) v = d; return Math.min(max, Math.max(min, v)); }
-function hex(v, d){ return /^#[0-9a-f]{6}$/i.test(v) ? v : d; }
-function str(v, n){ return String(v ?? '').slice(0, n); }
-function safeUrl(u){ try{ const p = new URL(String(u).trim()); return (p.protocol==='https:'||p.protocol==='http:') ? p.href : null; }catch{ return null; } }
+// Берём только простые значения: объект вроде {"toString":1} иначе роняет проверку, а массив ['#fff'] проходит как строка
+const prim = v => typeof v==='string' || typeof v==='number' || typeof v==='boolean';
+function num(v, d, min, max){ v = prim(v) ? Number(v) : NaN; if(!Number.isFinite(v)) v = d; return Math.min(max, Math.max(min, v)); }
+function hex(v, d){ return typeof v==='string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d; }
+function str(v, n){ return (prim(v) ? String(v) : '').slice(0, n); }
+function safeUrl(u){ if(typeof u!=='string') return null; try{ const p = new URL(u.trim()); return (p.protocol==='https:'||p.protocol==='http:') ? p.href : null; }catch{ return null; } }
 const ASSET_RE = /^asset:([a-z0-9]{6,24})$/;
-function assetId(src){ const m = ASSET_RE.exec(src || ''); return m ? m[1] : null; }
+function assetId(src){ const m = typeof src==='string' ? ASSET_RE.exec(src) : null; return m ? m[1] : null; }
 // Сайт на экране не может быть самим пультом, страницами Hudini или программой стримера на этом ПК
 const HUDINI_SITE = 'https://niko-ua-designer.github.io';
 function blockedEmbed(url){
@@ -313,13 +315,19 @@ function animApply(node, el, now){
 }
 // Готовые анимации (kfPreset, KF_PRESETS) лежат в presets/animations.js: они под лицензией MIT.
 
+// Испорченный элемент выкидываем один, а не весь экран
+function sanitizeElSafe(e){ try{ return sanitizeEl(e); }catch{ return null; } }
 function sanitizeState(m){
-  let els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeEl).filter(Boolean) : [];
+  let els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeElSafe).filter(Boolean) : [];
   // Розыгрыш один на экран и живёт не в списке слоёв, а в state.raffle. Старый экран: первый розыгрыш из списка переезжает.
-  const raffle = sanitizeEl(m?.raffle ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
+  const raffle = sanitizeElSafe(m?.raffle && typeof m.raffle==='object' ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
   els = els.filter(e => e.type!=='raffle');
+  // id у каждого свой: с двумя одинаковыми экран пересобирал бы элементы при каждом обновлении. Остаётся первый.
+  const ids = new Set();
+  els = els.filter(e => !ids.has(e.id) && ids.add(e.id));
+  if(raffle && ids.has(raffle.id)){ let n = 1; while(ids.has('raffle'+n)) n++; raffle.id = 'raffle'+n; }
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
-    .filter(f => /^[a-z0-9]{6,24}$/.test(f?.id||'')).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
+    .filter(f => typeof f?.id==='string' && /^[a-z0-9]{6,24}$/.test(f.id)).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
   return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
@@ -1449,7 +1457,7 @@ function paintMsg(c, el){
 }
 
 // ---------- чат Twitch: анонимное чтение, одно соединение на канал ----------
-function cleanChan(ch){ return String(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
+function cleanChan(ch){ return (typeof ch==='string' ? ch : '').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
 function parseTags(str){
   const o=Object.create(null); if(!str) return o;
   for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
