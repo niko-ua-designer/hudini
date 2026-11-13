@@ -118,7 +118,8 @@ const stored = (page, key) => page.evaluate(k => { try{ return JSON.parse(localS
 let browser = null;
 const pageErrors = [];
 async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false, app = !name.startsWith('widget') } = {}){
-  browser ||= await chromium.launch();
+  // HUDINI_TEST_GPU=1: real GPU (Vulkan) instead of software GL: smooth 3D and animations in screen recordings
+  browser ||= await chromium.launch(process.env.HUDINI_TEST_GPU ? { args: ['--ignore-gpu-blocklist', '--enable-gpu', '--use-angle=vulkan', '--enable-features=Vulkan', '--disable-vulkan-surface'] } : {});
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: Number(process.env.HUDINI_TEST_DSF || 1), ignoreHTTPSErrors: true });   // HUDINI_TEST_DSF=2: sharper screen recordings
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
