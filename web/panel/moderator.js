@@ -2008,12 +2008,14 @@ function renderCsHud(el){
   setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx); setField(I('iCsTheme'), el.theme); I('iCsFlip').checked=el.flip;
   setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
   const list=$('csAvList'); list.replaceChildren();
-  const names=[...new Set([...csNames().map(n=>n.toLowerCase()), ...Object.keys(el.av)])];
+  // после отмены или копирования av — обычный объект: ищем только свои ключи (игрок мог назваться constructor)
+  const own=el.av||{}, av=n=>Object.hasOwn(own, n) ? own[n] : '';
+  const names=[...new Set([...csNames().map(n=>n.toLowerCase()), ...Object.keys(own)])];
   for(const n of names){
     const r=document.createElement('div'); r.className='row';
-    const nm=document.createElement('span'); nm.className='grow hint'; nm.textContent=(csNames().find(x=>x.toLowerCase()===n)||n)+(el.av[n]?' ✓':''); nm.dataset.i18nSkip='';
-    const b=document.createElement('button'); b.textContent=el.av[n]?'🗑':'📁'; b.title=el.av[n]?'Убрать аватарку':'Выбрать картинку';
-    b.onclick=()=>{ if(el.av[n]) setAvatar(n, null); else { $('csAvName').value=n; $('csAvFile').click(); } };
+    const nm=document.createElement('span'); nm.className='grow hint'; nm.textContent=(csNames().find(x=>x.toLowerCase()===n)||n)+(av(n)?' ✓':''); nm.dataset.i18nSkip='';
+    const b=document.createElement('button'); b.textContent=av(n)?'🗑':'📁'; b.title=av(n)?'Убрать аватарку':'Выбрать картинку';
+    b.onclick=()=>{ if(av(n)) setAvatar(n, null); else { $('csAvName').value=n; $('csAvFile').click(); } };
     r.append(nm, b); list.appendChild(r);
   }
 }
