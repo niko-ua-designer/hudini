@@ -6,126 +6,98 @@
 
 ## English
 
-The app for the streamer's PC. Since Hudini 1.0 it is required: it serves the overlay to OBS, stores the moderators' files, receives live CS2 data and lets moderators connect through a tunnel.
+The server part of the Hudini app (`hudini-server` next to the app). On the streamer's PC it serves the overlay to OBS, stores the moderators' files, receives live CS2 data and accepts moderators on port **7778** (TLS). In the moderator role it opens no ports and only takes care of updates.
 
 ### How to use
 
-1. Download the app from [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4). For Windows that's `HudiniHost-windows-1.0rc4.zip`.
-2. Unzip it and run the app from the **Hudini Host** folder. It's portable: settings, files, cache and cloudflared live in `data/` next to it. To remove Hudini completely, delete the folder.
-   Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). If Windows asks about network access, allow private networks.
-3. The control page `http://127.0.0.1:7777` opens:
+1. Download the zip for your system from [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), for Windows `HudiniHost-windows-1.0.zip`.
+2. Unzip it and start Hudini from the `HudiniHost` folder (macOS: `Hudini.app`). Choose **Streamer** on the start screen. It's portable: settings, files, certificate and logs live in `data/` next to it. To remove Hudini, delete the folder.
+   Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). Allow Hudini in private networks when the firewall asks.
+3. The control page opens in the app window:
    - **First start:** choose how much space the moderators' files get (100 MB per file, 2 GB in total, 300 files by default).
-   - **Step 1:** paste the link from your moderator (panel button **📋 Copy**). One time only.
-   - **Step 2:** copy the **OBS link** and paste it into the URL of an OBS Browser Source (**1920×1080**, then `Ctrl+F`).
-   - **Step 3 (CS2, optional):** click **🎯 Connect CS2** and restart the game.
-4. Keep the app window open while streaming.
+   - **Code for the moderator:** copy the `hudini1:...` code and send it only to your moderator. They paste it in Hudini on the **Moderator** tab.
+   - **OBS link:** paste it into an OBS Browser Source (**1920×1080**, then `Ctrl+F`).
+   - **CS2 (optional):** click **🎯 Connect CS2** and restart the game.
+4. Keep Hudini running while streaming (it can sit in the tray).
 
-The panel finds the app by itself and shows **online · Hudini Host**.
+### Connecting a moderator
+
+There is no relay server: the moderator connects straight to TCP port 7778 on your PC over a network you share: Radmin VPN, Tailscale, ZeroTier, Porthole (Steam) or port forwarding (enter your public `address:port` on the control page). The connection is TLS; the certificate is checked by the fingerprint inside the code. Guides for each way are on the [site](https://niko-ua-designer.github.io/hudini/).
 
 ### Files
 
-Pictures, GIFs, videos and sounds uploaded by moderators are stored in `data/files/` next to the app, **encrypted with the room key**: the app keeps bytes it can't read, the widget decrypts them and checks the moderator's signature. When the space or file limit is reached, uploads are refused; the panel offers to delete files nobody uses. The app never deletes files by itself. Limits can be changed on the control page at any time.
+Pictures, GIFs, videos and sounds from moderators are stored in `data/files/`, **encrypted with the room key**: the app keeps bytes it can't read, the widget decrypts them and checks the moderator's signature. When the space or file limit is reached, uploads are refused and the panel offers to delete unused files. Limits can be changed on the control page.
 
 ### CS2
 
-The app writes `gamestate_integration_streamoverlay.cfg` into the CS2 `cfg` folder. This is Valve's official **Game State Integration**: the game itself sends the data. Nothing touches the game's memory or files.
+The app writes `gamestate_integration_streamoverlay.cfg` into the CS2 `cfg` folder. This is Valve's official **Game State Integration**: the game itself sends the data, nothing touches its memory or files. Player card, score, money, weapon and multi-kill popups as a player; team panels and scorebar as a spectator. Game events also drive **CS2 scenarios** in the panel.
 
-- **As a player:** player card, K/D/A, HP/armor, score, money, weapon, DOUBLE / TRIPLE / QUAD / ACE popup.
-- **As a spectator (α):** team panels, scorebar with round timer and bomb status, observed player.
+### Updates
 
-Game events (kill, multi-kill, ACE, death, MVP, round end, bomb) also drive **CS2 scenarios** in the panel.
+The app checks GitHub Releases at start and every 3 hours, downloads the zip for your system and installs it only if the **Ed25519 signature** of the release and the file's **SHA-256** match. It never restarts in the middle of a stream: the streamer's app updates on start, when idle (no OBS widget and no moderators) or on **🔄 Update now**; the moderator's app only when you click **Update** on the start screen. Release candidates (`-rc`) are offered only to rc builds.
 
-### Advanced
-
-Under **⚙ Advanced** on the control page:
-
-- **Own address** instead of the free Cloudflare tunnel (Tailscale Funnel, your own Cloudflare tunnel, your own domain). Point it at `http://127.0.0.1:7778` and enter `wss://your-address/mqtt`.
-- **Address and password for the panel**, if a moderator has to enter them by hand.
-- **New moderator password.** To revoke someone for good, the moderator presses **♻ Change keys** in the panel and you paste the new link into step 1: the app changes the password and disconnects everyone with the old keys.
-
-### Auto-updates
-
-The app checks GitHub Releases at start and every 3 hours, downloads the build for your system and **verifies its SHA-256 checksum**. It never restarts in the middle of a stream: updates apply on start, when idle (no OBS widget and no moderators for a while), or when you click **🔄 Update now**. Release candidates (`-rc`) are offered only to rc builds.
+On macOS, 1.0.0-rc.4 can't update itself to 1.0 (the app is now `Hudini.app`): download the 1.0 zip and replace the old app by hand, keeping `data/`.
 
 ### Security
 
-- The control page and the OBS port are reachable only from this computer; requests from other websites and DNS rebinding are rejected.
-- Moderators coming through the tunnel need a random password, which the panel receives encrypted. Five wrong passwords from one address cause a pause that grows each time.
-- The public server only carries the encrypted address announcement.
-- CS2 data is accepted only with a secret token.
+See [SECURITY.md](../SECURITY.md). In short: the control page lives only on `127.0.0.1` behind a login cookie; port 7778 needs the random password from the code (repeated wrong passwords pause that address); CS2 data needs a secret token.
 
 ### For developers
 
 ```sh
-cd host && npm ci
+cd server && npm ci
 bun run server.js          # run from source
-sh build.sh                # build Windows / Linux / macOS binaries into server/dist
+sh build.sh                # one-file builds for Windows / Linux / macOS in server/dist (Bun 1.4.4)
 ```
 
-A release is built when a tag `vX.Y.Z` (or `vX.Y.Z-rc.N`) matching `const VERSION` is pushed.
-
-Environment variables: `OVERLAY_PORT` (7777; the tunnel port is +1), `OVERLAY_NO_UPDATE=1`, `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://your.domain/mqtt`, `OVERLAY_HOST_DIR` (settings folder), `OVERLAY_PUBLIC_BROKER`, `OVERLAY_SITE=off` (use only the embedded widget files).
+Releases: [docs/RELEASING.md](../docs/RELEASING.md). Environment variables: `OVERLAY_PORT` (7777), `OVERLAY_MOD_PORT` (port + 1), `OVERLAY_HOST_DIR` (data folder), `OVERLAY_ROLE=mod`, `OVERLAY_NO_UPDATE=1`, `OVERLAY_NO_OPEN=1`, `OVERLAY_SITE=off` (only the embedded widget files). Run on its own, the server prints a login link for the control page.
 
 ---
 
 ## Русский
 
-Программа для ПК стримера. С версии Hudini 1.0 она обязательна: отдаёт оверлей в OBS, хранит файлы модераторов, принимает данные CS2 и пускает модераторов через туннель.
+Серверная часть программы Hudini (`hudini-server` рядом с программой). На ПК стримера отдаёт оверлей в OBS, хранит файлы модераторов, принимает данные CS2 и пускает модераторов на порт **7778** (TLS). В роли модератора портов не открывает, только следит за обновлениями.
 
 ### Как пользоваться
 
-1. Скачай программу на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4): для Windows это `HudiniHost-windows-1.0rc4.zip`.
-2. Распакуй и запусти программу из папки **Hudini Host**. Она портативная: настройки, файлы, кэш и cloudflared лежат в `data/` рядом с ней. Чтобы удалить Hudini полностью, удали папку.
-   Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Если Windows спросит про доступ к сети, разреши для частных сетей.
-3. Откроется страница управления `http://127.0.0.1:7777`:
+1. Скачай архив для своей системы на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), для Windows это `HudiniHost-windows-1.0.zip`.
+2. Распакуй и запусти Hudini из папки `HudiniHost` (macOS: `Hudini.app`). На первом экране выбери **Стример**. Программа портативная: настройки, файлы, сертификат и журналы лежат в `data/` рядом с ней. Чтобы удалить Hudini, удали папку.
+   Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Когда брандмауэр спросит, разреши Hudini в частных сетях.
+3. В окне программы откроется страница управления:
    - **Первый запуск:** выбери, сколько места дать файлам модераторов (по умолчанию 100 МБ на файл, 2 ГБ всего, 300 файлов).
-   - **Шаг 1:** вставь ссылку от модератора (кнопка в пульте **📋 Копировать**). Один раз.
-   - **Шаг 2:** скопируй **ссылку для OBS** и вставь в URL источника «Браузер» (**1920×1080**, потом `Ctrl+F`).
-   - **Шаг 3 (CS2, по желанию):** нажми **🎯 Подключить CS2** и перезапусти игру.
-4. Не закрывай окно программы, пока идёт стрим.
+   - **Код для модератора:** скопируй код `hudini1:...` и отправь только своему модератору. Он вставляет его в Hudini на вкладке **Модератор**.
+   - **Ссылка для OBS:** вставь её в источник «Браузер» (**1920×1080**, потом `Ctrl+F`).
+   - **CS2 (по желанию):** нажми **🎯 Подключить CS2** и перезапусти игру.
+4. Не закрывай Hudini, пока идёт стрим (можно свернуть в трей).
 
-Пульт находит программу сам и пишет **онлайн · Hudini Host**.
+### Как подключается модератор
+
+Чужого сервера посередине нет: модератор подключается прямо к порту TCP 7778 на твоём ПК через общую сеть: Radmin VPN, Tailscale, ZeroTier, Porthole (Steam) или проброс порта (впиши свой внешний `адрес:порт` на странице управления). Связь идёт по TLS, сертификат сверяется по отпечатку из кода. Инструкции для каждого способа есть на [сайте](https://niko-ua-designer.github.io/hudini/).
 
 ### Файлы
 
-Картинки, GIF, видео и звуки от модераторов лежат в папке `data/files/` рядом с программой, **зашифрованными ключом комнаты**: программа хранит байты, которые не может прочитать, а виджет расшифровывает их и проверяет подпись модератора. Когда место или лимит файлов кончились, загрузка не проходит, и пульт предлагает удалить неиспользуемые файлы. Сама программа ничего не удаляет. Лимиты можно поменять на странице управления в любой момент.
+Картинки, GIF, видео и звуки от модераторов лежат в `data/files/`, **зашифрованными ключом комнаты**: программа хранит байты, которые не может прочитать, а виджет расшифровывает их и проверяет подпись модератора. Когда место или лимит файлов кончились, загрузка не проходит, и пульт предлагает удалить неиспользуемые файлы. Лимиты меняются на странице управления.
 
 ### CS2
 
-Программа кладёт файл `gamestate_integration_streamoverlay.cfg` в папку `cfg` игры. Это официальная функция Valve **Game State Integration**: игра сама отправляет данные. В память и файлы игры ничего не лезет.
+Программа кладёт файл `gamestate_integration_streamoverlay.cfg` в папку `cfg` игры. Это официальная функция Valve **Game State Integration**: игра сама отправляет данные, в её память и файлы ничего не лезет. Как игрок: карточка игрока, счёт, деньги, оружие, всплывашки мульти-киллов; как зритель: панели команд и счёт-бар. События игры запускают **сценарии CS2** в пульте.
 
-- **Как игрок:** карточка игрока, K/D/A, HP и броня, счёт, деньги, оружие, всплывашка DOUBLE / TRIPLE / QUAD / ACE.
-- **Как зритель (α):** панели команд, счёт-бар с таймером раунда и бомбой, наблюдаемый игрок.
+### Обновления
 
-События игры (килл, мульти-килл, ACE, смерть, MVP, конец раунда, бомба) запускают **сценарии CS2** в пульте.
+Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает архив для твоей системы и ставит его, только если совпали **подпись Ed25519** релиза и **SHA-256** файла. Посреди стрима не перезапускается: у стримера обновление ставится при запуске, в простое (нет виджета OBS и модераторов) или по кнопке **🔄 Обновить сейчас**; у модератора только по кнопке **Обновить** на первом экране. Предварительные версии (`-rc`) приходят только тем, у кого стоит rc.
 
-### Для продвинутых
-
-В разделе **⚙ Для продвинутых** на странице управления:
-
-- **Свой адрес** вместо бесплатного туннеля Cloudflare (Tailscale Funnel, свой туннель Cloudflare, свой домен). Направь его на `http://127.0.0.1:7778` и впиши `wss://твой-адрес/mqtt`.
-- **Адрес и пароль для пульта**, если модератору нужно ввести их вручную.
-- **Новый пароль модераторов.** Чтобы закрыть доступ человеку насовсем, модератор нажимает в пульте **♻ Сменить ключи**, а ты вставляешь новую ссылку в шаг 1: программа меняет пароль и отключает всех со старыми ключами.
-
-### Автообновление
-
-Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает сборку для твоей системы и **сверяет контрольную сумму SHA-256**. Посреди стрима не перезапускается: обновление ставится при запуске, в простое (нет виджета OBS и модераторов) или по кнопке **🔄 Обновить сейчас**. Предварительные версии (`-rc`) приходят только тем, у кого стоит rc.
+На macOS версия 1.0.0-rc.4 не обновится до 1.0 сама (программа теперь называется `Hudini.app`): скачай архив 1.0 и замени старую программу вручную, папку `data/` оставь.
 
 ### Безопасность
 
-- Страница управления и порт для OBS доступны только с этого компьютера; запросы с чужих сайтов и DNS-rebinding отклоняются.
-- Модераторы через туннель входят по случайному паролю, пульт получает его зашифрованным. После 5 неверных паролей с одного адреса вход ставится на паузу, и с каждым разом она дольше.
-- Через общий сервер идёт только зашифрованное объявление адреса.
-- Данные CS2 принимаются только с секретным токеном.
+Подробно в [SECURITY.md](../SECURITY.md). Коротко: страница управления живёт только на `127.0.0.1` и открывается с cookie входа; порт 7778 пускает по случайному паролю из кода (после нескольких неверных паролей адрес ставится на паузу); данные CS2 принимаются только с секретным токеном.
 
 ### Для разработчиков
 
 ```sh
-cd host && npm ci
+cd server && npm ci
 bun run server.js          # запуск из исходников
-sh build.sh                # сборка для Windows / Linux / macOS в server/dist
+sh build.sh                # сборка одним файлом для Windows / Linux / macOS в server/dist (Bun 1.4.4)
 ```
 
-Релиз собирается, когда пушится тег `vX.Y.Z` (или `vX.Y.Z-rc.N`), совпадающий с `const VERSION`.
-
-Переменные окружения: `OVERLAY_PORT` (7777; порт туннеля на 1 больше), `OVERLAY_NO_UPDATE=1`, `OVERLAY_NO_TUNNEL=1`, `OVERLAY_TUNNEL_URL=wss://твой.домен/mqtt`, `OVERLAY_HOST_DIR` (папка настроек), `OVERLAY_PUBLIC_BROKER`, `OVERLAY_SITE=off` (только встроенные файлы виджета).
+Релизы: [docs/RELEASING.md](../docs/RELEASING.md). Переменные окружения: `OVERLAY_PORT` (7777), `OVERLAY_MOD_PORT` (порт + 1), `OVERLAY_HOST_DIR` (папка data), `OVERLAY_ROLE=mod`, `OVERLAY_NO_UPDATE=1`, `OVERLAY_NO_OPEN=1`, `OVERLAY_SITE=off` (только встроенные файлы виджета). Запущенный сам по себе, сервер пишет в консоль ссылку входа на страницу управления.

@@ -1,14 +1,14 @@
-Hudini Host (portable)
+Hudini (portable)
 
 EN
-- Run "Hudini Host" (Windows: HudiniHost.exe, macOS: Hudini Host.app). The app sits in the tray next to the clock. The control page opens at http://127.0.0.1:7777
-- Everything the app keeps is in the "data" folder next to it: settings, moderators' files (encrypted), cache, cloudflared.
+- Run Hudini (Windows: HudiniHost.exe, Linux: HudiniHost, macOS: Hudini.app) and choose your role: Streamer or Moderator. The app sits in the tray next to the clock.
+- Everything the app keeps is in the "data" folder next to it: settings, moderators' files (encrypted), certificate, logs, saved room codes. Room codes are keys: do not share this folder. (macOS keeps it in Application Support when the app folder is read-only.)
 - To remove Hudini completely, close the app and delete this whole folder. Nothing is installed anywhere else.
 - To move it to another PC, copy the whole folder.
 
 RU
-- Запусти «Hudini Host» (Windows: HudiniHost.exe, macOS: Hudini Host.app). Программа живёт в трее у часов. Страница управления: http://127.0.0.1:7777
-- Всё, что хранит программа, лежит в папке «data» рядом с ней: настройки, файлы модераторов (зашифрованные), кэш, cloudflared.
+- Запусти Hudini (Windows: HudiniHost.exe, Linux: HudiniHost, macOS: Hudini.app) и выбери роль: «Стример» или «Модератор». Программа живёт в трее у часов.
+- Всё, что хранит программа, лежит в папке «data» рядом с ней: настройки, файлы модераторов (зашифрованные), сертификат, журналы, сохранённые коды комнат. Коды комнат — это ключи: не отправляй никому эту папку. (На macOS, если папка программы только для чтения, data лежит в Application Support.)
 - Чтобы удалить Hudini полностью, закрой программу и удали эту папку целиком. Больше программа ничего никуда не ставит.
 - Чтобы перенести на другой ПК, скопируй папку целиком.
 
