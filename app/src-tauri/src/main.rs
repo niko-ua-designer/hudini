@@ -789,6 +789,11 @@ fn browser_sync(app: &AppHandle) {
 // поэтому они остаются синхронными (browser_close асинхронная только ради очереди с browser_open).
 #[tauri::command]
 async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), String> {
+    // На Linux (webkit2gtk) дочерние webview кладутся в gtk::Box и не слушаются set_position/set_size: колонка делила бы
+    // окно пополам. Ошибка → пульт остаётся на своём iframe.
+    if cfg!(target_os = "linux") {
+        return Err("embedded browser is not supported on Linux".into());
+    }
     let label = browser_label(&id)?;
     let url = browser_url(&url)?;
     let b = app.state::<Browser>();
