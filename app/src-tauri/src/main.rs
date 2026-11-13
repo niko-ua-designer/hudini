@@ -234,32 +234,40 @@ fn write_crash(kind: &str, text: &str) {
     applog(&format!("CRASH {kind}"));
 }
 
+// Файлы crash-* от старых к новым. По времени изменения, а не по имени: у программы имена crash-20261112-150405.log,
+// у сервера crash-2026-11-12T15-04-05-123Z.log, по алфавиту они перемешиваются.
+fn crash_files(dir: &Path) -> Vec<String> {
+    let Ok(rd) = fs::read_dir(dir) else { return Vec::new() };
+    let mut files: Vec<(std::time::SystemTime, String)> = rd
+        .flatten()
+        .map(|e| (e.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH), e.file_name().to_string_lossy().to_string()))
+        .filter(|(_, n)| n.starts_with("crash-"))
+        .collect();
+    files.sort();
+    files.into_iter().map(|(_, n)| n).collect()
+}
+
 // Старые журналы убираем: app-*.log старше недели, crash-* — оставляем 10 последних
 fn prune_logs(dir: &Path) {
     let Ok(rd) = fs::read_dir(dir) else { return };
     let limit = Duration::from_secs(LOG_KEEP_DAYS * 86400);
-    let mut crashes = Vec::new();
     for e in rd.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
         let age = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
         if name.starts_with("app-") && name.ends_with(".log") && age.is_some_and(|a| a > limit) {
             let _ = fs::remove_file(e.path());
-        } else if name.starts_with("crash-") {
-            crashes.push(name);
         }
     }
-    crashes.sort();
-    while crashes.len() > CRASH_KEEP {
-        let _ = fs::remove_file(dir.join(crashes.remove(0)));
+    let crashes = crash_files(dir);
+    for name in crashes.iter().take(crashes.len().saturating_sub(CRASH_KEEP)) {
+        let _ = fs::remove_file(dir.join(name));
     }
 }
 
-// Последний ещё не скрытый краш: (имя файла, текст)
+// Последний ещё не скрытый краш: (имя файла, текст). Скрытые («Скрыть» на баннере) переименованы в *.seen.log
 fn unseen_crash() -> Option<(String, String)> {
     let dir = LOG_DIR.get()?;
-    let mut names: Vec<String> = fs::read_dir(dir).ok()?.flatten().map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.starts_with("crash-") && n.ends_with(".log")).collect();
-    names.sort();
-    let name = names.pop()?;
+    let name = crash_files(dir).into_iter().rev().find(|n| n.ends_with(".log") && !n.ends_with(".seen.log"))?;
     let text = fs::read_to_string(dir.join(&name)).ok()?;
     Some((name, text))
 }
@@ -939,8 +947,9 @@ fn browser_nav(app: AppHandle, id: String, op: String) -> Result<(), String> {
 #[tauri::command]
 fn crash_dismiss(name: String) {
     let Some(dir) = LOG_DIR.get() else { return };
-    if name.starts_with("crash-") && name.ends_with(".log") && !name.contains(['/', '\\']) {
-        let _ = fs::rename(dir.join(&name), dir.join(name.replace(".log", ".seen.log")));
+    if name.starts_with("crash-") && name.ends_with(".log") && !name.ends_with(".seen.log") && !name.contains(['/', '\\']) {
+        let seen = format!("{}.seen.log", name.strip_suffix(".log").unwrap_or(&name));
+        let _ = fs::rename(dir.join(&name), dir.join(seen));
     }
 }
 
