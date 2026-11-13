@@ -807,7 +807,7 @@ const { step, check, eq, until, sleep } = T;
     });
     eq(mid, { texts: ['MINE EDITED', 'FROM_E'], moved: true, dragging: true }, 'the other screen is taken at once, the dragged element stays under the mouse');
     await p.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 20, { steps: 3 }); await p.mouse.up();
-    const sent = await until(() => p.evaluate(async () => { const m = await unsealJSON(KEYS, __sent.at(-1), true); return m.els.length === 2 && m.els.map(e => e.text + (e.x > 32 ? ' moved' : '')); }));
+    const sent = await until(() => p.evaluate(async () => { const m = await unsealJSON(KEYS, __sent.at(-1), true); return m.els.length === 2 && m.els.map(e => e.text + (e.id === 'm1' && e.x > 32 ? ' moved' : '')); }));
     eq(sent, ['MINE EDITED moved', 'FROM_E'], 'the drag result keeps the other moderator\'s change');
     await p.context().close();
   });
