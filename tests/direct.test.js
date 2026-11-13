@@ -220,6 +220,7 @@ const dial = (url, password) => new Promise(res => {
     eq((await fetch(B + '/auth?t=apptoken123', { redirect: 'manual' })).status, 302, 'the window gets in with the app token');
     eq((await fetch(B + '/auth?t=apptoken123', { redirect: 'manual' })).status, 403, 'the same token a second time → 403');
     eq((await fetch(B + '/api/status', { headers: { 'x-hudini-token': 'apptoken123' } }).then(r => r.json())).role, 'streamer', 'the app itself can read the status with the header');
+    check(!/auth\?t=/.test(h2.log()), 'no login link on stdout (the app copies it into crash reports)');
     await h2.stop();
   });
 

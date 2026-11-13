@@ -995,6 +995,8 @@ async function filesApi(req, res, url, mod){
     return j(200, cleanRoomFiles(ROOM.room, keep));
   }
   if(!okId(id) || !okRoom(room)) return j(400, { ok:false, error:'плохое имя файла' });
+  // Модератор может читать и файлы прошлых комнат этого ПК: пульт так копирует файл из библиотеки в новую комнату.
+  // Байты зашифрованы ключами той комнаты, без них их не прочитать.
   if(req.method==='GET'){
     const f = fileIndex.get(room+'/'+id); if(!f) return j(404, { ok:false, error:'файла нет' });
     res.writeHead(200, { 'content-type':'application/octet-stream', 'content-length':f.size, 'cache-control':'private, max-age=31536000, immutable', 'x-content-type-options':'nosniff', ...extra });
@@ -1182,7 +1184,8 @@ if(ROLE_MOD){
 } else {
   local.listen(PORT, '127.0.0.1', async () => {
     listenMod();
-    console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
+    // Программа с окном пишет stdout в краш-отчёт: ссылку входа (в ней токен) туда не выводим, окно входит само
+    if(!APP) console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
     log('Папка настроек:', BASE);
     lastAddrs = addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', '); log('🌐 Адреса для модераторов:', lastAddrs);
     if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
