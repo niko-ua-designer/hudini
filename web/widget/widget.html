@@ -48,6 +48,7 @@ body.host-hidden #stage{opacity:0!important}
 #sizeWarn small{display:block;font-weight:500;font-size:2.2vmin}
 #debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,'Noto Color Emoji',sans-serif;color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
 .vfx{position:fixed;inset:0;width:100vw;height:100vh;z-index:50;pointer-events:none}.vfx video{width:100%;height:100%;object-fit:contain}
+body.host-hidden .vfx{display:none}
 </style>
 </head>
 <body>
@@ -118,6 +119,8 @@ addEventListener('resize', fit); fit();
 
 // ================== ОТРИСОВКА ==================
 const nodes=new Map();
+// Стример спрятал оверлей кнопкой в доке OBS: ничего не видно и не слышно, пока не вернёт
+const hostHidden=()=>document.body.classList.contains('host-hidden');
 let visible=true, lastState={ visible:true, els:[], raffle:null };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
@@ -139,7 +142,7 @@ function applyState(s){
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
       const v=node.querySelector('video');
-      v.muted=!el.sound; v.volume=num(el.vol*masterVol(),1,0,1);
+      v.muted=!el.sound || hostHidden(); v.volume=num(el.vol*masterVol(),1,0,1);
       const restart = el.restart && el.restart!==node._restart;
       node._restart=el.restart;
       if(show){
@@ -149,7 +152,7 @@ function applyState(s){
     }
     if(el.type==='web'){
       // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
-      const src = show ? embedSrc(el, location.hostname, false) : null;
+      const src = show && !hostHidden() ? embedSrc(el, location.hostname, false) : null;
       setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
       if(src) playerApply(node, el, false);
     }
@@ -193,6 +196,7 @@ setInterval(()=>{
 const sounds=new Set();
 const pendingSounds=new Map();
 function playSound(src, vol){
+  if(hostHidden()) return;
   const id=assetId(src);
   if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, vol); return; } src=u; }
   const a=new Audio(src); a.volume=num(num(vol,0.7,0,1)*masterVol(),0.7,0,1);
@@ -234,11 +238,12 @@ function blip(freq, dur, vol, type){
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.02);
 }
-Object.defineProperty(CaseFx, 'audio', { get:()=>visible && !document.body.classList.contains('host-hidden') });
-RaffleFx.tick=el=>{ if(el.ticks && visible && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08*el.vol, 'square'); };
-RaffleFx.open=el=>{ if(!visible || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12*el.vol, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12*el.vol, 'sine'), 1050); };
+const quiet=()=>!visible || hostHidden();
+Object.defineProperty(CaseFx, 'audio', { get:()=>!quiet() });
+RaffleFx.tick=el=>{ if(el.ticks && !quiet() && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08*el.vol, 'square'); };
+RaffleFx.open=el=>{ if(quiet() || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12*el.vol, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12*el.vol, 'sine'), 1050); };
 RaffleFx.win=el=>{
-  if(!visible || el.hidden) return;
+  if(quiet() || el.hidden) return;
   if(el.snd) playSound(el.snd, 0.85*el.vol);
   else [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f, 0.45, 0.14*el.vol, 'triangle'), i*120));
   if(el.fxc) confetti();
@@ -250,11 +255,12 @@ vec2 cb(vec3 c){return vec2(dot(c,vec3(-.169,-.331,.5)),dot(c,vec3(.5,-.419,-.08
 void main(){vec4 c=texture2D(t,v);float d=distance(cb(c.rgb),cb(k));float a=smoothstep(s*.5,s*.5+.08,d);
 float sp=max(0.,c.g-max(c.r,c.b));c.g-=sp*(1.-a*.5);gl_FragColor=vec4(c.rgb*a,a);}`;
 function playVfx(el){
+  if(hostHidden()) return;
   const src = assetId(el.vfx) ? Assets.resolve(el.vfx) : el.vfx; if(!src) return;
   const v=document.createElement('video'); v.playsInline=true; v.muted=false; v.volume=num(el.vol*masterVol(),1,0,1); v.src=src;
   if(!assetId(el.vfx)) v.crossOrigin='anonymous';
   const layer=document.createElement(el.key?'canvas':'div'); layer.className='vfx';
-  const done=()=>{ v.pause(); layer.remove(); }; setTimeout(done, 30000); v.onended=done; v.onerror=done;
+  const done=()=>{ v.pause(); layer.remove(); }; layer._done=done; setTimeout(done, 30000); v.onended=done; v.onerror=done;
   if(!el.key){ layer.appendChild(v); document.body.appendChild(layer); v.play().catch(()=>{ v.muted=true; v.play().catch(done); }); return; }
   layer.width=1920; layer.height=1080; document.body.appendChild(layer);
   const gl=layer.getContext('webgl', { premultipliedAlpha:true, alpha:true });
@@ -359,7 +365,8 @@ async function start(){
     if(topic===T.host){                              // кнопки стримера в доке OBS (публикует только программа)
       const c=await unsealJSON(KEYS, payload, false); if(!c) return;
       document.body.classList.toggle('host-hidden', !!c.hidden);
-      if(c.hidden){ stopSounds(); document.querySelectorAll('video').forEach(v=>v.muted=true); } else applyState(lastState);
+      if(c.hidden){ stopSounds(); pendingSounds.clear(); document.querySelectorAll('.vfx').forEach(l=>l._done?.()); }
+      applyState(lastState);   // спрятано: видео без звука, сайты и ролики выгружены; вернули: всё как в последнем экране
       if(lastStop!=null && c.stop>lastStop) stopSounds();
       lastStop=Number(c.stop)||0; return;
     }
