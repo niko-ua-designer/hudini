@@ -812,6 +812,24 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('element limit for duplicate and chat messages; a scene added on top gets its own groups', async () => {
+    const p = await T.newPage('limits', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const r = await p.evaluate(() => {
+      for (let i = 0; i < MAX_ELS; i++) state.els.push(sanitizeEl({ id: 'e' + i, type: 'text', text: 't' + i }));
+      renderAll(); msel.clear(); msel.add('e199'); selectedId = 'e199'; duplicate();
+      document.getElementById('msgReplace').checked = false;
+      showChatMsg({ id: '1', user: 'u', color: '#ffffff', text: 'hi', emotes: [], badge: '', t: Date.now() });
+      const n = state.els.length, t = document.getElementById('toast').textContent;
+      state = { visible: true, vol: 1, fxVol: 1, els: [sanitizeEl({ id: 'a', type: 'text', text: 'A', g: 'grp', gn: 'G' }), sanitizeEl({ id: 'b', type: 'text', text: 'B', g: 'grp', gn: 'G' }), sanitizeEl({ id: 'c', type: 'text', text: 'C' })], raffle: null };
+      applyScene({ name: 's', els: snapshotEls() }, true);
+      return { n, t, units: layerUnits().map(u => u.g ? 'folder ' + u.els.map(e => e.text).join('') : u.el.text), groupOfA: groupOf('a').length };
+    });
+    eq([r.n, /максимум 200/.test(r.t)], [200, true], 'nothing is added past the limit, with a message');
+    eq([r.units, r.groupOfA], [['C', 'folder BA', 'C', 'folder BA'], 2], 'the scene on top has its own folder, the old group stays as it was');
+    await p.context().close();
+  });
+
   await step('a hostile backup or broken stored data cannot stop the panel', async () => {
     const p = await T.newPage('hostile', { app: false });
     const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });

@@ -1347,6 +1347,7 @@ const HUDINI_DICT = {
     "Ключи в приглашении повреждены: попроси новую ссылку": "The keys in this invite are damaged: ask for a new link",
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "This room's keys are damaged: get a new invite or a backup",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "The keys of the saved room are damaged: another room is open",
+    "на экране максимум": "the screen holds at most",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2693,6 +2694,7 @@ const HUDINI_DICT = {
     "Ключи в приглашении повреждены: попроси новую ссылку": "Ключі в запрошенні пошкоджені: попроси нове посилання",
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Ключі цієї кімнати пошкоджені: візьми нове запрошення або бекап",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "Ключі збереженої кімнати пошкоджені: відкрито іншу кімнату",
+    "на экране максимум": "на екрані максимум",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4039,6 +4041,7 @@ const HUDINI_DICT = {
     "Ключи в приглашении повреждены: попроси новую ссылку": "Die Schlüssel in dieser Einladung sind beschädigt: bitte um einen neuen Link",
     "Ключи этой комнаты повреждены: возьми новое приглашение или бэкап": "Die Schlüssel dieses Raums sind beschädigt: hol dir eine neue Einladung oder ein Backup",
     "Ключи сохранённой комнаты повреждены: открыта другая комната": "Die Schlüssel des gespeicherten Raums sind beschädigt: ein anderer Raum ist geöffnet",
+    "на экране максимум": "auf dem Bildschirm höchstens",
   },
 };
 

@@ -1512,6 +1512,7 @@ function showChatMsg(m){
   const secs=num($('msgSecs').value,8,0,600);
   const data={ user:m.user, ucolor:m.color, text:m.text, emotes:m.emotes, badge:m.badge };
   const prev=[...state.els].reverse().find(e=>e.type==='msg');
+  if(!(prev && $('msgReplace').checked) && state.els.length>=MAX_ELS) return toast('Слишком много элементов: на экране максимум '+MAX_ELS);
   beginChange();
   let el;
   if(prev && $('msgReplace').checked){ el=prev; Object.assign(el, data); }
@@ -2206,7 +2207,9 @@ function moveLayer(dir){
 $('bUp').onclick=()=>moveLayer(1);
 $('bDown').onclick=()=>moveLayer(-1);
 function duplicate(){
-  const list=selList(); if(!list.length) return; beginChange();
+  const list=selList(); if(!list.length) return;
+  if(state.els.length+list.length>MAX_ELS) return toast('Слишком много элементов: на экране максимум '+MAX_ELS);
+  beginChange();
   const gmap=new Map(), ids=[];
   for(const el of list){ const c=JSON.parse(JSON.stringify(el)); c.id=rid(10); c.x=num(el.x+3,50,0,100); c.y=num(el.y+3,50,0,100); delete c.ttl;
     if(el.g){ if(!gmap.has(el.g)) gmap.set(el.g, rid(6)); c.g=gmap.get(el.g); } state.els.push(c); ids.push(c.id); }
@@ -2899,9 +2902,13 @@ $('sceneList').addEventListener('click', e=>{
 // id элементов сохраняем: так сценарии продолжают работать после смены сцены
 function applyScene(sc, add){
   beginChange();
-  const now=Date.now(), ids=new Set(add ? state.els.map(x=>x.id) : []);
-  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ if(!x.id || ids.has(x.id)) x.id=rid(10); ids.add(x.id); if(x.kf) x.kf.start=now; return x.type==='raffle' ? null : sanitizeEl(x); }).filter(Boolean);
+  const now=Date.now(), ids=new Set(add ? state.els.map(x=>x.id) : []), gmap=new Map();
+  const els=JSON.parse(JSON.stringify(sc.els)).map(x=>{ if(!x.id || ids.has(x.id)) x.id=rid(10); ids.add(x.id); if(x.kf) x.kf.start=now;
+    // поверх экрана: группы сцены становятся новыми, иначе они слились бы с такими же группами на экране
+    if(add && x.g){ if(!gmap.has(x.g)) gmap.set(x.g, rid(6)); x.g=gmap.get(x.g); }
+    return x.type==='raffle' ? null : sanitizeEl(x); }).filter(Boolean);
   state.els = add ? [...state.els, ...els].slice(0, MAX_ELS) : els;
+  if(add) packGroups();
   selectedId=null; commit();
 }
 
