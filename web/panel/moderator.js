@@ -841,7 +841,10 @@ function layerUnits(){   // сверху вниз: { el } или { g, name, els 
 }
 function layerOrder(){ return layerUnits().flatMap(u=>u.els||[u.el]).map(e=>e.id); }
 function renderLayers(){
-  const box=$('layers'); box.replaceChildren();
+  const box=$('layers');
+  // папку переименовывают: не перерисовываем, иначе поле ввода пропадёт (список обновится, когда имя сохранят)
+  const ae=document.activeElement; if(ae?.classList.contains('folderName') && box.contains(ae)) return;
+  box.replaceChildren();
   if(!state.els.length){ const d=document.createElement('div'); d.className='hint'; d.textContent='Пока пусто'; box.appendChild(d); return; }
   const li=new Map([...state.els].reverse().map((e,i)=>[e.id,i]));
   const units=layerUnits();
@@ -887,7 +890,7 @@ function renameFolder(g){
   name.replaceWith(inp); inp.focus(); inp.select();
   let done=false;
   const end=save=>{
-    if(done) return; done=true;
+    if(done) return; done=true; inp.classList.remove('folderName');
     const v=inp.value.trim().slice(0,40);
     if(save && v && v!==cur){ beginChange(); state.els.forEach(e=>{ if(e.g===g) e.gn=v; }); commit(); } else renderLayers();
   };

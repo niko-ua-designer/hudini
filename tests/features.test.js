@@ -827,6 +827,16 @@ const { step, check, eq, until, sleep } = T;
     });
     eq([r.n, /максимум 200/.test(r.t)], [200, true], 'nothing is added past the limit, with a message');
     eq([r.units, r.groupOfA], [['C', 'folder BA', 'C', 'folder BA'], 2], 'the scene on top has its own folder, the old group stays as it was');
+    // переименование папки переживает перерисовку от чужого экрана
+    const alive = await p.evaluate(async () => {
+      state = { visible: true, vol: 1, fxVol: 1, els: [0, 1, 2].map(i => sanitizeEl({ id: 'g' + i, type: 'text', text: 'x' + i, g: 'abc', gn: 'Folder' })), raffle: null };
+      renderAll(); renameFolder('abc'); const inp = document.querySelector('#layers input.folderName'); inp.value = 'Renamed';
+      renderAll(); await new Promise(r => setTimeout(r, 50));
+      return !!document.querySelector('#layers input.folderName') && document.activeElement === inp;
+    });
+    check(alive, 'the folder name field survives a redraw');
+    await p.keyboard.press('Enter');
+    eq(await p.evaluate(() => [state.els[0].gn, !!document.querySelector('#layers input'), document.querySelector('#layers .folder .name')?.textContent]), ['Renamed', false, 'Renamed'], 'Enter saves the name and the list is drawn again');
     await p.context().close();
   });
 
