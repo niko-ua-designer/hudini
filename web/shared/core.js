@@ -422,6 +422,7 @@ function paintRaffle(c, el){
   raffleTick(c, el, nowMs());
 }
 function raffleTick(c, el, now){
+  c._el=el;   // цикл кадров ленты берёт последнее состояние элемента
   if(el.phase!=='spin'){
     const n=c.querySelector('.rf-n'), t=c.querySelector('.rf-t');
     if(n){ const v=`👥 ${el.n}`; if(n.textContent!==v) n.textContent=v; }
@@ -441,7 +442,7 @@ function raffleTick(c, el, now){
     if(conf.textContent!==v) conf.textContent=v; conf.classList.toggle('ok', el.ok);
   }
   if(c._won!==el.spinAt && t >= RAFFLE_OPEN + RAFFLE_SPIN + 700){ c._won=el.spinAt; if(t < RAFFLE_OPEN + RAFFLE_SPIN + 8000) RaffleFx.win(el); }
-  if(!c._loop){ c._loop=true; const step=()=>{ if(!c.isConnected || !c._strip){ c._loop=false; return; } rafFrame(c, el, nowMs()); if(nowMs()-el.spinAt < RAFFLE_OPEN+RAFFLE_SPIN+200) requestAnimationFrame(step); else { rafFrame(c, el, nowMs()); c._loop=false; } }; requestAnimationFrame(step); }
+  if(!c._loop){ c._loop=true; const step=()=>{ const el=c._el; if(!c.isConnected || !c._strip || el.phase!=='spin'){ c._loop=false; return; } rafFrame(c, el, nowMs()); if(nowMs()-el.spinAt < RAFFLE_OPEN+RAFFLE_SPIN+200) requestAnimationFrame(step); else { rafFrame(c, el, nowMs()); c._loop=false; } }; requestAnimationFrame(step); }
 }
 // Положение ленты считается от общего времени: открывший стрим позже увидит тот же кадр
 function rafFrame(c, el, now){

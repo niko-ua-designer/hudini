@@ -530,7 +530,7 @@
       S.lid?.setLogo(logoSrc(el));
       try{ render(S, c, el, t); }catch(e){ console.warn(e); failed = true; dispose(c); }
     },
-    tick(el, p){ if(!FX().audio) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
+    tick(el, p){ if(!FX().audio || el.hidden) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
     stop(c){ dispose(c); },
     silence(){ A.muted = true; if(A.out) A.out.gain.value = 0; for(const a of files) a.pause(); files.clear(); },
     preload: load,
