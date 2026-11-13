@@ -613,3 +613,29 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 .f-right{background:linear-gradient(160deg,#343a5c,#171a2b)}
 .f-left{background:linear-gradient(160deg,#3d4468,#1a1d31)}
 .f-lid{background:linear-gradient(180deg,#5a6290,#303657)}
+
+/* moving page (moderator.html) */
+.mig{padding-bottom:70px}
+.mig-steps{counter-reset:m;list-style:none;margin:10px auto 0;padding:0;max-width:760px;display:grid;gap:16px}
+.mig-steps>li{counter-increment:m;position:relative;background:linear-gradient(180deg,#161927e6,#10121be6);border:1px solid var(--line);border-radius:18px;padding:22px 24px 22px 76px}
+.mig-steps>li::before{content:counter(m);position:absolute;left:22px;top:22px;width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#8b6bff,#5a3cff);color:#fff;font:700 16px/36px var(--head);text-align:center;box-shadow:0 6px 18px -4px #7c5cffaa}
+.mig-steps h2{margin:0 0 6px;font-size:19px;font-weight:600}
+.mig-steps p{margin:0 0 10px;color:var(--soft)}
+.mig-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-top:14px}
+.mig-act .free{color:var(--muted);font-size:13px}
+.mig-box{margin-top:12px}
+.mig-found{margin:0 0 6px!important;color:var(--text)!important;font-weight:600}
+.mig-count{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0 0 14px}
+.mig-count li{background:#7c5cff1f;border:1px solid #a48bff40;border-radius:99px;padding:4px 12px;font-size:14px;color:var(--soft)}
+.mig-count b{color:var(--text)}
+.mig-f{display:grid;gap:4px;margin:0 0 10px;max-width:340px}
+.mig-f span{font-size:13px;color:var(--muted)}
+.mig-f input{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;color:var(--text);font-size:15px}
+.mig-f input:focus{outline:2px solid #7c5cff99;outline-offset:1px}
+.mig-err{color:var(--alpha)!important;min-height:1.2em;font-size:14px}
+.mig-ok{color:var(--ok)!important;margin-top:12px!important}
+.mig-note{font-size:14px;color:var(--muted)!important}
+.mig-none{color:var(--text)!important}
+.mig-foot{max-width:760px;margin:22px auto 0;color:var(--muted);font-size:14.5px;text-align:center}
+.mig .btn:disabled{opacity:.6;pointer-events:none}
+@media (max-width:560px){.mig-steps>li{padding:64px 18px 18px}.mig-steps>li::before{left:18px;top:18px}}

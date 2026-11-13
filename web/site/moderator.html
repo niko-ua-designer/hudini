@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Hudini · The panel moved into the app</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#08090f">
+<link rel="icon" href="shared/icons/icon-192.png">
+<link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css?v=4">
+<script src="site-texts.js?v=1"></script>
+<script src="migrate-texts.js?v=1"></script>
+<script src="site.js?v=3" defer></script>
+<script src="migrate.js?v=1" defer></script>
+</head>
+<body data-page="migrate">
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="top">
+  <a class="logo" href="index.html"><img src="shared/icons/icon-192.png" alt="">Hudini</a>
+  <nav><a href="index.html" data-t="home">Home</a><a data-help href="help.html#migrate" data-t="help">Help</a></nav>
+  <select class="lang" aria-label="Language"></select>
+</header>
+
+<main class="wrap mig">
+  <section class="hero">
+    <span class="pill"><b></b><span data-m="badge"></span></span>
+    <h1 data-m="h1"></h1>
+    <p class="sub" data-m="sub"></p>
+  </section>
+
+  <ol class="mig-steps">
+    <li>
+      <h2 data-m="s1"></h2>
+      <p data-m="s1p"></p>
+      <div class="mig-act">
+        <a class="btn primary shine" data-dl data-os-label target="_blank" rel="noopener"></a>
+        <small class="free"><span data-m="other"></span> <span id="otherOs"></span></small>
+      </div>
+    </li>
+    <li id="saveStep">
+      <h2 data-m="s2"></h2>
+      <p data-m="s2p"></p>
+      <div id="scan" class="mig-box" aria-live="polite"></div>
+    </li>
+    <li>
+      <h2 data-m="s3"></h2>
+      <p data-m="s3p"></p>
+      <p class="mig-note" data-m="note"></p>
+    </li>
+  </ol>
+
+  <p class="mig-foot" data-m="streamer"></p>
+</main>
+</body>
+</html>
