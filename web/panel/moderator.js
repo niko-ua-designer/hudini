@@ -1078,7 +1078,7 @@ stage.addEventListener('pointerdown', e=>{
   const h=e.target.closest('.h')?.dataset.h;
   if(!h && (e.shiftKey||e.ctrlKey||e.metaKey)){ select(el.id, 'toggle'); return; }   // Shift/Ctrl+клик — добавить/убрать из выделения
   if(msel.has(el.id) && msel.size>1 && !h){ selectedId=el.id; renderAll(); } else select(el.id);
-  beginChange();
+  const opened=!changeOpen; beginChange();   // простой клик без движения не оставляет шага отмены (см. endDrag)
   const { cx, cy, r }=centerPx(el);
   const media = el.type==='image' || el.type==='video';
   const prevHandle = lastHandle; lastHandle={ t:Date.now(), h, id:el.id }; void prevHandle;
@@ -1107,7 +1107,7 @@ stage.addEventListener('pointerdown', e=>{
     const bb=selBounds(items.map(i=>i.id));
     drag={ mode:'move', mx:e.clientX, my:e.clientY, x0:el.x, y0:el.y, r, items, bb };
   }
-  drag.id=el.id;
+  drag.id=el.id; drag.opened=opened; drag.moved=false;
   if(drag.mode!=='rot'){
     drag.sn=snapSetup(new Set(drag.mode==='move' ? drag.items.map(i=>i.id) : [el.id]));
     const b=drag.mode==='move' ? drag.bb : boxOf(el.id);
@@ -1131,6 +1131,7 @@ stage.addEventListener('pointermove', e=>{
     renderAll(); return;
   }
   const el=byId(drag.id); if(!el){ drag=null; changeOpen=false; return; }   // элемент удалил другой модератор
+  drag.moved=true;
   if(drag.mode==='move'){
     let x=drag.x0+(e.clientX-drag.mx)/drag.r.width*100;
     let y=drag.y0+(e.clientY-drag.my)/drag.r.height*100;
@@ -1201,6 +1202,7 @@ function endDrag(){
   if(!drag) return;
   const d=drag; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show'); showSnap();
   if(d.mode==='rect'){ $('selRect').style.display='none'; if(!d.moved && !d.add) select(null); else renderAll(); return; }
+  if(!d.moved){ if(d.opened){ undoStack.pop(); changeOpen=false; } renderAll(); return; }   // просто клик: ничего не менялось
   commit();
 }
 stage.addEventListener('pointerup', endDrag);
@@ -1855,13 +1857,14 @@ $('layers').addEventListener('pointerdown', e=>{
   apply(list); eyeDrag.done.add(row.dataset.g||row.dataset.id);
   changed();
   const move=ev=>{
+    if(ev.buttons===0) return up();   // кнопку отпустили там, где pointerup не дошёл
     const r=document.elementFromPoint(ev.clientX, ev.clientY)?.closest('#layers .layer'); if(!r) return;
     const key=r.dataset.g||r.dataset.id; if(eyeDrag.done.has(key)) return;
     eyeDrag.done.add(key);
     apply(r.dataset.g ? state.els.filter(x=>x.g===r.dataset.g) : [byId(r.dataset.id)].filter(Boolean)); changed();
   };
-  const up=()=>{ removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); eyeDrag=null; commit(); };
-  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  const up=()=>{ if(!eyeDrag) return; removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('blur', up); eyeDrag=null; commit(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('blur', up);
   e.preventDefault();
 });
 function selectRange(toId){

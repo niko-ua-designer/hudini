@@ -857,6 +857,30 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('a plain click changes nothing; a drag over the eyes ends when the button is lost', async () => {
+    const p = await T.newPage('click', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    await p.evaluate(() => { window.__sent = []; useMain({ connected: true, subscribe(){}, unsubscribe(){}, publish(t, box, o, cb){ __sent.push(box); cb(); }, on(){}, end(){} });
+      state = { visible: true, vol: 1, fxVol: 1, els: [sanitizeEl({ id: 't1', type: 'text', text: 'T', x: 50, y: 50 }), sanitizeEl({ id: 't2', type: 'text', text: 'U', x: 20, y: 20 })], raffle: null }; undoStack.length = 0; renderAll(); });
+    const box = await p.locator('.el[data-id="t1"] .content').boundingBox();
+    await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await sleep(150);
+    eq(await p.evaluate(() => [undoStack.length, __sent.length, changeOpen, selectedId]), [0, 0, false, 't1'], 'a click selects without an undo step or a send');
+    await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await p.mouse.down(); await p.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2, { steps: 3 }); await p.mouse.up(); await sleep(150);
+    eq(await p.evaluate(() => [undoStack.length, __sent.length > 0]), [1, true], 'a real move is one undo step and is sent');
+    const eb = await p.locator('#layers .layer[data-id="t2"] button[data-act=eye]').boundingBox();
+    await p.mouse.move(eb.x + eb.width / 2, eb.y + eb.height / 2); await p.mouse.down();
+    check(await p.evaluate(() => !!eyeDrag && byId('t2').hidden), 'pressing the eye starts hiding');
+    await p.evaluate(() => dispatchEvent(new PointerEvent('pointermove', { buttons: 0, clientX: 5, clientY: 5 })));
+    eq(await p.evaluate(() => [!!eyeDrag, changeOpen]), [false, false], 'a move without a pressed button ends the eye drag');
+    await p.mouse.up();
+    const eb2 = await p.locator('#layers .layer[data-id="t1"] button[data-act=eye]').boundingBox();
+    await p.mouse.move(eb2.x + eb2.width / 2, eb2.y + eb2.height / 2); await p.mouse.down();
+    await p.evaluate(() => dispatchEvent(new Event('blur')));
+    eq(await p.evaluate(() => [!!eyeDrag, changeOpen]), [false, false], 'leaving the window ends it too');
+    await p.mouse.up();
+    await p.context().close();
+  });
+
   await step('a hostile backup or broken stored data cannot stop the panel', async () => {
     const p = await T.newPage('hostile', { app: false });
     const dialogs = []; p.removeAllListeners('dialog'); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
