@@ -8,9 +8,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 const priv = path.join(os.homedir(), 'hudini-signing.key'), pub = path.join(os.homedir(), 'hudini-signing.pub');
-if(fs.existsSync(priv)){ console.error(`${priv} already exists, not overwriting it.`); process.exit(1); }
 const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
-fs.writeFileSync(priv, privateKey.export({ format: 'pem', type: 'pkcs8' }), { mode: 0o600, flag: 'wx' });
+try{ fs.writeFileSync(priv, privateKey.export({ format: 'pem', type: 'pkcs8' }), { mode: 0o600, flag: 'wx' }); }
+catch(e){ if(e.code==='EEXIST'){ console.error(`${priv} already exists, not overwriting it.`); process.exit(1); } throw e; }
 fs.writeFileSync(pub, publicKey.export({ format: 'der', type: 'spki' }).toString('base64') + '\n');
 console.log(`Private key: ${priv} (only you can read it; it is not shown here)`);
 console.log(`Public key:  ${pub}`);

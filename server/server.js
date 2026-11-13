@@ -27,7 +27,7 @@ import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.0.0-rc.4';
+const VERSION = '1.0.0';
 const PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // Роль модератора: сервер не открывает портов, только проверяет и ставит обновления
@@ -666,7 +666,7 @@ function extractApp(zip, dest){
     if(e.dir){ fs.mkdirSync(to, { recursive:true }); if(!inside(root, fs.realpathSync(to))) throw new Error('архив повреждён: '+e.name); continue; }
     fs.mkdirSync(path.dirname(to), { recursive:true });
     const dir = fs.realpathSync(path.dirname(to));
-    if(!inside(root, dir) || fs.existsSync(to) || isLink(to)) throw new Error('архив повреждён: '+e.name);
+    if(!inside(root, dir) || isLink(to)) throw new Error('архив повреждён: '+e.name);
     const data = e.data();
     total += data.length; if(total > 1024*1048576) throw new Error('архив повреждён: слишком большой');
     if((e.mode & 0o170000)===0o120000){   // символическая ссылка (бывает внутри .app): только внутрь архива

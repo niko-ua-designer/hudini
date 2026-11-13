@@ -16,7 +16,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const WIDGET_BASE_URL = '';
 const SEND_INTERVAL_MS = 50;           // как часто слать обновления при перетаскивании
 const PART_BYTES = 8*1048576;           // файлы уходят в программу кусками по 8 МБ
-const HOST_DL = 'https://github.com/niko-ua-designer/hudini/releases/tag/v1.0.0-rc.4';
+const HOST_DL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
 // ===============================================
 
 const $ = id => document.getElementById(id);
@@ -1935,6 +1935,7 @@ function renderCsHud(el){
 }
 function setAvatar(name, src){
   const key=String(name||'').trim().toLowerCase().slice(0,40); if(!key) return toast('Впиши ник игрока');
+  if(['__proto__','constructor','prototype'].includes(key)) return toast('Такой ник нельзя');
   beginChange();
   for(const x of state.els) if(x.type==='cs2'){ if(src) x.av[key]=src; else delete x.av[key]; }
   commit(); const el=byId(selectedId); if(el?.type==='cs2') renderCsHud(el);

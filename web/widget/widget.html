@@ -334,7 +334,8 @@ async function start(){
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   // файлы берём из программы на этом же компьютере и проверяем подпись модератора
   Assets.fetcher=async id=>{
-    const r=await fetch(`${HTTP_BASE}/files/${id}`, { cache:'force-cache' });
+    if(!viaHost || !/^[A-Za-z0-9_-]{1,80}$/.test(String(id))) throw new Error('bad asset id');   // файлы только с программы на этом же компьютере
+    const r=await fetch(`${HTTP_BASE}/files/${encodeURIComponent(id)}`, { cache:'force-cache' });
     if(!r.ok) throw new Error('HTTP '+r.status);
     return openAsset(KEYS, new Uint8Array(await r.arrayBuffer()), id);
   };

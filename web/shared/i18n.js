@@ -1342,6 +1342,7 @@ const HUDINI_DICT = {
     "Закрыть вкладку": "Close tab",
     "Слишком много вкладок": "Too many tabs",
     "Нужен адрес сайта http(s)://…": "A website address http(s)://… is needed",
+    "Такой ник нельзя": "This nickname is not allowed",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2683,6 +2684,7 @@ const HUDINI_DICT = {
     "Закрыть вкладку": "Закрити вкладку",
     "Слишком много вкладок": "Забагато вкладок",
     "Нужен адрес сайта http(s)://…": "Потрібна адреса сайту http(s)://…",
+    "Такой ник нельзя": "Такий нік не можна",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4024,6 +4026,7 @@ const HUDINI_DICT = {
     "Закрыть вкладку": "Tab schließen",
     "Слишком много вкладок": "Zu viele Tabs",
     "Нужен адрес сайта http(s)://…": "Es wird eine Website-Adresse http(s)://… benötigt",
+    "Такой ник нельзя": "Dieser Nickname ist nicht erlaubt",
   },
 };
 
