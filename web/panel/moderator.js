@@ -66,7 +66,15 @@ const undoStack=[]; let changeOpen=false;
 function byId(id){ return state.els.find(e=>e.id===id); }
 
 // ================== СВЯЗЬ ==================
-let client=null, pendingOffline=false;
+// pendingOffline: комната, в которой экран меняли без связи. После подключения сначала ждём сохранённый экран (offlineWait),
+// чтобы не затереть то, что другой модератор сделал, пока нас не было.
+let client=null, pendingOffline=null, offlineWait=null;
+let syncedIds=new Set();   // id элементов экрана, который пульт последним видел или отправил
+const OFFLINE_WAIT_MS=1500;
+function cancelOfflineWait(){
+  if(!offlineWait) return;
+  clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
+}
 // Виджеты (OBS), которые сейчас подключены к комнате
 const WIDGET_VER=15, widgets=new Map();
 function renderObs(){
@@ -167,11 +175,19 @@ function toggleConnPop(force){
 $('csRetry').onclick=()=>{ hostNote=''; relayInfo=null; dropHome(); reopenHome(); };
 function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
-  client=c;
+  client=c; cancelOfflineWait();
   if(!c?.connected){ hostStatus(); return; }
   hostStatus();
-  if(pendingOffline){ pendingOffline=false; publishNow(1); }   // сначала свои изменения, сделанные без связи
-  c.subscribe(mainTopics(), { qos:1 }); Assets.retry(); renderAll(); refreshStorage(true);
+  c.subscribe(mainTopics(), { qos:1 });
+  // изменения, сделанные без связи: сначала смотрим сохранённый экран комнаты, потом отправляем (см. onMessage)
+  if(pendingOffline===room){
+    const w={ room, seen:stateSeenT.get(room)||0 };
+    w.timer=setTimeout(()=>{ if(offlineWait!==w) return; offlineWait=null;
+      if(client?.connected && room===w.room) publishNow(1); else pendingOffline=w.room; }, OFFLINE_WAIT_MS);
+    offlineWait=w;
+  }
+  pendingOffline=null;
+  Assets.retry(); renderAll(); refreshStorage(true);
 }
 function wire(c){
   c.on('reconnect', ()=>{ if(client===c) setStatus('warn', 'переподключение…', 1); });
@@ -268,13 +284,33 @@ async function onMessage(topic, payload, packet){
   if(typeof msg!=='object' || !Array.isArray(msg.els)) return;   // эффект или мусор вместо экрана
   const t=Number(msg.t)||0;
   if(t>Date.now()+5*60*1000) return;               // из будущего
+  if(offlineWait?.room===room){ mergeOffline(msg, t); return; }
   if(t<(stateSeenT.get(room)||0)) return;          // старый экран, присланный повторно: не принимаем и не переподписываем
   stateSeenT.set(room, t);
   if(msg.from===clientId && !packet.retain) return;   // своё эхо
   if(drag) return;                                 // не мешаем, пока тащим
-  state=sanitizeState(msg); if(state.lang) STREAM_LANG=state.lang;
+  acceptState(sanitizeState(msg));
+}
+function acceptState(s){
+  state=s; if(state.lang) STREAM_LANG=state.lang;
+  syncedIds=new Set(drawList(state).map(e=>e.id));
   if(selectedId && !byId(selectedId)) selectedId=null;
   renderAll();
+}
+// Первый экран комнаты после подключения, когда у нас есть изменения без связи.
+// Экран не менялся с тех пор, как мы его видели: отправляем свой целиком. Менялся (или видим впервые):
+// оставляем его и добавляем только элементы, созданные без связи.
+function mergeOffline(msg, t){
+  const w=offlineWait; clearTimeout(w.timer); offlineWait=null;
+  if(t<=w.seen){ publishNow(1); return; }
+  stateSeenT.set(room, t);
+  const remote=sanitizeState(msg), have=new Set(drawList(remote).map(e=>e.id));
+  const mine=state.els.filter(e=>!have.has(e.id) && !syncedIds.has(e.id));
+  remote.els=[...remote.els, ...mine].slice(0, MAX_ELS);
+  const myRaf=!remote.raffle && state.raffle && !syncedIds.has(state.raffle.id);
+  if(myRaf) remote.raffle=state.raffle;
+  acceptState(remote);
+  if(mine.length || myRaf) publishNow(1);
 }
 // Всё, что уходит на экран, подписывается и шифруется. Очередь сохраняет порядок.
 let pubChain=Promise.resolve();
@@ -300,10 +336,12 @@ Assets.fetcher=async id=>{
 let sendTimer=null, lastSend=0;
 function publishNow(qos=0){
   clearTimeout(sendTimer); sendTimer=null; lastSend=performance.now();
-  if(!client || !client.connected){ pendingOffline=true; return; }
+  if(!client || !client.connected){ if(room) pendingOffline=room; return; }
+  if(offlineWait) return;   // ещё ждём сохранённый экран: отправим после него
   STREAM_LANG=streamLang();
   const msg={ v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
+  syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
 }
 function scheduleSend(){
@@ -317,11 +355,15 @@ function sendFx(fx, quiet){
 }
 async function switchRoom(code){
   if(code===room) return;
+  // отложенная отправка и колесо относятся к старой комнате: иначе они сработают уже с пустым экраном новой
+  clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
+  if(offlineWait){ clearTimeout(offlineWait.timer); offlineWait=null; }
   if(homeClient) dropHome();
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   await useRoom(code); saveRooms();
-  state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=false;
+  state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
+  clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
   history.replaceState(null, '', location.pathname+keepQuery());

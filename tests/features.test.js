@@ -731,6 +731,48 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await mod.getAttribute('#status', 'class')).includes('ok'), 12000), 'unlocked and back online');
   });
 
+  // Пульт без программы и поддельный клиент MQTT: что уходит на экран при смене комнаты и после работы без связи
+  await step('room switch and offline edits never wipe the screen of the room', async () => {
+    const p = await T.newPage('sync', { app: false });
+    await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
+    const r = await p.evaluate(async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const sent = [];
+      const fake = () => ({ connected: true, subscribe(){}, unsubscribe(){}, publish(topic, box, opts, cb){ sent.push(topic); cb(); }, on(){}, end(){} });
+      const inject = async msg => { await onMessage(topics(room).state, await sealJSON(KEYS, msg, true), { retain: true }); await sleep(80); };
+      const el = (id, text) => ({ id, type: 'text', text });
+      const out = {};
+      const B = await makeRoom('B'); rooms.push(B);
+      addText('ROOM A SCREEN'); scheduleSend();   // отправка ещё ждёт своих 50 мс, а модератор уже выбрал другую комнату
+      await switchRoom(B.code); await sleep(120);
+      out.pending = pendingOffline;
+      useMain(fake()); await sleep(100);
+      out.sentBefore = sent.length;
+      await inject({ v: 2, from: 'mod_X', t: Date.now() - 1000, els: [el('b1', 'B SCREEN')] });
+      out.afterRetained = state.els.map(e => e.text); out.sentAfter = sent.length;
+      // без связи добавили элемент, а другой модератор тем временем поменял экран
+      useMain(null); addText('OFFLINE NEW'); out.pending2 = pendingOffline === room;
+      useMain(fake()); await sleep(50); let s = sent.length;
+      await inject({ v: 2, from: 'mod_X', t: Date.now(), els: [el('b1', 'B SCREEN'), el('x2', 'OTHER MOD')] });
+      out.merged = state.els.map(e => e.text); out.mergeSent = sent.length - s;
+      // без связи поменяли элемент, а экран с тех пор не менялся: наша правка остаётся
+      useMain(null); state.els[0].text = 'EDITED OFFLINE'; commit();
+      useMain(fake()); await sleep(50); s = sent.length;
+      await inject({ v: 2, from: 'mod_X', t: stateSeenT.get(room), els: [el('b1', 'B SCREEN'), el('x2', 'OTHER MOD')] });
+      out.unchanged = state.els.map(e => e.text); out.unchangedSent = sent.length - s;
+      // сохранённого экрана нет: отправляем после короткого ожидания
+      useMain(null); addText('LONELY'); useMain(fake()); s = sent.length; await sleep(1700); out.timeoutSent = sent.length - s;
+      return out;
+    });
+    eq([r.pending, r.sentBefore, r.sentAfter], [null, 0, 0], 'nothing of the old room is sent to the new one');
+    eq(r.afterRetained, ['B SCREEN'], 'the saved screen of the new room is shown');
+    check(r.pending2, 'an edit without the connection waits for it');
+    eq([r.merged, r.mergeSent], [['B SCREEN', 'OTHER MOD', 'OFFLINE NEW'], 1], 'the screen changed meanwhile: it stays, only the new element is added');
+    eq([r.unchanged, r.unchangedSent], [['EDITED OFFLINE', 'OTHER MOD', 'OFFLINE NEW'], 1], 'the screen did not change meanwhile: our edit is sent');
+    eq(r.timeoutSent, 1, 'no saved screen: the edits are sent after the wait');
+    await p.context().close();
+  });
+
   await step('help drawer: connection guides are part of the help', async () => {
     await mod.evaluate(() => window.HudiniUI.openHelp('connect'));
     check(await until(async () => /Radmin VPN/.test(await mod.evaluate(() => document.getElementById('helpDrawer')?.textContent || '')), 8000), 'drawer lists Radmin VPN');
