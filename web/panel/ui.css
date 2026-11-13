@@ -36,7 +36,7 @@ body.free .rz{display:none}
 .tset{margin:8px 0}
 .tchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .tchips button{padding:5px 9px;font-size:12px}
-#uiExport,#uiImport{white-space:normal}
+#uiExport,#uiImport{white-space:normal;grid-column:span 2}   /* на всю ширину: «Завантажити вигляд» в половину колонки ломается на три строки */
 
 /* tabs can be dragged into another order */
 #tabs button.drag-over{box-shadow:inset 0 3px 0 var(--acc)}
