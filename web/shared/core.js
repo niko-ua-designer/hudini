@@ -1514,6 +1514,15 @@ function chatBind(c, el){
   c.replaceChildren(); c._chan=el.chan;
   if(el.chan) c._unsub=TwitchChat.subscribe(el.chan, ev=>chatEvent(c, ev));
 }
+// Элемент убрали с экрана или сменили ему тип: сразу отписаться от канала (соединение закроется, если оно больше никому не нужно).
+// Принимает узел элемента (.el) или саму ленту (.chat); с любым другим узлом ничего не делает.
+function chatUnbind(node){
+  const c = node?.classList?.contains('chat') ? node : node?.querySelector?.('.chat');
+  if(!c) return;
+  if(c._unsub){ c._unsub(); c._unsub=null; }
+  c._chan=null;
+  for(const r of c.children) clearTimeout(r._t);
+}
 function chatEvent(c, ev){
   if(!c.isConnected && c._wasConn){ if(c._unsub) c._unsub(); c._unsub=null; c._chan=null; return; }   // элемент убрали с экрана
   const el=c._el; if(!el) return;
@@ -1534,6 +1543,6 @@ function chatAdd(c, el, m){
   paintChatLine(row, m);
   if(el.dir==='up') c.prepend(row); else c.append(row);
   const live=[...c.children].filter(r=>!r._gone);
-  for(const old of (el.dir==='up' ? live.reverse() : live).slice(0, Math.max(0, live.length-el.max))) old.remove();
+  for(const old of (el.dir==='up' ? live.reverse() : live).slice(0, Math.max(0, live.length-el.max))){ clearTimeout(old._t); old.remove(); }
   if(el.fade>0) row._t=setTimeout(()=>chatDrop(row), el.fade*1000);
 }

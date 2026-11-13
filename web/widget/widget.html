@@ -131,7 +131,7 @@ function applyState(s){
   drawList(s).forEach((el,i)=>{
     seen.add(el.id);
     let node=nodes.get(el.id);
-    if(node && node.dataset.type!==el.type){ node.remove(); nodes.delete(el.id); node=null; }
+    if(node && node.dataset.type!==el.type){ chatUnbind(node); node.remove(); nodes.delete(el.id); node=null; }
     const isNew=!node;
     if(isNew){ node=buildNode(el); node.classList.add('instant'); node._shown=false; node._noPh=true; stage.appendChild(node); nodes.set(el.id,node); }
     node._el=el;
@@ -162,7 +162,7 @@ function applyState(s){
   });
   for(const [id,node] of nodes) if(!seen.has(id)){
     nodes.delete(id); node.style.opacity=0;
-    node.querySelector('video')?.pause();
+    node.querySelector('video')?.pause(); chatUnbind(node);
     setTimeout(()=>node.remove(), 400);
   }
 }
