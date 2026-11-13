@@ -65,10 +65,10 @@
     else if(more){ e.stopPropagation(); openMenu(more); }
   });
 
-  function enter(id){
+  async function enter(id){
     const s = sessions.find(x => x.id === id); if(!s) return;
     s.last = Date.now(); store();
-    HudiniStore.flushNow();
+    await HudiniStore.flushNow();   // переход на пульт может оборвать запись, которая ещё в пути
     // пульт откроется в этом же окне; соединение с сервером стримера и список сессий там подхватит фаза 4
     location.href = '../panel/moderator.html?session=' + encodeURIComponent(id);
   }

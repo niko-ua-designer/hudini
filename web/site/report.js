@@ -16,13 +16,17 @@
   };
   const redact = (text) => { let n = 0; const out = String(text).replace(CODE, () => { n++; return 'hudini1:[removed]'; }); return { text: out, n }; };
   const clip = (s, n) => s.length > n ? s.slice(0, n) + ' …' : s;
+  // a room code pasted into a field never reaches the public issue
+  const scrub = s => { const o = { ...s }; for(const k of ['what', 'steps', 'ver']) if(typeof o[k] === 'string') o[k] = redact(o[k]).text; return o; };
 
   function buildReport(s){
+    s = scrub(s);
     const h = (t, v) => `### ${t}\n${v && v.trim() ? v.trim() : '_No response_'}\n`;
     if(s.type === 'idea') return h('Your idea', s.what);
     return [h('Type', s.type === 'lag' ? 'Lags or freezes' : 'Bug'), h('What happened', s.what), h('Steps to reproduce', s.steps), h('Hudini version', s.ver), h('Operating system', s.os), h('Role where it happens', s.role), h('Connection method', s.conn)].join('\n');
   }
   function buildUrl(s){
+    s = scrub(s);
     const q = new URLSearchParams(), idea = s.type === 'idea';
     q.set('template', idea ? 'idea.yml' : 'bug.yml');
     const first = (s.what || '').trim().split('\n')[0].slice(0, 70);
