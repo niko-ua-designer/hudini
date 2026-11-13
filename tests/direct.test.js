@@ -6,7 +6,7 @@ const mqtt = require('mqtt');
 const T = require('./lib');
 const { step, check, eq, until, sleep } = T;
 
-const PORT = 17810, MPORT = PORT + 1;
+const PORT = 17810 + Number(process.env.HUDINI_TEST_PORT_OFFSET || 0), MPORT = PORT + 1;
 const lan = Object.values(os.networkInterfaces()).flat().find(a => a && a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.254.'));
 const dial = (url, password) => new Promise(res => {
   const c = mqtt.connect(url, { username: 'mod', password, reconnectPeriod: 0, connectTimeout: 4000, rejectUnauthorized: false });
@@ -20,7 +20,7 @@ const dial = (url, password) => new Promise(res => {
 
   await step('the Host makes its own room and the moderator code', async () => {
     const st = await host.api('/api/status');
-    check(st.room && st.ownRoom && /localhost:17810\/widget\/widget.html\?room=/.test(st.obsLink), 'room created at first start, OBS link points to this PC');
+    check(st.room && st.ownRoom && st.obsLink.startsWith(`http://localhost:${PORT}/widget/widget.html?room=`), 'room created at first start, OBS link points to this PC');
     const c = await host.code();
     check(c.code.startsWith('hudini1:'), 'code starts with hudini1:');
     const d = c.data;
@@ -126,6 +126,23 @@ const dial = (url, password) => new Promise(res => {
     const b = await host.code();
     check(r.ok && b.data.room !== a.data.room && b.data.k !== a.data.k && b.data.pass !== a.data.pass && b.data.name === 'etsuitoku', 'room, keys, password and name changed');
     check(r.obsLink && r.obsLink !== obs0, 'new OBS link');
+  });
+
+  await step('an upload cut off mid-body does not crash the Host', async () => {
+    const { pass } = await host.api('/api/code');
+    for(let i = 0; i < 3; i++) await new Promise(res => {
+      const s = tls.connect({ host: '127.0.0.1', port: MPORT, rejectUnauthorized: false }, () => {
+        s.write(`PUT /files/abort${i}xyz12?part=0&last=1 HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer ${pass}\r\nContent-Length: 100000\r\n\r\n`);
+        s.write(Buffer.alloc(1000));
+        setTimeout(() => { s.destroy(); res(); }, 200);
+      });
+      s.on('error', res);
+    });
+    await sleep(800);
+    eq(host.proc.exitCode, null, 'Host still running');
+    eq((await fetch(`https://127.0.0.1:${MPORT}/ping`)).status, 200, 'moderators\' port still answers');
+    const st = await host.api('/api/status');
+    check(st.storage && st.storage.used === 0, 'nothing half-written is counted: ' + JSON.stringify(st.storage));
   });
 
   await step('logs on disk and no crash log after a normal exit', async () => {

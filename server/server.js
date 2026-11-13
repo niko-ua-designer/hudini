@@ -895,9 +895,11 @@ function send(res, code, body, type='text/plain; charset=utf-8', extra={}){
   res.writeHead(code, { 'content-type':type, 'cache-control':'no-store', 'x-content-type-options':'nosniff', ...extra }); res.end(body);
 }
 function readRaw(req, max){
-  return new Promise((ok, no) => { let n=0; const parts=[];
+  return new Promise((ok, no) => { let n=0, done=false; const parts=[];
     req.on('data', c => { n+=c.length; if(n>max){ no(new HttpErr(413, 'слишком большой запрос')); req.destroy(); } else parts.push(c); });
-    req.on('end', () => ok(Buffer.concat(parts))); req.on('error', no); });
+    req.on('end', () => { done=true; ok(Buffer.concat(parts)); }); req.on('error', no);
+    // обрыв посреди тела: отпускаем запрос (и собранные куски), errOut увидит закрытый сокет и ничего не ответит
+    req.on('close', () => { if(!done){ parts.length = 0; no(new HttpErr(400, 'запрос оборвался')); } }); });
 }
 const readBody = async (req, max) => (await readRaw(req, max)).toString('utf8');
 const bearer = req => (String(req.headers.authorization||'').match(/^Bearer\s+(\S+)$/)||[])[1] || '';
@@ -945,7 +947,16 @@ async function filesApi(req, res, url, mod){
   if(req.method==='DELETE'){ delFile(room, id); return j(200, { ok:true, storage:storage(room) }); }
   return j(405, { ok:false, error:'нельзя' });
 }
-const errOut = (res, e, extra={}) => { if(res.headersSent) return res.destroy(); send(res, e.code||400, JSON.stringify({ ok:false, error:e.message, ...(e.extra||{}) }), 'application/json', extra); };
+// Ошибка запроса → ответ. Код ответа только из HttpErr (400…599): у ошибок сокета и диска code — строка (ECONNRESET, ENOSPC),
+// с ней writeHead бросает, и сервер падал. Клиент уже ушёл или ответ начат — просто закрываем.
+const errOut = (res, e, extra={}) => {
+  try{
+    if(res.headersSent || res.destroyed || res.writableEnded) return res.destroy();
+    const code = Number.isInteger(e?.code) && e.code>=400 && e.code<=599 ? e.code : e?.code==null ? 400 : 500;
+    if(code===500) log('⚠ Ошибка запроса:', String(e?.code||''), e?.message||e);
+    send(res, code, JSON.stringify({ ok:false, error:code===500 ? 'ошибка на ПК стримера' : String(e?.message||e), ...(e?.extra||{}) }), 'application/json', extra);
+  }catch{ try{ res.destroy(); }catch{} }
+};
 function obsLink(){
   if(!ROOM) return '';
   return `http://localhost:${PORT}/widget/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
