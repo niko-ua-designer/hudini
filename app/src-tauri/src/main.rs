@@ -12,7 +12,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, Ordering};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -733,11 +733,15 @@ struct Browser {
     // создание и закрытие вкладок по очереди: пульт при загрузке может прислать два browser_open подряд,
     // и второй не должен пытаться создать webview с тем же именем
     turn: tauri::async_runtime::Mutex<()>,
+    // по каждой вкладке (имя webview): последний адрес, который просил открыть пульт, и последний загруженный
+    // (его пульт запоминает как адрес вкладки и потом присылает обратно)
+    requested: Mutex<HashMap<String, Url>>,
+    loaded: Mutex<HashMap<String, Url>>,
 }
 
 impl Default for Browser {
     fn default() -> Self {
-        Browser { rect: Mutex::new((0, 0, 320, 480)), active: Mutex::new(None), shown: AtomicBool::new(true), turn: tauri::async_runtime::Mutex::new(()) }
+        Browser { rect: Mutex::new((0, 0, 320, 480)), active: Mutex::new(None), shown: AtomicBool::new(true), turn: tauri::async_runtime::Mutex::new(()), requested: Mutex::new(HashMap::new()), loaded: Mutex::new(HashMap::new()) }
     }
 }
 
@@ -791,7 +795,18 @@ async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), Str
     let _turn = b.turn.lock().await;
     *b.active.lock().unwrap_or_else(|e| e.into_inner()) = Some(label.clone());
     if let Some(wv) = app.get_webview(&label) {
-        if wv.url().map(|u| u != url).unwrap_or(true) {
+        // Пульт присылает сохранённый адрес вкладки при каждом переключении. Переходим, только если он просит новый
+        // адрес: не прошлую просьбу, не последнюю загруженную страницу и не то, что открыто сейчас. Иначе переключение
+        // вкладок перезагружало бы страницу, по которой ходили внутри (вход в Twitch, адреса одностраничных сайтов).
+        let current = wv.url().ok();
+        let changed = {
+            let was_loaded = b.loaded.lock().unwrap_or_else(|e| e.into_inner()).get(&label) == Some(&url);
+            let mut req = b.requested.lock().unwrap_or_else(|e| e.into_inner());
+            let same = req.get(&label) == Some(&url) || was_loaded || current.as_ref() == Some(&url);
+            req.insert(label.clone(), url.clone());
+            !same
+        };
+        if changed {
             wv.navigate(url).map_err(|e| e.to_string())?;
         }
         browser_sync(&app);
@@ -802,8 +817,9 @@ async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), Str
     let popup = app.clone();
     let loaded = app.clone();
     let popup_label = label.clone();
+    let loaded_label = label.clone();
     let tab = id.clone();
-    let builder = WebviewBuilder::new(label, WebviewUrl::External(url))
+    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url.clone()))
         .on_navigation(|u| browser_url(u.as_str()).is_ok() || u.as_str() == "about:blank")
         // ссылки «в новом окне» открываем в этой же вкладке
         .on_new_window(move |u, _features| {
@@ -814,10 +830,12 @@ async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), Str
         })
         .on_page_load(move |_wv, payload| {
             if let PageLoadEvent::Finished = payload.event() {
+                loaded.state::<Browser>().loaded.lock().unwrap_or_else(|e| e.into_inner()).insert(loaded_label.clone(), payload.url().clone());
                 let _ = loaded.emit("hudini-browser", serde_json::json!({ "id": tab, "url": payload.url().as_str() }));
             }
         });
     window.add_child(builder, PhysicalPosition::new(x, y), PhysicalSize::new(w, h)).map_err(|e| e.to_string())?;
+    b.requested.lock().unwrap_or_else(|e| e.into_inner()).insert(label, url);
     browser_sync(&app);
     Ok(())
 }
@@ -853,6 +871,8 @@ async fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
             *active = None;
         }
     }
+    b.requested.lock().unwrap_or_else(|e| e.into_inner()).remove(&label);
+    b.loaded.lock().unwrap_or_else(|e| e.into_inner()).remove(&label);
     if let Some(wv) = app.get_webview(&label) {
         wv.close().map_err(|e| e.to_string())?;
     }
