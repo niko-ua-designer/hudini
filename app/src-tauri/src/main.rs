@@ -303,8 +303,10 @@ fn say(app: &AppHandle, line: &str) {
     }
 }
 
+// Окно и его страницу берём по отдельности (get_window / get_webview): как только в окне появился дочерний webview
+// браузера, get_webview_window(MAIN) возвращает None, потому что в окне больше не один webview
 fn show_main(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window(MAIN) {
+    if let Some(w) = app.get_window(MAIN) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
@@ -313,7 +315,7 @@ fn show_main(app: &AppHandle) {
 }
 
 fn hide_main(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window(MAIN) {
+    if let Some(w) = app.get_window(MAIN) {
         let _ = w.hide();
     }
     say(app, "VISIBLE 0");
@@ -335,7 +337,7 @@ fn notify(app: &AppHandle, body: &str) {
 fn set_loading(app: &AppHandle, text: &str, error: bool) {
     let server = app.state::<Server>();
     *server.pending.lock().unwrap() = (text.to_string(), error);
-    let Some(w) = app.get_webview_window(MAIN) else { return };
+    let Some(w) = app.get_webview(MAIN) else { return };
     let on_loading_page = w.url().map(|u| is_loading_page(&u)).unwrap_or(false);
     if on_loading_page {
         let js = format!("window.hudiniState&&hudiniState({},{})", serde_json::to_string(text).unwrap_or_default(), error);
@@ -404,7 +406,7 @@ fn spawn_server(app: &AppHandle, role: &str) -> Result<(), String> {
     *server.child.lock().unwrap() = Some(child);
     *server.role.lock().unwrap() = role.to_string();
     // окно спрятано (автозапуск) → сервер знает об этом и после обновления запустит программу тоже в трее
-    let hidden = app.get_webview_window(MAIN).and_then(|w| w.is_visible().ok()).map(|v| !v).unwrap_or(false);
+    let hidden = app.get_window(MAIN).and_then(|w| w.is_visible().ok()).map(|v| !v).unwrap_or(false);
     say(app, if hidden { "VISIBLE 0" } else { "VISIBLE 1" });
     if let Some(err) = stderr {
         // stderr только вычитываем, чтобы сервер не встал на полном канале
@@ -524,7 +526,7 @@ fn on_ready(app: &AppHandle, port: u16, role: &str) {
     if role != ROLE_STREAMER {
         return; // роль модератора: порта нет, окно остаётся на экране сессий
     }
-    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}", server.token.lock().unwrap()))) {
+    if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}", server.token.lock().unwrap()))) {
         // одноразовый вход: сервер выдаёт окну cookie hudini_admin и перенаправляет на страницу управления
         let _ = w.navigate(url);
     }
@@ -580,7 +582,7 @@ fn to_start_page(app: &AppHandle) {
     server.gen.fetch_add(1, Ordering::SeqCst);
     stop_child(app);
     server.port.store(0, Ordering::SeqCst);
-    if let (Some(w), Ok(url)) = (app.get_webview_window(MAIN), Url::parse(START_URL)) {
+    if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(START_URL)) {
         let _ = w.navigate(url);
     }
     show_main(app);
