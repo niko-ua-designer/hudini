@@ -770,15 +770,40 @@ fn browser_label(id: &str) -> Result<String, String> {
     }
 }
 
-// Только http(s) и только чужие сайты: страницы самого Hudini (сервер на 127.0.0.1) во встроенный браузер не пускаем
+// Адрес этого компьютера или локальной сети: петля, 0.0.0.0/8, частные сети (10/8, 172.16/12, 192.168/16),
+// link-local (169.254/16, fe80::/10), fc00::/7 и 100.64/10 (CGNAT, через него Tailscale видит Hudini Host стримера).
+// IPv6 вида ::ffff:a.b.c.d и ::a.b.c.d проверяем как IPv4 внутри.
+fn is_local_ip(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+    let v4 = match ip {
+        IpAddr::V4(v4) => v4,
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            if v6.is_loopback() || v6.is_unspecified() || (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80 {
+                return true;
+            }
+            match v6.to_ipv4() {
+                Some(v4) => v4,
+                None => return false,
+            }
+        }
+    };
+    let o = v4.octets();
+    v4.is_loopback() || v4.is_private() || v4.is_link_local() || v4.is_broadcast() || o[0] == 0 || (o[0] == 100 && (o[1] & 0xc0) == 64)
+}
+
+// Только http(s) и только чужие сайты: страницы самого Hudini (сервер на 127.0.0.1) и адреса локальной сети
+// во встроенный браузер не пускаем
 fn browser_url(raw: &str) -> Result<Url, String> {
     let u = Url::parse(raw).map_err(|e| e.to_string())?;
     if !matches!(u.scheme(), "http" | "https") {
         return Err("only http(s) addresses".into());
     }
     let host = u.host_str().ok_or("no host")?.to_ascii_lowercase();
-    let ip = host.trim_matches(['[', ']']).parse::<std::net::IpAddr>().ok();
-    if host == "localhost" || host.ends_with(".localhost") || ip.is_some_and(|i| i.is_loopback() || i.is_unspecified()) {
+    // «localhost.» и «a.localhost.» — те же адреса, что без точки в конце
+    let host = host.trim_end_matches('.');
+    let ip = host.trim_start_matches('[').trim_end_matches(']').parse::<std::net::IpAddr>().ok();
+    if host.is_empty() || host == "localhost" || host.ends_with(".localhost") || ip.is_some_and(is_local_ip) {
         return Err("local addresses are not allowed".into());
     }
     Ok(u)
@@ -1273,4 +1298,26 @@ fn main() {
             RunEvent::Reopen { .. } => show_main(app),
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::browser_url;
+
+    #[test]
+    fn browser_url_refuses_local_addresses() {
+        for bad in [
+            "http://127.0.0.1:7777/", "http://2130706433/", "http://0x7f.1/", "http://127.1/", "http://0/", "http://0.0.0.0/", "http://127.0.0.1./",
+            "http://[::1]/", "http://[::]/", "http://[::ffff:127.0.0.1]/", "http://[::127.0.0.1]/", "http://[0:0:0:0:0:ffff:7f00:1]/",
+            "http://localhost/", "http://LOCALHOST/", "http://localhost./", "http://a.localhost./", "http://tauri.localhost/app/start.html",
+            "http://10.1.2.3/", "http://172.16.0.1/", "http://172.31.255.255/", "http://192.168.1.1/", "http://169.254.169.254/", "http://100.64.0.1/",
+            "http://100.127.255.255/", "http://[fe80::1]/", "http://[fd00::1]/", "http://[fc00::1]/", "http://[::ffff:192.168.0.1]/",
+            "file:///C:/Windows/", "javascript:alert(1)",
+        ] {
+            assert!(browser_url(bad).is_err(), "{bad} must be refused");
+        }
+        for good in ["https://www.twitch.tv/popout/x/chat?popout=", "http://example.com/", "https://172.32.0.1/", "https://100.128.0.1/", "https://8.8.8.8/", "https://[2001:db8::1]/"] {
+            assert!(browser_url(good).is_ok(), "{good} must pass");
+        }
+    }
 }
