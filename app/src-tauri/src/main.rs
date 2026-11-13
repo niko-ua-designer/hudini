@@ -176,6 +176,9 @@ struct Server {
     update: Mutex<Option<(String, String)>>,
     // баннер о прошлом падении на странице управления уже показан в этом запуске
     crash_shown: AtomicBool,
+    // запуск и остановка сервера по очереди: перезапуск после падения, смена роли и «Сменить роль» не должны
+    // запустить два сервера сразу (лишний остался бы без хозяина)
+    spawning: Mutex<()>,
 }
 
 // ---------- журналы и краши (data/logs) ----------
@@ -521,6 +524,7 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
             return;
         }
         thread::sleep(Duration::from_secs(2 * n as u64));
+        let _turn = server.spawning.lock().unwrap_or_else(|e| e.into_inner());
         if !server.quitting.load(Ordering::SeqCst) && server.gen.load(Ordering::SeqCst) == gen {
             let _ = spawn_server(&app, ROLE_MOD);
         }
@@ -537,6 +541,7 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
     }
     let wait = if busy { Duration::from_secs(3) } else { Duration::from_secs(2 * n as u64) };
     thread::sleep(wait);
+    let _turn = server.spawning.lock().unwrap_or_else(|e| e.into_inner());
     if server.quitting.load(Ordering::SeqCst) || server.gen.load(Ordering::SeqCst) != gen {
         return;
     }
@@ -583,7 +588,7 @@ fn stop_child(app: &AppHandle) {
     }
 }
 
-// Смена роли: останавливаем текущий сервер и запускаем сервер новой роли
+// Смена роли: останавливаем текущий сервер и запускаем сервер новой роли (вызывать под Server::spawning)
 fn switch_role(app: &AppHandle, role: &str) -> Result<(), String> {
     applog(&format!("role: {role}"));
     let server = app.state::<Server>();
@@ -605,9 +610,12 @@ fn switch_role(app: &AppHandle, role: &str) -> Result<(), String> {
 fn to_start_page(app: &AppHandle) {
     applog("role: back to the start screen");
     let server = app.state::<Server>();
-    server.gen.fetch_add(1, Ordering::SeqCst);
-    stop_child(app);
-    server.port.store(0, Ordering::SeqCst);
+    {
+        let _turn = server.spawning.lock().unwrap_or_else(|e| e.into_inner());
+        server.gen.fetch_add(1, Ordering::SeqCst);
+        stop_child(app);
+        server.port.store(0, Ordering::SeqCst);
+    }
     if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(START_URL)) {
         let _ = w.navigate(url);
     }
@@ -1034,12 +1042,17 @@ async fn start_role(app: AppHandle, role: String, remember: bool) -> Result<(), 
         cfg.role = if remember { role.clone() } else { String::new() };
         save_cfg(&paths.data, &cfg);
     }
-    let server = app.state::<Server>();
-    let alive = server.child.lock().unwrap().is_some() && *server.role.lock().unwrap() == role;
-    if alive {
-        return Ok(());
-    }
-    tauri::async_runtime::spawn_blocking(move || switch_role(&app, &role)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let server = app.state::<Server>();
+        let _turn = server.spawning.lock().unwrap_or_else(|e| e.into_inner());
+        let alive = server.child.lock().unwrap().is_some() && *server.role.lock().unwrap() == role;
+        if alive {
+            return Ok(());
+        }
+        switch_role(&app, &role)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
