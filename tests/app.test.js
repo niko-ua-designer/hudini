@@ -206,6 +206,13 @@ const STUB = () => {
     await p.context().close();
   });
 
+  // Tauri adds a nonce to the CSP style-src when a page has an inline <style>; with a nonce 'unsafe-inline' stops working,
+  // so the style icons.js injects and every style="" attribute are dropped (black oversized icons). The panel keeps its CSS in files.
+  await step('the panel page has no inline <style>', async () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, '../web/panel/moderator.html'), 'utf8');
+    check(!/<style[\s>]/i.test(html), 'moderator.html has no inline <style>');
+  });
+
   await T.closeBrowser(); await web.close();
   const errs = T.pageErrors.filter(e => !/Not running inside/.test(e));
   check(!errs.length, 'no page errors', errs);
