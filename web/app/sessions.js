@@ -42,8 +42,10 @@
       if(code.k) Object.assign(s, { k:code.k, p:code.p, s:code.s });
       return { list:[...list, s], session:s, created:true, keysDiffer:false };
     }
-    const old = list[i], has = !!old.k || old.sealed === 1;   // sealed 1: keys are in the panel's password vault, not here (2: only the host password is)
-    const keysDiffer = !!code.k && has && (old.k !== code.k || old.p !== code.p || JSON.stringify(old.s) !== JSON.stringify(code.s));
+    // sealed 1: ключи в хранилище пульта под паролем, здесь их не сравнить; адреса, отпечаток и пароль принимаем,
+    // ключи из кода не пишем, их сверяет пульт при входе (sealed 2: в хранилище только пароль подключения)
+    const old = list[i], has = !!old.k || old.sealed === 1;
+    const keysDiffer = !!code.k && !!old.k && (old.k !== code.k || old.p !== code.p || JSON.stringify(old.s) !== JSON.stringify(code.s));
     const s = { ...old, pass:code.pass, fp:code.fp, addrs:code.addrs };
     if(code.k && !has) Object.assign(s, { k:code.k, p:code.p, s:code.s });
     const out = list.slice(); out[i] = s;

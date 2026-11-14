@@ -51,6 +51,13 @@ const STUB = () => {
     const noKeys = S.addCode([], S.parseCode(mk()));
     const fill = S.addCode(noKeys.list, S.parseCode(mk(KEYS)));
     eq(fill.session.k, 'KEY', 'missing keys are filled in');
+    // sealed by the panel password: keys are not here, a fresh code from the streamer must still update the session
+    const sealed = S.seal(r.list[0]);
+    const upd = S.addCode([sealed], S.parseCode(mk({ ...KEYS, pass:'new-pass', addrs:[{ h:'10.0.0.7', port:9, net:'lan' }] })));
+    check(!upd.keysDiffer && upd.session.pass === 'new-pass' && upd.session.addrs[0].h === '10.0.0.7', 'sealed session accepts new address and password');
+    check(upd.session.k === undefined && upd.session.sealed === 1, 'sealed session stays sealed, keys from the code not written');
+    const sealedPass = S.addCode([{ ...sealed, sealed:2 }], S.parseCode(mk(KEYS)));
+    check(!sealedPass.keysDiffer && sealedPass.session.k === 'KEY', 'session with only the password sealed takes keys from the code');
   });
   await step('sort and clean', async () => {
     const mkS = (id, o) => ({ id, name:id, pass:'p', fp:FP, addrs:[{ h:'h', port:1, net:'lan' }], pinned:false, added:1, last:0, lastNet:'', ...o });

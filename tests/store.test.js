@@ -6,7 +6,8 @@ const eq = (a, b, m) => { if(JSON.stringify(a) !== JSON.stringify(b)){ fails++; 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function harness(load){
-  const saves = [], events = [], w = { __calls: saves, events };
+  const saves = [], events = [], w = { __calls: saves, events, reloads: 0 };
+  w.location = { reload(){ w.reloads++; } };
   w.window = w; Object.assign(w, { setTimeout, clearTimeout, setInterval, clearInterval, Promise, Date, JSON, String, Array, Object, Error });
   w.__TAURI__ = { core: { async invoke(cmd, args){
     if(cmd === 'store_load') return load();
@@ -21,22 +22,23 @@ function harness(load){
 }
 
 (async () => {
-  // store_load отказывает: ничего не пишем, потом чтение удалось: данные слиты и сохранены
+  // store_load отказывает: ничего не пишем; потом чтение удалось: правки за время сбоя выброшены, страница перезагружается
   let ok = false;
-  let w = harness(() => { if(!ok) throw new Error('locked'); return { old: 1, keep: 2 }; });
+  let w = harness(() => { if(!ok) throw new Error('locked'); return { old: 1, keep: 2, list: [1, 2, 3] }; });
   await w.HudiniStore.ready;
   eq(w.events.length, 1, 'load error is reported');
-  w.HudiniStore.set('fresh', 5); w.HudiniStore.remove('keep');
+  w.HudiniStore.set('fresh', 5); w.HudiniStore.remove('keep'); w.HudiniStore.set('list', [9]);
   await sleep(400);
   eq(w.__calls.length, 0, 'no store_save while the load has failed');
   await w.HudiniStore.flushNow();
   eq(w.__calls.length, 0, 'flushNow does not save either');
   ok = true;
   await sleep(3500);
-  eq(w.__calls.at(-1), { old: 1, fresh: 5 }, 'loaded data merged with keys set meanwhile and saved');
-  eq(w.HudiniStore.get('old'), 1, 'old key readable');
+  eq(w.reloads, 1, 'page reloads after the store could be read');
+  eq(w.__calls.length, 0, 'edits made on empty data are not written over the store');
+  eq([w.HudiniStore.get('old'), w.HudiniStore.get('keep'), w.HudiniStore.get('list'), w.HudiniStore.get('fresh')], [1, 2, [1, 2, 3], undefined], 'data is what is on disk');
   w.HudiniStore.set('x', 1); await sleep(400);
-  eq(w.__calls.at(-1), { old: 1, fresh: 5, x: 1 }, 'saving works after recovery');
+  eq(w.__calls.at(-1), { old: 1, keep: 2, list: [1, 2, 3], x: 1 }, 'saving works after recovery');
 
   // чистый старт ({} при NotFound)
   w = harness(() => ({}));
