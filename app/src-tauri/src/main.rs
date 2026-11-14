@@ -35,11 +35,11 @@ const SERVER_BIN: &str = "hudini-server.exe";
 #[cfg(not(windows))]
 const SERVER_BIN: &str = "hudini-server";
 #[cfg(windows)]
-const LOADING_URL: &str = "http://tauri.localhost/app/index.html";
+const LOADING_URL: &str = "https://tauri.localhost/app/index.html";
 #[cfg(not(windows))]
 const LOADING_URL: &str = "tauri://localhost/app/index.html";
 #[cfg(windows)]
-const START_URL: &str = "http://tauri.localhost/app/start.html";
+const START_URL: &str = "https://tauri.localhost/app/start.html";
 #[cfg(not(windows))]
 const START_URL: &str = "tauri://localhost/app/start.html";
 const ROLE_STREAMER: &str = "streamer";
@@ -1237,6 +1237,8 @@ fn main() {
             let popup = handle.clone();
             let dl = handle.clone();
             let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App((if auto_streamer { "app/index.html" } else { "app/start.html" }).into()))
+                // https://tauri.localhost вместо http: плеер и чат Twitch встраиваются только в страницы с https
+                .use_https_scheme(true)
                 .disable_drag_drop_handler() // нужно, чтобы код модератора можно было перетащить в окно (HTML5 drag-and-drop)
                 .title("Hudini")
                 .inner_size(980.0, 760.0)
@@ -1408,7 +1410,7 @@ mod tests {
         for bad in [
             "http://127.0.0.1:7777/", "http://2130706433/", "http://0x7f.1/", "http://127.1/", "http://0/", "http://0.0.0.0/", "http://127.0.0.1./",
             "http://[::1]/", "http://[::]/", "http://[::ffff:127.0.0.1]/", "http://[::127.0.0.1]/", "http://[0:0:0:0:0:ffff:7f00:1]/",
-            "http://localhost/", "http://LOCALHOST/", "http://localhost./", "http://a.localhost./", "http://tauri.localhost/app/start.html",
+            "http://localhost/", "http://LOCALHOST/", "http://localhost./", "http://a.localhost./", "http://tauri.localhost/app/start.html", "https://tauri.localhost/app/start.html",
             "http://10.1.2.3/", "http://172.16.0.1/", "http://172.31.255.255/", "http://192.168.1.1/", "http://169.254.169.254/", "http://100.64.0.1/",
             "http://100.127.255.255/", "http://[fe80::1]/", "http://[fd00::1]/", "http://[fc00::1]/", "http://[::ffff:192.168.0.1]/",
             "file:///C:/Windows/", "javascript:alert(1)",

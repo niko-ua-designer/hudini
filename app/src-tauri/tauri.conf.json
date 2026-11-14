@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; frame-src https:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:* wss://127.0.0.1:* http://127.0.0.1:* https://127.0.0.1:* wss://irc-ws.chat.twitch.tv https: blob:"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; frame-src https:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost ws://127.0.0.1:* wss://127.0.0.1:* http://127.0.0.1:* https://127.0.0.1:* wss://irc-ws.chat.twitch.tv https: blob:"
     }
   },
   "bundle": {
