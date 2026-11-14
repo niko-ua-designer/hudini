@@ -1,6 +1,7 @@
 :root{--bg:#0f1115;--rail:#0b0d11;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--acc2:#a78bfa;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+html{color-scheme:dark}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{display:flex;user-select:none;-webkit-user-select:none;cursor:default}
 input,.err,.name b,#toast{user-select:text;-webkit-user-select:text}

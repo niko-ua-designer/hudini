@@ -1,6 +1,7 @@
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,'Noto Color Emoji',sans-serif}
+html{color-scheme:dark}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Ubuntu,Cantarell,"DejaVu Sans",sans-serif,'Noto Color Emoji'}
 body{display:grid;grid-template-rows:auto 1fr;grid-template-columns:300px 1fr 310px;grid-template-areas:"top top top" "left main right";height:100vh;overflow:hidden}
 header{grid-area:top;display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
 header h1{font-size:15px;margin:0 8px 0 0}
@@ -13,6 +14,10 @@ h2:first-child{margin-top:4px}
 input,textarea,select,button{font:inherit;color:var(--text)}
 input[type=text],input[type=url],input[type=number],input[type=datetime-local],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;outline:none;min-width:0}
 input:focus,textarea:focus,select:focus{border-color:var(--acc)}
+/* свой вид списков: WebKitGTK (Linux) рисует <select> темой GTK, белым, и не берёт наш фон. :not(#_) перебивает padding!important у мест */
+select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%238b91a1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+select:not(#_){padding-right:22px!important}
+option{background:var(--panel2);color:var(--text)}
 input[type=datetime-local]{color-scheme:dark}
 textarea{resize:vertical;min-height:54px}
 input[type=range]{width:100%;accent-color:var(--acc)}
@@ -86,7 +91,7 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 .h-sw{right:-10px;top:50%;margin-top:-10px;width:10px;height:20px;cursor:ew-resize}
 .h-shh{bottom:-10px;left:50%;margin-left:-10px;width:20px;height:10px;cursor:ns-resize}
 .h-rot::after{content:"";position:absolute;left:4px;top:12px;width:2px;height:20px;background:var(--acc)}
-.tag{position:absolute;left:0;top:-22px;font:600 11px system-ui,'Noto Color Emoji',sans-serif;background:#000a;color:#ccc;padding:1px 6px;border-radius:3px;white-space:nowrap;display:none;z-index:3}
+.tag{position:absolute;left:0;top:-22px;font:600 11px system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Ubuntu,Cantarell,"DejaVu Sans",sans-serif,'Noto Color Emoji';background:#000a;color:#ccc;padding:1px 6px;border-radius:3px;white-space:nowrap;display:none;z-index:3}
 .el.is-hidden .tag,.el.flashing .tag{display:block}
 
 /* ---------- слои и инспектор ---------- */

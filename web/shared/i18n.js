@@ -4159,7 +4159,7 @@ const HUDINI_DICT = {
   function mountSwitch(host){
     const s = document.createElement('select');
     s.setAttribute('data-i18n-skip', ''); s.title = 'Language';
-    s.style.cssText = 'font:inherit;font-size:12px;padding:3px 6px;border-radius:6px;background:#1d212a;color:#e6e8ee;border:1px solid #2a2f3a;cursor:pointer';
+    s.style.cssText = 'font:inherit;font-size:12px;padding:3px 22px 3px 6px;border-radius:6px;-webkit-appearance:none;appearance:none;background:#1d212a url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\'%3E%3Cpath d=\'M0 0h10L5 6z\' fill=\'%238b91a1\'/%3E%3C/svg%3E") no-repeat right 7px center;color:#e6e8ee;border:1px solid #2a2f3a;cursor:pointer;color-scheme:dark';
     for(const [code, name] of LANGS){ const o = document.createElement('option'); o.value = code; o.textContent = name; o.selected = code === lang; s.appendChild(o); }
     s.onchange = () => setLang(s.value);
     host.appendChild(s);

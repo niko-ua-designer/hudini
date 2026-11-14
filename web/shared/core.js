@@ -2,13 +2,13 @@
 
 // Эмодзи рисуем одним шрифтом (Noto Color Emoji) у всех: системные шрифты в старых Windows/OBS
 // не знают новые эмодзи (например 🪖) и показывают пустой квадрат
-// Обычный шрифт стоит перед шрифтом эмодзи: если веб-шрифт не загрузился, пробелы и цифры
-// иначе берутся из шрифта эмодзи (он их тоже содержит) и текст разъезжается
+// Обычные шрифты и общий sans-serif стоят перед шрифтом эмодзи: если веб-шрифт не загрузился или в системе нет Arial
+// (Linux), пробелы и цифры иначе берутся из шрифта эмодзи (он их тоже содержит) и текст разъезжается
 const EMOJI_FONT = "'Noto Color Emoji'", TEXT_FB = "Arial,'Liberation Sans','Segoe UI'";
 const FONTS = {
-  montserrat:`'Montserrat',${TEXT_FB},${EMOJI_FONT},sans-serif`, russo:`'Russo One',${TEXT_FB},${EMOJI_FONT},sans-serif`,
-  impact:`Impact,'Anton','Arial Black',${TEXT_FB},${EMOJI_FONT},sans-serif`, pixel:`'Press Start 2P','Courier New',${EMOJI_FONT},monospace`,
-  comfortaa:`'Comfortaa',${TEXT_FB},${EMOJI_FONT},sans-serif`, caveat:`'Caveat',${TEXT_FB},${EMOJI_FONT},cursive`
+  montserrat:`'Montserrat',${TEXT_FB},sans-serif,${EMOJI_FONT}`, russo:`'Russo One',${TEXT_FB},sans-serif,${EMOJI_FONT}`,
+  impact:`Impact,'Anton','Arial Black',${TEXT_FB},sans-serif,${EMOJI_FONT}`, pixel:`'Press Start 2P','Courier New',monospace,${EMOJI_FONT}`,
+  comfortaa:`'Comfortaa',${TEXT_FB},sans-serif,${EMOJI_FONT}`, caveat:`'Caveat',${TEXT_FB},cursive,${EMOJI_FONT}`
 };
 // ---------- свои шрифты ----------
 // Файл шрифта лежит в Hudini Host как обычный файл комнаты, элемент хранит ключ 'u:<id>'.
@@ -36,7 +36,7 @@ function fontOf(v){ return typeof v==='string' && (Object.hasOwn(FONTS, v) || UF
 function fontCss(key){
   const m = UFONT_RE.exec(key||''); if(!m) return typeof key==='string' && Object.hasOwn(FONTS, key) ? FONTS[key] : FONTS.montserrat;
   UFonts.use(m[1]);
-  return `'hu-${m[1]}',${TEXT_FB},${EMOJI_FONT},sans-serif`;
+  return `'hu-${m[1]}',${TEXT_FB},sans-serif,${EMOJI_FONT}`;
 }
 const FONT_EXT = { ttf:'font/ttf', otf:'font/otf', woff:'font/woff', woff2:'font/woff2' };
 
