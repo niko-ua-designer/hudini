@@ -45,21 +45,21 @@ const FONT_EXT = { ttf:'font/ttf', otf:'font/otf', woff:'font/woff', woff2:'font
 const STREAM_LANGS = ['ru', 'en', 'uk', 'de'];
 let STREAM_LANG = 'ru';
 const STREAM_TXT = {
-  en:{ "открывает":"opens", "выбил":"unboxed", "Ширпотреб":"Consumer Grade", "Промышленное":"Industrial Grade", "Армейское":"Mil-Spec", "Запрещённое":"Restricted", "Засекреченное":"Classified", "Тайное":"Covert", "Редкое":"Rare Special", "Розыгрыш":"Giveaway", "только подписчики":"subscribers only", "Пиши в чат":"Type in chat", "Пиши в чат что угодно, чтобы участвовать":"Type anything in chat to join", "Сбор закрыт, сейчас крутим!":"Entries closed, spinning now!", "Розыгрыш скоро начнётся":"Giveaway starts soon", "У подписчиков шанс x2":"Subscribers have x2 chance", "выигрывает":"wins", "Победители":"Winners", "на связи":"is here", "Напиши в чат за":"Reply in chat within", "Не ответил, перекручиваем…":"No reply, spinning again…", 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon',
+  en:{ "открывает":"opens", "выбил":"unboxed", "Ширпотреб":"Consumer Grade", "Промышленное":"Industrial Grade", "Армейское":"Mil-Spec", "Запрещённое":"Restricted", "Засекреченное":"Classified", "Тайное":"Covert", "Редкое":"Rare Special", "Розыгрыш":"Giveaway", "только подписчики":"subscribers only", "Пиши в чат":"Type in chat", "Пиши в чат что угодно, чтобы участвовать":"Type anything in chat to join", "Сбор закрыт, сейчас крутим!":"Entries closed, spinning now!", "Розыгрыш скоро начнётся":"Giveaway starts soon", "У подписчиков шанс x2":"Subscribers have x2 chance", "выигрывает":"wins", "Победители":"Winners", "на связи":"is here", "Напиши в чат за":"Reply in chat within", "Не ответил, перекручиваем…":"No reply, spinning again…", 'урон за раунд':"damage this round", 'Выбери двух игроков в пульте':"Pick two players in the panel", 'Дуэль появится сама после килла (режим наблюдателя)':"The duel shows up by itself after a kill (spectator mode)", 'Пиши в чат цифру':'Type a number in chat', 'голосов':'votes', 'Голосование закрыто':'Poll closed', 'Голосование скоро начнётся':'Poll starts soon', 'Да':'Yes', 'Нет':'No', 'Окно источника':'Source window', 'Розовая рамка должна идти ровно по краям экрана стрима.':'The pink frame must run exactly along the edges of the stream screen.', 'Если она меньше экрана: в OBS выдели источник →':'If it is smaller than the screen: in OBS select the source →', 'Растянуть на экран':'Fit to screen',
     'Нож':'Knife', 'Флешка':'Flashbang', 'Дым':'Smoke', 'Молотов':'Molotov', 'Зажигалка':'Incendiary', 'Ложная':'Decoy',
     'заложена':'planted', 'разминируют':'defusing', 'разминирована':'defused', 'взорвалась':'exploded',
     'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
     'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
     'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
-  uk:{ "открывает":"відкриває", "выбил":"вибив", "Ширпотреб":"Ширвжиток", "Промышленное":"Промислове", "Армейское":"Армійське", "Запрещённое":"Заборонене", "Засекреченное":"Засекречене", "Тайное":"Таємне", "Редкое":"Рідкісне", "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться',
+  uk:{ "открывает":"відкриває", "выбил":"вибив", "Ширпотреб":"Ширвжиток", "Промышленное":"Промислове", "Армейское":"Армійське", "Запрещённое":"Заборонене", "Засекреченное":"Засекречене", "Тайное":"Таємне", "Редкое":"Рідкісне", "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться', 'Да':'Так', 'Нет':'Ні', 'Окно источника':'Вікно джерела', 'Розовая рамка должна идти ровно по краям экрана стрима.':'Рожева рамка має йти рівно по краях екрана стріму.', 'Если она меньше экрана: в OBS выдели источник →':'Якщо вона менша за екран: в OBS виділи джерело →', 'Растянуть на экран':'Розтягнути на екран',
     'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
     'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
     'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
     'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
     'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
-  de:{ "открывает":"öffnet", "выбил":"hat gezogen", "Ширпотреб":"Verbraucherklasse", "Промышленное":"Industriequalität", "Армейское":"Militärstandard", "Запрещённое":"Limitiert", "Засекреченное":"Geheim", "Тайное":"Verdeckt", "Редкое":"Selten", "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich',
+  de:{ "открывает":"öffnet", "выбил":"hat gezogen", "Ширпотреб":"Verbraucherklasse", "Промышленное":"Industriequalität", "Армейское":"Militärstandard", "Запрещённое":"Limitiert", "Засекреченное":"Geheim", "Тайное":"Verdeckt", "Редкое":"Selten", "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich', 'Да':'Ja', 'Нет':'Nein', 'Окно источника':'Quellenfenster', 'Розовая рамка должна идти ровно по краям экрана стрима.':'Der pinke Rahmen muss genau am Rand des Stream-Bildschirms verlaufen.', 'Если она меньше экрана: в OBS выдели источник →':'Ist er kleiner als der Bildschirm: in OBS die Quelle wählen →', 'Растянуть на экран':'An Bildschirm anpassen',
     'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
     'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
     'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
@@ -103,10 +103,28 @@ const ASSET_RE = /^asset:([a-z0-9]{6,24})$/;
 function assetId(src){ const m = typeof src==='string' ? ASSET_RE.exec(src) : null; return m ? m[1] : null; }
 // Сайт на экране не может быть самим пультом, страницами Hudini или программой стримера на этом ПК
 const HUDINI_SITE = 'https://niko-ua-designer.github.io';
+// Локальные адреса: те же правила, что is_local_ip / browser_url в app/src-tauri/src/main.rs
+function localV4(a,b){ return a===0 || a===10 || a===127 || (a===172 && b>=16 && b<=31) || (a===192 && b===168) || (a===169 && b===254) || (a===100 && b>=64 && b<=127) || a===255; }
+function localHost(h){
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if(v4) return localV4(+v4[1], +v4[2]);
+  if(h.includes(':')){
+    if(h==='::' || h==='::1') return true;
+    const w = h.split(':')[0];
+    if(/^f[cd][0-9a-f]{2}$/.test(w) || /^fe[89ab][0-9a-f]$/.test(w)) return true;   // fc00::/7, fe80::/10
+    const m = /^(?:0:){0,5}:?(?:0:)*ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h) || /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+    if(m){ const x = parseInt(m[1],16); return localV4(x>>8, x&255); }
+    const d = /^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/.exec(h);
+    return !!d && localHost(d[1]);
+  }
+  return false;
+}
+// Имена, которые для любого префикса отвечают локальным адресом (wildcard DNS)
+const LOCAL_DNS = /(^|\.)(nip\.io|sslip\.io|localtest\.me|lvh\.me|localhost)$/;
 function blockedEmbed(url){
   let u; try{ u = new URL(url); }catch{ return true; }
   const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
-  if(h==='localhost' || h.endsWith('.localhost') || /^127\./.test(h) || h==='0.0.0.0' || h==='::1' || h==='::' || /^::ffff:(127\.|7f)/.test(h)) return true;
+  if(h==='localhost' || LOCAL_DNS.test(h) || /^127\.\d+\.\d+\.\d+\./.test(h) || localHost(h)) return true;
   if(u.origin===HUDINI_SITE) return true;
   return typeof location!=='undefined' && /^https?:$/.test(location.protocol) && u.origin===location.origin;
 }
@@ -223,7 +241,7 @@ function sanitizeEl(e){
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
     o.title=str(e.title,100);
     o.opts=(Array.isArray(e.opts)?e.opts:[]).slice(0,6).map(x=>str(x,40));
-    if(o.opts.length<2) o.opts=['Да','Нет'];
+    if(o.opts.length<2) o.opts=[st('Да'),st('Нет')];
     o.votes=o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));
     o.running=!!e.running; o.closeAt=num(e.closeAt,0,0,1e15);   // закрыть само в это время (0 = вручную)
   } else {
@@ -318,7 +336,10 @@ function animApply(node, el, now){
 // Испорченный элемент выкидываем один, а не весь экран
 function sanitizeElSafe(e){ try{ return sanitizeEl(e); }catch{ return null; } }
 function sanitizeState(m){
-  let els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeElSafe).filter(Boolean) : [];
+  const lang = STREAM_LANGS.includes(m?.lang) ? m.lang : null, prevLang = STREAM_LANG;
+  if(lang) STREAM_LANG = lang;   // тексты по умолчанию (варианты опроса) берём на языке этого экрана
+  let els;
+  try{ els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeElSafe).filter(Boolean) : []; }finally{ STREAM_LANG = prevLang; }
   // Розыгрыш один на экран и живёт не в списке слоёв, а в state.raffle. Старый экран: первый розыгрыш из списка переезжает.
   const raffle = sanitizeElSafe(m?.raffle && typeof m.raffle==='object' ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
   els = els.filter(e => e.type!=='raffle');
@@ -328,7 +349,7 @@ function sanitizeState(m){
   if(raffle && ids.has(raffle.id)){ let n = 1; while(ids.has('raffle'+n)) n++; raffle.id = 'raffle'+n; }
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
     .filter(f => typeof f?.id==='string' && /^[a-z0-9]{6,24}$/.test(f.id)).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
-  return { visible: m?.visible !== false, els, lang: STREAM_LANGS.includes(m?.lang) ? m.lang : null, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
+  return { visible: m?.visible !== false, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
 function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }
@@ -842,7 +863,7 @@ function tickNode(node, el, now){
   return s;
 }
 
-// ---------- сайты, YouTube, Twitch, вебка ----------
+// ---------- сайты, YouTube, Twitch ----------
 function ytTime(t){
   if(!t) return 0;
   if(/^\d+$/.test(t)) return +t;
@@ -866,7 +887,6 @@ function parseEmbed(url){
     if(p[0]==='videos' && p[1]) return { kind:'twitch', video:p[1] };
     if(p.length===1) return { kind:'twitch', channel:p[0] };
   }
-  if(h==='vdo.ninja' && u.searchParams.has('view')) return { kind:'cam' };
   return { kind:'site' };
 }
 // Ссылка для iframe. host нужен Twitch (должен совпадать с адресом страницы).
@@ -882,7 +902,6 @@ function embedSrc(el, host, forceMute){
       : p.video ? `https://player.twitch.tv/?video=${e(p.video)}` : `https://player.twitch.tv/?channel=${e(p.channel)}`;
     return `${base}&parent=${e(host)}&autoplay=true&muted=${mute}`;
   }
-  if(p.kind==='cam'){ const u = new URL(el.url); if(mute) u.searchParams.set('noaudio','1'); else u.searchParams.delete('noaudio'); return u.href; }
   return el.url;
 }
 // Обычные сайты открываем в песочнице. Ставим её при каждой смене ссылки, до загрузки:

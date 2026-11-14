@@ -60,7 +60,7 @@
 .tw[data-st="neon"] .disp,.tw[data-st="neon"] .cap{color:#fff;text-shadow:0 0 .04em #fff,0 0 .12em var(--c),0 0 .3em var(--c),0 0 .6em var(--c)}
 .tw[data-st="neon"] .bar{box-shadow:0 0 .2em var(--c)}
 
-/* ---------- сайты / YouTube / Twitch / вебка ---------- */
+/* ---------- сайты / YouTube / Twitch ---------- */
 .web{position:relative;overflow:hidden;background:#000}
 .web iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:transparent}
 .web[data-shape="round"]{border-radius:calc(var(--u) * 3)}

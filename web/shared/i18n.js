@@ -139,7 +139,6 @@ const HUDINI_DICT = {
     "Вариант 2": "Option 2",
     "Вариант 3": "Option 3",
     "Варианты (каждый с новой строки, до 6)": "Options (one per line, up to 6)",
-    "Вебка": "Webcam",
     "Версия": "Version",
     "видео с компьютера": "video from computer",
     "виджет не подключён": "widget not connected",
@@ -147,7 +146,6 @@ const HUDINI_DICT = {
     "Виджет стримера не подключён к этой комнате.": "The streamer's widget isn't connected to this room.",
     "Виджеты": "Widgets",
     "Включён": "Enabled",
-    "Во вкладке VDO.Ninja выбери камеру и нажми старт": "In the VDO.Ninja tab, pick a camera and press start",
     "Вопрос, например: Что играем дальше?": "Question, e.g.: What do we play next?",
     "Вперёд на 10 секунд": "Forward 10 seconds",
     "Впиши команду, например !кринж": "Type a command, e.g. !cringe",
@@ -398,7 +396,6 @@ const HUDINI_DICT = {
     "от QUAD": "from QUAD",
     "от TRIPLE": "from TRIPLE",
     "Отключить": "Disconnect",
-    "Откроется вкладка VDO.Ninja: выбери камеру и нажми старт": "A VDO.Ninja tab will open: pick a camera and press start",
     "Открыть": "Open",
     "Отмена": "Cancel",
     "отменить ·": "undo ·",
@@ -803,9 +800,6 @@ const HUDINI_DICT = {
     "📐 Рамка": "📐 Frame",
     "📚 Библиотека": "📚 Library",
     "📚 Сохранить в библиотеку": "📚 Save to library",
-    "📷 Вебка": "📷 Webcam",
-    "📷 Моя вебка": "📷 My webcam",
-    "📷 Открыть вкладку камеры": "📷 Open the camera tab",
     "🔁 По кругу": "🔁 Loop",
     "🔁 Показать / скрыть": "🔁 Show / hide",
     "🔄 Обновить сейчас": "🔄 Update now",
@@ -1488,7 +1482,6 @@ const HUDINI_DICT = {
     "Вариант 2": "Варіант 2",
     "Вариант 3": "Варіант 3",
     "Варианты (каждый с новой строки, до 6)": "Варіанти (кожен з нового рядка, до 6)",
-    "Вебка": "Вебка",
     "Версия": "Версія",
     "видео с компьютера": "відео з комп'ютера",
     "виджет не подключён": "віджет не підключено",
@@ -1496,7 +1489,6 @@ const HUDINI_DICT = {
     "Виджет стримера не подключён к этой комнате.": "Віджет стримера не підключений до цієї кімнати.",
     "Виджеты": "Віджети",
     "Включён": "Увімкнено",
-    "Во вкладке VDO.Ninja выбери камеру и нажми старт": "У вкладці VDO.Ninja обери камеру й натисни старт",
     "Вопрос, например: Что играем дальше?": "Питання, наприклад: Що граємо далі?",
     "Вперёд на 10 секунд": "Вперед на 10 секунд",
     "Впиши команду, например !кринж": "Впиши команду, наприклад !крінж",
@@ -1747,7 +1739,6 @@ const HUDINI_DICT = {
     "от QUAD": "від QUAD",
     "от TRIPLE": "від TRIPLE",
     "Отключить": "Відключити",
-    "Откроется вкладка VDO.Ninja: выбери камеру и нажми старт": "Відкриється вкладка VDO.Ninja: обери камеру й натисни старт",
     "Открыть": "Відкрити",
     "Отмена": "Скасувати",
     "отменить ·": "скасувати ·",
@@ -2152,9 +2143,6 @@ const HUDINI_DICT = {
     "📐 Рамка": "📐 Рамка",
     "📚 Библиотека": "📚 Бібліотека",
     "📚 Сохранить в библиотеку": "📚 Зберегти в бібліотеку",
-    "📷 Вебка": "📷 Вебка",
-    "📷 Моя вебка": "📷 Моя вебка",
-    "📷 Открыть вкладку камеры": "📷 Відкрити вкладку камери",
     "🔁 По кругу": "🔁 По колу",
     "🔁 Показать / скрыть": "🔁 Показати / сховати",
     "🔄 Обновить сейчас": "🔄 Оновити зараз",
@@ -2837,7 +2825,6 @@ const HUDINI_DICT = {
     "Вариант 2": "Option 2",
     "Вариант 3": "Option 3",
     "Варианты (каждый с новой строки, до 6)": "Optionen (je eine pro Zeile, bis 6)",
-    "Вебка": "Webcam",
     "Версия": "Version",
     "видео с компьютера": "Video vom Computer",
     "виджет не подключён": "Widget nicht verbunden",
@@ -2845,7 +2832,6 @@ const HUDINI_DICT = {
     "Виджет стримера не подключён к этой комнате.": "Das Widget des Streamers ist nicht mit diesem Raum verbunden.",
     "Виджеты": "Widgets",
     "Включён": "Aktiv",
-    "Во вкладке VDO.Ninja выбери камеру и нажми старт": "Wähle im VDO.Ninja-Tab eine Kamera und drück Start",
     "Вопрос, например: Что играем дальше?": "Frage, z. B.: Was spielen wir als Nächstes?",
     "Вперёд на 10 секунд": "10 Sekunden vor",
     "Впиши команду, например !кринж": "Befehl eingeben, z. B. !cringe",
@@ -3096,7 +3082,6 @@ const HUDINI_DICT = {
     "от QUAD": "ab QUAD",
     "от TRIPLE": "ab TRIPLE",
     "Отключить": "Trennen",
-    "Откроется вкладка VDO.Ninja: выбери камеру и нажми старт": "Ein VDO.Ninja-Tab öffnet sich: Kamera wählen und Start drücken",
     "Открыть": "Öffnen",
     "Отмена": "Abbrechen",
     "отменить ·": "rückgängig ·",
@@ -3501,9 +3486,6 @@ const HUDINI_DICT = {
     "📐 Рамка": "📐 Rahmen",
     "📚 Библиотека": "📚 Bibliothek",
     "📚 Сохранить в библиотеку": "📚 In Bibliothek speichern",
-    "📷 Вебка": "📷 Webcam",
-    "📷 Моя вебка": "📷 Meine Webcam",
-    "📷 Открыть вкладку камеры": "📷 Kamera-Tab öffnen",
     "🔁 По кругу": "🔁 Schleife",
     "🔁 Показать / скрыть": "🔁 Zeigen / verstecken",
     "🔄 Обновить сейчас": "🔄 Jetzt aktualisieren",
@@ -4158,7 +4140,11 @@ const HUDINI_DICT = {
     wrap.id = 'langPick'; wrap.setAttribute('data-i18n-skip', ''); wrap.style.cssText = css;
     const box = document.createElement('div');
     box.style.cssText = 'background:#171a21;border:1px solid #2a2f3a;border-radius:14px;padding:26px 28px;width:min(340px,90vw);display:flex;flex-direction:column;gap:10px;text-align:center';
-    box.innerHTML = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg><b style="font-size:18px">Hudini</b><div style="color:#8b91a1;font-size:13px;margin-bottom:6px">Language · Язык · Мова · Sprache</div>';
+    box.innerHTML = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg><b></b><div></div>';
+    box.firstElementChild.style.margin = '0 auto';
+    const title = box.children[1], sub = box.children[2];
+    title.textContent = 'Hudini'; title.style.fontSize = '18px';
+    sub.textContent = 'Language · Язык · Мова · Sprache'; sub.style.cssText = 'color:#8b91a1;font-size:13px;margin-bottom:6px';
     const guess = (navigator.language || '').slice(0, 2).toLowerCase();
     const pre = LANGS.some(l => l[0] === guess) ? guess : 'en';
     for(const [code, name] of LANGS){

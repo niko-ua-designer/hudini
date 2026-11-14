@@ -39,15 +39,17 @@ async function until(fn, ms = 8000, every = 150){
 // ---------- servers ----------
 const TYPES = { '.html':'text/html; charset=utf-8', '.js':'application/javascript', '.css':'text/css', '.json':'application/json',
   '.webmanifest':'application/manifest+json', '.png':'image/png', '.gif':'image/gif' };
-async function webServer(){
+async function webServer(opts = {}){
   const srv = http.createServer((req, res) => {
     const f = path.join(WEB, decodeURIComponent(new URL(req.url, 'http://x').pathname));
     if(!f.startsWith(WEB) || !fs.existsSync(f) || !fs.statSync(f).isFile()){ res.statusCode = 404; return res.end(); }
     res.setHeader('content-type', TYPES[path.extname(f)] || 'application/octet-stream');
+    if(opts.csp) res.setHeader('content-security-policy', opts.csp);
     res.end(fs.readFileSync(f));
   });
-  await new Promise(r => srv.listen(PORTS.web, r));
-  return { url: `http://localhost:${PORTS.web}`, close: () => new Promise(r => srv.close(r)) };
+  const port = opts.port || PORTS.web;
+  await new Promise(r => srv.listen(port, r));
+  return { url: `http://localhost:${port}`, close: () => new Promise(r => srv.close(r)) };
 }
 function startHost(env = {}){
   const dir = env.OVERLAY_HOST_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-host-'));

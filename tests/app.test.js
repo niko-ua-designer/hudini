@@ -213,6 +213,43 @@ const STUB = () => {
     check(!/<style[\s>]/i.test(html), 'moderator.html has no inline <style>');
   });
 
+  // Utility classes u-* replace inline style="": each one used must be defined in panel.css and each defined one must be used
+  await step('u-* classes: all defined, none orphaned', async () => {
+    const fs = require('fs'), path = require('path');
+    const rd = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    const css = rd('web/panel/panel.css');
+    const defined = new Set([...css.matchAll(/\.(u-[a-z0-9-]+)/g)].map(m => m[1]));
+    const used = new Set();
+    for(const f of ['web/panel/moderator.html', 'web/panel/ui.js', 'web/panel/moderator.js', 'web/shared/i18n.js'])
+      for(const m of rd(f).matchAll(/(?<![\w-])u-[a-z0-9-]+/g)) used.add(m[0]);
+    check(defined.size > 0, 'panel.css defines u-* classes');
+    eq([...used].filter(c => !defined.has(c)), [], 'used but not defined in panel.css');
+    eq([...defined].filter(c => !used.has(c)), [], 'defined in panel.css but unused');
+  });
+
+  // The same page under the CSP the app ends up with when a nonce is present (no 'unsafe-inline' for styles): nothing may be blocked,
+  // and the first-run tour goes before the "keys are not protected" warning
+  await step('the panel works under a nonce CSP and the tour goes first', async () => {
+    const fs = require('fs'), path = require('path');
+    for(const f of ['web/panel/moderator.html', 'web/panel/ui.js', 'web/shared/i18n.js', 'web/app/index.html', 'web/app/start.html']){
+      const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+      check(!/\sstyle="/.test(src) && !/<style[\s>]/i.test(src), f + ' has no inline style');
+    }
+    const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'nonce-t' https://fonts.googleapis.com; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https: blob:";
+    const srv = await T.webServer({ csp, port: T.PORTS.web + 50 });
+    const p = await T.newPage('panel-csp', { tour: true });
+    const viol = []; p.on('console', m => { if(/Content Security Policy/.test(m.text())) viol.push(m.text().slice(0, 120)); });
+    await p.goto(`${srv.url}/panel/moderator.html`);
+    await p.waitForFunction(() => window.hudiniReady && document.getElementById('tour'), null, { timeout: 15000 });
+    await p.evaluate(() => { lsSet('overlay.vaultWarn', 0); rooms.push({ id: 'x', name: 'x', key: 'k' }); renderLockBtns(); });
+    check(await p.evaluate(() => document.getElementById('vaultWarn').hidden), 'the password warning waits while the tour is open');
+    check(await p.evaluate(() => document.querySelector('#left svg.ic').getBoundingClientRect().width < 40), 'icons keep their size');
+    await p.keyboard.press('Escape');
+    check(await T.until(() => p.evaluate(() => !document.getElementById('vaultWarn').hidden), 3000), 'the password warning shows after the tour');
+    eq(viol, [], 'no CSP violations');
+    await p.context().close(); await srv.close();
+  });
+
   await T.closeBrowser(); await web.close();
   const errs = T.pageErrors.filter(e => !/Not running inside/.test(e));
   check(!errs.length, 'no page errors', errs);

@@ -42,7 +42,7 @@
       if(code.k) Object.assign(s, { k:code.k, p:code.p, s:code.s });
       return { list:[...list, s], session:s, created:true, keysDiffer:false };
     }
-    const old = list[i], has = !!old.k;
+    const old = list[i], has = !!old.k || old.sealed === 1;   // sealed 1: keys are in the panel's password vault, not here (2: only the host password is)
     const keysDiffer = !!code.k && has && (old.k !== code.k || old.p !== code.p || JSON.stringify(old.s) !== JSON.stringify(code.s));
     const s = { ...old, pass:code.pass, fp:code.fp, addrs:code.addrs };
     if(code.k && !has) Object.assign(s, { k:code.k, p:code.p, s:code.s });
@@ -62,10 +62,33 @@
       seen.add(s.id);
       const c = { id:s.id, name:String(s.name || 'Стример').slice(0, 40), pass:s.pass, fp:s.fp, addrs, pinned:!!s.pinned, added:+s.added || 0, last:+s.last || 0, lastNet:NETS.includes(s.lastNet) ? s.lastNet : '' };
       if(typeof s.k === 'string' && typeof s.p === 'string' && s.s && typeof s.s === 'object') Object.assign(c, { k:s.k, p:s.p, s:s.s });
+      if(c.k === undefined && s.sealed) c.sealed = s.sealed === 2 ? 2 : 1;
       out.push(c);
     }
     return out;
   }
+
+  // Секреты сессии (ключи комнаты) для пароля на пульт: { k, p, s } или null
+  const secretsOf = s => s && typeof s.k === 'string' && typeof s.p === 'string' && s.s && typeof s.s === 'object' && !Array.isArray(s.s) ? { k:s.k, p:s.p, s:s.s } : null;
+  // Всё, что с паролем на пульт уходит в хранилище: ключи комнаты и пароль подключения к Hudini Host ({k,p,s,pass}) или null
+  const vaultOf = s => {
+    const sec = secretsOf(s) || {}, out = { ...sec };
+    if(s && typeof s.pass === 'string' && s.pass && s.pass.length <= 200) out.pass = s.pass;
+    return Object.keys(out).length ? out : null;
+  };
+  // Запись из хранилища → только допустимые поля
+  const cleanVault = v => {
+    if(!v || typeof v !== 'object') return null;
+    const out = { ...(secretsOf(v) || {}) };
+    if(typeof v.pass === 'string' && v.pass && v.pass.length <= 200) out.pass = v.pass;
+    return Object.keys(out).length ? out : null;
+  };
+  // Копия сессии без ключей и пароля, с пометкой sealed (1: ключи в хранилище, 2: там только пароль)
+  const seal = s => { const { k, p, s:sig, pass, ...rest } = s; return { ...rest, pass:'', sealed:(secretsOf(s) || s.sealed === 1) ? 1 : 2 }; };
+  // Обратно: секреты возвращаются в сессию, пометка снимается; открытые поля новее и остаются
+  const unseal = (s, sec) => { const { sealed, ...rest } = s; return { ...sec, ...rest, pass:rest.pass || sec.pass || '' }; };
+  // Пароль подключения: из сессии или, если она запечатана, из хранилища
+  const passOf = (s, sec) => (s && s.pass) || (s && s.sealed && sec && sec.pass) || '';
 
   // Сеть, в которой заходили в последний раз; иначе первая из адресов
   const netOf = s => s.lastNet || s.addrs[0]?.net || 'inet';
@@ -80,6 +103,6 @@
     return { rel:new Intl.RelativeTimeFormat(lang, { numeric:'always' }).format(-diff, 'day') };
   }
 
-  const api = { NETS, NET_NAMES, validRoom, parseCode, addCode, sortSessions, cleanList, netOf, whenText };
+  const api = { NETS, NET_NAMES, validRoom, parseCode, addCode, sortSessions, cleanList, secretsOf, vaultOf, cleanVault, seal, unseal, passOf, netOf, whenText };
   if(typeof module !== 'undefined' && module.exports) module.exports = api; else root.HudiniSessions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

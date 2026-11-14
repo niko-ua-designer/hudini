@@ -879,6 +879,7 @@ function scanFiles(){
 let fileIndex = scanFiles();
 // Незаконченные загрузки: «комната/id» → { bytes, at }. Они тоже занимают место, иначе квоту обходят параллельными .part
 const uploads = new Map(), UPLOADS_MAX = 4;
+const finished = new Map();   // недавно сохранённые файлы: чтобы повтор последнего куска не давал 409
 function storage(room){
   let used = 0, n = 0, roomUsed = 0, roomN = 0;
   for(const f of fileIndex.values()){ used += f.size; n++; if(f.room===room){ roomUsed += f.size; roomN++; } }
@@ -890,16 +891,27 @@ const filePath = (room, id) => path.join(FILES, room, id);
 class HttpErr extends Error{ constructor(code, msg, extra){ super(msg); this.code = code; this.extra = extra; } }
 function putPart(room, id, part, last, buf){
   if(!okRoom(room) || !okId(id)) throw new HttpErr(400, 'плохое имя файла');
+  const fin = finished.get(room+'/'+id);
+  // повтор последнего куска, который уже принят и файл сохранён: тот же ответ, ничего не пишем
+  if(fin && last && part===fin.part && buf.length===fin.lastLen && fileIndex.has(room+'/'+id) && Date.now()-fin.at<600e3)
+    return { ok:true, size:fin.size, storage:storage(room) };
   if(fileIndex.has(room+'/'+id)) throw new HttpErr(409, 'файл уже есть');
   const L = cfg.limits, st = storage(room);
   const tmp = filePath(room, id)+'.part';
   fs.mkdirSync(path.join(FILES, room), { recursive:true });
   const key = room+'/'+id;
+  const cur = uploads.get(key);
+  // Повтор последнего принятого куска (клиент не дождался ответа и послал снова): второй раз не дописываем, отвечаем так же
+  if(cur && part===cur.next-1 && buf.length===cur.lastLen && !last){
+    cur.at = Date.now();
+    return { ok:true, size:cur.bytes, storage:storage(room) };
+  }
   if(part===0){ fs.rmSync(tmp, { force:true }); uploads.delete(key);
     if([...uploads.keys()].filter(k => k.startsWith(room+'/')).length >= UPLOADS_MAX) throw new HttpErr(429, 'слишком много загрузок сразу, подожди');
   }
-  else if(!fs.existsSync(tmp) || !uploads.has(key)) throw new HttpErr(409, 'начало файла потерялось, загрузи заново');
-  const have = part===0 ? 0 : fs.statSync(tmp).size;
+  else if(!cur || !fs.existsSync(tmp)) throw new HttpErr(409, 'начало файла потерялось, загрузи заново');
+  else if(part!==cur.next) throw new HttpErr(409, `кусок ${part} пришёл не по порядку, ждали ${cur.next}`);
+  const have = part===0 ? 0 : cur.bytes;
   uploads.delete(key);   // своя загрузка не считается дважды в проверке места
   const size = have + buf.length;
   const full = (why, code='full') => { fs.rmSync(tmp, { force:true }); return new HttpErr(413, why, { reason:code, storage:storage(room) }); };
@@ -907,12 +919,20 @@ function putPart(room, id, part, last, buf){
   if(size > L.fileMB*MB + 65536) throw full(`файл больше ${L.fileMB} МБ`, 'file');
   if(st.files >= L.files) throw full(`уже ${st.files} файлов из ${L.files}`, 'count');
   if(st2.used + size > L.totalMB*MB) throw full(`место кончилось: занято ${(st.used/MB).toFixed(0)} из ${L.totalMB} МБ`, 'space');
-  fs.appendFileSync(tmp, buf);
-  if(!last) uploads.set(key, { bytes:size, at:Date.now() });
-  if(last){
-    fs.renameSync(tmp, filePath(room, id));
-    fileIndex.set(room+'/'+id, { room, id, size, at:Date.now() });
-    log('📁 Файл сохранён:', (size/MB).toFixed(1), 'МБ');
+  try{
+    fs.appendFileSync(tmp, buf);
+    if(last){
+      fs.renameSync(tmp, filePath(room, id));
+      fileIndex.set(key, { room, id, size, at:Date.now() });
+      finished.set(key, { part, lastLen:buf.length, size, at:Date.now() });
+      if(finished.size>200) finished.delete(finished.keys().next().value);
+      log('📁 Файл сохранён:', (size/MB).toFixed(1), 'МБ');
+    }
+    else uploads.set(key, { bytes:size, at:Date.now(), next:part+1, lastLen:buf.length });
+  }catch(e){
+    // диск полон или другая ошибка: недописанный файл не оставляем, иначе он лежит мимо квоты
+    uploads.delete(key); try{ fs.rmSync(tmp, { force:true }); }catch{}
+    throw new HttpErr(507, 'не удалось записать файл на диск: ' + (e && e.code || e && e.message || e));
   }
   return { ok:true, size, storage:storage(room) };
 }

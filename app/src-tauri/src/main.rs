@@ -923,6 +923,8 @@ async fn browser_open(app: AppHandle, id: String, url: String) -> Result<(), Str
     let tab = id.clone();
     let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url.clone()))
         .on_navigation(|u| browser_url(u.as_str()).is_ok() || u.as_str() == "about:blank")
+        // чужие сайты во вкладке браузера не скачивают файлы
+        .on_download(|_, _| false)
         // ссылки «в новом окне» открываем в этой же вкладке
         .on_new_window(move |u, _features| {
             if let (Ok(u), Some(wv)) = (browser_url(u.as_str()), popup.get_webview(&popup_label)) {
@@ -1139,27 +1141,35 @@ fn relay_status(app: AppHandle) -> Option<hudini_relay::Status> {
 const STORE_MAX: usize = 32 * 1024 * 1024;
 
 #[tauri::command]
-fn store_load(app: AppHandle) -> serde_json::Value {
+fn store_load(app: AppHandle) -> Result<serde_json::Value, String> {
     let data = app.state::<Paths>().data.clone();
     let path = data.join("store.json");
-    let bytes = match fs::read(&path) {
-        Ok(b) => b,
-        Err(e) => {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                applog(&format!("store.json: cannot read: {e}"));
+    // файл есть, но не читается (антивирус, блокировка): пустой ответ заставил бы страницу затереть его при первой записи,
+    // поэтому после нескольких попыток возвращаем ошибку; нет файла вовсе — это чистый старт
+    let mut tries = 0;
+    let bytes = loop {
+        match fs::read(&path) {
+            Ok(b) => break b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(serde_json::json!({})),
+            Err(e) => {
+                tries += 1;
+                if tries >= 5 {
+                    applog(&format!("store.json: cannot read: {e}"));
+                    return Err(format!("cannot read store.json: {e}"));
+                }
+                std::thread::sleep(Duration::from_millis(150));
             }
-            return serde_json::json!({});
         }
     };
     match serde_json::from_slice::<serde_json::Value>(&bytes) {
-        Ok(v) if v.is_object() => v,
+        Ok(v) if v.is_object() => Ok(v),
         _ => {
             // файл испорчен: откладываем его в сторону, иначе следующее сохранение затёрло бы его,
             // а из отложенной копии ключи комнат ещё можно достать вручную
             let aside = data.join(format!("store.corrupt-{}.json", stamp().2));
             let moved = fs::rename(&path, &aside).is_ok();
             applog(&format!("store.json is damaged ({} bytes): {}", bytes.len(), if moved { format!("moved aside as {}", aside.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()) } else { "could not move it aside".to_string() }));
-            serde_json::json!({})
+            Ok(serde_json::json!({}))
         }
     }
 }

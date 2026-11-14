@@ -154,7 +154,7 @@ function applyState(s){
     if(el.type==='web'){
       // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
       const src = show && !hostHidden() ? embedSrc(el, location.hostname, false) : null;
-      setFrameSrc(node, src ? src+(src.includes('?')?'&':'?')+'_r='+el.restart : null, parseEmbed(el.url).kind==='site');
+      setFrameSrc(node, src ? restartUrl(src, el.restart) : null, parseEmbed(el.url).kind==='site');
       if(src) playerApply(node, el, false);
     }
     if(show && !node._shown) pop(node);
@@ -287,12 +287,15 @@ function playVfx(el){
 }
 function shake(){ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
 let calibT=null;
+function restartUrl(src, n){   // _r ставим в query, до #фрагмента: иначе страница не перезагрузится
+  try{ const u=new URL(src); u.searchParams.set('_r', n); return u.href; }catch{ return src+(src.includes('?')?'&':'?')+'_r='+n; }
+}
 function calib(){
   const c=document.getElementById('calib'); checkSize();
   document.getElementById('calibText').innerHTML=
-    `Окно источника: <b>${innerWidth}×${innerHeight}</b><br>`+
-    `Розовая рамка должна идти ровно по краям экрана стрима.<br>`+
-    `Если она меньше экрана: в OBS выдели источник → <b>Ctrl+F</b> (Растянуть на экран)`;
+    `${st('Окно источника')}: <b>${innerWidth}×${innerHeight}</b><br>`+
+    `${st('Розовая рамка должна идти ровно по краям экрана стрима.')}<br>`+
+    `${st('Если она меньше экрана: в OBS выдели источник →')} <b>Ctrl+F</b> (${st('Растянуть на экран')})`;
   c.classList.add('show'); clearTimeout(calibT); calibT=setTimeout(()=>c.classList.remove('show'), 10000);
 }
 

@@ -189,7 +189,7 @@
       <h2>🎛 Вид пульта</h2>
       <div class="hint">Колонки можно тянуть за край, вкладки перетаскивать, разделы сворачивать кликом по заголовку. Вид хранится только в этом браузере.</div>
       <div class="row"><label class="hint">Размер текста</label><select id="uiFs"><option value="12">Мелкий</option><option value="13">Компактный</option><option value="14">Обычный</option><option value="15">Крупный</option><option value="16">Очень крупный</option></select></div>
-      <div class="hint" style="margin-top:6px">Раскладка</div>
+      <div class="hint u-margin-top-6px">Раскладка</div>
       <div class="grid2" id="uiPresets">${Object.entries(PRESETS).map(([k, p]) => `<button data-preset="${k}">${p.name}</button>`).join('')}</div>
       <div class="row"><label class="hint">Анимации</label><select id="uiMotion"><option value="auto">Как в системе</option><option value="bright">Яркие</option><option value="soft">Мягкие</option><option value="min">Почти без</option></select></div>
       <label class="chk"><input type="checkbox" id="uiSwap"> Поменять колонки местами</label>
@@ -197,7 +197,7 @@
       <div class="grid2">
         <button id="uiExport" title="Файл с видом пульта: можно перенести в другой браузер">⬇ Сохранить вид</button>
         <button id="uiImport">⬆ Загрузить вид</button>
-        <button id="uiReset" style="grid-column:span 2">↺ Стандартный вид</button>
+        <button class="u-grid-column-span-2" id="uiReset">↺ Стандартный вид</button>
       </div>
       <input type="file" id="uiFile" accept=".json,application/json" hidden>
       <div class="row"><button id="uiPersist" class="grow" title="Чтобы браузер не удалил комнаты, ключи и сцены сам">💾 Надёжное хранение в браузере</button></div>
@@ -389,7 +389,7 @@
     if(!$('tour')) return;
     if(e.key === 'Escape'){ e.stopPropagation(); endTour(); }
   }, true);
-  function endTour(){ $('tour')?.remove(); ui.tour = 1; save(); setTimeout(maybeAskPersist, 1500); }
+  function endTour(){ $('tour')?.remove(); ui.tour = 1; save(); dispatchEvent(new Event('hudini:tourend')); setTimeout(maybeAskPersist, 1500); }
 
   // ---------- empty stage hint and contextual motion ----------
   function emptyHint(){
@@ -450,5 +450,5 @@
   whenReady();
   // the "instructions for the streamer" link in the connection dialog opens the right help section
   document.querySelector('#hostTipNoHost a.hint')?.addEventListener('click', e => { e.preventDefault(); $('hostTip').hidden = true; openHelp('streamer'); });
-  window.HudiniUI = { tour, openHelp, reset:() => $('uiReset').click(), settings:() => ({ ...ui }) };
+  window.HudiniUI = { tour, tourPending:() => !!$('tour') || (!ui.tour && !new URLSearchParams(location.search).has('notour')), openHelp, reset:() => $('uiReset').click(), settings:() => ({ ...ui }) };
 })();

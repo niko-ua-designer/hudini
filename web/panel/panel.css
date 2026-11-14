@@ -251,3 +251,32 @@ body.web #web{display:flex}
 #multiBanner{background:#211c3c;border:1px solid #b9a8ff;border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:6px}
 
 #fatal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:100001;padding:30px;text-align:center;font-size:16px}
+
+/* former inline style="" attributes (blocked by the app CSP nonce); :root keeps them above the element rules, as inline styles were */
+:root .u-margin-0{margin:0}
+:root .u-margin-top-8px{margin-top:8px}
+:root .u-grid-column-span-2{grid-column:span 2}
+:root .u-text-transform-none-letter-spacing-0{text-transform:none;letter-spacing:0}
+:root .u-width-60px{width:60px}
+:root .u-padding-10px{padding:10px}
+:root .u-width-120px{width:120px}
+:root .u-margin-top-6px{margin-top:6px}
+:root .u-width-70px{width:70px}
+:root .u-x9{max-height:120px;overflow:auto;margin-top:4px}
+:root .u-width-64px{width:64px}
+:root .u-width-54px{width:54px}
+:root .u-width-36px-text-align-right{width:36px;text-align:right}
+:root .u-margin-top-4px{margin-top:4px}
+:root .u-x14{width:52px;padding:1px 4px;display:inline-block}
+:root .u-width-110px{width:110px}
+:root .u-x16{max-height:140px;overflow:auto;margin-top:4px}
+:root .u-flex-1-0-100{flex:1 0 100%}
+:root .u-display-contents{display:contents}
+:root .u-font-size-40px{font-size:40px}
+:root .u-min-height-18px{min-height:18px}
+:root .u-margin-top-14px-font-size-12px{margin-top:14px;font-size:12px}
+:root .u-font-size-36px-text-align-center{font-size:36px;text-align:center}
+:root .u-font-weight-600-text-align-center{font-weight:600;text-align:center}
+:root .u-margin-8px-0-0-18px-padding-0{margin:8px 0 0 18px;padding:0}
+:root .u-text-align-center-display-block{text-align:center;display:block}
+:root .u-width-100-margin-top-8px{width:100%;margin-top:8px}

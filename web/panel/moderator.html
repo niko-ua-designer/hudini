@@ -71,8 +71,8 @@
     <div class="row"><button id="addUrl" class="primary grow">➕ По ссылке</button><button id="pickFile">📁 Файл</button></div>
     <input type="file" id="fileInput" accept="image/*,video/*,.ttf,.otf,.woff,.woff2" multiple hidden>
     <div class="hint">Файлы и картинки можно перетащить на холст или вставить через Ctrl+V.</div>
-    <div class="row" id="storageRow" hidden><span id="storageInfo" class="hint grow" style="margin:0"></span><button id="cleanFiles" title="Удалить неиспользуемые файлы">🧹</button></div>
-    <label class="chk" style="margin-top:8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
+    <div class="row" id="storageRow" hidden><span id="storageInfo" class="hint grow u-margin-0"></span><button id="cleanFiles" title="Удалить неиспользуемые файлы">🧹</button></div>
+    <label class="chk u-margin-top-8px"><input type="checkbox" id="addHidden"> Добавлять скрытым (подготовить заранее)</label>
 
     <h2>Виджеты</h2>
     <div class="grid2 tiles">
@@ -82,10 +82,9 @@
       <button data-add="clock">🕐 Часы</button>
       <button data-add="counter">🔢 Счётчик</button>
       <button data-add="poll">📊 Голосование</button>
-      <button data-add="cs2" class="wide" style="grid-column:span 2">🎯 CS2</button>
-      <button data-add="case" style="grid-column:span 2" class="wide">📦 3D-кейс</button>
-      <button id="addChatFeed" class="wide" style="grid-column:span 2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
-      <button id="addCam" class="wide" style="grid-column:span 2" title="Откроется вкладка VDO.Ninja: выбери камеру и нажми старт">📷 Моя вебка</button>
+      <button data-add="cs2" class="wide u-grid-column-span-2">🎯 CS2</button>
+      <button data-add="case" class="wide u-grid-column-span-2">📦 3D-кейс</button>
+      <button id="addChatFeed" class="wide u-grid-column-span-2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
     </div>
 
     <h2>Эффекты на весь экран</h2>
@@ -110,7 +109,7 @@
   </section>
 
   <section data-pane="chat" hidden>
-    <h2>Чат Twitch <span id="chatStatus" class="pill" style="text-transform:none;letter-spacing:0">выкл</span></h2>
+    <h2>Чат Twitch <span id="chatStatus" class="pill u-text-transform-none-letter-spacing-0">выкл</span></h2>
     <div class="row"><input id="chatChan" type="text" class="grow" placeholder="ник канала"><button id="chatBtn">Подключить</button></div>
     <div class="hint">Только читает чат, без входа в аккаунт. Нужен для ленты, счётчиков, голосований и сценариев. Подключай в одном пульте, иначе всё посчитается дважды.</div>
     <div class="hint">Чат привязан к комнате: у каждой комнаты свой канал и своя лента. При смене комнаты чат переключается сам.</div>
@@ -122,15 +121,15 @@
     <div class="hint"><code>!опрос</code> начать · <code>!опрос 60</code> закрыть через 60 с · <code>!опрос стоп</code><br><code>!таймер 5м</code> запустить на 5 минут · <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code><br>Работает в пульте, где подключён чат. От остальных зрителей команды не действуют.</div>
 
     <h2>Показ сообщений</h2>
-    <div class="row"><span class="hint">Держать</span><input type="number" id="msgSecs" min="0" max="600" value="8" style="width:60px"><span class="hint">сек (0 = пока не скрою)</span></div>
+    <div class="row"><span class="hint">Держать</span><input class="u-width-60px" type="number" id="msgSecs" min="0" max="600" value="8"><span class="hint">сек (0 = пока не скрою)</span></div>
     <label class="chk"><input type="checkbox" id="msgReplace" checked> Новое сообщение заменяет предыдущее</label>
     <div class="row"><input id="chatFilter" type="text" class="grow" placeholder="🔍 фильтр: ник или слово"><button id="chatClear" title="Очистить ленту">🧹</button></div>
-    <div id="chatFeed"><div class="hint" style="padding:10px">Подключи чат, и сообщения появятся здесь. Клик по сообщению покажет его на стриме.</div></div>
+    <div id="chatFeed"><div class="hint u-padding-10px">Подключи чат, и сообщения появятся здесь. Клик по сообщению покажет его на стриме.</div></div>
     <div id="chatMore" hidden>⬇ новые сообщения</div>
   </section>
 
   <section data-pane="auto" hidden>
-    <h2>⚡ Сценарии <span class="hint" style="text-transform:none;letter-spacing:0">если… → то…</span></h2>
+    <h2>⚡ Сценарии <span class="hint u-text-transform-none-letter-spacing-0">если… → то…</span></h2>
     <label class="chk"><input type="checkbox" id="scnRun"> Выполнять сценарии в этом пульте</label>
     <div class="hint">Если пульт открыт у двух модераторов, включи это только у одного.</div>
     <div id="scnList"></div>
@@ -155,26 +154,26 @@
       <input type="text" id="iRTitle" placeholder="Заголовок, например: Розыгрыш скина">
       <div class="row"><input type="text" id="iRPrize" class="grow" placeholder="Приз, например: AK-47 | Redline"><button id="rPimg" title="Картинка приза">🖼</button><button id="rPimgDel" title="Убрать картинку" hidden>🗑</button></div>
       <div class="lbl">Как участвовать</div>
-      <div class="row"><select id="iREntry" class="grow"><option value="word">Написать слово</option><option value="any">Любое сообщение</option></select><input type="text" id="iRKw" placeholder="!участвую" style="width:120px"></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubs"><span class="tgl-k"></span><span>Только для подписчиков</span></label>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRSubx2"><span class="tgl-k"></span><span>Подписчикам шанс x2</span></label>
-      <div class="row" style="margin-top:8px"><span class="hint">Сбор</span><input type="number" id="rSecs" min="10" max="7200" value="120" style="width:70px"><span class="hint">сек</span>
+      <div class="row"><select id="iREntry" class="grow"><option value="word">Написать слово</option><option value="any">Любое сообщение</option></select><input class="u-width-120px" type="text" id="iRKw" placeholder="!участвую"></div>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRSubs"><span class="tgl-k"></span><span>Только для подписчиков</span></label>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRSubx2"><span class="tgl-k"></span><span>Подписчикам шанс x2</span></label>
+      <div class="row u-margin-top-8px"><span class="hint">Сбор</span><input class="u-width-70px" type="number" id="rSecs" min="10" max="7200" value="120"><span class="hint">сек</span>
         <label class="tgl grow"><input type="checkbox" id="iRAuto"><span class="tgl-k"></span><span class="hint">Крутить сразу по концу</span></label></div>
       <div class="row"><button id="rStart" class="go grow">▶ Начать сбор</button><button id="rStop" class="grow">⏹ Закрыть сбор</button></div>
       <div class="row"><button id="rSpin" class="go grow">🎰 Крутить</button><button id="rReset" title="Новый розыгрыш: участники и победители обнулятся">↺ Сброс</button></div>
       <div class="hint" id="rInfo"></div>
-      <details><summary>👥 Участники</summary><div id="rList" class="hint" style="max-height:120px;overflow:auto;margin-top:4px"></div></details>
+      <details><summary>👥 Участники</summary><div id="rList" class="hint u-x9"></div></details>
       <div class="lbl">Победитель</div>
-      <div class="row"><span class="hint">Ответить в чат за</span><input type="number" id="iRConfirm" min="0" max="600" value="0" style="width:64px"><span class="hint">сек (0 = не ждать)</span></div>
+      <div class="row"><span class="hint">Ответить в чат за</span><input class="u-width-64px" type="number" id="iRConfirm" min="0" max="600" value="0"><span class="hint">сек (0 = не ждать)</span></div>
       <div class="hint">Не ответил вовремя: рулетка крутится заново без него. «Крутить» ещё раз даёт следующего победителя, прошлые выбывают.</div>
       <div class="lbl">Эффект победы</div>
       <div class="row"><button id="rSnd" class="grow">🔊 Свой звук</button><button id="rSndDel" title="Убрать свой звук" hidden>🗑</button></div>
       <div class="row"><button id="rVfx" class="grow">🎞 Своё видео-эффект</button><button id="rVfxDel" title="Убрать видео" hidden>🗑</button></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRKey"><span class="tgl-k"></span><span>Гринскрин: вырезать фон видео</span></label>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRKey"><span class="tgl-k"></span><span>Гринскрин: вырезать фон видео</span></label>
       <div class="row" id="rKeyRow"><span class="hint">Цвет фона</span><input type="color" id="iRKc"><span class="hint">Сила</span><input type="range" id="iRKsim" min="0.05" max="0.9" step="0.01" class="grow"></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRFxc"><span class="tgl-k"></span><span>Конфетти</span></label>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRTicks"><span class="tgl-k"></span><span>Щелчки ленты</span></label>
-      <div class="row" style="margin-top:8px"><span class="hint">Акцент</span><input type="color" id="iRAccent"><span class="hint">Фон</span><input type="color" id="iRCard"></div>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRFxc"><span class="tgl-k"></span><span>Конфетти</span></label>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRTicks"><span class="tgl-k"></span><span>Щелчки ленты</span></label>
+      <div class="row u-margin-top-8px"><span class="hint">Акцент</span><input type="color" id="iRAccent"><span class="hint">Фон</span><input type="color" id="iRCard"></div>
       <input type="file" id="rFile" hidden>
       <div class="lbl">Вид рулетки</div>
       <div class="row"><select id="iRFont" class="grow">
@@ -186,10 +185,10 @@
         <option value="caveat">Caveat (рукописный)</option>
       </select><span class="hint">Цвет</span><input type="color" id="iRColor"></div>
       <div class="lbl">Положение и размер на экране</div>
-      <div class="row"><span class="hint" style="width:54px">Слева</span><input type="range" id="iRX" min="0" max="100" step="0.5" class="grow"><span class="hint" id="vRX" style="width:36px;text-align:right"></span></div>
-      <div class="row"><span class="hint" style="width:54px">Сверху</span><input type="range" id="iRY" min="0" max="100" step="0.5" class="grow"><span class="hint" id="vRY" style="width:36px;text-align:right"></span></div>
-      <div class="row"><span class="hint" style="width:54px">Размер</span><input type="range" id="iRSize" min="1" max="8" step="0.1" class="grow"><span class="hint" id="vRSize" style="width:36px;text-align:right"></span></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iRShow"><span class="tgl-k"></span><span>Показывать рулетку на экране</span></label>
+      <div class="row"><span class="hint u-width-54px">Слева</span><input type="range" id="iRX" min="0" max="100" step="0.5" class="grow"><span class="hint u-width-36px-text-align-right" id="vRX"></span></div>
+      <div class="row"><span class="hint u-width-54px">Сверху</span><input type="range" id="iRY" min="0" max="100" step="0.5" class="grow"><span class="hint u-width-36px-text-align-right" id="vRY"></span></div>
+      <div class="row"><span class="hint u-width-54px">Размер</span><input type="range" id="iRSize" min="1" max="8" step="0.1" class="grow"><span class="hint u-width-36px-text-align-right" id="vRSize"></span></div>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRShow"><span class="tgl-k"></span><span>Показывать рулетку на экране</span></label>
       <div class="row"><button id="rCenter" class="grow">⌖ В центр</button><button id="rDelete" class="grow" title="Убрать розыгрыш с экрана вместе с участниками">🗑 Удалить розыгрыш</button></div>
     </div>
   </section>
@@ -209,7 +208,7 @@
       <button id="dataDir" hidden title="Открыть папку, где пульт хранит ключи комнат, сцены и настройки. Файл store.json в ней — копия всего">📂 Папка с данными</button>
     </div>
     <input type="file" id="roomFile" accept=".json,application/json" hidden>
-    <div class="hint" style="margin-top:4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта. «Бэкап» сохраняет всё (комнаты, сцены, библиотеку, анимации, сценарии) в файл под паролем.</div>
+    <div class="hint u-margin-top-4px">У каждого стримера своя комната, ключи и ссылка. Команды на экран подписываются ключом из этого пульта. «Бэкап» сохраняет всё (комнаты, сцены, библиотеку, анимации, сценарии) в файл под паролем.</div>
 
     <h2>Надписи на стриме</h2>
     <div class="row"><span class="hint">Язык</span><select id="slang" class="grow"><option value="">Как в пульте</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option><option value="de">Deutsch</option></select></div>
@@ -269,8 +268,8 @@
 </main>
 
 <aside id="right">
-  <h2>Слои <span class="hint" style="text-transform:none;letter-spacing:0">(⚡ — показать на</span>
-    <input id="flashSecs" type="number" min="1" max="600" value="5" style="width:52px;padding:1px 4px;display:inline-block"> <span class="hint" style="text-transform:none;letter-spacing:0">сек)</span></h2>
+  <h2>Слои <span class="hint u-text-transform-none-letter-spacing-0">(⚡ — показать на</span>
+    <input class="u-x14" id="flashSecs" type="number" min="1" max="600" value="5"> <span class="hint u-text-transform-none-letter-spacing-0">сек)</span></h2>
   <div id="layers"></div>
 
   <h2>Выбранный элемент</h2>
@@ -310,7 +309,7 @@
         <div class="grid2"><button id="tNY">🎄 Новый год</button><button id="tHour">+1 час от сейчас</button></div>
       </div>
       <div data-mode="clock">
-        <label class="chk" style="margin-top:6px"><input type="checkbox" id="iSecs"> Показывать секунды</label>
+        <label class="chk u-margin-top-6px"><input type="checkbox" id="iSecs"> Показывать секунды</label>
         <div class="lbl">Часовой пояс (пусто = время стримера)</div>
         <input type="text" id="iTz" list="tzList" placeholder="например Europe/Moscow">
         <datalist id="tzList">
@@ -322,7 +321,7 @@
       <div data-mode="countdown until">
         <div class="lbl">Когда время вышло</div>
         <input type="text" id="iEndText" placeholder="Текст вместо 00:00, например ВРЕМЯ!">
-        <input type="url" id="iEndSound" placeholder="Звук по ссылке (необязательно)" style="margin-top:6px">
+        <input class="u-margin-top-6px" type="url" id="iEndSound" placeholder="Звук по ссылке (необязательно)">
         <div class="row"><label class="chk"><input type="checkbox" id="iEndConfetti"> 🎉 Конфетти</label><label class="chk"><input type="checkbox" id="iEndBlink"> Мигать</label></div>
       </div>
     </div>
@@ -331,7 +330,7 @@
     <div data-for="counter" class="box">
       <div class="t">Счётчик</div>
       <div class="cnt"><button id="cMinus">−</button><input type="number" id="iValue" class="grow"><button id="cPlus">+</button></div>
-      <div class="row"><span class="hint">Шаг</span><input type="number" id="iStep" min="1" style="width:70px"><span class="hint">Цель</span><input type="number" id="iGoal" min="0" class="grow" placeholder="0 = без полосы"></div>
+      <div class="row"><span class="hint">Шаг</span><input class="u-width-70px" type="number" id="iStep" min="1"><span class="hint">Цель</span><input type="number" id="iGoal" min="0" class="grow" placeholder="0 = без полосы"></div>
       <div class="row"><button id="cReset" class="grow">↺ Обнулить</button></div>
       <div class="lbl">Как считает</div>
       <select id="iCmode">
@@ -342,8 +341,8 @@
       <div data-cmode="chat">
         <div class="lbl">Слова (через запятую, * = любое сообщение)</div>
         <input type="text" id="iKw" placeholder="F, KEKW, +">
-        <label class="chk" style="margin-top:6px"><input type="checkbox" id="iUniq"> Один раз на зрителя</label>
-        <label class="chk" style="margin-top:6px"><input type="checkbox" id="iModsOnly"> Считать только модераторов</label>
+        <label class="chk u-margin-top-6px"><input type="checkbox" id="iUniq"> Один раз на зрителя</label>
+        <label class="chk u-margin-top-6px"><input type="checkbox" id="iModsOnly"> Считать только модераторов</label>
       </div>
       <div data-cmode="interval">
         <div class="row"><span class="hint">+1 каждые</span><input type="number" id="iEvery" min="1" class="grow"><span class="hint">сек</span></div>
@@ -381,9 +380,9 @@
       <div class="lbl"><span>Сообщение исчезает через</span><span id="vChFade"></span></div>
       <input type="range" id="iChFade" min="0" max="120" step="1">
       <div class="lbl">Новые сообщения</div>
-      <div class="row" style="margin:0"><select id="iChDir" class="grow"><option value="down">Снизу</option><option value="up">Сверху</option></select>
+      <div class="row u-margin-0"><select id="iChDir" class="grow"><option value="down">Снизу</option><option value="up">Сверху</option></select>
         <select id="iChAlign" class="grow"><option value="left">Слева</option><option value="right">Справа</option></select></div>
-      <label class="chk" style="margin-top:6px"><input type="checkbox" id="iChBadges"> Значки (модератор, VIP, подписчик)</label>
+      <label class="chk u-margin-top-6px"><input type="checkbox" id="iChBadges"> Значки (модератор, VIP, подписчик)</label>
       <div class="lbl"><span>Сколько сообщений держать</span><span id="vChMax"></span></div>
       <input type="range" id="iChMax" min="3" max="50" step="1">
     </div>
@@ -410,10 +409,10 @@
       </select>
       <div class="row" id="csStreakRow"><span class="hint">Показывать</span><select id="iCsMinK" class="grow"><option value="2">от DOUBLE</option><option value="3">от TRIPLE</option><option value="4">от QUAD</option><option value="5">только ACE</option></select><button id="csTest" title="Показать пример на стриме, чтобы поставить на место">▶ Пример</button></div>
       <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
-      <input type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)" style="margin-top:6px">
+      <input class="u-margin-top-6px" type="text" id="iCsLabel" placeholder="Своё имя игрока (необязательно)">
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iCsAccent"><span class="hint">Фон</span><input type="color" id="iCsCard"></div>
       <div class="row"><span class="hint">Стиль</span><select id="iCsTheme" class="grow"><option value="classic">Классика</option><option value="glass">Киберспорт стекло</option><option value="ko">KO: фирменный сине-фиолетовый</option></select></div>
-      <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iCsFlip"><span class="tgl-k"></span><span>Флип-цифры в стате <span class="hint">(кроме HP)</span></span></label>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsFlip"><span class="tgl-k"></span><span>Флип-цифры в стате <span class="hint">(кроме HP)</span></span></label>
       <div id="csHud">
         <div class="row" id="csPickRow"><span class="hint">Игрок</span><select id="iCsPick" class="grow"></select></div>
         <div class="row" id="csCmpRow"><select id="iCsPa" class="grow"></select><span class="hint">vs</span><select id="iCsPb" class="grow"></select></div>
@@ -422,8 +421,8 @@
           <div class="row"><span class="hint">Эффекты</span><select id="iCsFx" class="grow"><option value="soft">Мягкие</option><option value="bright">Яркие</option><option value="none">Без анимаций</option></select></div>
           <div class="row"><input type="text" id="iCsTnCT" class="grow" placeholder="Команда CT"><input type="text" id="iCsTnT" class="grow" placeholder="Команда T"></div>
           <div class="row"><button id="csLgCT" class="grow">🖼 Лого CT</button><button id="csLgT" class="grow">🖼 Лого T</button></div>
-          <input type="text" id="iCsSeries" placeholder="Серия, например: Dust2 13:9 · Train · Mirage" style="margin-top:6px">
-          <div class="hint" style="margin-top:6px">HUD на весь экран стоит на месте сам: его не двигают, чтобы ничего не съехало. Выбирай его в слоях.</div>
+          <input class="u-margin-top-6px" type="text" id="iCsSeries" placeholder="Серия, например: Dust2 13:9 · Train · Mirage">
+          <div class="hint u-margin-top-6px">HUD на весь экран стоит на месте сам: его не двигают, чтобы ничего не съехало. Выбирай его в слоях.</div>
         </div>
         <details id="csAvBox"><summary>🖼 Аватарки игроков</summary>
           <div id="csAvList"></div>
@@ -448,7 +447,7 @@
       </div>
       <div class="row"><button id="kSp" class="grow" hidden title="Выпала — лента крутится ещё раз">＋ Карточка «Перекрут»</button></div>
       <div class="lbl">Открыть</div>
-      <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник зрителя"><input type="text" id="kAmount" placeholder="Сумма (по желанию)" style="width:110px"></div>
+      <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник зрителя"><input class="u-width-110px" type="text" id="kAmount" placeholder="Сумма (по желанию)"></div>
       <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть для проверки">▶ Тест</button></div>
       <div class="hint" id="kInfo"></div>
       <div class="lbl">Предметы <span class="hint" id="kSum"></span></div>
@@ -456,16 +455,16 @@
       <div class="row"><button id="kAdd" class="grow">➕ Предмет</button><button id="kFix" title="Пропорционально подогнать шансы, чтобы вместе было 100%">⚖ До 100%</button></div>
       <div class="hint">Шанс в процентах. Редкость задаёт цвет, как в CS2. Перетащи картинку на строку предмета.</div>
       <details><summary>🔊 Звуки и вид</summary>
-        <div class="row" style="margin-top:6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
-        <div class="row"><span class="hint">Показывать итог</span><input type="number" id="iKHide" min="3" max="120" style="width:64px"><span class="hint">сек</span></div>
-        <label class="tgl" style="margin-top:6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
-        <div class="hint" style="margin-top:6px">Своя надпись (по желанию, пусто = без надписи):</div>
+        <div class="row u-margin-top-6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
+        <div class="row"><span class="hint">Показывать итог</span><input class="u-width-64px" type="number" id="iKHide" min="3" max="120"><span class="hint">сек</span></div>
+        <label class="tgl u-margin-top-6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
+        <div class="hint u-margin-top-6px">Своя надпись (по желанию, пусто = без надписи):</div>
         <input type="text" id="iKUhh" maxlength="24" placeholder="когда байтовая лента почти выпала, например: УХХ!">
-        <input type="text" id="iKUpT" maxlength="24" placeholder="при втором шансе, например: ПЕРЕКРУТ!" style="margin-top:4px">
-        <div class="hint" style="margin-top:6px">Свой звук вместо встроенного (по желанию):</div>
+        <input class="u-margin-top-4px" type="text" id="iKUpT" maxlength="24" placeholder="при втором шансе, например: ПЕРЕКРУТ!">
+        <div class="hint u-margin-top-6px">Свой звук вместо встроенного (по желанию):</div>
         <div id="kSnd"></div>
       </details>
-      <details><summary>📜 История открытий</summary><div id="kHist" class="hint" style="max-height:140px;overflow:auto;margin-top:4px"></div></details>
+      <details><summary>📜 История открытий</summary><div id="kHist" class="hint u-x16"></div></details>
       <input type="file" id="kFile" accept="image/*" hidden>
     </div>
 
@@ -478,7 +477,7 @@
       <div class="lbl">Варианты (каждый с новой строки, до 6)</div>
       <textarea id="iPOpts" rows="4"></textarea>
       <div class="row"><button id="pToggle" class="go grow">▶ Начать</button><button id="pReset">↺ Обнулить</button></div>
-      <div class="row wrap"><span class="hint">Закрыть само через</span><input type="number" id="pSecs" min="5" max="3600" value="60" style="width:64px"><span class="hint">сек</span><button id="pTimed" style="flex:1 0 100%" title="Начать и закрыть через N секунд, на стриме идёт обратный отсчёт">▶ С отсчётом</button></div>
+      <div class="row wrap"><span class="hint">Закрыть само через</span><input class="u-width-64px" type="number" id="pSecs" min="5" max="3600" value="60"><span class="hint">сек</span><button class="u-flex-1-0-100" id="pTimed" title="Начать и закрыть через N секунд, на стриме идёт обратный отсчёт">▶ С отсчётом</button></div>
       <div class="row"><span class="hint">Акцент</span><input type="color" id="iAccent"><span class="hint">Фон</span><input type="color" id="iPCard"></div>
       <div class="hint">Зрители пишут в чат цифру (1, 2…) или !1, !2. Один голос на зрителя, передумать можно. Нужен подключённый чат Twitch.</div>
     </div>
@@ -498,7 +497,7 @@
     <!-- шрифт и цвет -->
     <div data-for="text timer counter poll cs2 msg chat case">
       <div class="lbl">Шрифт</div>
-      <div class="row" style="margin:0"><select id="iFont" class="grow">
+      <div class="row u-margin-0"><select id="iFont" class="grow">
         <option value="montserrat">Montserrat (жирный)</option>
         <option value="russo">Russo One</option>
         <option value="impact">Impact (мемный)</option>
@@ -507,10 +506,10 @@
         <option value="caveat">Caveat (рукописный)</option>
       </select><button id="fontDel" title="Убрать свой шрифт из списка" hidden>🗑</button></div>
       <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
-      <div class="hint" style="margin-top:4px">Свой шрифт: перетащи .ttf / .otf / .woff на экран. Размер подгоняется сам, чтобы рамка не поехала.</div>
-      <div class="row" style="margin-top:8px">
+      <div class="hint u-margin-top-4px">Свой шрифт: перетащи .ttf / .otf / .woff на экран. Размер подгоняется сам, чтобы рамка не поехала.</div>
+      <div class="row u-margin-top-8px">
         <span class="hint">Цвет</span><input type="color" id="iColor">
-        <span data-for="timer counter" class="row" style="margin:0"><span class="hint">Карточки</span><input type="color" id="iCard"></span>
+        <span data-for="timer counter" class="row u-margin-0"><span class="hint">Карточки</span><input type="color" id="iCard"></span>
       </div>
     </div>
     <div data-for="text">
@@ -527,7 +526,7 @@
 
     <!-- видео-файл -->
     <div data-for="video">
-      <label class="chk" style="margin-top:8px"><input type="checkbox" id="iSound"> 🔊 Звук на стриме</label>
+      <label class="chk u-margin-top-8px"><input type="checkbox" id="iSound"> 🔊 Звук на стриме</label>
       <div class="row"><span class="hint">Громк.</span><input id="iVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vVol"></span></div>
       <div class="row"><button id="restartVideo" class="grow">⏮ С начала</button></div>
     </div>
@@ -536,9 +535,9 @@
     <div data-for="web" class="box">
       <div class="t" id="webKind">Сайт</div>
       <input type="url" id="iUrl">
-      <label class="chk" style="margin-top:6px"><input type="checkbox" id="iWebSound"> 🔊 Звук на стриме</label>
+      <label class="chk u-margin-top-6px"><input type="checkbox" id="iWebSound"> 🔊 Звук на стриме</label>
       <div class="row" data-kind="youtube"><span class="hint">Громк.</span><input id="iWebVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vWebVol"></span></div>
-      <div class="row" data-kind="youtube twitch"><button id="plToggle" class="grow" title="Пауза / продолжить на стриме">⏸ Пауза</button><span id="plSeek" style="display:contents"><button id="plBack" title="Назад на 10 секунд">⏪ 10 с</button><button id="plFwd" title="Вперёд на 10 секунд">10 с ⏩</button></span></div>
+      <div class="row" data-kind="youtube twitch"><button id="plToggle" class="grow" title="Пауза / продолжить на стриме">⏸ Пауза</button><span class="u-display-contents" id="plSeek"><button id="plBack" title="Назад на 10 секунд">⏪ 10 с</button><button id="plFwd" title="Вперёд на 10 секунд">10 с ⏩</button></span></div>
       <div class="row"><button id="restartWeb" class="grow">⏮ Перезапустить</button></div>
       <div class="row"><span class="hint">Формат</span>
         <select id="iAr" class="grow"><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="1:1">1:1</option><option value="9:16">9:16 (вертикально)</option><option value="21:9">21:9</option></select>
@@ -551,9 +550,6 @@
         <div class="lbl"><span>Масштаб страницы</span><span id="vZoom"></span></div>
         <input type="range" id="iZoom" min="0.2" max="2" step="0.05">
         <div class="hint">Некоторые сайты (Google, X, VK…) запрещают показывать себя внутри других страниц: тогда будет пусто.</div>
-      </div>
-      <div data-kind="cam">
-        <div class="row"><button id="openCam" class="grow">📷 Открыть вкладку камеры</button></div>
       </div>
     </div>
 
@@ -631,34 +627,34 @@
 
 <div id="lock" hidden>
   <div class="lockbox">
-    <div style="font-size:40px">🔒</div>
+    <div class="u-font-size-40px">🔒</div>
     <h3>Пульт заблокирован</h3>
     <input type="password" id="lockPass" placeholder="Пароль" autocomplete="current-password">
     <button id="lockGo" class="primary">Открыть</button>
-    <div id="lockErr" class="hint" style="min-height:18px"></div>
-    <button id="lockReset" class="danger" style="margin-top:14px;font-size:12px">Забыл пароль: стереть комнаты (вернуть из бэкапа)</button>
+    <div id="lockErr" class="hint u-min-height-18px"></div>
+    <button id="lockReset" class="danger u-margin-top-14px-font-size-12px">Забыл пароль: стереть комнаты (вернуть из бэкапа)</button>
   </div>
 </div>
 <div id="connPop" hidden></div>
 <div id="hostTip" hidden>
   <div class="lockbox">
-    <div style="font-size:36px;text-align:center">🎩</div>
-    <div id="hostTipWhy" style="font-weight:600;text-align:center"></div>
+    <div class="u-font-size-36px-text-align-center">🎩</div>
+    <div class="u-font-weight-600-text-align-center" id="hostTipWhy"></div>
     <div id="hostTipNoHost">
-      <ol class="hint" style="margin:8px 0 0 18px;padding:0">
+      <ol class="hint u-margin-8px-0-0-18px-padding-0">
         <li>Стример скачивает и запускает <b>Hudini Host</b> у себя на ПК.</li>
         <li>Ты жмёшь «📋 Копировать» вверху и отправляешь ссылку стримеру, он вставляет её в программу.</li>
         <li>В OBS стример ставит ссылку из программы (http://localhost:7777/…). Пульт подключится сам.</li>
       </ol>
       <div class="hint">Пока программы нет, можно готовить экран: всё уйдёт стримеру при подключении.</div>
-      <a class="primary" href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener" style="margin-top:8px">⬇ Скачать Hudini Host</a>
-      <a class="hint" href="https://github.com/niko-ua-designer/hudini/blob/main/host/README.md" target="_blank" rel="noopener" style="text-align:center;display:block">Инструкция для стримера</a>
+      <a class="primary u-margin-top-8px" href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">⬇ Скачать Hudini Host</a>
+      <a class="hint u-text-align-center-display-block" href="https://github.com/niko-ua-designer/hudini/blob/main/server/README.md" target="_blank" rel="noopener">Инструкция для стримера</a>
     </div>
     <div id="hostTipFull" hidden>
       <div class="hint">Программа стримера ничего не удаляет сама. Убери ненужные файлы или попроси стримера увеличить лимиты на странице Hudini Host.</div>
-      <button id="hostTipClean" class="primary" style="width:100%;margin-top:8px">🧹 Удалить неиспользуемые файлы</button>
+      <button id="hostTipClean" class="primary u-width-100-margin-top-8px">🧹 Удалить неиспользуемые файлы</button>
     </div>
-    <button id="hostTipOk" style="width:100%;margin-top:8px">Понятно</button>
+    <button class="u-width-100-margin-top-8px" id="hostTipOk">Понятно</button>
   </div>
 </div>
 <div id="vaultWarn" role="alert" hidden>

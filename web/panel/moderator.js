@@ -45,11 +45,13 @@ const validCode = c => typeof c==='string' && /^[a-z0-9_-]{4,64}$/i.test(c) && !
 // У каждой комнаты: код (тема на брокере, не секрет), ключ шифрования k, открытый ключ p и закрытый ключ s.
 // Закрытый ключ есть только у модераторов: без него на экран стримера ничего не отправить.
 let rooms=[], room=null, KEYS=null, vaultPass=null;
+// Ключи и пароль подключения сохранённых сессий приложения {id:{k,p,s,pass}}: при пароле лежат только в зашифрованном хранилище, в app.sessions их нет
+let sessSecrets={};
 const curRoom=()=>rooms.find(r=>r.code===room);
 let saveChain=Promise.resolve();
 function saveRooms(){
   lsSet('overlay.current', room);
-  const data={ rooms };
+  const data=vaultPass ? { rooms, sess:sessSecrets } : { rooms };
   saveChain=saveChain.then(async()=>lsSet('overlay.vault2', vaultPass ? { locked: await lockJSON(vaultPass, data) } : { plain:data })).catch(e=>console.warn(e));
   return saveChain;
 }
@@ -222,7 +224,7 @@ async function openRelay(){
     }
     const port=await TAURI.core.invoke('relay_open', { addrs:session.addrs, fp:session.fp });
     relayPort=port; hostStatus();
-    openHome({ url:`ws://127.0.0.1:${port}/mqtt`, pass:session.pass });
+    openHome({ url:`ws://127.0.0.1:${port}/mqtt`, pass:window.HudiniSessions.passOf(session, sessSecrets[session.id]) });
   }catch(e){ console.warn(e); hostNote='Не удалось открыть подключение: '+String(e?.message||e); relayPort=0; hostStatus(); }
 }
 // Запоминаем, какая сеть сработала и когда последний раз заходили
@@ -264,12 +266,34 @@ function reopenHome(){
   else { if(TAURI?.core) TAURI.core.invoke('relay_close').catch(()=>{}); relayInfo=null; relayPort=0; hostStatus(); }
 }
 // Сохранённая сессия приложения для комнаты (код сессии = код комнаты)
+// Пароль на пульт и ключи сессий. С паролем: открытые k/p/s из app.sessions переезжают в хранилище (сначала запись хранилища,
+// потом чистка), в списке остаётся пометка sealed. Без пароля: ключи возвращаются в список. Сессии, добавленные из окна
+// сессий (там пароля нет), приходят с открытыми ключами и переезжают при ближайшем открытии пульта.
+async function syncSessions(){
+  const S=window.HudiniSessions, list=HudiniStore.get('app.sessions', []);
+  if(!Array.isArray(list) || !S) return;
+  if(vaultPass){
+    const move=list.filter(x=>x && S.vaultOf(x));
+    if(!move.length) return;
+    for(const x of move) sessSecrets[x.id]={ ...sessSecrets[x.id], ...S.vaultOf(x) };   // открытое новее: пришло из окна сессий или из кода
+    await saveRooms();                       // хранилище записано: теперь можно убрать открытую копию
+    const ids=new Set(move.map(x=>x.id));
+    HudiniStore.set('app.sessions', HudiniStore.get('app.sessions', list).map(x=>x && ids.has(x.id) && S.vaultOf(x) ? S.seal(x) : x));
+  } else {
+    const back=list.filter(x=>x && x.sealed && sessSecrets[x.id]);
+    if(!back.length) return;
+    HudiniStore.set('app.sessions', list.map(x=>x && x.sealed && sessSecrets[x.id] ? S.unseal(x, sessSecrets[x.id]) : x));
+  }
+}
+// Ключи сессии: открытые (старые данные, добавлено из окна сессий) или из хранилища
+const sessionKeys=sess=>window.HudiniSessions.secretsOf(sess) || (sess.sealed && window.HudiniSessions.secretsOf(sessSecrets[sess.id])) || null;
 function sessionFor(code){ const l=HudiniStore.get('app.sessions', []); return Array.isArray(l) && l.find(x=>x && x.id===code) || null; }
 // Пульт открывается с ?session=<код>: берём стримера из списка сессий. Ключи у сессии есть, если комнату создал сам сервер.
 // Правило: ключи уже сохранённой комнаты не перезаписываются.
 async function roomFromSession(sess){
-  const ex=rooms.find(r=>r.code===sess.id); if(ex) return { room:ex, differs:!!sess.k && (ex.k!==sess.k || ex.p!==sess.p || JSON.stringify(ex.s)!==JSON.stringify(sess.s)) };
-  const r=sess.k ? cleanRoom({ code:sess.id, name:sess.name, k:sess.k, p:sess.p, s:sess.s }) : null;
+  const sk=sessionKeys(sess);
+  const ex=rooms.find(r=>r.code===sess.id); if(ex) return { room:ex, differs:!!sk && (ex.k!==sk.k || ex.p!==sk.p || JSON.stringify(ex.s)!==JSON.stringify(sk.s)) };
+  const r=sk ? cleanRoom({ code:sess.id, name:sess.name, ...sk }) : null;
   return { room:r && await roomKeysOk(r) ? r : null, differs:false };
 }
 $('status').onclick=()=>{ if(!client?.connected && !session) showHostTip(); else toggleConnPop(); };
@@ -452,17 +476,6 @@ async function addUrl(url, x, y){
   if(/\.(png|jpe?g|gif|webp|avif|svg|bmp)$/i.test(new URL(src).pathname) || await probeImage(src))
     return addEl({ type:'image', src, ...place(x,y), w:25 });
   addWeb(src, x, y);
-}
-// Вебка через VDO.Ninja. Отправитель ограничивает поток (720p, 30 кадров/с, до 2,5 Мбит/с): кружок на стриме маленький,
-// а лишний поток нагружает канал и OBS. Зритель просит H.264 (аппаратное кодирование) с тем же потолком по битрейту.
-const CAM_BITRATE=2500;
-const camPushUrl=id=>`https://vdo.ninja/?push=${id}&webcam&label=moderator&width=1280&height=720&maxframerate=30&maxvideobitrate=${CAM_BITRATE}`;
-const camViewUrl=id=>`https://vdo.ninja/?view=${id}&cleanoutput&transparent&cover&codec=h264&videobitrate=${CAM_BITRATE}`;
-function addCam(){
-  const id=rid(12);
-  window.open(camPushUrl(id), '_blank', 'noopener');
-  addWeb(camViewUrl(id), 82, 75, { w:22, ar:'1:1', shape:'circle', sound:false, bw:0.6, bc:'#7c5cff' });
-  toast('Во вкладке VDO.Ninja выбери камеру и нажми старт', 5000);
 }
 function nextNewYear(){ const d=new Date(); return new Date(d.getFullYear()+1, 0, 1).getTime(); }
 const TW_BASE={ fs:10, font:'montserrat', color:'#ffffff', card:'#1d1d24', style:'flip' };
@@ -736,7 +749,7 @@ function renderAll(){
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
 const MODE_NAME={ countdown:'Таймер', stopwatch:'Секундомер', until:'Отсчёт до', clock:'Часы' };
-const KIND_NAME={ site:'🌐 Сайт', youtube:'▶ YouTube', twitch:'🟣 Twitch', cam:'📷 Вебка' };
+const KIND_NAME={ site:'🌐 Сайт', youtube:'▶ YouTube', twitch:'🟣 Twitch' };
 function elIcon(el){
   if(el.type==='timer') return MODE_ICO[el.mode];
   if(el.type==='counter') return el.cmode==='chat'?'💬':'🔢';
@@ -758,7 +771,7 @@ function elName(el){
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
   if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
-  if(el.type==='web'){ const k=parseEmbed(el.url).kind; if(k==='cam') return 'Вебка'; try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
+  if(el.type==='web'){ try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
   try{ const p=new URL(el.src).pathname.split('/').filter(Boolean).pop(); return decodeURIComponent(p||el.src); }catch{ return el.src; }
 }
@@ -1253,7 +1266,6 @@ $('addUrl').onclick=()=>{ const u=$('newUrl').value.trim(); if(!safeUrl(u)) retu
 $('newUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addUrl').click(); });
 $('pickFile').onclick=()=>$('fileInput').click();
 $('fileInput').onchange=e=>{ uploadFiles([...e.target.files]); e.target.value=''; };
-$('addCam').onclick=addCam;
 $('addChatFeed').onclick=()=>{
   const ch=cleanChan(curRoom()?.chat||'');
   if(!ch) toast('Сначала укажи канал Twitch во вкладке «Чат»: пока лента пустая', 4000);
@@ -1344,7 +1356,15 @@ $('roomRekey').onclick=async()=>{
   const r=curRoom();
   if(!confirm(`Сменить ключи «${r.name}»?\n\nСтарая ссылка и все приглашения перестанут работать, а Hudini Host отключит всех модераторов со старыми ключами.\nСтример вставляет новую ссылку в программу, другим модераторам нужны новые приглашения.\nДелай так, если ссылка утекла или надо закрыть доступ человеку.`)) return;
   const fresh=await makeRoom(r.name); const keep=JSON.parse(JSON.stringify(state));
-  if(client?.connected) sealedPublish(topics(room).state, { v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:true, els:[] }, { qos:1, retain:true }).catch(()=>{});
+  // старый экран сбрасываем и ждём брокера (не дольше 3 с): после смены комнаты клиент закрывается
+  if(client?.connected) await Promise.race([
+    sealedPublish(topics(room).state, { v:2, wv:WIDGET_VER, from:clientId, t:Date.now(), visible:true, els:[] }, { qos:1, retain:true }).catch(()=>{}),
+    new Promise(res=>setTimeout(res, 3000))]);
+  // сцены, сценарии и библиотека переезжают на новый код комнаты
+  const oldCode=r.code, newCode=fresh.code;
+  if(scenes[oldCode]){ scenes[newCode]=scenes[oldCode]; delete scenes[oldCode]; saveScenes(); }
+  if(scnStore[oldCode]){ scnStore[newCode]=scnStore[oldCode]; delete scnStore[oldCode]; saveScn(); }
+  if(library.some(it=>it.room===oldCode)){ for(const it of library) if(it.room===oldCode) it.room=newCode; saveLib(); }
   rooms[rooms.indexOf(r)]=fresh; room=null; await switchRoom(fresh.code); saveRooms(); renderRooms();
   state=keep; commit();   // экран переезжает в новую комнату
   toast('Ключи сменены: отдай стримеру новую ссылку для Hudini Host', 5000);
@@ -1393,8 +1413,10 @@ const VAULT_SNOOZE='overlay.vaultWarn';
 function renderLockBtns(){
   $('passBtn').textContent = vaultPass ? '🔒 Пароль ✓' : '⚠ Нет пароля'; $('lockBtn').hidden=!vaultPass;
   $('passBtn').classList.toggle('warn', !vaultPass);
-  $('vaultWarn').hidden = !!vaultPass || !rooms.length || Date.now() < Number(lsGet(VAULT_SNOOZE, 0));
+  // the first-run tour goes first: the warning appears after it ends
+  $('vaultWarn').hidden = !!vaultPass || !rooms.length || Date.now() < Number(lsGet(VAULT_SNOOZE, 0)) || !!window.HudiniUI?.tourPending();
 }
+addEventListener('hudini:tourend', renderLockBtns);
 $('vaultWarnSet').onclick=()=>$('passBtn').click();
 $('vaultWarnLater').onclick=()=>{ lsSet(VAULT_SNOOZE, Date.now()+3*24*3600e3); renderLockBtns(); };
 // «Больше не показывать»: карточка не появится, но кнопка «⚠ Нет пароля» остаётся оранжевой
@@ -1406,13 +1428,15 @@ $('passBtn').onclick=async()=>{
     const np=prompt('Новый пароль. Оставь пустым, чтобы снять пароль:', ''); if(np==null) return;
     if(np && np.length<6) return toast('Пароль хотя бы 6 символов');
     vaultPass=np||null;
+    if(!vaultPass){ await syncSessions(); sessSecrets={}; }   // пароль снят: ключи сессий возвращаются в список
   } else {
     const np=prompt('Пароль на пульт (хотя бы 6 символов). Без него никто с этого компьютера не откроет твои комнаты.\nЗапомни его: восстановить нельзя, только из бэкапа.', ''); if(!np) return;
     if(np.length<6) return toast('Пароль хотя бы 6 символов');
     if(prompt('Повтори пароль:', '')!==np) return toast('Пароли не совпали');
     vaultPass=np;
   }
-  await saveRooms(); renderLockBtns(); toast(vaultPass ? 'Пароль установлен 🔒' : 'Пароль снят');
+  await saveRooms();
+  if(vaultPass) await syncSessions().catch(e=>console.warn('sessions vault', e)); renderLockBtns(); toast(vaultPass ? 'Пароль установлен 🔒' : 'Пароль снят');
 };
 $('lockBtn').onclick=()=>{ location.reload(); };
 function askUnlock(box){
@@ -1552,7 +1576,7 @@ function rafEntries(id){
     let list=lsGet(rafKey(id), null);
     // раньше ключ был без комнаты: участников забирает комната, которая первой откроет розыгрыш
     if(list==null){ list=lsGet('hudini.raf.'+id, null); if(list!=null){ HudiniStore.remove('hudini.raf.'+id); lsSet(rafKey(id), list); } }
-    let m; try{ m=new Map(Array.isArray(list) ? list : []); }catch{ m=new Map(); }
+    let m; try{ m=new Map((Array.isArray(list) ? list : []).filter(p=>Array.isArray(p) && typeof p[0]==='string' && p[1] && typeof p[1]==='object' && typeof p[1].user==='string')); }catch{ m=new Map(); }
     rafPool.set(id, m);
   }
   return rafPool.get(id);
@@ -1586,7 +1610,7 @@ function rafOnChat(user, text, msg){
 }
 function rafPick(el){
   const skip=rafSkip.get(el.id)||new Set(), won=new Set(el.winners.map(w=>w.toLowerCase()));
-  const pool=[...rafEntries(el.id)].filter(([login, e])=>!skip.has(login) && !won.has(e.user.toLowerCase()));
+  const pool=[...rafEntries(el.id)].filter(([login, e])=>!skip.has(login) && !won.has(String(e?.user||'').toLowerCase()));
   if(!pool.length) return null;
   const weight=e=>el.subx2 && e.sub ? 2 : 1;
   const total=pool.reduce((a,[,e])=>a+weight(e),0);
@@ -1613,6 +1637,7 @@ function rafSpin(el){
 }
 function rafTick(){
   let any=false; const now=Date.now();
+  try{
   for(const el of [raf()].filter(Boolean)){
     if(el.phase==='collect' && el.closeAt && now>=el.closeAt){ el.closeAt=0; el.phase='closed'; any=true; if(el.auto) rafSpin(el); }
     // победитель не ответил: крутим снова без него
@@ -1623,6 +1648,7 @@ function rafTick(){
       any=true;
     }
   }
+  }catch(e){ console.warn('raffle tick', e); return; }
   if(any){ renderAll(); publishNow(1); }
 }
 function renderRaffle(el){
@@ -2115,7 +2141,6 @@ function seekPlayer(d){
 }
 $('plBack').onclick=()=>seekPlayer(-10);
 $('plFwd').onclick=()=>seekPlayer(10);
-$('openCam').onclick=()=>{ const el=byId(selectedId); if(!el) return; const id=new URL(el.url).searchParams.get('view'); window.open(camPushUrl(id), '_blank', 'noopener'); };
 $('tToggle').onclick=()=>act(timerToggle);
 $('tReset').onclick=()=>act(timerReset);
 document.querySelectorAll('[data-tadd]').forEach(b=>b.onclick=()=>act(el=>timerAdd(el, Number(b.dataset.tadd))));
@@ -2356,7 +2381,7 @@ async function pasteEls(text){
   let data; try{ data=JSON.parse(text.slice(CLIP_MARK.length)); }catch{ return toast('В буфере повреждённые элементы'); }
   const src=(Array.isArray(data?.els) ? data.els : []).slice(0, 60);
   if(!src.length) return;
-  const same=data.room===room;
+  const same=data.room===room, rm=room;
   // каждая следующая вставка того же самого сдвигается, чтобы копии не легли друг на друга
   pasteSeq = pasteSeq.key===text ? { key:text, n:pasteSeq.n+1 } : { key:text, n:1 };
   const d = same ? 3*pasteSeq.n : 0;
@@ -2370,9 +2395,11 @@ async function pasteEls(text){
         catch(err){ hideUpload(); if(!err.shown) toast('Файл не скопировался: '+(err.message||err)); return; }
       }
       hideUpload();
+      if(room!==rm) return;   // комнату сменили, пока копировались файлы
     }
     els.push(c);
   }
+  if(room!==rm) return;
   const free=MAX_ELS-state.els.length;
   if(free<=0) return toast('Слишком много элементов');
   if(els.length>free){ els.length=free; toast('Вставлены не все: на экране максимум '+MAX_ELS+' элементов'); }
@@ -3124,7 +3151,9 @@ async function boot(){
   loadLib(); loadScenes(); loadScn();   // в приложении хранилище могло загрузиться позже, чем выполнился этот файл
   const v=lsGet('overlay.vault2', null);
   let data = v?.locked ? await askUnlock(v.locked) : (v?.plain || null);
-  rooms=(data?.rooms||[]).map(cleanRoom).filter(Boolean);
+  rooms=(Array.isArray(data?.rooms) ? data.rooms : []).map(cleanRoom).filter(Boolean);
+  sessSecrets={}; if(vaultPass && data?.sess && typeof data.sess==='object') for(const [id,sec] of Object.entries(data.sess)) { const c=window.HudiniSessions.cleanVault(sec); if(validCode(id) && c) sessSecrets[id]=c; }
+  await syncSessions().catch(e=>console.warn('sessions vault', e));
   const inv=location.hash.startsWith('#invite=') ? location.hash.slice(1) : null;
   history.replaceState(null, '', location.pathname+keepQuery());
   const sid=qs.get('session'), want=sid ? sessionFor(sid) : null;
@@ -3178,7 +3207,6 @@ const FEATURES=[
   ['beta', 'Сценарии', '[data-tab="auto"]'],
   ['beta', 'Голосование', '[data-add="poll"]'],
   ['beta', 'CS2', '[data-add="cs2"]'],
-  ['beta', 'Вебка', '#addCam'],
   ['beta', 'Загрузка файлов', '#pickFile'],
   ['beta', 'YouTube, Twitch и сайты', '#addUrl'],
   ['beta', 'Группы, выравнивание и сетка', '#tGroup', '.tgrp'],
@@ -3207,4 +3235,4 @@ function markLevels(){
   for(const v of ['teams','scorebar','observed','hud_tour','table','duel','compare']){ const o=document.querySelector(`#iCsView option[value="${v}"]`); if(o) o.textContent='α '+o.textContent; }
 }
 markLevels();
-boot();
+boot().catch(e=>{ console.error('boot', e); try{ sessionProblem('Пульт не запустился: '+(e?.message||e)); }catch{} });

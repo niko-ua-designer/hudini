@@ -4,10 +4,12 @@
 (function(){
   'use strict';
   const SELF = document.currentScript ? document.currentScript.src : document.baseURI;   // three.js лежит рядом со скриптом, а не рядом со страницей
-  let THREE = null, loading = null, failed = false;
+  let THREE = null, loading = null, failed = false, loadFailed = false, fails = 0;
+  const MAX_FAILS = 3;   // сбой отрисовки может быть разовым (потеря контекста): сдаёмся только после трёх подряд
+  const fail = () => { if(++fails >= MAX_FAILS) failed = true; };
   function load(){
     if(!loading) loading = import(new URL('vendor/three.module.min.js', SELF).href)
-      .then(m => { THREE = m; }).catch(e => { failed = true; console.warn('3D недоступен:', e); });
+      .then(m => { THREE = m; }).catch(e => { failed = loadFailed = true; console.warn('3D недоступен:', e); });
     return loading;
   }
   const scenes = new Map();   // контейнер .case → сцена
@@ -130,7 +132,7 @@
     const host = c._gl; if(!host) return null;
     let renderer;
     try{ renderer = new THREE.WebGLRenderer({ alpha:true, antialias:false, premultipliedAlpha:true, powerPreference:'high-performance' }); }
-    catch(e){ failed = true; return null; }
+    catch(e){ fail(); return null; }
     const low = !!FX().low || el.q === 'low';
     renderer.setPixelRatio(low ? 0.6 : Math.min(1.5, window.devicePixelRatio || 1));
     renderer.setClearColor(0x000000, 0);
@@ -520,6 +522,7 @@
   window.Case3D = {
     frame(c, el, t){
       audio(c, el, t);
+      if(c._tryKey !== el.openAt){ c._tryKey = el.openAt; if(!loadFailed){ failed = false; fails = 0; } }   // новое открытие: пробуем снова
       if(failed) { c._gl?.classList.add('nogl'); return; }
       if(!THREE){ load(); return; }
       let S = scenes.get(c);
@@ -528,7 +531,7 @@
       // кейс пересобрал DOM посреди открытия (язык, правка, ...): переносим холст в новое место, а не рисуем в потерянный
       if(c._gl && S.renderer.domElement.parentNode !== c._gl){ c._gl.replaceChildren(S.renderer.domElement); S.size = [0, 0]; }
       S.lid?.setLogo(logoSrc(el));
-      try{ render(S, c, el, t); }catch(e){ console.warn(e); failed = true; dispose(c); }
+      try{ render(S, c, el, t); fails = 0; }catch(e){ console.warn(e); fail(); dispose(c); }
     },
     tick(el, p){ if(!FX().audio || el.hidden) return; const x = ac(el.vol); if(!x) return; sound(el, 'tick', x.currentTime, p); },
     stop(c){ dispose(c); },

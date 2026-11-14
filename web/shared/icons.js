@@ -50,7 +50,8 @@ const HUDINI_ICONS = {"💬":"<path d=\"M2.992 16.342a2 2 0 0 1 .094 1.167l-1.06
     }
   }).observe(document.documentElement,{ subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:[...ATTRS,'label'] });
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>walk(document.documentElement)); else walk(document.documentElement);
-  const st=document.createElement('style');
-  st.textContent='svg.ic{width:1.15em;height:1.15em;vertical-align:-.21em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;display:inline-block}';
-  (document.head||document.documentElement).appendChild(st);
+  // A constructed stylesheet instead of a <style> element: the app's CSP nonce blocks injected <style> text
+  const CSS='svg.ic{width:1.15em;height:1.15em;vertical-align:-.21em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;display:inline-block}';
+  try{ const sh=new CSSStyleSheet(); sh.replaceSync(CSS); document.adoptedStyleSheets=[...document.adoptedStyleSheets, sh]; }
+  catch{ const st=document.createElement('style'); st.textContent=CSS; (document.head||document.documentElement).appendChild(st); }
 })();
