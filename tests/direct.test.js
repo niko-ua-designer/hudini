@@ -52,7 +52,7 @@ const dial = (url, password) => new Promise(res => {
     eq((await fetch(A + '/auth?t=wrong', { redirect: 'manual' })).status, 403, 'wrong token → 403');
     const ok = await fetch(A + `/auth?t=${T.ADMIN_TOKEN}`, { redirect: 'manual' });
     const cookie = (ok.headers.get('set-cookie') || '');
-    check(ok.status === 302 && /hudini_admin=/.test(cookie) && /HttpOnly/i.test(cookie) && /SameSite=Strict/i.test(cookie), 'right token → cookie HttpOnly, SameSite=Strict: ' + cookie);
+    check(ok.status === 200 && /http-equiv="refresh" content="0;url=\/"/.test(await ok.text()) && /hudini_admin=/.test(cookie) && /HttpOnly/i.test(cookie) && /SameSite=Strict/i.test(cookie), 'right token → cookie HttpOnly, SameSite=Strict, page goes on to / by itself: ' + cookie);
     const ck = cookie.split(';')[0];
     eq((await fetch(A + '/', { headers: { cookie: ck } })).status, 200, 'management page with the cookie');
     const full = await (await fetch(A + '/api/status', { headers: { cookie: ck } })).json();
@@ -217,7 +217,7 @@ const dial = (url, password) => new Promise(res => {
     const h2 = T.startHost({ OVERLAY_PORT: String(PORT + 10), OVERLAY_APP: '1', OVERLAY_APP_TOKEN: 'apptoken123', OVERLAY_ADMIN_TOKEN: '', OVERLAY_SITE: 'off' });
     await h2.ready();
     const B = `http://127.0.0.1:${PORT + 10}`;
-    eq((await fetch(B + '/auth?t=apptoken123', { redirect: 'manual' })).status, 302, 'the window gets in with the app token');
+    eq((await fetch(B + '/auth?t=apptoken123', { redirect: 'manual' })).status, 200, 'the window gets in with the app token');
     eq((await fetch(B + '/auth?t=apptoken123', { redirect: 'manual' })).status, 403, 'the same token a second time → 403');
     eq((await fetch(B + '/api/status', { headers: { 'x-hudini-token': 'apptoken123' } }).then(r => r.json())).role, 'streamer', 'the app itself can read the status with the header');
     check(!/auth\?t=/.test(h2.log()), 'no login link on stdout (the app copies it into crash reports)');

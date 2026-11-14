@@ -1063,7 +1063,11 @@ const local = http.createServer(async (req, res) => {
       // в приложении токен одноразовый (окно открывается один раз); из консоли браузера ссылкой можно пользоваться повторно
       if(!sameStr(t, ADMIN_TOKEN) || (APP_TOKEN && adminTokenUsed)) return send(res, 403, 'ссылка недействительна: открой управление из приложения Hudini или по ссылке из консоли');
       adminTokenUsed = true;
-      return send(res, 302, '', 'text/plain', { location:'/', 'set-cookie':`hudini_admin=${ADMIN_COOKIE}; HttpOnly; SameSite=Strict; Path=/` });
+      // не 302: WebKitGTK (Linux) не отправляет cookie SameSite=Strict после перенаправления, если переход начался со страницы
+      // приложения (tauri://localhost). Переход со своей же страницы считается своим, и cookie уходит в любом движке
+      return send(res, 200, '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/"><title>Hudini</title><body bgcolor="#0f1115"></body>',
+        'text/html; charset=utf-8', { 'set-cookie':`hudini_admin=${ADMIN_COOKIE}; HttpOnly; SameSite=Strict; Path=/`,
+          'x-frame-options':'DENY', 'content-security-policy':"default-src 'none'; frame-ancestors 'none'", 'referrer-policy':'no-referrer' });
     }
     if(p.startsWith('/api/') && !isAdmin(req)){
       // без входа: «живой» (проверка приложения); со стороны виджета (localhost) — краткий статус и кнопки стримера для дока в OBS
