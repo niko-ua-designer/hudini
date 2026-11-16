@@ -229,9 +229,7 @@
       web:[[D.f.url, 'stats.example/top']], txt:[[D.f.text, 'WOW!']],
     };
     const BASE = { img:{ w:28, ar:0.625 }, gif:{ w:15, ar:1 } };   // default size and aspect, for the "size" and "stretch" readouts
-    const RC = ['#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#e4ae39'];   // case rarity colors, same order as the panel
-    const WIN_AT = 24;   // index of the winning card in the reel
-    const reelCards = Array.from({ length:30 }, (_, i) => i === WIN_AT ? 4 : [0, 0, 1, 0, 2, 0, 1, 3, 0, 1][(i * 7) % 10]);
+   // index of the winning card in the reel
     const AL = ['al-l', 'al-c', 'al-r', 'al-t', 'al-m', 'al-b'];
     const rows = [['nightowl', 100, '1 200'], ['pixelkat', 72, '860'], ['b0rsch', 45, '540']];
     el.innerHTML = `
@@ -278,15 +276,7 @@
           <div class="o o-timer"><div class="lb">${t.dBreak}</div><div class="flip"><span class="fd"><span></span></span><span class="fd"><span></span></span><span class="colon">:</span><span class="fd"><span></span></span><span class="fd"><span></span></span></div></div>
           <div class="o o-count"><small>${t.dDeaths}</small><b>6</b></div>
           <div class="o o-sticker">POG!</div>
-          <div class="o o-case"><div class="kc-who">${D.caseWho}</div>
-            <div class="k3"><div class="beam"></div><div class="crate">
-              <div class="fc f-back"></div><div class="fc f-left"></div><div class="fc f-right"></div><div class="fc f-bottom"></div>
-              <div class="fc f-glow"></div>
-              <div class="fc f-front">${ic('box')}<b>HUDINI</b><small>CASE</small></div>
-              <div class="hinge"><div class="fc f-lid"></div></div>
-            </div></div>
-            <div class="rl"><div class="kc-win"><i class="kc-mark"></i><div class="kc-strip">${reelCards.map(r => `<div class="kc" style="--c:${RC[r]}">${ic('box')}<small>${D.rar[r]}</small></div>`).join('')}</div></div></div>
-            <div class="kc-res" style="--c:${RC[4]}">${ic('box')}<small>${D.rar[4]}</small></div></div>
+          <div class="o o-case"><iframe title="" tabindex="-1" aria-hidden="true"></iframe></div>
           <div class="cs"></div>
           <i class="marq"></i>
           <div class="sel"><i class="hd rot"></i><i class="hd se"></i><i class="hd e"></i><i class="hd s"></i><span class="gtag">${D.names.group}</span></div>
@@ -471,10 +461,25 @@
     }
     function clearLink(){ const box = $('.lnk'); box.classList.remove('act'); box.querySelector('.tx').textContent = D.linkPh; }
 
+    // The case is the real one (core.js + case3d.js in case-demo.html, a frame with a transparent background).
+    // The page loads only when the scenario first needs it, then waits for {type:'open'} / {type:'reset'}.
+    let caseWin = null, caseReady = null;
+    const caseSend = type => caseWin?.postMessage({ type }, location.origin);
+    function caseLoad(){
+      if(caseReady) return caseReady;
+      const f = $('.o-case iframe');
+      caseReady = new Promise(done => {
+        const on = e => { if(e.source === f.contentWindow && e.data?.type === 'ready'){ removeEventListener('message', on); caseWin = f.contentWindow; done(true); } };
+        addEventListener('message', on); setTimeout(() => done(false), 8000);
+      });
+      f.src = ROOT + 'case-demo.html?lang=' + encodeURIComponent(lang);
+      return caseReady;
+    }
+
     function reset(){
       OV.forEach(s => showOn(s, false)); timerTok++; st.classList.remove('cs-mode');
       const cs = $('.cs'); cs.replaceWith(cs.cloneNode(false));   // a fresh node: a half-played CS2 scene lets go of the old one
-      const kc = $('.o-case'); kc.classList.remove('drop', 'open', 'reel', 'spin', 'won');
+      caseSend('reset');
       for(const k in NODE){ NODE[k].classList.remove('on', 'pop', 'msel'); }
       selK = null; grp = null; LY = []; syncSel(); tip(null); marq.classList.remove('on'); tb.classList.remove('multi'); $('.si').textContent = '';
       ly.replaceChildren(); insp.replaceChildren(); setTab('add'); pane(0); clearLink();
@@ -547,14 +552,10 @@
         setCount(7, true); await w(900); setCount(8, true); await w(1600);
       },
       async kase(w){
-        const kc = $('.o-case');
-        await click('kase', w); addLayer('kase'); kc.classList.add('on', 'drop'); await w(1900);
-        await click('open', w); kc.classList.add('open'); await w(1700);
-        kc.classList.add('reel'); await w(500);
-        { const win = kc.querySelector('.kc-win'), card = kc.querySelectorAll('.kc')[WIN_AT];   // stop with the mark exactly over the winning card
-          kc.style.setProperty('--reel', -(card.offsetLeft + card.offsetWidth / 2 - win.clientWidth / 2) + 'px'); }
-        kc.classList.add('spin'); await w(4600);
-        kc.classList.add('won'); await w(3000);
+        const kc = $('.o-case'), ready = caseLoad();
+        await click('kase', w); addLayer('kase'); await w(900);
+        await ready;
+        await click('open', w); kc.classList.add('on'); caseSend('open'); await w(16400);   // land, open, reel, reveal: ~15 s in the real case
       },
       async auto(w){
         await click('tab-auto', w); setTab('auto'); await w(900);
