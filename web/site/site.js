@@ -230,7 +230,8 @@
     };
     const BASE = { img:{ w:28, ar:0.625 }, gif:{ w:15, ar:1 } };   // default size and aspect, for the "size" and "stretch" readouts
     const RC = ['#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#e4ae39'];   // case rarity colors, same order as the panel
-    const reelCards = Array.from({ length:30 }, (_, i) => i === 24 ? 4 : [0, 0, 1, 0, 2, 0, 1, 3, 0, 1][(i * 7) % 10]);
+    const WIN_AT = 24;   // index of the winning card in the reel
+    const reelCards = Array.from({ length:30 }, (_, i) => i === WIN_AT ? 4 : [0, 0, 1, 0, 2, 0, 1, 3, 0, 1][(i * 7) % 10]);
     const AL = ['al-l', 'al-c', 'al-r', 'al-t', 'al-m', 'al-b'];
     const rows = [['nightowl', 100, '1 200'], ['pixelkat', 72, '860'], ['b0rsch', 45, '540']];
     el.innerHTML = `
@@ -549,7 +550,10 @@
         const kc = $('.o-case');
         await click('kase', w); addLayer('kase'); kc.classList.add('on', 'drop'); await w(1900);
         await click('open', w); kc.classList.add('open'); await w(1700);
-        kc.classList.add('reel'); await w(500); kc.classList.add('spin'); await w(4600);
+        kc.classList.add('reel'); await w(500);
+        { const win = kc.querySelector('.kc-win'), card = kc.querySelectorAll('.kc')[WIN_AT];   // stop with the mark exactly over the winning card
+          kc.style.setProperty('--reel', -(card.offsetLeft + card.offsetWidth / 2 - win.clientWidth / 2) + 'px'); }
+        kc.classList.add('spin'); await w(4600);
         kc.classList.add('won'); await w(3000);
       },
       async auto(w){

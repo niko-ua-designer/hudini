@@ -477,7 +477,7 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 .kc svg{width:4.4cqw;height:4.4cqw}
 .kc small{font:600 1.05cqw/1.2 var(--sans);color:#fff;opacity:.85;padding:0 .4cqw}
 .o-case.spin .kc-strip{animation:reel 4.4s cubic-bezier(.12,.62,.1,1) forwards}
-@keyframes reel{to{transform:translateX(-211.7cqw)}}
+@keyframes reel{to{transform:translateX(var(--reel,-203.7cqw))}}   /* --reel is measured in site.js so the mark stops on the winning card */
 .kc-res{position:absolute;left:50%;bottom:-6cqw;transform:translateX(-50%) scale(.7);opacity:0;padding:.8cqw 2.6cqw;border-radius:1cqw;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 45%,#15161d),#15161d);border:.2cqw solid var(--c);box-shadow:0 0 3cqw color-mix(in srgb,var(--c) 70%,transparent);transition:opacity .4s,transform .6s var(--spring)}
 .kc-res small{font:800 2.2cqw/1.2 var(--sans);color:#fff}
 .o-case.won .kc-res{opacity:1;transform:translateX(-50%)}
