@@ -1039,7 +1039,7 @@ const errOut = (res, e, extra={}) => {
     if(res.headersSent || res.destroyed || res.writableEnded) return res.destroy();
     const code = Number.isInteger(e?.code) && e.code>=400 && e.code<=599 ? e.code : e?.code==null ? 400 : 500;
     if(code===500) log('⚠ Ошибка запроса:', String(e?.code||''), e?.message||e);
-    send(res, code, JSON.stringify({ ok:false, error:code===500 ? 'ошибка на ПК стримера' : String(e?.message||e), ...(e?.extra||{}) }), 'application/json', extra);
+    send(res, code, JSON.stringify({ ok:false, error:e instanceof HttpErr ? e.message : code===500 ? 'ошибка на ПК стримера' : 'некорректный запрос', ...(e?.extra||{}) }), 'application/json', extra);
   }catch{ try{ res.destroy(); }catch{} }
 };
 function obsLink(){
