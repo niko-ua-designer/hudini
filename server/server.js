@@ -80,7 +80,7 @@ const LOGS_DIR = path.join(BASE, 'logs'); fs.mkdirSync(LOGS_DIR, { recursive:tru
 const logs = [], connLogs = [];
 const dayStamp = (d=new Date()) => d.toLocaleDateString('sv-SE');
 function emitLog(conn, a){
-  const text = a.join(' ').replace(/[\r\n]+/g, ' ');
+  const text = a.join(' ').replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 2000);   // one plain line: no control characters, no runaway length
   const line = new Date().toLocaleTimeString('ru-RU') + '  ' + text;
   console.log(line); logs.push(line); if(logs.length>200) logs.shift();
   if(conn){ connLogs.push(line); if(connLogs.length>200) connLogs.shift(); }
@@ -102,7 +102,7 @@ function crash(kind, e){
   if(shuttingDown) return;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const text = `${kind} ${new Date().toISOString()}\nHudini ${VERSION} ${process.platform} ${os.arch()}\n\n${e?.stack || e}\n\nПоследние строки журнала:\n${logs.slice(-30).join('\n')}\n`;
-  try{ fs.writeFileSync(path.join(LOGS_DIR, `crash-${stamp}.log`), text, { mode:0o600 }); }catch{}
+  try{ fs.writeFileSync(path.join(LOGS_DIR, `crash-${stamp}.log`), text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' '), { mode:0o600 }); }catch{}
   try{ console.error(text); }catch{}
   process.exit(70);
 }

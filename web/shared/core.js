@@ -1481,7 +1481,8 @@ function cleanChan(ch){ return (typeof ch==='string' ? ch : '').toLowerCase().re
 function parseTags(str){
   const o=Object.create(null); if(!str) return o;
   for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
-    o[kv.slice(0,i)]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
+    const key=kv.slice(0,i); if(key==='__proto__' || key==='constructor' || key==='prototype') continue;
+    o[key]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
   return o;
 }
 function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]

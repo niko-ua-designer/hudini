@@ -89,8 +89,10 @@ const qs=new URLSearchParams(location.search);
 const room=qs.get('room'), hp=new URLSearchParams(location.hash.slice(1));
 // С версии 1.0 виджет работает только через программу Hudini Host на компьютере стримера
 const brokerUrl=qs.get('broker') || '';
-const viaHost=/^ws:\/\/(localhost|127\.0\.0\.1):\d{2,5}\/mqtt$/.test(brokerUrl);
-const HTTP_BASE=brokerUrl.replace(/^ws:/,'http:').replace(/\/mqtt$/,'');
+const hostMatch=/^ws:\/\/(localhost|127\.0\.0\.1):(\d{2,5})\/mqtt$/.exec(brokerUrl);
+const viaHost=!!hostMatch;
+// the address for files is assembled from fixed text and a number, so nothing from the page link can steer it elsewhere
+const HTTP_BASE=hostMatch ? `http://${hostMatch[1]==='localhost' ? 'localhost' : '127.0.0.1'}:${Number(hostMatch[2])}` : '';
 const DEBUG=qs.has('debug');
 const dbg=document.getElementById('debug');
 function status(t, force){ console.log('[overlay]', t); if(DEBUG||force){ dbg.style.display='block'; dbg.textContent=t; } }
