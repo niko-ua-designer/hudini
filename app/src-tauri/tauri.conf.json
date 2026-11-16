@@ -18,7 +18,7 @@
     "targets": "all",
     "category": "Utility",
     "shortDescription": "Stream overlay for OBS with a moderator panel",
-    "longDescription": "Hudini runs the stream overlay on the streamer's computer or connects a moderator to it directly, without third-party servers.",
+    "longDescription": "Hudini runs the stream overlay on the streamer's computer or connects a moderator to it directly, without any Hudini cloud services.",
     "copyright": "niko-ua-designer",
     "externalBin": [
       "binaries/hudini-server"
