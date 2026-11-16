@@ -5,7 +5,12 @@
   document.documentElement.classList.add('js');
   const LANGS = [['en', 'English'], ['ru', 'Русский'], ['uk', 'Українська'], ['de', 'Deutsch']];
   const has = c => LANGS.some(l => l[0] === c);
+  // The landing page exists once per language: / (English), /ru/, /uk/, /de/. The build sets data-root="../" on the language folders.
+  const ROOT = document.documentElement.dataset.root || '';
+  const STATIC_LANG = document.documentElement.dataset.staticLang || '';
+  const ROUTED = !!STATIC_LANG || document.documentElement.hasAttribute('data-lang-routes');
   function pick(){
+    if(has(STATIC_LANG)) return STATIC_LANG;
     const q = new URLSearchParams(location.search).get('lang');
     let s = null; try{ s = localStorage.getItem('hudini.lang'); }catch{}
     for(const c of [q, s, (navigator.language || '').slice(0, 2).toLowerCase()]) if(has(c)) return c;
@@ -230,7 +235,7 @@
     const rows = [['nightowl', 100, '1 200'], ['pixelkat', 72, '860'], ['b0rsch', 45, '540']];
     el.innerHTML = `
     <div class="dv-top">
-      <span class="dv-logo"><img src="shared/icons/icon-192.png" alt="">Hudini</span>
+      <span class="dv-logo"><img src="${ROOT}shared/icons/icon-192.png" alt="">Hudini</span>
       <span class="dv-cap"><span class="sig"><i></i><i></i><i></i></span>${D.online} <em>24 ms</em><span class="sep"></span><b class="ok"></b>${D.obs}</span>
       <span class="sp"></span>
       <span class="dv-vol">${ic('volume')}<span class="sl"><i></i></span></span>
@@ -262,8 +267,8 @@
           <span class="tg"><b>${ic('eye')}</b><b>${ic('copy')}</b><b>${ic('trash')}</b></span></div>
         <div class="stbox"><div class="st">
           <div class="st-bg"></div>
-          <div class="xe x-img"><img src="img/demo-photo.jpg" alt=""></div>
-          <div class="xe x-gif"><img src="img/demo-party.gif" alt=""></div>
+          <div class="xe x-img"><img src="${ROOT}img/demo-photo.jpg" alt=""></div>
+          <div class="xe x-gif"><img src="${ROOT}img/demo-party.gif" alt=""></div>
           <div class="xe x-web"><div class="wb"><div class="wbar"><i></i><i></i><i></i><span>${ic('lock')}stats.example/top</span></div>
             <div class="wbody"><h6>${D.top}</h6>${rows.map(([n, v, a], i) => `<div class="wr"><span class="wn">${i + 1} ${n}</span><span class="wbr"><i style="--v:${v}%"></i></span><span class="wv">${a}</span></div>`).join('')}</div></div></div>
           <div class="xe x-txt"><span>WOW!</span></div>
@@ -671,8 +676,8 @@
     for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
     const other = document.getElementById('otherOs');
     if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
-    for(const a of document.querySelectorAll('a[data-help]')) a.href = 'help.html?lang=' + encodeURIComponent(lang);
-    for(const a of document.querySelectorAll('a[data-rep]')) a.href = 'report.html?lang=' + encodeURIComponent(lang);
+    for(const a of document.querySelectorAll('a[data-help]')) a.href = ROOT + 'help.html?lang=' + encodeURIComponent(lang);
+    for(const a of document.querySelectorAll('a[data-rep]')) a.href = ROOT + 'report.html?lang=' + encodeURIComponent(lang);
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
     const ch = document.getElementById('chooser'); if(ch) chooser(ch);
     const list = document.getElementById('csList');
@@ -730,7 +735,9 @@
   }
   function setLang(l){
     if(!has(l)) return;
-    lang = l; try{ localStorage.setItem('hudini.lang', l); }catch{}
+    try{ localStorage.setItem('hudini.lang', l); }catch{}
+    if(ROUTED && document.body.dataset.page === 'home'){ location.href = ROOT + (l === 'en' ? '?lang=en' : l + '/') + location.hash; return; }
+    lang = l;
     const u = new URL(location.href); u.searchParams.set('lang', l); history.replaceState(null, '', u);
     render();
   }
@@ -738,6 +745,9 @@
     for(const [c, n] of LANGS){ const o = document.createElement('option'); o.value = c; o.textContent = n; o.selected = c === lang; s.appendChild(o); }
     s.onchange = () => setLang(s.value);
   }
+  document.addEventListener('click', e => {   // the crawlable language links in the footer also remember the choice
+    const a = e.target.closest?.('.langlinks a'); if(a) try{ localStorage.setItem('hudini.lang', a.getAttribute('hreflang')); }catch{}
+  });
   render();
   if(document.body.dataset.page !== 'help') landingOnce();
 })();

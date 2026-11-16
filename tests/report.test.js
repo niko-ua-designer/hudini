@@ -83,7 +83,7 @@ async function siteServer(){
     }
     for(const f of ['index.html', 'help.html', 'moderator.html']){
       const p = await newPage('rep-link', { app: false, lang: 'ru' }); await p.goto(`${site.url}/${f}`);
-      await p.waitForSelector('a[data-rep]'); check((await p.getAttribute('a[data-rep]', 'href')).startsWith('report.html'), f + ': link to the report page');
+      await p.waitForSelector('a[data-rep]'); check(/^(\.\.\/)?report\.html/.test(await p.getAttribute('a[data-rep]', 'href')), f + ': link to the report page');
       await p.context().close();
     }
   });

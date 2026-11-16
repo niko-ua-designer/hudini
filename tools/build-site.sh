@@ -4,6 +4,7 @@
 #   /shared/     web/shared/*    core.js, core.css, fonts, icons, ... (Hudini Host fetches the widget files from here)
 #   /widget/     web/widget/*    widget.html for OBS
 #   /panel/      redirect stubs  the panel lives in the app now; old links land on the moving page (/moderator.html)
+#   search     tools/build-seo.js adds /ru/ /uk/ /de/ landing pages, sitemap.xml, robots.txt
 set -e
 cd "$(dirname "$0")/.."
 rm -rf _site
@@ -24,3 +25,4 @@ HTML
 done
 mkdir -p _site/app
 cp web/app/store.js web/app/sessions.js _site/app/
+node tools/build-seo.js
