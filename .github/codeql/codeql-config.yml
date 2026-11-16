@@ -1,0 +1,7 @@
+name: Hudini CodeQL
+# Same query suite as the former default setup ("extended"), minus the test code:
+# tests/ talks to a local Hudini Host with a self-signed certificate on purpose and is never shipped.
+queries:
+  - uses: security-extended
+paths-ignore:
+  - tests
