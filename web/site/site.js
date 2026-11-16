@@ -5,15 +5,16 @@
   document.documentElement.classList.add('js');
   const LANGS = [['en', 'English'], ['ru', 'Русский'], ['uk', 'Українська'], ['de', 'Deutsch']];
   const has = c => LANGS.some(l => l[0] === c);
+  const canon = c => LANGS.find(l => l[0] === c)?.[0] || '';   // hands back the constant from LANGS, never the input string
   // The landing page exists once per language: / (English), /ru/, /uk/, /de/. The build sets data-root="../" on the language folders.
   const ROOT = document.documentElement.dataset.root || '';
   const STATIC_LANG = document.documentElement.dataset.staticLang || '';
   const ROUTED = !!STATIC_LANG || document.documentElement.hasAttribute('data-lang-routes');
   function pick(){
-    if(has(STATIC_LANG)) return STATIC_LANG;
+    if(canon(STATIC_LANG)) return canon(STATIC_LANG);
     const q = new URLSearchParams(location.search).get('lang');
     let s = null; try{ s = localStorage.getItem('hudini.lang'); }catch{}
-    for(const c of [q, s, (navigator.language || '').slice(0, 2).toLowerCase()]) if(has(c)) return c;
+    for(const c of [q, s, (navigator.language || '').slice(0, 2).toLowerCase()]){ const k = canon(c); if(k) return k; }
     return 'en';
   }
   let lang = pick();
@@ -740,8 +741,8 @@
     for(const [k, v] of Object.entries(t)) if(typeof v === 'string') for(const el of slots.get(k) || []) el.innerHTML = v;
     if(document.body.dataset.page === 'help') helpPage(); else landing(t);
   }
-  function setLang(l){
-    if(!has(l)) return;
+  function setLang(code){
+    const l = canon(code); if(!l) return;
     try{ localStorage.setItem('hudini.lang', l); }catch{}
     if(ROUTED && document.body.dataset.page === 'home'){ location.href = ROOT + (l === 'en' ? '?lang=en' : l + '/') + location.hash; return; }
     lang = l;

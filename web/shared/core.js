@@ -1478,11 +1478,13 @@ function paintMsg(c, el){
 
 // ---------- чат Twitch: анонимное чтение, одно соединение на канал ----------
 function cleanChan(ch){ return (typeof ch==='string' ? ch : '').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
+const TAG_KEYS=['badges','display-name','id','color','emotes','subscriber','target-msg-id'];   // the only tags the app reads
 function parseTags(str){
-  const o=Object.create(null); if(!str) return o;
-  for(const kv of str.split(';')){ const i=kv.indexOf('='); if(i<0) continue;
-    const key=kv.slice(0,i); if(key==='__proto__' || key==='constructor' || key==='prototype') continue;
-    o[key]=kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\'); }
+  const raw=new Map();
+  for(const kv of (str||'').split(';')){ const i=kv.indexOf('='); if(i<0) continue;
+    raw.set(kv.slice(0,i), kv.slice(i+1).replace(/\\s/g,' ').replace(/\\:/g,';').replace(/\\\\/g,'\\')); }
+  const o=Object.create(null);
+  for(const k of TAG_KEYS) if(raw.has(k)) o[k]=raw.get(k);
   return o;
 }
 function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]
