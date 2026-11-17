@@ -1,11 +1,14 @@
 /* Hudini panel: layout settings, guided tour, help menu, motion. Loaded after the panel styles. */
 
 /* ---------- layout from settings (CSS variables set by ui.js) ---------- */
-body{grid-template-columns:calc(var(--lw,300px) + var(--rail,100px)) 1fr var(--rw,310px);font-size:var(--fs,14px)}
-body.swap{grid-template-columns:var(--rw,310px) 1fr calc(var(--lw,300px) + var(--rail,100px));grid-template-areas:"top top top" "right main left"}
+body{--cL:calc(var(--lw,300px) + var(--rail,100px));--cR:var(--rw,310px);grid-template-columns:var(--cL) 1fr var(--cR);font-size:var(--fs,14px)}
+body.swap{grid-template-columns:var(--cR) 1fr var(--cL);grid-template-areas:"top top top" "right main left"}
 /* browser column on the far right (body.web is set by the panel) */
-body.web{grid-template-columns:calc(var(--lw,300px) + var(--rail,100px)) 1fr var(--rw,310px) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "left main right web"}
-body.web.swap{grid-template-columns:var(--rw,310px) 1fr calc(var(--lw,300px) + var(--rail,100px)) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "right main left web"}
+body.web{grid-template-columns:var(--cL) 1fr var(--cR) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "left main right web"}
+body.web.swap{grid-template-columns:var(--cR) 1fr var(--cL) max(240px,min(var(--bw,360px),22vw));grid-template-areas:"top top top top" "right main left web"}
+/* side panels hidden by the header buttons: the column collapses and the canvas takes the room */
+body.hide-left{--cL:0px}body.hide-right{--cR:0px}
+body.hide-left #left,body.hide-right #right,body.hide-left #rzL,body.hide-right #rzR{display:none}
 body.free.web #web{position:fixed;z-index:61;right:0;top:48px;bottom:0;width:var(--bw,360px)}
 #rzB{position:absolute;top:0;bottom:0;left:0;width:6px;cursor:col-resize;z-index:50;touch-action:none}
 #rzB:hover,#rzB.on{background:var(--acc)}
@@ -236,3 +239,10 @@ aside details>summary:hover{color:var(--text)}
   header button,#toSessions{padding:8px 10px}
   .conn .pill{font-size:13px;padding:5px 6px}
 }
+
+/* header buttons that hide the side panels */
+.pbtn{padding:5px 7px;line-height:0}
+.pbtn svg.ic{width:20px;height:20px;vertical-align:0}
+.pbtn .pn{fill:currentColor;stroke:none;opacity:0}
+.pbtn.on .pn{opacity:.32}
+.pbtn.on{border-color:var(--acc)}

@@ -27,6 +27,7 @@
 <body>
 
 <header>
+  <button id="hideLBtn" class="ico pbtn" title="Левая панель: скрыть / показать" aria-pressed="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect class="pn" x="3" y="3" width="6" height="18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
   <h1>🎩 Hudini <span data-i18n-switch></span></h1>
   <a id="toSessions" href="../app/start.html" hidden title="Вернуться к списку стримеров">← Сессии</a>
   <div id="conn" class="conn"><span id="status" class="pill">подключение…</span><span class="sep"></span><span id="obsStatus" class="pill bad" title="Есть ли связь с виджетом в OBS стримера">OBS: не видно</span></div>
@@ -38,6 +39,7 @@
   <button id="globalEye">🙈 Скрыть всё</button>
   <button id="lockBtn" hidden>🔐</button>
   <button id="moreBtn" title="Ссылка для стримера, рамка, пароль, очистка">⋯ Ещё</button>
+  <button id="hideRBtn" class="ico pbtn" title="Правая панель: скрыть / показать" aria-pressed="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect class="pn" x="15" y="3" width="6" height="18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg></button>
   <div id="moreMenu" hidden>
     <div class="mrow"><span class="hint" title="Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS">Ссылка для Hudini Host:</span></div>
     <div class="mrow"><input id="link" type="text" readonly><button id="copyLink">📋 Копировать</button></div>

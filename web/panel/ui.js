@@ -7,7 +7,7 @@
   const HELP_URL = '../help.html';
   const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
   const TABS = ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room'];
-  const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0 };
+  const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, hideL:false, hideR:false };
   // Ready layouts: one click, then everything can still be tuned by hand
   const PRESETS = {
     classic:{ name:'Классика', lw:300, rw:310, compact:false, fs:14, free:false },
@@ -29,7 +29,7 @@
     for(const k of ['left', 'right']){ const w = o.win?.[k]; if(w && typeof w === 'object') win[k] = { x:n(w.x, 0, 8000, 0), y:n(w.y, 0, 8000, 0), w:n(w.w, 220, 1400, 300), h:n(w.h, 200, 3000, 600) }; }
     return { v:1, lw:n(o.lw, 220, 560, DEF.lw), rw:n(o.rw, 240, 600, DEF.rw), bw:n(o.bw, 260, 720, DEF.bw), swap:o.swap === true, compact:o.compact === true,
       fs:n(o.fs, 12, 17, DEF.fs), motion:['auto', 'bright', 'soft', 'min'].includes(o.motion) ? o.motion : 'auto', free:o.free === true, win, tabs:[...new Set(tabs)], fold,
-      tour:n(o.tour, 0, 99, 0) };
+      tour:n(o.tour, 0, 99, 0), hideL:o.hideL === true, hideR:o.hideR === true };
   }
   const read = k => { const raw = localStorage.getItem(k); return raw == null ? null : clean(JSON.parse(raw)); };
   let ui = { ...DEF }, loadNote = '';
@@ -56,6 +56,9 @@
     const b = document.body;
     b.style.setProperty('--lw', ui.lw + 'px'); b.style.setProperty('--rw', ui.rw + 'px'); b.style.setProperty('--bw', ui.bw + 'px'); b.style.setProperty('--fs', ui.fs + 'px');
     b.classList.toggle('swap', ui.swap); b.classList.toggle('compact', ui.compact);
+    // the header buttons mean the physical sides; with swapped columns the left side is the #right panel
+    b.classList.toggle('hide-left', ui.swap ? ui.hideR : ui.hideL); b.classList.toggle('hide-right', ui.swap ? ui.hideL : ui.hideR);
+    for(const [id, hidden] of [['hideLBtn', ui.hideL], ['hideRBtn', ui.hideR]]){ const btn = $(id); if(btn){ btn.classList.toggle('on', !hidden); btn.setAttribute('aria-pressed', String(!hidden)); } }
     // motion: "auto" follows the system setting (reduced motion → almost none), otherwise soft
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const m = ui.motion === 'auto' ? (reduce ? 'min' : 'soft') : ui.motion;
@@ -146,6 +149,11 @@
       rb.addEventListener('pointermove', move); rb.addEventListener('pointerup', up, { once:true }); rb.addEventListener('pointercancel', up, { once:true });
     });
     rb.addEventListener('dblclick', () => { ui.bw = DEF.bw; apply(); save(); });
+  }
+
+  // ---------- header buttons: hide the left / right panel ----------
+  function panelButtons(){
+    for(const [id, key] of [['hideLBtn', 'hideL'], ['hideRBtn', 'hideR']]) $(id).onclick = () => { ui[key] = !ui[key]; apply(); save(); };
   }
 
   // ---------- tabs: drag to reorder ----------
@@ -403,7 +411,7 @@
   }
 
   // ---------- start ----------
-  settingsSection(); folds(); windows(); apply(); resizers(); dragTabs(); helpButton(); emptyHint(); motionHooks();
+  settingsSection(); folds(); windows(); panelButtons(); apply(); resizers(); dragTabs(); helpButton(); emptyHint(); motionHooks();
   if(loadNote) setTimeout(() => toast(loadNote, 5000), 800);
   function whenReady(){
     // after the language picker and the password lock

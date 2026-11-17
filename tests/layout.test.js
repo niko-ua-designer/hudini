@@ -29,6 +29,24 @@ const { step, check } = T;
       }).map(b => tab + ': ' + (b.id || b.textContent.trim().slice(0, 30))), tab));
     }
     check(!bad.length, 'every control fits', [...new Set(bad)]);
+    // two header buttons hide the left and the right panel; the canvas takes the room; the choice is remembered
+    const hb = await p.evaluate(() => ['hideLBtn', 'hideRBtn'].map(id => { const b = document.getElementById(id), r = b?.getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return !!b && b.offsetParent !== null && r.width > 8 && r.left >= h.left && r.right <= h.right + 1 && r.right <= innerWidth && /\S/.test(b.title); }));
+    check(hb[0] && hb[1], 'both panel buttons are in the header, fit, and have a title', hb);
+    const geo = () => p.evaluate(() => ({ l: document.getElementById('left').offsetParent !== null, r: document.getElementById('right').offsetParent !== null, stage: document.getElementById('stageBox').clientWidth, fit: document.getElementById('stage').getBoundingClientRect().width }));
+    const g0 = await geo();
+    await p.click('#hideLBtn'); await p.waitForTimeout(250);
+    const g1 = await geo();
+    check(!g1.l && g1.r && g1.stage > g0.stage + 200 && g1.fit > g0.fit, 'the left button hides the left panel and the canvas grows', [g0, g1]);
+    await p.click('#hideRBtn'); await p.waitForTimeout(250);
+    const g2 = await geo();
+    check(!g2.l && !g2.r && g2.stage > g1.stage + 200, 'the right button hides the right panel too', [g1, g2]);
+    await p.waitForTimeout(500);   // the view is saved a moment after the click
+    await p.reload(); await p.waitForTimeout(800);
+    const g3 = await geo();
+    check(!g3.l && !g3.r && Math.abs(g3.stage - g2.stage) < 20, 'both stay hidden after a reload', [g2, g3]);
+    await p.click('#hideLBtn'); await p.click('#hideRBtn'); await p.waitForTimeout(250);
+    const g4 = await geo();
+    check(g4.l && g4.r && g4.stage < g3.stage - 200, 'the buttons bring the panels back', g4);
     await p.context().close();
   });
   await T.closeBrowser(); await web.close();

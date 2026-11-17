@@ -1332,6 +1332,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
     "Удалить папку вместе с элементами": "Delete the folder together with its items",
+    "Левая панель: скрыть / показать": "Left panel: hide / show",
+    "Правая панель: скрыть / показать": "Right panel: hide / show",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2663,6 +2665,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
     "Удалить папку вместе с элементами": "Видалити папку разом з елементами",
+    "Левая панель: скрыть / показать": "Ліва панель: сховати / показати",
+    "Правая панель: скрыть / показать": "Права панель: сховати / показати",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -3994,6 +3998,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
     "Удалить папку вместе с элементами": "Ordner samt Elementen löschen",
+    "Левая панель: скрыть / показать": "Linke Leiste: ausblenden / einblenden",
+    "Правая панель: скрыть / показать": "Rechte Leiste: ausblenden / einblenden",
   },
 };
 
