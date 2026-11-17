@@ -247,6 +247,12 @@ setInterval(() => {
 // ---------- брокер ----------
 const aedes = await Aedes.createBroker({ connectTimeout:10000 });   // aedes 1.x: брокер запускается асинхронно
 const status = { mods:0, obs:0, obsSeen:0, cs2Seen:0, cs2:null, gsiPath:'' };
+// CS2 в журнале: данные от игры появились / перестали идти (порог 15 с, как у статуса «CS2 онлайн»), проверка раз в 5 с
+let cs2Up = false;
+setInterval(() => {
+  const up = Date.now()-status.cs2Seen < 15000;
+  if(up!==cs2Up){ cs2Up = up; logc(up ? '🎯 CS2 появился: данные идут' : '🎯 CS2 пропал: данных нет больше 15 с'); }
+}, 5000);
 const modList = new Map();   // id клиента → { ip, net, since, rtt } для страницы управления
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 const ctl = { hidden:false, paused:false, stop:0 };
