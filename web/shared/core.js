@@ -349,7 +349,13 @@ function sanitizeState(m){
   if(raffle && ids.has(raffle.id)){ let n = 1; while(ids.has('raffle'+n)) n++; raffle.id = 'raffle'+n; }
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
     .filter(f => typeof f?.id==='string' && /^[a-z0-9]{6,24}$/.test(f.id)).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
-  return { visible: m?.visible !== false, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
+  // «Скрыть всё» теперь закрывает глазки у видимых элементов (hidAll помнит какие). Старый экран с visible:false: прячем все элементы.
+  let hidAll = (Array.isArray(m?.hidAll) ? m.hidAll : []).filter(x => typeof x==='string').slice(0, MAX_ELS+1).map(x => x.slice(0, 40));
+  if(m?.visible === false){
+    hidAll = [];
+    for(const e of drawList({ els, raffle })) if(!e.hidden){ e.hidden = true; delete e.ttl; hidAll.push(e.id); }
+  }
+  return { visible: true, hidAll, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
 function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }

@@ -67,7 +67,7 @@ async function roomKeys(code){ const r=rooms.find(x=>x.code===code); if(!r) thro
 async function roomKeysOk(r){ try{ await importRoomKeys(r); return true; }catch{ return false; } }
 async function useRoom(code){ const k=await roomKeys(code); room=code; KEYS=k; }
 
-let state={ visible:true, vol:1, fxVol:1, els:[], raffle:null };
+let state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
 const undoStack=[]; let changeOpen=false;
 function byId(id){ return state.els.find(e=>e.id===id); }
@@ -384,7 +384,7 @@ function publishNow(qos=0){
   STREAM_LANG=streamLang();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -411,7 +411,7 @@ async function switchRoom(code){
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
-  state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
+  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
@@ -719,7 +719,7 @@ function addHandles(node){
 }
 function renderAll(){
   syncSel();
-  stage.classList.toggle('all-hidden', !state.visible);
+  stage.classList.toggle('all-hidden', allHiddenNow());
   const seen=new Set(), now=nowMs();
   drawList(state).forEach((el,i)=>{
     seen.add(el.id);
@@ -745,7 +745,7 @@ function renderAll(){
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
   renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
-  $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
+  $('globalEye').textContent = hidAllActive() ? '👁 Показать всё' : '🙈 Скрыть всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
 const MODE_NAME={ countdown:'Таймер', stopwatch:'Секундомер', until:'Отсчёт до', clock:'Часы' };
@@ -1292,7 +1292,18 @@ $('shake').onclick=()=>{ if(sendFx({ type:'shake' })) toast('💥'); };
 $('calibBtn').onclick=()=>{ if(sendFx({ type:'calib' })) toast('У стримера на 10 секунд появилась рамка по краям оверлея', 4000); };
 
 $('clearAll').onclick=()=>{ if(!state.els.length) return; beginChange(); state.els=[]; selectedId=null; commit(); toast('Очищено. Ctrl+Z, чтобы вернуть'); };
-$('globalEye').onclick=()=>{ beginChange(); state.visible=!state.visible; commit(); };
+// «Скрыть всё» закрывает глазки у видимых элементов и запоминает их в state.hidAll; «Показать всё» открывает ровно их.
+// Открытое вручную в промежутке остаётся открытым, а то, что скрыли руками, «Показать всё» не трогает.
+function hidAllList(){ const all=drawList(state); return (state.hidAll||[]).map(id=>all.find(e=>e.id===id)).filter(Boolean); }
+function hidAllActive(){ return hidAllList().some(e=>e.hidden); }
+function allHiddenNow(){ return hidAllActive() && drawList(state).every(e=>e.hidden); }
+function toggleHideAll(){
+  beginChange();
+  if(hidAllActive()){ for(const e of hidAllList()) if(e.hidden){ e.hidden=false; delete e.ttl; } state.hidAll=[]; }
+  else{ const vis=drawList(state).filter(e=>!e.hidden); for(const e of vis){ e.hidden=true; delete e.ttl; } state.hidAll=vis.map(e=>e.id); }
+  commit();
+}
+$('globalEye').onclick=toggleHideAll;
 $('undoBtn').onclick=undo;
 
 function widgetLink(){
