@@ -210,7 +210,7 @@ function maskHost(h){
   return p.length>1 ? `${p[0].slice(0, 1)}…${p.slice(1).join('.')}` : a.slice(0, 1) + '…';
 }
 // «100.x.x.12 (Tailscale)»
-const who = ip => `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;
+const who = ip => ip==='local' ? 'этот компьютер' : `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;   // 'local' — виджет OBS на порту стримера
 // «my-pc.example.com:7778» → «m…example.com:7778»
 const maskAddr = v => String(v).replace(/^(.*?)(:\d{1,5})?$/, (_, h, port) => maskHost(h) + (port || ''));
 const fmtDur = sec => sec<60 ? `${sec} с` : sec<3600 ? `${Math.floor(sec/60)} мин ${sec%60} с` : `${Math.floor(sec/3600)} ч ${Math.floor(sec%3600/60)} мин`;
