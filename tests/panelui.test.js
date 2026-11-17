@@ -47,6 +47,14 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  await step('the reliable-storage prompt and button are gone', async () => {
+    const p = await open();
+    await p.evaluate(() => HudiniUI.reset());
+    eq(await p.evaluate(() => [!!document.getElementById('uiPersist'), !!document.getElementById('uiPersistInfo'), !!document.getElementById('persistBox'), 'persist' in HudiniUI.settings()]), [false, false, false, false], 'no persist button, info, box or setting');
+    eq(await p.evaluate(() => 'persist' in JSON.parse(localStorage.getItem('hudini.ui'))), false, 'the saved view has no persist field');
+    await p.context().close();
+  });
+
   await web.close(); await T.closeBrowser();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

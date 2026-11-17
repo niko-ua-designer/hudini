@@ -1,4 +1,4 @@
-/* Hudini panel: layout settings, guided tour, help menu, storage prompt, motion. Loaded after the panel styles. */
+/* Hudini panel: layout settings, guided tour, help menu, motion. Loaded after the panel styles. */
 
 /* ---------- layout from settings (CSS variables set by ui.js) ---------- */
 body{grid-template-columns:calc(var(--lw,300px) + var(--rail,100px)) 1fr var(--rw,310px);font-size:var(--fs,14px)}
@@ -92,11 +92,6 @@ body.swap #emptyHint .arrow{transform:scaleX(-1)}
 #tourBox .extra{margin:-4px 0 12px}
 #tourBox .extra button{max-width:100%;white-space:normal;text-align:left}
 
-/* ---------- storage prompt ---------- */
-#persistBox{position:fixed;left:16px;bottom:16px;z-index:100003;width:min(360px,92vw);background:var(--panel);border:1px solid var(--acc);border-radius:12px;padding:14px 16px;box-shadow:0 12px 40px #000b}
-#persistBox h3{margin:0 0 6px;font-size:14px}
-#persistBox p{margin:0 0 10px;color:#c9cede;font-size:12px;line-height:1.5}
-
 /* ---------- settings section ---------- */
 .uiset .row label{flex:1}
 .uiset select{width:auto}
@@ -109,7 +104,7 @@ body.swap #emptyHint .arrow{transform:scaleX(-1)}
 @keyframes rowIn{from{background:#7c5cff44}to{background:transparent}}
 @keyframes bornIn{from{opacity:0;scale:.6}to{opacity:1;scale:1}}
 section[data-pane]:not([hidden]){animation:paneIn .2s ease-out}
-.lockbox,#tourBox,#helpMenu,#persistBox,#lvlPop{animation:popIn .18s ease-out}
+.lockbox,#tourBox,#helpMenu,#lvlPop{animation:popIn .18s ease-out}
 #hostTip,#lock,#tour{animation:fadeIn .2s ease-out}
 #storageRow:not([hidden]){animation:fadeIn .4s ease-out}
 .pill.changed{animation:pulse .7s ease-out}
@@ -147,7 +142,7 @@ body.nomotion *,body.nomotion *::before,body.nomotion *::after{animation:none!im
 
 
 /* long labels (German, Ukrainian) wrap instead of sticking out of the panel */
-aside button:not(#tabs button),#pTimed,#uiPersist{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
+aside button:not(#tabs button),#pTimed{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
 aside .grid2,aside .grid3{min-width:0}
 
 /* переключатель вкл/выкл */

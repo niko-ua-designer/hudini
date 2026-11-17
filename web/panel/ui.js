@@ -1,5 +1,5 @@
 // Hudini panel: your own layout (stored only in this browser), first-run tour, help menu,
-// a prompt for persistent browser storage and small contextual animations. Loaded after moderator.js.
+// and small contextual animations. Loaded after moderator.js.
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -7,7 +7,7 @@
   const HELP_URL = '../help.html';
   const ISSUES_URL = 'https://github.com/niko-ua-designer/hudini/issues';
   const TABS = ['add', 'scenes', 'chat', 'auto', 'raffle', 'sound', 'room'];
-  const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, persist:0 };
+  const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0 };
   // Ready layouts: one click, then everything can still be tuned by hand
   const PRESETS = {
     classic:{ name:'Классика', lw:300, rw:310, compact:false, fs:14, free:false },
@@ -29,7 +29,7 @@
     for(const k of ['left', 'right']){ const w = o.win?.[k]; if(w && typeof w === 'object') win[k] = { x:n(w.x, 0, 8000, 0), y:n(w.y, 0, 8000, 0), w:n(w.w, 220, 1400, 300), h:n(w.h, 200, 3000, 600) }; }
     return { v:1, lw:n(o.lw, 220, 560, DEF.lw), rw:n(o.rw, 240, 600, DEF.rw), bw:n(o.bw, 260, 720, DEF.bw), swap:o.swap === true, compact:o.compact === true,
       fs:n(o.fs, 12, 17, DEF.fs), motion:['auto', 'bright', 'soft', 'min'].includes(o.motion) ? o.motion : 'auto', free:o.free === true, win, tabs:[...new Set(tabs)], fold,
-      tour:n(o.tour, 0, 99, 0), persist:n(o.persist, 0, 4e12, 0) };
+      tour:n(o.tour, 0, 99, 0) };
   }
   const read = k => { const raw = localStorage.getItem(k); return raw == null ? null : clean(JSON.parse(raw)); };
   let ui = { ...DEF }, loadNote = '';
@@ -199,9 +199,7 @@
         <button id="uiImport">⬆ Загрузить вид</button>
         <button class="u-grid-column-span-2" id="uiReset">↺ Стандартный вид</button>
       </div>
-      <input type="file" id="uiFile" accept=".json,application/json" hidden>
-      <div class="row"><button id="uiPersist" class="grow" title="Чтобы браузер не удалил комнаты, ключи и сцены сам">💾 Надёжное хранение в браузере</button></div>
-      <div class="hint" id="uiPersistInfo"></div>`;
+      <input type="file" id="uiFile" accept=".json,application/json" hidden>`;
     const keys = [...document.querySelectorAll('section[data-pane="room"] h2')].find(h => /Клавиши/.test(h.textContent));
     (keys ? keys.parentNode.insertBefore(box, keys) : document.querySelector('section[data-pane="room"]').appendChild(box));
     box.replaceWith(...box.childNodes);   // the heading becomes a normal section heading that folds like the others
@@ -213,7 +211,7 @@
     $('uiMotion').onchange = e => { ui.motion = e.target.value; apply(); save(); };
     $('uiSwap').onchange = e => { ui.swap = e.target.checked; apply(); save(); };
     $('uiCompact').onchange = e => { ui.compact = e.target.checked; apply(); save(); };
-    $('uiReset').onclick = () => { const keep = { tour:ui.tour, persist:ui.persist }; ui = { ...DEF, tabs:TABS.slice(), fold:{}, win:{}, ...keep }; apply(); save(); sync(); toast('↺ Вернул стандартный вид'); };
+    $('uiReset').onclick = () => { const keep = { tour:ui.tour }; ui = { ...DEF, tabs:TABS.slice(), fold:{}, win:{}, ...keep }; apply(); save(); sync(); toast('↺ Вернул стандартный вид'); };
     $('uiExport').onclick = () => {
       const blob = new Blob([JSON.stringify({ hudiniUi:1, lang:window.HudiniI18n?.lang, ui }, null, 2)], { type:'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hudini-view.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -226,48 +224,15 @@
         if(f.size > 64 * 1024) throw new Error('слишком большой файл');
         const j = JSON.parse(await f.text());
         if(j?.hudiniUi !== 1) throw new Error('это не файл вида Hudini');
-        ui = { ...clean(j.ui), tour:ui.tour, persist:ui.persist }; apply(); save(); sync();
+        ui = { ...clean(j.ui), tour:ui.tour }; apply(); save(); sync();
         toast('⬆ Вид пульта загружен');
       }catch(err){ toast('Не загрузилось: ' + (err.message || err), 4000); }
     };
-    $('uiPersist').onclick = () => askPersist(true);
-    persistInfo();
   }
 
   function presetNow(){
     for(const [k, p] of Object.entries(PRESETS)){ const { name, ...v } = p; if(Object.entries(v).every(([f, x]) => ui[f] === x)) return k; }
     return '';
-  }
-
-  // ---------- persistent storage ----------
-  async function persistInfo(){
-    const el = $('uiPersistInfo'); if(!el) return;
-    if(!navigator.storage?.persisted){ el.textContent = 'Этот браузер не умеет надёжное хранение: делай бэкап (⬇ Бэкап выше).'; return; }
-    const ok = await navigator.storage.persisted().catch(() => false);
-    el.textContent = ok ? '✓ Браузер не удалит данные пульта сам.' : 'Сейчас браузер может удалить данные пульта, если мало места на диске.';
-    $('uiPersist').hidden = ok;
-  }
-  async function askPersist(fromButton){
-    if(!navigator.storage?.persist) return fromButton && toast('Этот браузер не умеет надёжное хранение: делай бэкап', 4000);
-    if(await navigator.storage.persisted().catch(() => false)) return fromButton && toast('✓ Уже включено');
-    $('persistBox')?.remove();
-    const box = document.createElement('div'); box.id = 'persistBox';
-    box.innerHTML = `<h3>💾 Чтобы ничего не пропало</h3>
-      <p>Комнаты, ключи, сцены, библиотека и вид пульта хранятся только в этом браузере, на сервер они не уходят. Если на диске мало места, браузер может удалить их сам. Разреши хранить их постоянно: браузер спросит или решит сам, данные по-прежнему никуда не отправляются.</p>
-      <div class="row"><button class="primary grow" id="persistYes">Разрешить</button><button id="persistNo">Не сейчас</button></div>`;
-    document.body.appendChild(box);
-    $('persistNo').onclick = () => { box.remove(); ui.persist = Date.now(); save(); };
-    $('persistYes').onclick = async () => {
-      box.remove(); ui.persist = Date.now(); save();
-      const ok = await navigator.storage.persist().catch(() => false);
-      toast(ok ? '✓ Готово: браузер не удалит данные пульта сам' : 'Браузер не разрешил. Так бывает: Chrome решает сам. Делай иногда бэкап: Комната → ⬇ Бэкап', ok ? 3500 : 7000);
-      persistInfo();
-    };
-  }
-  async function maybeAskPersist(){
-    if(!navigator.storage?.persisted || await navigator.storage.persisted().catch(() => true)) return;
-    if(ui.persist && Date.now() - ui.persist < 7 * 864e5) return;   // "не сейчас" → снова через неделю
-    if(!$('tour') && !$('lock').offsetParent) askPersist(false);
   }
 
   // ---------- help menu ----------
@@ -389,7 +354,7 @@
     if(!$('tour')) return;
     if(e.key === 'Escape'){ e.stopPropagation(); endTour(); }
   }, true);
-  function endTour(){ $('tour')?.remove(); ui.tour = 1; save(); dispatchEvent(new Event('hudini:tourend')); setTimeout(maybeAskPersist, 1500); }
+  function endTour(){ $('tour')?.remove(); ui.tour = 1; save(); dispatchEvent(new Event('hudini:tourend')) }
 
   // ---------- empty stage hint and contextual motion ----------
   function emptyHint(){
@@ -445,7 +410,6 @@
     const langChosen = (() => { try{ return !!localStorage.getItem('hudini.lang'); }catch{ return true; } })();
     if(!window.hudiniReady || !langChosen || $('lock')?.offsetParent){ setTimeout(whenReady, 400); return; }
     if(!ui.tour && !new URLSearchParams(location.search).has('notour')) setTimeout(() => tour(0), 500);
-    else setTimeout(maybeAskPersist, 20000);
   }
   whenReady();
   // the "instructions for the streamer" link in the connection dialog opens the right help section

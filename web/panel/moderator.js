@@ -3039,7 +3039,7 @@ function webPlace(force){
 // то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
 function webBlocked(){
   const slot=$('webSlot').getBoundingClientRect();
-  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','persistBox','lvlPop','upload','langPick'].some(id=>{
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','lvlPop','upload','langPick'].some(id=>{
     const el=$(id); if(!el || el.hidden) return false;
     const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
     const r=el.getBoundingClientRect();
