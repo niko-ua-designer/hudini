@@ -1108,7 +1108,9 @@ const local = http.createServer(async (req, res) => {
       }
       if(req.method==='POST' && p==='/api/mods'){   // «Пускать модераторов»
         const { on } = JSON.parse(await readBody(req, 1024));
-        cfg.modsOn = !!on; saveCfg(); logc(cfg.modsOn ? '▶ Модераторов пускаю' : '⏸ Модераторов не пускаю');
+        const was = cfg.modsOn;
+        cfg.modsOn = !!on; saveCfg();
+        if(cfg.modsOn!==was) logc(cfg.modsOn ? '▶ Модераторов пускаю' : '⏸ Модераторов не пускаю');   // повторный запрос с тем же значением ничего не меняет
         if(!cfg.modsOn) kickMods('стример закрыл вход');
         return send(res, 200, JSON.stringify({ ok:true, modsOn:cfg.modsOn }), 'application/json');
       }
