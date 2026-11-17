@@ -178,16 +178,8 @@ details[open] summary{margin-bottom:10px}
     </ol>
   </div>
 
-  <div class="card">
-    <h2><span class="n">2</span> CS2 на оверлее (по желанию)</h2>
-    <div class="hint">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
-    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">⬇ Скачать файл вручную</button></div>
-    <div class="hint" id="gsiInfo"></div>
-    <div class="cs2" id="cs2"></div>
-  </div>
-
-  <div class="card">
-    <h2>🎛 Панель в OBS (по желанию)</h2>
+  <div class="card" id="dockCard">
+    <h2><span class="n">2</span> 🎛 Панель в OBS (по желанию)</h2>
     <div class="hint">Маленькая панель прямо в OBS: статус, кнопка «Спрятать оверлей», стоп звуков и пауза модераторов.</div>
     <ol class="hint">
       <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
@@ -195,6 +187,14 @@ details[open] summary{margin-bottom:10px}
       <li>Перетащи появившуюся панель, куда удобно</li>
     </ol>
     <div class="row"><input id="dockUrl" readonly><button id="copyDock">📋 Копировать</button></div>
+  </div>
+
+  <div class="card" id="csCard">
+    <h2><span class="n">3</span> CS2 на оверлее (по желанию)</h2>
+    <div class="hint">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
+    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">⬇ Скачать файл вручную</button></div>
+    <div class="hint" id="gsiInfo"></div>
+    <div class="cs2" id="cs2"></div>
   </div>
 
   <div class="card" id="autoCard" hidden>
