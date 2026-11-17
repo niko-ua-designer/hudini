@@ -301,9 +301,17 @@ aedes.authorizePublish = (client, packet, cb) => {
   cb(null);
 };
 aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub : null);
+// Виджет OBS в журнале: «подключился» при переходе 0 → 1, «отвалился» только если за 5 секунд он не вернулся (перезагрузка страницы не считается)
+let obsUp = false, obsDropTimer = null;
+const OBS_DROP_MS = 5000;
 aedes.on('client', c => {
   const s = c.conn;
-  if(!s?._mod){ status.obs++; return; }
+  if(!s?._mod){
+    status.obs++;
+    clearTimeout(obsDropTimer);
+    if(!obsUp){ obsUp = true; logc('🎬 Виджет OBS подключился'); }
+    return;
+  }
   const m = { ip:s._ip, net:netOf(s._ip), since:Date.now(), rtt:null, ws:s._ws, pingAt:0, timer:null };
   const ping = () => { if(m.ws.readyState===1){ m.pingAt = Date.now(); try{ m.ws.ping(); }catch{} } };
   m.ws.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
@@ -313,7 +321,14 @@ aedes.on('client', c => {
 });
 aedes.on('clientDisconnect', c => {
   const m = modList.get(c.id);
-  if(!c.conn?._mod){ status.obs = Math.max(0, status.obs-1); return; }
+  if(!c.conn?._mod){
+    status.obs = Math.max(0, status.obs-1);
+    if(!status.obs && obsUp){
+      clearTimeout(obsDropTimer);
+      obsDropTimer = setTimeout(() => { if(!status.obs && obsUp){ obsUp = false; logc('🎬 Виджет OBS отвалился'); } }, OBS_DROP_MS);
+    }
+    return;
+  }
   if(m){ clearInterval(m.timer); modList.delete(c.id); logc('👤 Модератор отключился:', who(m.ip), '— на связи', fmtDur(Math.round((Date.now()-m.since)/1000))); }
   status.mods = modList.size;
 });
