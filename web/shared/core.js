@@ -1044,8 +1044,31 @@ const Assets = {
     return u || '';
   },
   add(id, blob, name){ if(this.urls.has(id)) return; this.urls.set(id, URL.createObjectURL(blob)); this.meta.set(id, { mime:blob.type, size:blob.size, name }); },
+  // файл больше не нужен: отдать память. Понадобится снова: resolve() скачает его заново.
+  drop(id){
+    const u = this.urls.get(id); if(u) URL.revokeObjectURL(u);
+    this.urls.delete(id); this.meta.delete(id);
+    const t = this.tries.get(id); if(t){ clearTimeout(t.timer); this.tries.delete(id); }
+  },
 };
 function resolveSrc(src){ return Assets.resolve(src); }
+// Файлы (id ассетов), на которые ссылается элемент или экран: картинки, видео, звуки, логотипы, аватарки, шрифты
+function assetsOfEl(e, used=new Set()){
+  const add=v=>{ const a=assetId(v); if(a) used.add(a); };
+  if(!e || typeof e!=='object') return used;
+  add(e.src); add(e.endSound); add(e.lgCT); add(e.lgT); add(e.pimg); add(e.vfx); add(e.logo);
+  if(Array.isArray(e.items)) for(const it of e.items) add(it?.img);
+  if(e.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e.snd);
+  if(e.av && typeof e.av==='object') for(const v of Object.values(e.av)) add(v);
+  return used;
+}
+function assetsOf(s, used=new Set()){
+  if(!s || typeof s!=='object') return used;
+  for(const e of Array.isArray(s.els) ? s.els : []) assetsOfEl(e, used);
+  assetsOfEl(s.raffle, used);
+  for(const f of Array.isArray(s.fonts) ? s.fonts : []) if(typeof f?.id==='string') used.add(f.id);
+  return used;
+}
 
 // ---------- защита: подпись + шифрование ----------
 // Каждое сообщение: [1 версия][1 флаги][12 iv][64 подпись, если есть][шифротекст AES-GCM].

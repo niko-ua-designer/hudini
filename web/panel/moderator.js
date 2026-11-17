@@ -597,14 +597,10 @@ async function refreshStorage(announce){
 }
 // Файлы, которые нужны этой комнате: на экране, в сценах, библиотеке, сценариях и поле звука
 function usedAssets(){
-  const used=new Set(), add=v=>{ const a=assetId(v); if(a) used.add(a); };
-  const fromEl=e=>{ add(e?.src); add(e?.endSound); add(e?.lgCT); add(e?.lgT); add(e?.pimg); add(e?.vfx); add(e?.logo); if(Array.isArray(e?.items)) for(const it of e.items) add(it?.img);
-    if(e?.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e?.snd); if(e?.av && typeof e.av==='object') for(const v of Object.values(e.av)) add(v); };
-  drawList(state).forEach(fromEl);
-  for(const f of state.fonts||[]) used.add(f.id);
+  const used=assetsOf(state), add=v=>{ const a=assetId(v); if(a) used.add(a); };
   add($('soundUrl').value);
-  for(const it of library) if(it.room===room) fromEl(it.el);
-  for(const sc of scenes[room]||[]) (sc.els||[]).forEach(fromEl);
+  for(const it of library) if(it.room===room) assetsOfEl(it.el, used);
+  for(const sc of scenes[room]||[]) assetsOf(sc, used);
   for(const sc of scnStore[room]||[]) for(const a of sc.acts||[]) add(a.url);
   return used;
 }

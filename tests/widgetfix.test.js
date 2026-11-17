@@ -4,10 +4,10 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const { step, check, eq, finish } = require('./lib');
 const SH = path.join(__dirname, '../web/shared');
 const noop = () => {};
-const sandbox = { console, URL, TextEncoder, TextDecoder, crypto: require('crypto').webcrypto, atob, btoa, Intl, setTimeout, clearTimeout, setInterval: noop, addEventListener: noop, document: { addEventListener: noop, currentScript: null, baseURI: 'http://x/' }, location: { protocol: 'https:', origin: 'https://panel.test' } };
+const sandbox = { console, URL, Blob, TextEncoder, TextDecoder, crypto: require('crypto').webcrypto, atob, btoa, Intl, setTimeout, clearTimeout, setInterval: noop, addEventListener: noop, document: { addEventListener: noop, currentScript: null, baseURI: 'http://x/' }, location: { protocol: 'https:', origin: 'https://panel.test' } };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-try{ vm.runInContext(fs.readFileSync(path.join(SH, 'core.js'), 'utf8') + '\n;this.__t={blockedEmbed,sanitizeEl,sanitizeState,parseEmbed,embedSrc,setLang:l=>{STREAM_LANG=l}}', sandbox); }catch(e){ console.error('core.js does not load in node:', e.message); process.exit(1); }
+try{ vm.runInContext(fs.readFileSync(path.join(SH, 'core.js'), 'utf8') + '\n;this.__t={blockedEmbed,sanitizeEl,sanitizeState,parseEmbed,embedSrc,Assets,assetsOf,setLang:l=>{STREAM_LANG=l}}', sandbox); }catch(e){ console.error('core.js does not load in node:', e.message); process.exit(1); }
 const T = sandbox.__t;
 
 (async () => {
@@ -64,6 +64,29 @@ const T = sandbox.__t;
     const url = 'https://vdo.ninja/?view=abc&cleanoutput&transparent';
     eq(T.parseEmbed(url).kind, 'site', 'vdo.ninja view link is a site');
     eq(T.embedSrc({ url, sound: false }, 'panel.test'), url, 'the link is used as is (no camera-specific rewriting)');
+  });
+
+  await step('assets: assetsOf lists the files of a screen, Assets.drop frees them, the widget frees unused ones after a minute', async () => {
+    const { resolveObjectURL } = require('buffer');
+    const s = T.sanitizeState({ els: [{ id: 'i', type: 'image', src: 'asset:img1xxxx' }, { id: 'c', type: 'case', logo: 'asset:logo1xxxx', items: [{ n: 'a', img: 'asset:it1xxxx' }], snd: { win: 'asset:snd1xxxx' } },
+      { id: 'k', type: 'cs2', av: { bob: 'asset:av1xxxx' }, lgCT: 'asset:lg1xxxx' }, { id: 't', type: 'timer', endSound: 'https://example.com/a.mp3' }],
+      raffle: { id: 'r', vfx: 'asset:vfx1xxxx', pimg: 'asset:pz1xxxx' }, fonts: [{ id: 'font01', name: 'F' }] });
+    eq([...T.assetsOf(s)].sort(), ['av1xxxx', 'font01', 'img1xxxx', 'it1xxxx', 'lg1xxxx', 'logo1xxxx', 'pz1xxxx', 'snd1xxxx', 'vfx1xxxx'], 'every kind of file on the screen');
+    const A = T.Assets; A.reset();
+    for(const id of ['img1xxxx', 'old1xxxx', 'old2xxxx', 'snd9xxxx']) A.add(id, new Blob(['x' + id], { type: 'image/png' }), id);
+    const oldUrl = A.urls.get('old1xxxx');
+    A.drop('old1xxxx');
+    check(!A.urls.has('old1xxxx') && !A.meta.has('old1xxxx') && !resolveObjectURL(oldUrl), 'drop revokes the blob URL and forgets the file');
+    const html = fs.readFileSync(path.join(__dirname, '../web/widget/widget.html'), 'utf8');
+    const fn = /const ASSET_KEEP_MS[\s\S]*?\nfunction assetGc\([\s\S]*?\n\}/.exec(html);
+    check(fn && /assetGcT=setTimeout\(runAssetGc, ASSET_KEEP_MS\)/.test(html.slice(html.indexOf('function applyState'), html.indexOf('function assetGc'))), 'applyState schedules the clean-up');
+    const gc = new Function('Assets', 'assetsOf', fn[0] + '; return assetGc;')(A, T.assetsOf);
+    const t0 = 1e6, url2 = A.urls.get('old2xxxx');
+    eq(gc(s, t0, []), [], 'first pass only notes the time');
+    eq(gc(s, t0 + 30000, []), [], 'nothing is freed before a minute');
+    eq(gc(s, t0 + 61000, ['snd9xxxx']), ['old2xxxx'], 'after a minute: the file that is not on screen is freed, the playing sound stays');
+    check(A.urls.has('img1xxxx') && A.urls.has('snd9xxxx') && !resolveObjectURL(url2), 'files on screen are kept, the freed URL is revoked');
+    A.reset();
   });
 
   finish();
