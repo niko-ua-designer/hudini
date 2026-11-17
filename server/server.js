@@ -200,6 +200,20 @@ function netOf(ip, ifname=''){
   return 'inet';
 }
 const NET_ORDER = ['tailscale', 'radmin', 'hamachi', 'zerotier', 'lan', 'inet'];
+// В журнал адрес попадает только в маске: журнал копируют и показывают, а полный адрес модератора там не нужен.
+// 100.64.3.12 → 100.x.x.12, fd7a:115c::1234 → fd7a:x:1234, my-pc.example.com → m…example.com
+function maskHost(h){
+  const a = String(h).replace(/^::ffff:/, '');
+  if(/^\d{1,3}(\.\d{1,3}){3}$/.test(a)){ const p = a.split('.'); return `${p[0]}.x.x.${p[3]}`; }
+  if(a.includes(':')){ const g = a.split(':'); return `${g[0] || ':'}:x:${g[g.length-1]}`; }
+  const p = a.split('.');
+  return p.length>1 ? `${p[0].slice(0, 1)}…${p.slice(1).join('.')}` : a.slice(0, 1) + '…';
+}
+// «100.x.x.12 (Tailscale)»
+const who = ip => `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;
+// «my-pc.example.com:7778» → «m…example.com:7778»
+const maskAddr = v => String(v).replace(/^(.*?)(:\d{1,5})?$/, (_, h, port) => maskHost(h) + (port || ''));
+const fmtDur = sec => sec<60 ? `${sec} с` : sec<3600 ? `${Math.floor(sec/60)} мин ${sec%60} с` : `${Math.floor(sec/3600)} ч ${Math.floor(sec%3600/60)} мин`;
 function parseExt(v){
   const m = /^([a-z0-9.-]+):(\d{1,5})$/i.exec(String(v||'').trim());
   return m && +m[2]>=1 && +m[2]<=65535 ? { h:m[1], port:+m[2], net:'ext' } : null;
@@ -222,10 +236,12 @@ function modCode(){
     pass:cfg.modPass, fp:TLS.fp, addrs:addresses() };
   return 'hudini1:' + Buffer.from(JSON.stringify(o)).toString('base64url');
 }
+const addrKey = () => addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', ');
+const addrText = () => addresses().map(a => `${maskHost(a.h)}:${a.port} ${a.net}`).join(', ');   // для журнала: адреса в маске
 let lastAddrs = '';
 setInterval(() => {
-  const now = addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', ');
-  if(now!==lastAddrs){ lastAddrs = now; log('🌐 Адреса для модераторов:', now); }
+  const now = addrKey();
+  if(now!==lastAddrs){ lastAddrs = now; log('🌐 Адреса для модераторов:', addrText()); }
 }, 30000);
 
 // ---------- брокер ----------
@@ -257,10 +273,10 @@ function passOk(ip, pass){
   const a = Buffer.from(String(pass||'')), b = Buffer.from(cfg.modPass);
   const ok = a.length===b.length && nodeCrypto.timingSafeEqual(a, b);
   if(ok){ fails.delete(ip); return true; }
-  if(isLoop(ip)){ if(!locked(ip)){ loopFails.push(Date.now()); logc('⚠ Неверный пароль с', ip, '(Porthole или этот компьютер)'); } return false; }
+  if(isLoop(ip)){ if(!locked(ip)){ loopFails.push(Date.now()); logc('⚠ Неверный пароль с', who(ip)); } return false; }
   const f = fails.get(ip) || { n:0, until:0, lock:30 };
-  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Подбор пароля с', ip, '— пауза', f.lock, 'с'); }
-  else logc('⚠ Неверный пароль с', ip, `(${NET_LABEL[netOf(ip)]})`);
+  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Подбор пароля с', who(ip), '— пауза', f.lock, 'с'); }
+  else logc('⚠ Неверный пароль с', who(ip));
   fails.set(ip, f);
   if(fails.size > 1000) for(const [k,v] of fails) if(v.until < Date.now()) fails.delete(k);
   return false;
@@ -293,12 +309,12 @@ aedes.on('client', c => {
   m.ws.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
   m.timer = setInterval(ping, 5000); ping();
   modList.set(c.id, m); status.mods = modList.size;
-  logc('👤 Модератор подключился:', m.ip, `(${NET_LABEL[m.net]}, TLS)`);
+  logc('👤 Модератор подключился:', who(m.ip));
 });
 aedes.on('clientDisconnect', c => {
   const m = modList.get(c.id);
   if(!c.conn?._mod){ status.obs = Math.max(0, status.obs-1); return; }
-  if(m){ clearInterval(m.timer); modList.delete(c.id); logc('👤 Модератор отключился:', m.ip, `— был на связи ${Math.round((Date.now()-m.since)/1000)} с`); }
+  if(m){ clearInterval(m.timer); modList.delete(c.id); logc('👤 Модератор отключился:', who(m.ip), '— на связи', fmtDur(Math.round((Date.now()-m.since)/1000))); }
   status.mods = modList.size;
 });
 
@@ -1087,7 +1103,7 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/extaddr'){   // свой внешний адрес для проброса порта: host:port
         const { addr } = JSON.parse(await readBody(req, 4096)), v = String(addr||'').trim();
         if(v && !parseExt(v)) throw new HttpErr(400, 'адрес должен быть вида мой-адрес:порт');
-        cfg.extAddr = v; saveCfg(); log(v ? 'Свой внешний адрес: '+v : 'Свой внешний адрес убран');
+        cfg.extAddr = v; saveCfg(); log(v ? 'Свой внешний адрес: '+maskAddr(v) : 'Свой внешний адрес убран');
         return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/mods'){   // «Пускать модераторов»
@@ -1211,7 +1227,7 @@ if(ROLE_MOD){
     // Программа с окном пишет stdout в краш-отчёт: ссылку входа (в ней токен) туда не выводим, окно входит само
     if(!APP) console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
     log('Папка настроек:', BASE);
-    lastAddrs = addresses().map(a => `${a.h}:${a.port} ${a.net}`).join(', '); log('🌐 Адреса для модераторов:', lastAddrs);
+    lastAddrs = addrKey(); log('🌐 Адреса для модераторов:', addrText());
     if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
     else { try{ await createRoom(); log('🆕 Комната создана'); }catch(e){ log('⚠ Не удалось создать комнату:', e.message); } }
     // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
