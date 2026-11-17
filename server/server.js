@@ -214,6 +214,15 @@ const who = ip => `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;
 // «my-pc.example.com:7778» → «m…example.com:7778»
 const maskAddr = v => String(v).replace(/^(.*?)(:\d{1,5})?$/, (_, h, port) => maskHost(h) + (port || ''));
 const fmtDur = sec => sec<60 ? `${sec} с` : sec<3600 ? `${Math.floor(sec/60)} мин ${sec%60} с` : `${Math.floor(sec/3600)} ч ${Math.floor(sec%3600/60)} мин`;
+// Отказ входа с причиной. С одного адреса одна и та же причина пишется не чаще раза в 10 секунд: перебор не должен забивать журнал
+const refusedAt = new Map();
+function refuse(ip, why){
+  const k = ip + '|' + why, now = Date.now();
+  if(now - (refusedAt.get(k)||0) < 10000) return;
+  refusedAt.set(k, now);
+  if(refusedAt.size > 500) for(const [x, t] of refusedAt) if(now - t > 10000) refusedAt.delete(x);
+  logc('🚫 Отказ входа:', who(ip), '—', why);
+}
 function parseExt(v){
   const m = /^([a-z0-9.-]+):(\d{1,5})$/i.exec(String(v||'').trim());
   return m && +m[2]>=1 && +m[2]<=65535 ? { h:m[1], port:+m[2], net:'ext' } : null;
@@ -275,14 +284,18 @@ function locked(ip){
 }
 function passOk(ip, pass){
   // Porthole: верный пароль пускает всегда (иначе один гость запер бы остальных на минуту); перебор 144-битного пароля бессмыслен
-  if(locked(ip) && !isLoop(ip)) return false;
+  if(locked(ip) && !isLoop(ip)){ refuse(ip, 'лимит: пауза после неверных паролей'); return false; }
   const a = Buffer.from(String(pass||'')), b = Buffer.from(cfg.modPass);
   const ok = a.length===b.length && nodeCrypto.timingSafeEqual(a, b);
   if(ok){ fails.delete(ip); return true; }
-  if(isLoop(ip)){ if(!locked(ip)){ loopFails.push(Date.now()); logc('⚠ Неверный пароль с', who(ip)); } return false; }
+  if(isLoop(ip)){
+    if(!locked(ip)){ loopFails.push(Date.now()); refuse(ip, 'неверный пароль'); }
+    else refuse(ip, 'лимит: 5 неверных паролей в минуту');
+    return false;
+  }
   const f = fails.get(ip) || { n:0, until:0, lock:30 };
   if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Подбор пароля с', who(ip), '— пауза', f.lock, 'с'); }
-  else logc('⚠ Неверный пароль с', who(ip));
+  else refuse(ip, 'неверный пароль');
   fails.set(ip, f);
   if(fails.size > 1000) for(const [k,v] of fails) if(v.until < Date.now()) fails.delete(k);
   return false;
@@ -291,8 +304,8 @@ function passOk(ip, pass){
 const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 aedes.authenticate = (client, user, pass, cb) => {
   if(!client.conn?._mod) return cb(null, true);   // локальные (OBS) без пароля: порт слушает только этот ПК
-  if(ctl.paused) return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false);   // стример поставил модераторов на паузу
-  if(!cfg.modsOn) return cb(Object.assign(new Error('off'), { returnCode:3 }), false);   // 3: сервер не принимает
+  if(ctl.paused){ refuse(client.conn._ip, 'пауза модераторов'); return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false); }   // стример поставил модераторов на паузу
+  if(!cfg.modsOn){ refuse(client.conn._ip, 'вход закрыт'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
@@ -372,7 +385,9 @@ function wsServer(mod){
     const ip = ipOf(req);
     if(mod){
       let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
-      if(!cfg.modsOn || wss.clients.size >= MOD_CONNS || pending >= PENDING || (!isLoop(ip) && (perIp.get(ip)||0) >= IP_CONNS)){ socket.destroy(); return; }
+      const why = !cfg.modsOn ? 'вход закрыт' : wss.clients.size >= MOD_CONNS ? 'лимит: слишком много подключений' : pending >= PENDING ? 'лимит: слишком много ждут входа'
+        : !isLoop(ip) && (perIp.get(ip)||0) >= IP_CONNS ? 'лимит: много соединений с одного адреса' : '';
+      if(why){ refuse(ip, why); socket.destroy(); return; }
     }
     wss.handleUpgrade(req, socket, head, ws => {
       const stream = createWebSocketStream(ws); stream._mod = mod; stream._ip = ip; stream._ws = ws; ws._stream = stream;
