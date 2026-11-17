@@ -146,6 +146,84 @@ const { step, check, eq, until, sleep } = T;
     await p.context().close();
   });
 
+  // ---------- password dialog ----------
+  await step('the panel password is set and changed in one dialog, with an eye, without prompt()', async () => {
+    const p = await open();
+    const dialogs = []; p.on('dialog', d => dialogs.push(d.type()));
+    const dlg = '#pwDlg';
+    const vals = () => p.$$eval(`${dlg} input:not([type=checkbox])`, n => n.map(i => i.value));
+    await p.click('#moreBtn'); await p.click('#passBtn');
+    await p.waitForSelector(dlg);
+    eq(await p.$$eval(`${dlg} input`, n => n.map(i => i.type)), ['password', 'password'], 'one window with a password field and a repeat field');
+    await p.fill(`${dlg} input >> nth=0`, 'abc'); await p.fill(`${dlg} input >> nth=1`, 'abc');
+    await p.click(`${dlg} #pwOk`);
+    check(/6/.test(await p.textContent(`${dlg} .pwerr`)) && await p.isVisible(dlg), 'a short password is refused inside the window');
+    await p.fill(`${dlg} input >> nth=0`, 'secret1'); await p.fill(`${dlg} input >> nth=1`, 'secret2');
+    await p.click(`${dlg} #pwOk`);
+    check(/не совпали/.test(await p.textContent(`${dlg} .pwerr`)) && await p.isVisible(dlg), 'a mismatch is shown inside the window, it stays open');
+    await p.click(`${dlg} .pweye >> nth=0`);
+    eq(await p.$$eval(`${dlg} input`, n => n.map(i => i.type)), ['text', 'password'], 'the eye shows the first field');
+    await p.click(`${dlg} .pweye >> nth=0`);
+    eq(await p.$eval(`${dlg} input`, i => i.type), 'password', 'and hides it again');
+    await p.keyboard.press('Escape');
+    eq([await p.isVisible(dlg).catch(() => false), await p.evaluate(() => vaultPass)], [false, null], 'Escape closes the window and sets nothing');
+    await p.click('#moreBtn'); await p.click('#passBtn'); await p.waitForSelector(dlg);
+    await p.fill(`${dlg} input >> nth=0`, 'secret1'); await p.fill(`${dlg} input >> nth=1`, 'secret1');
+    await p.click(`${dlg} #pwOk`);
+    check(await until(() => p.evaluate(() => vaultPass === 'secret1')), 'a good pair sets the password');
+    await sleep(200);
+    // the change dialog never shows the current password
+    await p.click('#moreBtn'); await p.click('#passBtn'); await p.waitForSelector(dlg);
+    eq([await vals(), await p.$$eval(`${dlg} input`, n => n.length)], [['', '', ''], 3], 'three empty fields: nothing is pre-filled, the current password is not shown');
+    await p.fill(`${dlg} input >> nth=0`, 'wrong'); await p.click(`${dlg} #pwOk`);
+    check(/Неверный/.test(await p.textContent(`${dlg} .pwerr`)) && await p.isVisible(dlg), 'a wrong current password is refused inside the window');
+    await p.fill(`${dlg} input >> nth=0`, 'secret1'); await p.click(`${dlg} #pwOk`);
+    check(await until(() => p.evaluate(() => vaultPass === null)), 'an empty new password removes the password');
+    eq(dialogs, [], 'no browser prompt() or confirm() was used');
+    await p.context().close();
+  });
+
+  await step('the backup password and the import password are asked in the same kind of window', async () => {
+    const p = await open();
+    const dialogs = []; p.on('dialog', d => dialogs.push(d.type()));
+    const dlg = '#pwDlg';
+    await p.evaluate(() => { vaultPass = 'panelpass1'; });
+    await p.click('[data-tab=room]');
+    let [dl] = await Promise.all([p.waitForEvent('download'), (async () => { await p.click('#roomExport'); await p.waitForSelector(dlg);
+      eq(await p.$eval(`${dlg} input:not([type=checkbox])`, i => [i.type, i.value]), ['password', ''], 'the backup password field is empty, not filled with the panel password');
+      check(await p.isVisible(`${dlg} input[type=checkbox]`), 'a box offers the panel password without showing it');
+      await p.click(`${dlg} #pwOk`);
+      check(/Введи/.test(await p.textContent(`${dlg} .pwerr`)), 'an empty password is refused');
+      await p.fill(`${dlg} input:not([type=checkbox])`, 'bk-secret'); await p.click(`${dlg} #pwOk`); })()]);
+    const file = await dl.path();
+    const bk = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+    eq(bk.overlayBackup, 2, 'an encrypted backup was downloaded');
+    // the same-as-panel box
+    [dl] = await Promise.all([p.waitForEvent('download'), (async () => { await p.click('#roomExport'); await p.waitForSelector(dlg);
+      await p.check(`${dlg} input[type=checkbox]`);
+      check(await p.$eval(`${dlg} input:not([type=checkbox])`, i => i.disabled), 'the field is off while the box is on');
+      await p.click(`${dlg} #pwOk`); })()]);
+    check(!!(await dl.path()), 'the box uses the panel password');
+    // import: wrong password stays in the window, the right one imports
+    await p.setInputFiles('#roomFile', file);
+    await p.waitForSelector(dlg);
+    await p.fill(`${dlg} input`, 'nope'); await p.click(`${dlg} #pwOk`);
+    check(await until(async () => /Неверный/.test(await p.textContent(`${dlg} .pwerr`))) && await p.isVisible(dlg), 'a wrong import password is refused inside the window');
+    await p.fill(`${dlg} input`, 'bk-secret'); await p.click(`${dlg} #pwOk`);
+    check(await until(async () => /Добавлено/.test(await p.textContent('#toast'))), 'the right one opens the file');
+    eq(dialogs, [], 'no browser dialogs');
+    await p.context().close();
+  });
+
+  await step('the password window is translated', async () => {
+    const p = await open({ lang: 'de' });
+    await p.click('#moreBtn'); await p.click('#passBtn'); await p.waitForSelector('#pwDlg');
+    await sleep(200);
+    const t = await p.evaluate(() => document.getElementById('pwDlg').innerText);
+    check(/Passwort/.test(t) && !/[а-яА-Я]/.test(t), 'no Russian left in the German window: ' + t.replace(/\n/g, ' | '));
+    await p.context().close();
+  });
+
   await web.close(); await T.closeBrowser();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

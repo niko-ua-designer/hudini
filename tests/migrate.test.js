@@ -76,7 +76,7 @@ async function siteServer(){
     const p = await newPage('panel', { app: false });
     await p.goto(`${web.url}/panel/moderator.html`);
     await p.waitForFunction(() => typeof library !== 'undefined');
-    p.removeAllListeners('dialog'); p.on('dialog', d => d.accept('goodpass1'));
+    await T.answerPw(p, [['goodpass1']]);
     const before = await p.evaluate(() => ({ lib: library.length, anims: myAnims.length, rooms: rooms.length }));
     await p.setInputFiles('#roomFile', file);
     await T.until(async () => (await p.evaluate(() => library.length)) > before.lib, 6000);

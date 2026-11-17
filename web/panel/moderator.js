@@ -1390,9 +1390,59 @@ $('roomDel').onclick=()=>{
   if(!confirm(`Убрать «${r.name}» из списка?\nКлючи пропадут из этого пульта. Сохрани бэкап, если комната ещё нужна.`)) return;
   rooms=rooms.filter(x=>x.code!==room); room=null; switchRoom(rooms[0].code).then(()=>{ saveRooms(); renderRooms(); });
 };
+// Окно пароля вместо prompt(): поле type=password с кнопкой 👁, ошибки показываются в самом окне.
+// fields: [{ label, optional }], check(values) → текст ошибки или null (можно async), sameAs: пароль, который подставляет галочка «Тот же, что на пульт» (в поле он не показывается).
+// Возвращает массив значений или null, если окно закрыли.
+function pwDialog({ title, note, fields, ok='Готово', check, sameAs }){
+  return new Promise(res=>{
+    $('pwDlg')?.remove();
+    const wrap=document.createElement('div'); wrap.id='pwDlg';
+    const form=document.createElement('form'); form.className='lockbox pwbox'; form.autocomplete='off';
+    const h=document.createElement('h3'); h.textContent=title; form.appendChild(h);
+    if(note){ const p=document.createElement('div'); p.className='hint'; p.textContent=note; form.appendChild(p); }
+    const inputs=fields.map((f,i)=>{
+      const lab=document.createElement('label'); lab.className='pwf';
+      const sp=document.createElement('span'); sp.textContent=f.label;
+      const row=document.createElement('div'); row.className='pwrow';
+      const inp=document.createElement('input'); inp.type='password'; inp.autocomplete='new-password'; inp.spellcheck=false; inp.dataset.i18nSkip='';
+      const eye=document.createElement('button'); eye.type='button'; eye.className='pweye'; eye.title='Показать / скрыть пароль'; eye.textContent='👁';
+      eye.onclick=()=>{ const show=inp.type==='password'; inp.type=show?'text':'password'; eye.textContent=show?'🙈':'👁'; inp.focus(); };
+      row.append(inp, eye); lab.append(sp, row); form.appendChild(lab); return inp;
+    });
+    let same=null;
+    if(sameAs){
+      const lab=document.createElement('label'); lab.className='chk';
+      same=document.createElement('input'); same.type='checkbox';
+      same.onchange=()=>{ inputs[0].disabled=same.checked; if(!same.checked) inputs[0].focus(); };
+      lab.append(same, document.createTextNode(' '), document.createTextNode(gT('Тот же, что на пульт'))); form.appendChild(lab);
+    }
+    const err=document.createElement('div'); err.className='hint pwerr'; form.appendChild(err);
+    const btns=document.createElement('div'); btns.className='row';
+    const go=document.createElement('button'); go.type='submit'; go.id='pwOk'; go.className='primary grow'; go.textContent=ok;
+    const no=document.createElement('button'); no.type='button'; no.id='pwCancel'; no.textContent='Отмена';
+    btns.append(go, no); form.appendChild(btns); wrap.appendChild(form); document.body.appendChild(wrap);
+    const close=v=>{ wrap.remove(); res(v); };
+    no.onclick=()=>close(null);
+    wrap.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(null); } });
+    let busy=false;
+    form.onsubmit=async e=>{
+      e.preventDefault(); if(busy) return;
+      const v=inputs.map(i=>i.value); if(same?.checked) v[0]=sameAs;
+      const empty=fields.findIndex((f,i)=>!f.optional && !v[i]);
+      const fail=m=>{ err.textContent=m; busy=false; go.disabled=false; (same?.checked ? same : inputs[Math.max(0, empty)]).focus(); };
+      busy=true; go.disabled=true;
+      if(empty>=0) return fail(gT('Введи пароль'));
+      if(check){ err.textContent=gT('Проверяю…'); const m=await check(v); if(m) return fail(gT(m)); }
+      close(v);
+    };
+    inputs[0].focus();
+  });
+}
 // Бэкап: в нём закрытые ключи, поэтому он всегда зашифрован паролем
 $('roomExport').onclick=async()=>{
-  const pass=prompt('Придумай пароль для файла бэкапа (в нём ключи всех комнат):', vaultPass||''); if(!pass) return;
+  const r=await pwDialog({ title:'Пароль для файла бэкапа', note:'В бэкапе ключи всех комнат, поэтому файл всегда шифруется. Без пароля его не открыть.', fields:[{ label:'Пароль бэкапа' }], sameAs:vaultPass||null });
+  if(!r) return;
+  const pass=r[0];
   const box=await lockJSON(pass, { rooms, library, anims:myAnims, scenes, scenarios:scnStore });
   const blob=new Blob([JSON.stringify({ overlayBackup:2, box })], { type:'application/json' });
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-backup.json'; a.click();
@@ -1405,8 +1455,10 @@ $('roomFile').onchange=async e=>{
   let data; try{ data=JSON.parse(await f.text()); }catch{ return toast('Это не файл бэкапа оверлея'); }
   if(!data || typeof data!=='object' || Array.isArray(data)) return toast('Это не файл бэкапа оверлея');
   if(data.overlayBackup===2){
-    const pass=prompt('Пароль от файла бэкапа:', ''); if(!pass) return;
-    data=await unlockJSON(pass, data.box); if(!data || typeof data!=='object') return toast('Неверный пароль');
+    const boxData=data.box; let opened=null;
+    const r=await pwDialog({ title:'Пароль от файла бэкапа', fields:[{ label:'Пароль' }], check:async v=>{ opened=await unlockJSON(v[0], boxData); return opened && typeof opened==='object' ? null : 'Неверный пароль'; } });
+    if(!r) return;
+    data=opened;
   } else if(!confirm('Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.')) return;
   const arr=v=>Array.isArray(v) ? v : [];
   let added=0, libAdded=0, animAdded=0;
@@ -1437,18 +1489,18 @@ $('vaultWarnLater').onclick=()=>{ lsSet(VAULT_SNOOZE, Date.now()+3*24*3600e3); r
 // «Больше не показывать»: карточка не появится, но кнопка «⚠ Нет пароля» остаётся оранжевой
 $('vaultWarnNever').onclick=()=>{ lsSet(VAULT_SNOOZE, Number.MAX_SAFE_INTEGER); renderLockBtns(); };
 $('passBtn').onclick=async()=>{
+  const NEW_CHECK=(v, i)=>v[i].length<6 ? 'Пароль хотя бы 6 символов' : v[i]!==v[i+1] ? 'Пароли не совпали' : null;
   if(vaultPass){
-    const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
-    if(old!==vaultPass) return toast('Неверный пароль');
-    const np=prompt('Новый пароль. Оставь пустым, чтобы снять пароль:', ''); if(np==null) return;
-    if(np && np.length<6) return toast('Пароль хотя бы 6 символов');
-    vaultPass=np||null;
+    const r=await pwDialog({ title:'Сменить или снять пароль', fields:[{ label:'Текущий пароль' }, { label:'Новый пароль (пусто: снять пароль)', optional:true }, { label:'Повтори новый пароль', optional:true }],
+      check:v=>v[0]!==vaultPass ? 'Неверный пароль' : v[1] ? NEW_CHECK(v, 1) : null });
+    if(!r) return;
+    vaultPass=r[1]||null;
     if(!vaultPass){ await syncSessions(); sessSecrets={}; }   // пароль снят: ключи сессий возвращаются в список
   } else {
-    const np=prompt('Пароль на пульт (хотя бы 6 символов). Без него никто с этого компьютера не откроет твои комнаты.\nЗапомни его: восстановить нельзя, только из бэкапа.', ''); if(!np) return;
-    if(np.length<6) return toast('Пароль хотя бы 6 символов');
-    if(prompt('Повтори пароль:', '')!==np) return toast('Пароли не совпали');
-    vaultPass=np;
+    const r=await pwDialog({ title:'Пароль на пульт', note:'Хотя бы 6 символов. Без пароля никто с этого компьютера не откроет твои комнаты. Запомни его: восстановить нельзя, только из бэкапа.',
+      fields:[{ label:'Пароль' }, { label:'Повтори пароль' }], check:v=>NEW_CHECK(v, 0) });
+    if(!r) return;
+    vaultPass=r[0];
   }
   await saveRooms();
   if(vaultPass) await syncSessions().catch(e=>console.warn('sessions vault', e)); renderLockBtns(); toast(vaultPass ? 'Пароль установлен 🔒' : 'Пароль снят');
@@ -3153,7 +3205,7 @@ function webPlace(force){
 // то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
 function webBlocked(){
   const slot=$('webSlot').getBoundingClientRect();
-  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','lvlPop','upload','langPick'].some(id=>{
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','pwDlg','lvlPop','upload','langPick'].some(id=>{
     const el=$(id); if(!el || el.hidden) return false;
     const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
     const r=el.getBoundingClientRect();

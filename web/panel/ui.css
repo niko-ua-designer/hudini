@@ -108,7 +108,7 @@ body.swap #emptyHint .arrow{transform:scaleX(-1)}
 @keyframes bornIn{from{opacity:0;scale:.6}to{opacity:1;scale:1}}
 section[data-pane]:not([hidden]){animation:paneIn .2s ease-out}
 .lockbox,#tourBox,#helpMenu,#lvlPop{animation:popIn .18s ease-out}
-#hostTip,#lock,#tour{animation:fadeIn .2s ease-out}
+#hostTip,#lock,#pwDlg,#tour{animation:fadeIn .2s ease-out}
 #storageRow:not([hidden]){animation:fadeIn .4s ease-out}
 .pill.changed{animation:pulse .7s ease-out}
 .layer.fresh{animation:rowIn 1s ease-out}
