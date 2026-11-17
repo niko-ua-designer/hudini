@@ -92,6 +92,15 @@
 .cs2 .hi-c4,.cs2 .hi-hs{color:#ff5d6c}.cs2 .hi-kit{color:#7fb4ff}.cs2 .hi-freeze{color:#9fd8ff}
 .cs2 .hi-he{color:#ff9a4d}.cs2 .hi-flash{color:#ffe066}.cs2 .hi-smoke{color:#cfd6e2}.cs2 .hi-molly{color:#ff7a3d}.cs2 .hi-decoy{color:#b8c0d0}
 .cs2 .hi-defused{color:#3ddc84}.cs2 .hi-boom{color:#ffb020}
+/* K/D значками: прицел 12 · череп 5 */
+.cs2 .kd{display:inline-flex;align-items:center;gap:.16em;white-space:nowrap}
+.cs2 .kd .hi{width:.9em;height:.9em;opacity:.75}
+.cs2 .kd-sep{opacity:.45;margin:0 .12em}
+.cs2 .c-kda .kd{margin-right:.5em;align-self:center}.cs2 .c-kda .kd .hi{width:.85em;height:.85em}
+.hd-bstats .kd{align-self:center}
+.hd-th .hi,.hd-cl-l .hi{width:1.5em;height:1.5em;vertical-align:-.35em}
+.cs2 .tm-kd b{font-weight:inherit}
+.hd-bstats .kd{gap:.1em}.hd-bstats .kd-sep{margin:0 .05em}
 .cs2 .c-top{display:flex;justify-content:space-between;gap:1.2em;align-items:baseline;margin-bottom:.3em}
 .cs2 .c-name{font-weight:inherit;color:var(--c)}
 .cs2 .c-map{opacity:.82;font-size:.72em}
@@ -145,7 +154,7 @@
 .cs2 .tm-hpn{width:1.9em;text-align:right;font-weight:inherit;display:inline-flex;justify-content:flex-end}
 .cs2 .tm-ic{width:2.2em;display:inline-flex;justify-content:center;gap:.15em}
 .cs2 .tm-money{color:#7ee787;width:4.9em;text-align:right}
-.cs2 .tm-kd{opacity:.8;width:3.2em;text-align:right}
+.cs2 .tm-kd{opacity:.8;width:4.4em;justify-content:flex-end}
 .cs2 .tm-w{opacity:.75;width:4.6em;overflow:hidden;text-overflow:ellipsis}
 .cs2 .tm-row.dead{opacity:.4}
 .cs2 .tm-row.obs{box-shadow:0 0 0 .1em var(--c) inset}

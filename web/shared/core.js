@@ -1116,6 +1116,7 @@ const HUD_IC = {
   skull:'<path d="m12.5 17-.5-1-.5 1h1z"/><path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="12" r="1"/>',
   bomb:'<rect x="3" y="8" width="18" height="12" rx="1.5"/><rect x="6.5" y="11" width="7" height="4" rx=".5"/><path d="M17 11v1"/><path d="M17 15v1"/><path d="M7 8V5.5a1.5 1.5 0 0 1 1.5-1.5H11"/>',
   kit:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/>',
+  aim:'<circle cx="12" cy="12" r="7.5"/><path d="M12 2v6.5M12 15.5V22M2 12h6.5M15.5 12H22"/><circle cx="12" cy="12" r=".8" fill="currentColor"/>',
   hs:'<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>',
   freeze:'<path d="m10 20-1.25-2.5L6 18"/><path d="M10 4 8.75 6.5 6 6"/><path d="m14 20 1.25-2.5L18 18"/><path d="m14 4 1.25 2.5L18 6"/><path d="m17 21-3-6h-4"/><path d="m17 3-3 6 1.5 3"/><path d="M2 12h6.5L10 9"/><path d="m20 10-1.5 2 1.5 2"/><path d="M22 12h-6.5L14 15"/><path d="m4 10 1.5 2L4 14"/><path d="m7 21 3-6-1.5-3"/><path d="m7 3 3 6h4"/>',
   defused:'<circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/>',
@@ -1134,6 +1135,15 @@ function hudIc(name, cls){
 }
 // иконка + текст в одном спане (❤ 64, 🛡 100)
 function icText(cls, name, text){ const e=h('span', cls); if(name) e.appendChild(hudIc(name)); if(text!=null) e.append(String(text)); return e; }
+// K/D значками: «прицел 12 · череп 5». c и key — для флип-цифр; без c цифры обычные
+function kdNode(c, el, key, k, d, cls){
+  const num=(sfx, v)=>c ? fnum(c, el, key+sfx, String(v??0)) : h('b', null, String(v??0));
+  const s=h('span', 'kd'+(cls?' '+cls:''));
+  s.append(hudIc('aim'), num('k', k), h('span','kd-sep','·'), hudIc('skull'), num('d', d));
+  return s;
+}
+// подпись строки/колонки статистики: K и D значками, остальное текстом
+function statLabel(tag, cls, l){ const e=h(tag, cls); if(l==='K') e.appendChild(hudIc('aim')); else if(l==='D') e.appendChild(hudIc('skull')); else e.textContent=l; return e; }
 function armorIc(p){ return p.armor>0 ? (p.helmet?'helmet':'shield') : null; }
 // снаряжение игрока: бомба, кусачки, гранаты — ряд одинаковых иконок
 function gearIcons(p, cls){
@@ -1189,7 +1199,7 @@ function paintCs2(c, el){
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
   // K/D и ADR — плашки справа, по центру строки цифр (а не по базовой линии мелкого шрифта)
   const chip=(l, v)=>{ const s=h('span','c-kd'); s.append(h('i',null,l), v); return s; };
-  const kdaRow = ()=>{ const r=h('div','c-kda'); for(const [v,l] of [[d.k,'K'],[d.d,'D'],[d.a,'A']]){ r.append(fnum(c, el, 'c'+l, String(v??0)), h('i',null,l)); }
+  const kdaRow = ()=>{ const r=h('div','c-kda'); r.append(kdNode(c, el, 'c', d.k, d.d), fnum(c, el, 'cA', String(d.a??0)), h('i',null,'A'));
     const ch=h('span','c-chips'); ch.append(chip('K/D', h('b',null,kd))); if(d.adr!=null) ch.append(chip('ADR', fnum(c, el, 'cadr', String(d.adr)))); r.append(ch); return r; };
   const parts=[];
   switch(el.view){
@@ -1218,7 +1228,7 @@ function paintCs2(c, el){
       if(!o){ parts.push(h('div','c-none',st('👁 Наблюдатель: выбери игрока'))); break; }
       const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||st('Игрок')}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
       const okd = o.d ? (o.k/o.d).toFixed(2) : (o.k||0).toFixed(2);
-      const kr=h('div','c-kda'); for(const [v,l] of [[o.k,'K'],[o.d,'D'],[o.a,'A']]) kr.append(h('b',null,String(v??0)), h('i',null,l));
+      const kr=h('div','c-kda'); kr.append(kdNode(null, el, '', o.k, o.d), h('b',null,String(o.a??0)), h('i',null,'A'));
       const och=h('span','c-chips'); och.append(chip('K/D', h('b',null,okd))); kr.append(och);
       const hr=h('div','c-hprow');
       if(o.alive===false) hr.append(icText('c-dead','skull'));
@@ -1243,7 +1253,7 @@ function paintCs2(c, el){
           // колонки фиксированной ширины: у всех строк цифры и иконки стоят друг под другом
           const ic=h('span','tm-ic'); if(p.alive){ if(p.bomb) ic.appendChild(hudIc('bomb','hi-c4')); if(p.kit) ic.appendChild(hudIc('kit')); if(armorIc(p)) ic.appendChild(hudIc(armorIc(p))); }
           const hpn=h('span','tm-hpn'); if(p.alive) hpn.textContent=String(p.hp); else hpn.appendChild(hudIc('skull'));
-          const info=h('div','tm-info'); info.append(hpn, ic, h('span','tm-money', money(p.money)), h('span','tm-kd', `${p.k??0}/${p.d??0}`), h('span','tm-w', weaponShort(p.main||p.weapon)));
+          const info=h('div','tm-info'); info.append(hpn, ic, h('span','tm-money', money(p.money)), kdNode(null, el, '', p.k, p.d, 'tm-kd'), h('span','tm-w', weaponShort(p.main||p.weapon)));
           r.append(hpw, nm, info); col.appendChild(r);
         }
         wrap.appendChild(col);
@@ -1313,7 +1323,7 @@ function playerCard(c, el, p, obs){
   const bar=h('div','hd-bar'), f=h('div','hd-fill'); f.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; f.style.background=hpColor(p.hp||0); bar.appendChild(f);
   const nm=h('div','hd-name'); if(p.slot!=null) nm.appendChild(h('span','hd-slot', String(p.slot))); nm.append(p.name||'?');
   card.append(bar, nm);
-  const key=p.id||p.name, row=h('div','hd-row'); row.append(fnum(c, el, key+'kd', `${p.k??0}/${p.d??0}`), fnum(c, el, key+'$', money(p.money), 'hd-money'));
+  const key=p.id||p.name, row=h('div','hd-row'); row.append(kdNode(c, el, key, p.k, p.d), fnum(c, el, key+'$', money(p.money), 'hd-money'));
   card.appendChild(row);
   const low=h('div','hd-low');
   if(p.alive===false) low.append(h('span','hd-dmgl', st('урон за раунд')), h('b',null, String(p.dmg||0)));
@@ -1334,7 +1344,8 @@ function bigCard(c, el, p){
   bars.append(bhp, hb, icText('hd-bar-ar', p.helmet?'helmet':'shield', p.armor??0));
   mid.appendChild(bars);
   const stats=h('div','hd-bstats');
-  for(const [l,v] of [['K',p.k??0],['D',p.d??0],['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), fnum(c, el, 'big'+l, String(v)));
+  stats.append(kdNode(c, el, 'big', p.k, p.d));
+  for(const [l,v] of [['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), fnum(c, el, 'big'+l, String(v)));
   mid.appendChild(stats);
   const right=h('div','hd-bright');
   right.append(fnum(c, el, 'big$', money(p.money), 'hd-money'), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), gearIcons(p, 'hd-ic'));
@@ -1377,7 +1388,7 @@ function statRows(a, b){
     L.append(fnum(statRows.c, statRows.el, 'cl'+l, l==='$'?money(x):String(x))); R.append(fnum(statRows.c, statRows.el, 'cr'+l, l==='$'?money(y):String(y)));
     const bar=h('div','hd-cbar'), fl=h('i','tm-'+(a.team==='T'?'t':'ct')), fr=h('i','tm-'+(b.team==='T'?'t':'ct'));
     fl.style.width=(x/tot*100)+'%'; fr.style.width=(y/tot*100)+'%'; bar.append(fl, fr);
-    r.append(L, h('span','hd-cl-l', l), bar, R); box.appendChild(r);
+    r.append(L, statLabel('span','hd-cl-l', l), bar, R); box.appendChild(r);
   }
   return box;
 }
@@ -1417,7 +1428,7 @@ function paintHud(c, el, d){
     for(const side of ['CT','T']){
       const ps=list.filter(p=>p.team===side).sort((a,b)=>(b.adr??0)-(a.adr??0) || (b.k??0)-(a.k??0)); if(!ps.length) continue;
       const sec=h('div','hd-tsec tm-'+side.toLowerCase());
-      const head=h('div','hd-tr hd-th'); for(const x of ['', st('Игрок'), 'K','D','A','+/−','ADR','HS%','MVP','$']) head.appendChild(h('span',null,x)); sec.appendChild(head);
+      const head=h('div','hd-tr hd-th'); for(const x of ['', st('Игрок'), 'K','D','A','+/−','ADR','HS%','MVP','$']) head.appendChild(statLabel('span', null, x)); sec.appendChild(head);
       for(const p of ps){
         const r=h('div','hd-tr'+(p.alive===false?' dead':''));
         r.append(avatar(el, p, 'hd-tav'), h('span','hd-tn', p.name||'?'));
