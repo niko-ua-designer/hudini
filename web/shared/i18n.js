@@ -1331,6 +1331,7 @@ const HUDINI_DICT = {
     "на экране максимум": "the screen holds at most",
     "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
+    "Удалить папку вместе с элементами": "Delete the folder together with its items",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2661,6 +2662,7 @@ const HUDINI_DICT = {
     "на экране максимум": "на екрані максимум",
     "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
+    "Удалить папку вместе с элементами": "Видалити папку разом з елементами",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -3991,6 +3993,7 @@ const HUDINI_DICT = {
     "на экране максимум": "auf dem Bildschirm höchstens",
     "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
+    "Удалить папку вместе с элементами": "Ordner samt Elementen löschen",
   },
 };
 

@@ -285,3 +285,11 @@ body.web #web{display:flex}
 :root .u-margin-8px-0-0-18px-padding-0{margin:8px 0 0 18px;padding:0}
 :root .u-text-align-center-display-block{text-align:center;display:block}
 :root .u-width-100-margin-top-8px{width:100%;margin-top:8px}
+/* перетаскивание слоёв */
+.layer{user-select:none;-webkit-user-select:none}
+.layer.dragging{opacity:.4}
+.layer.drop-in{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+body.ld-active,body.ld-active .layer{cursor:grabbing}
+#layerDrop{position:fixed;z-index:100010;height:3px;border-radius:2px;background:var(--acc);box-shadow:0 0 6px var(--acc);pointer-events:none}
+#layerDrop[hidden]{display:none}
+.layer button[data-act=del]:hover{color:var(--bad)}

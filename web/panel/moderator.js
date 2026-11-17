@@ -843,7 +843,7 @@ function renderMixer(){
 }
 const gT=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
 // Слои: одиночные элементы и папки (группы). Участники группы показываются под папкой; группа из одного элемента папкой не считается.
-let selFolder=null, layerAnchor=null;
+let selFolder=null, layerAnchor=null, layerDrag=null;
 const gfold=new Set((()=>{ const v=lsGet('overlay.gfold', []); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; })());
 function saveFold(){ lsSet('overlay.gfold', [...gfold]); }
 function layerUnits(){   // сверху вниз: { el } или { g, name, els }
@@ -883,6 +883,8 @@ function renderLayers(){
     if(el.kf) btnTo(row, 'kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
     btnTo(row, 'eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько');
     btnTo(row, 'flash', '⚡', 'Показать на N секунд (F)');
+    btnTo(row, 'del', '🗑', 'Удалить');
+    if(layerDrag?.moved && layerDrag.id===el.id) row.classList.add('dragging');
     return row;
   };
   for(const u of units){
@@ -898,6 +900,8 @@ function renderLayers(){
     btnTo(f, 'eye', allHid?'🙈':'👁', 'Скрыть или показать всю папку');
     btnTo(f, 'flash', '⚡', 'Показать на N секунд (F)');
     btnTo(f, 'ungroup', '⛓️‍💥', 'Разгруппировать');
+    btnTo(f, 'del', '🗑', 'Удалить папку вместе с элементами');
+    if(layerDrag?.moved && layerDrag.g===u.g) f.classList.add('dragging');
     box.appendChild(f);
     if(!folded) for(const e of u.els) box.appendChild(elRow(e, true));
   }
@@ -1910,6 +1914,104 @@ $('layers').addEventListener('pointerdown', e=>{
   addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('blur', up);
   e.preventDefault();
 });
+// --- перетаскивание строк слоёв: бросок внутрь папки добавляет в неё, вне папки снимает; папка тянется блоком ---
+const ldUnit=row=>{   // единица списка, которой принадлежит строка: папка (заголовок и участники) или одиночный элемент
+  const g=row.dataset.g || (row.classList.contains('in') ? byId(row.dataset.id)?.g : null);
+  return g ? { g, key:'g:'+g } : { id:row.dataset.id, key:'e:'+row.dataset.id };
+};
+const ldRows=()=>[...$('layers').querySelectorAll('.layer')];
+const ldUnitRows=u=>ldRows().filter(r=>ldUnit(r).key===u.key);
+function layerDropTarget(x, y, dg){
+  const rows=ldRows(); if(!rows.length) return null;
+  const selfKey=dg.g ? 'g:'+dg.g : 'e:'+dg.id;
+  const R=r=>r.getBoundingClientRect();
+  const first=R(rows[0]), last=R(rows.at(-1));
+  const sideOf=(u, side)=>u.g ? { g:u.g, side } : { ref:u.id, side };
+  const line=(r, below, left)=>{ const b=R(r); return { top:b[below?'bottom':'top']+(below?2:-2), left:left ?? b.left, width:b.right-(left ?? b.left) }; };
+  if(y<first.top-6 || y>last.bottom+6){   // за краем списка: над первой или под последней единицей
+    const below=y>last.bottom+6, u=ldUnit(below?rows.at(-1):rows[0]);
+    if(u.key===selfKey) return null;
+    const ur=ldUnitRows(u);
+    return { ...sideOf(u, below?'below':'above'), join:null, line:line(below?ur.at(-1):ur[0], below, R(ur[0]).left) };
+  }
+  let row=null, best=1e9;
+  for(const r of rows){ const b=R(r), d=y<b.top?b.top-y:y>b.bottom?y-b.bottom:0; if(d<best){ best=d; row=r; } }
+  const u=ldUnit(row);
+  if(u.key===selfKey || (!dg.g && row.dataset.id===dg.id)) return null;
+  const b=R(row), ur=ldUnitRows(u), below=y>=b.top+b.height/2;
+  if(!row.dataset.g && !row.classList.contains('in')) return { ref:u.id, side:below?'below':'above', join:null, line:line(row, below) };   // одиночный элемент
+  if(dg.g){   // папка над папкой: ставим рядом, единица делится пополам по высоте
+    const ub=y>=(R(ur[0]).top+R(ur.at(-1)).bottom)/2;
+    return { g:u.g, side:ub?'below':'above', join:null, line:line(ub?ur.at(-1):ur[0], ub, R(ur[0]).left) };
+  }
+  if(row.dataset.g){   // элемент над заголовком папки: верхняя треть — над папкой, остальное — внутрь, наверх
+    if((y-b.top)/b.height<0.34) return { g:u.g, side:'above', join:null, line:line(row, false) };
+    return { g:u.g, side:'above', join:u.g, line:line(row, true, b.left+18), into:row };
+  }
+  if(below && row===ur.at(-1) && x<b.left) return { g:u.g, side:'below', join:null, line:line(row, true, R(ur[0]).left) };   // левее отступа под последним участником: ниже папки
+  return { ref:row.dataset.id, side:below?'below':'above', join:u.g, line:line(row, below) };
+}
+function layerDrop(dg, t){
+  const ids=dg.g ? state.els.filter(e=>e.g===dg.g).map(e=>e.id) : [dg.id];
+  const set=new Set(ids), moved=state.els.filter(e=>set.has(e.id)), rest=state.els.filter(e=>!set.has(e.id));
+  let at;
+  if(t.ref){ const i=rest.findIndex(e=>e.id===t.ref); if(i<0) return false; at=t.side==='above' ? i+1 : i; }
+  else { const m=rest.map((e,i)=>e.g===t.g?i:-1).filter(i=>i>=0); if(!m.length) return false; at=t.side==='above' ? m.at(-1)+1 : m[0]; }   // список хранится снизу вверх
+  const next=[...rest.slice(0,at), ...moved, ...rest.slice(at)];
+  const sig=a=>a.map(e=>e.id).join(',');
+  const gNow=dg.g ? dg.g : (byId(dg.id).g || null), gNew=dg.g ? dg.g : (t.join || null);
+  if(sig(next)===sig(state.els) && gNow===gNew) return false;
+  const name=t.join ? rest.find(e=>e.g===t.join && e.gn)?.gn || gT('Группа') : null;
+  beginChange();
+  if(!dg.g){ const e=moved[0]; if(t.join){ e.g=t.join; e.gn=name; } else { delete e.g; delete e.gn; } }
+  state.els=next;
+  if(gNow && gNow!==gNew && !dg.g && state.els.filter(e=>e.g===gNow).length===1) state.els.forEach(e=>{ if(e.g===gNow){ delete e.g; delete e.gn; } });   // в папке остался один: она больше не папка
+  packGroups();
+  if(!dg.g){ msel.clear(); msel.add(dg.id); selectedId=dg.id; selFolder=null; }
+  commit(); return true;
+}
+$('layers').addEventListener('pointerdown', e=>{
+  if(e.button!==0 || e.shiftKey || e.ctrlKey || e.metaKey || e.target.closest('button,input,select')) return;
+  const row=e.target.closest('.layer'); if(!row) return;
+  const dg={ x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY, moved:false, g:row.dataset.g||null, id:row.dataset.g?null:row.dataset.id, t:null };
+  if(dg.id && !byId(dg.id)) return;
+  const scroller=$('layers').closest('aside');
+  const mark=el=>{ document.querySelectorAll('#layers .drop-in').forEach(n=>n.classList.remove('drop-in')); el?.classList.add('drop-in'); };
+  const update=()=>{
+    dg.t=layerDropTarget(dg.x, dg.y, dg);
+    let d=$('layerDrop'); if(!d){ d=document.createElement('div'); d.id='layerDrop'; document.body.appendChild(d); }
+    if(!dg.t){ d.hidden=true; mark(null); return; }
+    d.hidden=false; Object.assign(d.style, { top:dg.t.line.top-1.5+'px', left:dg.t.line.left+'px', width:dg.t.line.width+'px' }); mark(dg.t.into);
+  };
+  let timer=null;
+  const end=drop=>{
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', cancel); removeEventListener('blur', cancel); removeEventListener('keydown', key, true);
+    clearInterval(timer); $('layerDrop')?.remove(); mark(null); document.body.classList.remove('ld-active');
+    const was=layerDrag; layerDrag=null;
+    if(was?.moved){
+      const stop=ev=>{ ev.stopPropagation(); ev.preventDefault(); };   // после броска click не должен выбирать строку
+      $('layers').addEventListener('click', stop, { capture:true, once:true }); setTimeout(()=>$('layers').removeEventListener('click', stop, true), 0);
+      if(!(drop && dg.t && layerDrop(dg, dg.t))) renderLayers();
+    }
+  };
+  const move=ev=>{
+    if(ev.buttons===0) return cancel();
+    dg.x=ev.clientX; dg.y=ev.clientY;
+    if(!dg.moved){
+      if(Math.hypot(dg.x-dg.x0, dg.y-dg.y0)<5) return;
+      dg.moved=true; layerDrag=dg; document.body.classList.add('ld-active'); renderLayers();
+      timer=setInterval(()=>{   // у края списка прокручиваем
+        const b=scroller.getBoundingClientRect(), zone=28;
+        if(dg.y<b.top+zone) scroller.scrollTop-=12; else if(dg.y>b.bottom-zone) scroller.scrollTop+=12; else return;
+        update();
+      }, 30);
+    }
+    update();
+  };
+  const up=()=>end(true), cancel=()=>end(false);
+  const key=ev=>{ if(ev.key==='Escape'){ ev.stopPropagation(); cancel(); } };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', cancel); addEventListener('blur', cancel); addEventListener('keydown', key, true);
+});
 function selectRange(toId){
   const order=layerOrder(), a=order.indexOf(layerAnchor), b=order.indexOf(toId);
   if(a<0 || b<0) return select(toId, 'replace');
@@ -1925,7 +2027,8 @@ $('layers').addEventListener('click', e=>{
   if(row.dataset.g){
     const g=row.dataset.g, members=state.els.filter(x=>x.g===g);
     if(e.detail>=2 && !act && e.target.closest('.name,.ico')){ renameFolder(g); return; }   // двойной клик: первый клик уже перерисовал список, поэтому ловим по click, а не dblclick
-    if(act==='eye'){ const hide=members.some(x=>!x.hidden); beginChange(); members.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
+    if(act==='del') removeIds(members.map(x=>x.id));
+    else if(act==='eye'){ const hide=members.some(x=>!x.hidden); beginChange(); members.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
     else if(act==='flash'){ beginChange(); const t=Date.now()+flashSecs()*1000; members.forEach(x=>{ x.hidden=false; x.ttl=t; if(x.type==='video'||x.type==='web') x.restart=Date.now(); if(x.kf){ x.kf.playing=true; x.kf.start=Date.now(); } }); commit(); }
     else if(act==='fold'){ gfold.has(g)?gfold.delete(g):gfold.add(g); saveFold(); renderLayers(); }
     else if(act==='ungroup'){ beginChange(); members.forEach(x=>{ delete x.g; delete x.gn; }); if(selFolder===g) selFolder=null; commit(); toast('Группа разбита'); }
@@ -1934,7 +2037,8 @@ $('layers').addEventListener('click', e=>{
     return;
   }
   const el=byId(row.dataset.id); if(!el) return;
-  if(act==='eye') toggleHidden(el);
+  if(act==='del') removeIds([el.id]);
+  else if(act==='eye') toggleHidden(el);
   else if(act==='flash') flash(el);
   else if(act==='ttoggle') act1(el, timerToggle);
   else if(act==='kfplay') act1(el, kfToggle);
@@ -2267,7 +2371,17 @@ function duplicate(){
     if(el.g){ if(!gmap.has(el.g)) gmap.set(el.g, rid(6)); c.g=gmap.get(el.g); } state.els.push(c); ids.push(c.id); }
   msel.clear(); ids.forEach(i=>msel.add(i)); selectedId=ids.at(-1); commit();
 }
-function remove(){ if(!msel.size) return; beginChange(); state.els=state.els.filter(e=>!msel.has(e.id)); msel.clear(); selectedId=null; commit(); }
+// Удаление одним шагом отмены: и для выделения (Del, 🗑 на панели), и для строки или папки в списке слоёв
+function removeIds(ids){
+  const set=new Set(ids); if(!set.size) return;
+  beginChange();
+  state.els=state.els.filter(e=>!set.has(e.id));
+  for(const id of set) msel.delete(id);
+  if(selectedId && set.has(selectedId)) selectedId=msel.size?[...msel][0]:null;
+  if(selFolder && !state.els.some(e=>e.g===selFolder)) selFolder=null;
+  commit();
+}
+function remove(){ if(msel.size) removeIds([...msel]); }
 function hideSel(){ const list=selList(); if(!list.length) return; const hide=list.some(x=>!x.hidden); beginChange(); list.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
 function groupSel(){
   const list=selList(); if(list.length<2) return toast('Выдели 2+ элемента (Shift+клик или рамкой)');
