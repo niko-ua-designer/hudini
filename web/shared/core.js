@@ -190,7 +190,7 @@ function sanitizeEl(e){
     o.av=Object.create(null); if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
-    o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip;
+    o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip; o.kfeed=!!e.kfeed;   // свой киллфид в HUD (kf занят анимацией движения)
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
   } else if(type==='msg'){
     o.user=str(e.user,40); o.ucolor=hex(e.ucolor,'#a78bfa'); o.text=str(e.text,500);
@@ -1400,11 +1400,11 @@ function paintHud(c, el, d){
   const me={ ...d, id:d.id||'me', team:d.team };
   const parts=[];
   if(el.view==='hud_solo'){
-    parts.push(scoreTop(el, d, false), killfeed(d, el));
+    parts.push(scoreTop(el, d, false)); if(el.kfeed) parts.push(killfeed(d, el));
     const b=h('div','hd-bottom solo'); b.appendChild(bigCard(c, el, me)); parts.push(b);
   } else if(el.view==='hud_tour'){
     if(!players.length){ c.replaceChildren(h('div','hd-wait', st('👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)'))); return; }
-    parts.push(scoreTop(el, d, true), killfeed(d, el));
+    parts.push(scoreTop(el, d, true)); if(el.kfeed) parts.push(killfeed(d, el));
     const bot=h('div','hd-bottom');
     const col=side=>{ const g=h('div','hd-side tm-'+side.toLowerCase()); for(const p of players.filter(x=>x.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99)).slice(0,5)) g.appendChild(playerCard(c, el, p, d.obs===p.id)); return g; };
     const ob=d.observed ? { ...d.observed, ...(players.find(x=>x.id===d.observed.id)||{}) } : null;

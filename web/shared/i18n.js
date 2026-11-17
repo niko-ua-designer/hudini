@@ -1344,6 +1344,8 @@ const HUDINI_DICT = {
     "на экране максимум": "the screen holds at most",
     "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
+    "Киллфид Hudini": "Hudini kill feed",
+    "(свой список киллов поверх игры)": "(its own kill list over the game)",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2687,6 +2689,8 @@ const HUDINI_DICT = {
     "на экране максимум": "на екрані максимум",
     "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
+    "Киллфид Hudini": "Кілфід Hudini",
+    "(свой список киллов поверх игры)": "(власний список кілів поверх гри)",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4030,6 +4034,8 @@ const HUDINI_DICT = {
     "на экране максимум": "auf dem Bildschirm höchstens",
     "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
+    "Киллфид Hudini": "Hudini-Killfeed",
+    "(свой список киллов поверх игры)": "(eigene Kill-Liste über dem Spiel)",
   },
 };
 
