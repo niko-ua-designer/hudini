@@ -331,6 +331,7 @@ async function onMessage(topic, payload, packet){
 const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
 function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
 function acceptState(s){
+  if(mergeChat(s)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
   if(selectedId && !byId(selectedId)) selectedId=null;
@@ -407,7 +408,7 @@ async function switchRoom(code){
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   if(offlineWait){ clearTimeout(offlineWait.timer); offlineWait=null; }
   if(homeClient) dropHome();
-  rafFlush(); rafPool.clear(); rafSkip.clear(); pollVotes.clear();   // участники и голоса у каждой комнаты свои
+  rafFlush(); rafPool.clear(); rafSkip.clear(); chatPend.clear();   // участники и голоса у каждой комнаты свои
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
@@ -524,7 +525,7 @@ function addRaffle(){
 }
 function addPoll(){
   addEl({ type:'poll', ...place(), x:78, y:30, fs:3.2, font:'montserrat', color:'#ffffff', card:'#1d1d24', accent:'#7c5cff',
-    title:sT('Что дальше?'), opts:[1,2,3].map(n=>sT('Вариант')+' '+n), votes:[0,0,0], running:false });
+    title:sT('Что дальше?'), opts:[1,2,3].map(n=>sT('Вариант')+' '+n), votes:[0,0,0], vround:rid(8), running:false });
   if(!chatWs) toast('Для голосования подключи чат Twitch слева', 4000);
 }
 
@@ -1565,7 +1566,40 @@ function showChatMsg(m){
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r){ delete r.chat; saveRooms(); window.__webChatRefresh?.(); } } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
-const pollVotes=new Map();   // id голосования → (зритель → номер варианта)
+// Чат читает каждый пульт сам. Голос и засчитанное сообщение лежат в самом элементе (el.vk, el.cids), поэтому
+// одно сообщение, пришедшее в два пульта, засчитывается один раз. chatPend: что этот пульт добавил недавно
+// и другие ещё могли не увидеть (id элемента → ключ → время); при приёме чужого экрана это добавляется в него.
+const chatPend=new Map(), PEND_MS=20000;
+function pendMark(id, key){ let m=chatPend.get(id); if(!m){ m=new Map(); chatPend.set(id, m); } m.set(key, Date.now()); }
+function pollNewRound(el){ el.vround=rid(8); el.vk=Object.create(null); el.votes=el.opts.map(()=>0); chatPend.delete(el.id); }
+// чужой экран s пришёл: объединить с ним голоса и сообщения этого пульта. true = в s что-то добавилось.
+function mergeChat(s){
+  const now=Date.now(); let added=false;
+  for(const r of s.els){
+    const l=byId(r.id); if(!l || l.type!==r.type) continue;
+    const pend=chatPend.get(r.id);
+    if(r.type==='poll'){
+      if(l.vround!==r.vround || !l.vk){ chatPend.delete(r.id); continue; }   // новый раунд у другого пульта
+      let n=Object.keys(r.vk).length;
+      for(const k of Object.keys(l.vk)){
+        const i=l.vk[k]; if(!(i>=0 && i<r.opts.length)) continue;
+        const has=Object.hasOwn(r.vk, k), fresh=(pend?.get(k)||0)>now-PEND_MS;
+        if(has && r.vk[k]===i){ pend?.delete(k); continue; }
+        if(has ? fresh : n<VK_MAX){ if(!has) n++; r.vk[k]=i; added=true; }   // зритель передумал недавно у нас: наш выбор новее
+      }
+      if(added) r.votes=pollTally(r.vk, r.opts.length);
+    } else if(r.type==='counter' && r.cmode==='chat' && pend){
+      const ids=new Set(r.cids);
+      for(const [id, t] of pend){
+        if(ids.has(id) || t<now-PEND_MS){ pend.delete(id); continue; }
+        r.value+=l.step; r.cids.push(id); ids.add(id); added=true;
+      }
+      for(const id of l.cids||[]) if(!ids.has(id)){ r.cids.push(id); ids.add(id); }   // эхо этих сообщений тоже не считать
+      r.cids=r.cids.slice(-CIDS_MAX);
+    }
+  }
+  return added;
+}
 // ---- розыгрыш: участники живут в пульте (и в хранилище, чтобы пережить перезагрузку пульта) ----
 // Участники у каждой комнаты свои: при смене комнаты карты очищаются, в хранилище ключ с кодом комнаты
 const rafPool=new Map();     // id розыгрыша → Map(login → { user, color, sub })
@@ -1847,21 +1881,25 @@ function onChat(user, text, msg){
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
   const vm=text.trim().match(/^!?([1-6])$/);
-  if(vm) for(const el of state.els){
+  const voter=String(user||'').toLowerCase();
+  if(vm && VOTER_RE.test(voter)) for(const el of state.els){
     if(el.type!=='poll' || !el.running) continue;
     const i=+vm[1]-1; if(i>=el.opts.length) continue;
-    let m=pollVotes.get(el.id); if(!m){ m=new Map(); pollVotes.set(el.id, m); }
-    const prev=m.get(user); if(prev===i) continue;
-    if(prev!=null) el.votes[prev]=Math.max(0, el.votes[prev]-1);
-    el.votes[i]++; m.set(user, i); any=true;
+    if(!el.vk) el.vk=Object.create(null);
+    const has=Object.hasOwn(el.vk, voter); if(has && el.vk[voter]===i) continue;
+    if(!has && Object.keys(el.vk).length>=VK_MAX) continue;
+    el.vk[voter]=i; el.votes=pollTally(el.vk, el.opts.length); pendMark(el.id, voter); any=true;
   }
   for(const el of state.els){
     if(el.type!=='counter' || el.cmode!=='chat' || !el.running) continue;
     const kws=el.kw.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
     if(!kws.some(k=> k==='*' || (k.includes(' ') ? low.includes(k) : tokens.has(k)))) continue;
     if(el.modsOnly && !msg?.mod) continue;
+    const mid=MSGID_RE.test(msg?.id||'') ? msg.id : null;
+    if(mid && el.cids?.includes(mid)) continue;   // другой пульт уже засчитал это сообщение
     if(el.uniq){ let s=chatSeen.get(el.id); if(!s){ s=new Set(); chatSeen.set(el.id,s); } if(s.has(user)) continue; s.add(user); }
     el.value+=el.step; any=true;
+    if(mid){ el.cids=[...(el.cids||[]), mid].slice(-CIDS_MAX); pendMark(el.id, mid); }
   }
   if(any || rafAny){ renderAll(); scheduleSend(); }
 }
@@ -2113,7 +2151,8 @@ bindInput('iCsCard',   (el,f)=>el.card=f.value);
 // голосование
 bindInput('iPTitle', (el,f)=>el.title=f.value.slice(0,100));
 bindInput('iPOpts',  (el,f)=>{ const o=f.value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,6); if(o.length<2) return;
-  el.votes=o.map((t,i)=>el.opts[i]===t ? el.votes[i] : 0); el.opts=o; pollVotes.delete(el.id); }, 'change');
+  const keep=Object.create(null); for(const k of Object.keys(el.vk||{})){ const i=el.vk[k]; if(el.opts[i]===o[i]) keep[k]=i; }
+  el.opts=o; pollNewRound(el); el.vk=keep; el.votes=pollTally(keep, o.length); }, 'change');   // голоса за неизменённые варианты остаются
 bindInput('iAccent', (el,f)=>el.accent=f.value);
 bindInput('iPCard',  (el,f)=>el.card=f.value);
 // web
@@ -2152,7 +2191,7 @@ $('cReset').onclick=()=>act(el=>{ el.value=0; el.startAt=Date.now(); chatSeen.de
 $('cToggle').onclick=()=>act(counterToggle);
 $('pToggle').onclick=()=>act(el=>{ pollToggle(el); el.closeAt=0; });
 $('pTimed').onclick=()=>act(el=>{ el.running=true; el.closeAt=Date.now()+num($('pSecs').value,60,5,3600)*1000; if(!chatWs) toast('Подключи чат Twitch слева, иначе голоса не придут', 4000); });
-$('pReset').onclick=()=>act(el=>{ el.votes=el.opts.map(()=>0); pollVotes.delete(el.id); });
+$('pReset').onclick=()=>act(pollNewRound);
 // ---- вкладка «Розыгрыши» ----
 function actR(fn){ const el=raf(); if(el){ beginChange(); fn(el); commit(); } }
 function bindR(id, apply, evt='input'){

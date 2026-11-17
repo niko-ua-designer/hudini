@@ -157,6 +157,9 @@ const CASE_2 = { gap:1900, dur:6400 };   // «перекрут»: пауза с 
 const RARITY7 = ['#b0c3d9','#5e98d9','#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
 const RARITY_NAME = ['Ширпотреб','Промышленное','Армейское','Запрещённое','Засекреченное','Тайное','Редкое'];
 const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
+const VK_MAX = 5000, CIDS_MAX = 300;
+const VOTER_RE = /^[a-z0-9][a-z0-9_]{0,24}$/, MSGID_RE = /^[A-Za-z0-9-]{1,64}$/;
+function pollTally(vk, n){ const v=new Array(n).fill(0); for(const k of Object.keys(vk)){ const i=vk[k]; if(i>=0 && i<n) v[i]++; } return v; }
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
   const type = TYPES.includes(e.type) ? e.type : null;
@@ -242,7 +245,16 @@ function sanitizeEl(e){
     o.title=str(e.title,100);
     o.opts=(Array.isArray(e.opts)?e.opts:[]).slice(0,6).map(x=>str(x,40));
     if(o.opts.length<2) o.opts=[st('Да'),st('Нет')];
-    o.votes=o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));
+    // голоса зрителей: ник → номер варианта. Один зритель = один голос, у всех пультов один и тот же словарь.
+    // vround меняется при сбросе: словари разных раундов не смешиваются.
+    o.vround=str(e.vround,12).replace(/[^a-z0-9]/gi,'');
+    o.vk=Object.create(null); let nv=0;
+    if(e.vk && typeof e.vk==='object') for(const k of Object.keys(e.vk)){
+      if(nv>=VK_MAX) break;
+      const i=num(e.vk[k],-1,-1,5);
+      if(VOTER_RE.test(k) && Number.isInteger(i) && i>=0 && i<o.opts.length){ o.vk[k]=i; nv++; }
+    }
+    o.votes=nv ? pollTally(o.vk, o.opts.length) : o.opts.map((_,i)=>Math.round(num(Array.isArray(e.votes)?e.votes[i]:0,0,0,1e7)));   // старый экран без словаря
     o.running=!!e.running; o.closeAt=num(e.closeAt,0,0,1e15);   // закрыть само в это время (0 = вручную)
   } else {
     o.fs=num(e.fs,10,0.5,100); o.font=fontOf(e.font);
@@ -260,6 +272,8 @@ function sanitizeEl(e){
       o.value=Math.round(num(e.value,0,-1e9,1e9)); o.step=Math.round(num(e.step,1,1,1e6));
       o.cmode=COUNTER_MODES.includes(e.cmode)?e.cmode:'manual'; o.kw=str(e.kw,120); o.uniq=!!e.uniq; o.modsOnly=!!e.modsOnly;
       o.every=num(e.every,60,1,86400); o.goal=Math.round(num(e.goal,0,0,1e9));
+      // режим «по чату»: id уже засчитанных сообщений, чтобы два пульта не посчитали одно сообщение дважды
+      o.cids=(Array.isArray(e.cids)?e.cids:[]).slice(-CIDS_MAX).filter(x=>typeof x==='string' && MSGID_RE.test(x));
     }
   }
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
