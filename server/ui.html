@@ -318,7 +318,9 @@ $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
 $('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
 $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
-$('dockUrl').value=location.origin+'/dock'; $('dockCode').textContent=location.origin+'/dock';
+// the dock must open on localhost (the widget's origin): on 127.0.0.1 the status API hides everything without the admin cookie
+const DOCK_URL=`http://localhost:${location.port||'7777'}/dock`;
+$('dockUrl').value=DOCK_URL; $('dockCode').textContent=DOCK_URL;
 $('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
 $('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
 // ---- подключение модераторов ----
