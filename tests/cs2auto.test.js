@@ -247,6 +247,7 @@ const C = box.C;
     check(w && Math.abs(w.left - u) < 0.05 && Math.abs(w.top - v) < 0.05, `SaiYeah at ${u.toFixed(2)}% / ${v.toFixed(2)}%`, w);
     check(w && w.slot === '1' && w.dots === 10, 'slot number on the dot, ten players', w);
     eq(w && w.img, '../shared/radar/de_dust2-classic.webp', 'classic background served by the Host');
+    check(await until(() => s.widget.evaluate(() => { const i = [...document.querySelectorAll('.rd-img')].pop(); return i && i.complete && i.naturalWidth > 0; }), 4000), 'the OBS widget actually decoded the map picture');
     const sw = () => s.widget.evaluate(() => { const r = [...document.querySelectorAll('.rd')].pop(), c = r.parentNode; return { rbg: c.dataset.rbg, nomap: r.classList.contains('nomap'), img: getComputedStyle(r.querySelector('.rd-img')).display, plate: getComputedStyle(c).backgroundColor }; });
     eq((await sw()).rbg, '1', 'card background on by default');
     await s.panel.click('label:has(#iCsRbg)'); await s.panel.click('label:has(#iCsRmap)');
@@ -257,6 +258,19 @@ const C = box.C;
     ROSTER[0][4] = [0, 1500, 0];
     await gsi(spec({ map: 'de_dust2', ct: 1, tt: 1, round: 2 }));
     check(await until(async () => { const x = await where(); return x && Math.abs(x.left - (2476 / 4.4 / 1024 * 100)) < 0.05; }, 4000), 'the dot moved with the next packet');
+  });
+
+  await step('Host serves radar backgrounds to the anonymous widget; the binary carries them all', async () => {
+    for(const [n, ok] of [['de_mirage-glass', true], ['de_nuke_lower-ko', true], ['cs_italy-classic', true], ['de_nope-glass', false], ['de_mirage-bad', false]]){
+      const r = await fetch(`http://localhost:${s.host.port}/shared/radar/${n}.webp`, { headers: { host: `localhost:${s.host.port}` } });
+      eq([r.status, r.headers.get('content-type')], ok ? [200, 'image/webp'] : [404, 'text/plain; charset=utf-8'], n);
+      if(ok) check((await r.arrayBuffer()).byteLength > 1000, n + ' has a body');
+    }
+    const files = fs.readdirSync(path.join(ROOT, 'web/shared/radar')).filter(f => f.endsWith('.webp')).sort();
+    const emb = fs.readFileSync(path.join(ROOT, 'server/radar-embed.js'), 'utf8');
+    const listed = [...emb.matchAll(/^\s+'([^']+\.webp)':/gm)].map(m => m[1]).sort();
+    eq(listed, files, 'server/radar-embed.js lists every picture (run tools/radar-embed.sh)');
+    check(/RADAR_EMBED/.test(fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8')), 'server.js uses the embedded list');
   });
 
   await T.closeBrowser();
