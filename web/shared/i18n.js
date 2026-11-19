@@ -1351,6 +1351,8 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Show / hide the password",
     "Смайлы 7TV, BTTV, FFZ": "7TV, BTTV, FFZ emotes",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes are loaded from the external servers of 7TV, BetterTTV and FrankerFaceZ. Turned on for this room: in the panel feed, in the chat and messages on stream.",
+    "Нечего повторять": "Nothing to redo",
+    "Часть правок пропущена: их уже поменял другой модератор": "Some changes were skipped: another moderator has already changed them",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2701,6 +2703,8 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Показати / сховати пароль",
     "Смайлы 7TV, BTTV, FFZ": "Смайли 7TV, BTTV, FFZ",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Смайли завантажуються із зовнішніх серверів 7TV, BetterTTV і FrankerFaceZ. Вмикається для цієї кімнати: у стрічці пульта, у чаті та повідомленнях на стрімі.",
+    "Нечего повторять": "Нічого повторювати",
+    "Часть правок пропущена: их уже поменял другой модератор": "Частину правок пропущено: їх уже змінив інший модератор",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4051,6 +4055,8 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Passwort anzeigen / verbergen",
     "Смайлы 7TV, BTTV, FFZ": "7TV-, BTTV-, FFZ-Emotes",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes werden von den externen Servern von 7TV, BetterTTV und FrankerFaceZ geladen. Gilt für diesen Raum: im Panel-Feed, im Chat und in Nachrichten im Stream.",
+    "Нечего повторять": "Nichts zu wiederholen",
+    "Часть правок пропущена: их уже поменял другой модератор": "Einige Änderungen wurden übersprungen: ein anderer Mod hat sie schon geändert",
   },
 };
 
