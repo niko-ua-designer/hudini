@@ -1524,6 +1524,10 @@ const HUDINI_DICT = {
     "Сбросить ник": "Reset nickname",
     "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "No players yet: CS2 and Hudini Host must be running",
     "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Nicknames apply to all CS2 elements. Only the stream changes; the in-game name stays the same.",
+    "Курсоры": "Cursors",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Moderator cursors: see others and show yours. Not sent to the stream",
+    "Ник курсора": "Cursor name",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Name next to your cursor for other moderators (empty: Moderator N)"
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -3047,6 +3051,10 @@ const HUDINI_DICT = {
     "Сбросить ник": "Скинути нік",
     "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Гравців поки немає: потрібні запущені CS2 і Hudini Host",
     "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Ніки ставляться всім CS2-елементам. Змінюється лише те, що видно на стрімі, в грі нік той самий.",
+    "Курсоры": "Курсори",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Курсори модераторів: бачити чужі й показувати свій. На стрім не йдуть",
+    "Ник курсора": "Нік курсора",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Ім'я біля твого курсора в інших модераторів (порожньо: Модератор N)"
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4570,6 +4578,10 @@ const HUDINI_DICT = {
     "Сбросить ник": "Name zurücksetzen",
     "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Noch keine Spieler: CS2 und Hudini Host müssen laufen",
     "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Namen gelten für alle CS2-Elemente. Nur der Stream ändert sich, der Spielname bleibt gleich.",
+    "Курсоры": "Cursor",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Moderator-Cursor: andere sehen und den eigenen zeigen. Geht nicht auf den Stream",
+    "Ник курсора": "Cursor-Name",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Name neben deinem Cursor bei anderen Moderatoren (leer: Moderator N)"
   },
 };
 
