@@ -28,7 +28,7 @@ import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // Роль модератора: сервер не открывает портов, только проверяет и ставит обновления
