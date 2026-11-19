@@ -17,6 +17,8 @@ const tpl = fs.readFileSync(path.join(root, 'web/site/index.html'), 'utf8');
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const url = l => BASE + (l === 'en' ? '' : l + '/');
+// Site name for search results (Google reads WebSite structured data from the home page and its language versions).
+const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': BASE + '#website', name: 'Hudini', alternateName: ['Hudini overlay', 'Hudini stream overlay'], url: BASE };
 const need = (c, m) => { if(!c) throw new Error('build-seo: ' + m); };
 
 function page(lang){
@@ -64,6 +66,7 @@ function page(lang){
     ...LANGS.filter(([l]) => l !== lang).map(([, , loc]) => `<meta property="og:locale:alternate" content="${loc}">`),
     `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t.seoTitle)}"><meta name="twitter:description" content="${esc(t.seoDesc)}"><meta name="twitter:image" content="${img}">`,
     `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>`,
+    `<script type="application/ld+json">${JSON.stringify(WEBSITE).replace(/</g, '\\u003c')}</script>`,
   ].join('\n');
   h = h.replace(/<title>[^<]*<\/title>\n<meta name="description"[^>]*>/, head);
   need(h.includes('rel="canonical"'), 'head block not replaced');
