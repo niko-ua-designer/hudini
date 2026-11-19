@@ -85,6 +85,26 @@ const { step, check, eq, until, sleep } = T;
     eq(r.del, ['eeee', 'cccc'], 'deletions of both sides are kept');
     check(r.added && !r.same, 'merge reports when the other side misses something');
     eq(r.simp, 2, 'a straight wobbly line simplifies to its ends');
+    // del is full (1000) and the two panels keep different tails: they must not send each other the screen forever
+    const rounds = await mod.evaluate(() => {
+      const id = i => 'del' + String(i).padStart(5, '0');
+      let A = { strokes: [], del: Array.from({ length: DRAW_MAX_DEL }, (_, i) => id(i + 1)) }, B = { strokes: [], del: Array.from({ length: DRAW_MAX_DEL }, (_, i) => id(i)) };
+      let msg = A, toB = true, n = 0;
+      while(msg && n < 20){ n++; const m = drawMerge(toB ? B : A, msg); const s = { strokes: m.strokes, del: m.del }; if(toB) B = s; else A = s; msg = m.added ? s : null; toB = !toB; }
+      return n;
+    });
+    check(rounds <= 2, 'full del lists settle instead of ping-pong: ' + rounds + ' rounds');
+    // junk live strokes for elements that do not exist must not block live drawing for good
+    const inkOk = await wid.evaluate(() => {
+      const part = (el, id) => ({ el, id, tool: 'pen', color: '#fff', size: 4, i: 0, pts: [1, 1, 2, 2] });
+      for(let i = 0; i < 40; i++) DrawFx.ink(part('junk' + i, 'jjjj' + i));
+      const full = !DrawFx.ink(part('real', 'rrrr'));
+      for(const m of DrawFx.live.values()) for(const e of m.values()) e.at -= 10000;   // the junk got old
+      const ok = DrawFx.ink(part('real', 'rrrr'));
+      DrawFx.live.clear();
+      return [full, ok];
+    });
+    eq(inkOk, [true, true], 'the live list is full of junk, and after it gets old a real stroke gets in');
   });
 
   let drawId;

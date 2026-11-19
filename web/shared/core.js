@@ -1143,9 +1143,11 @@ function drawAlpha(k, now){
 }
 // Слияние рисунка двух пультов: штрихи по id, стёртое (del) у обоих стёрто. added: у нас есть то, чего нет у них.
 function drawMerge(mine, theirs, now=nowMs()){
-  const del = new Set(theirs.del), map = new Map();
+  const del = new Set(theirs.del), map = new Map(), shown = new Set(theirs.strokes.map(k=>k.id));
   let added = false;
-  for(const id of mine.del) if(!del.has(id)){ del.add(id); added = true; }
+  // Стёртое дослать нужно, только если у них этот штрих ещё виден. Иначе при переполнении del (DRAW_MAX_DEL)
+  // два пульта бесконечно возвращали бы друг другу обрезанные хвосты списка.
+  for(const id of mine.del) if(!del.has(id)){ del.add(id); if(shown.has(id)) added = true; }
   for(const k of theirs.strokes) if(!del.has(k.id)) map.set(k.id, k);
   for(const k of mine.strokes){
     if(del.has(k.id) || drawGone(k, now)) continue;
@@ -1185,15 +1187,23 @@ const DrawFx = {
     if(!el || !id) return false;
     const part = sanitizeStroke({ ...m, t:0, fade:0 });
     let map = this.live.get(el);
-    if(!map){ if(this.live.size>=40) return false; map = new Map(); this.live.set(el, map); }
+    if(!map){ if(this.live.size>=40) this.prune(); if(this.live.size>=40) return false; map = new Map(); this.live.set(el, map); }
     let e = map.get(id);
-    if(!e){ if(!part || map.size>=24) return false; e = { k:part }; map.set(id, e); }
+    if(!e){ if(map.size>=24) this.prune(); if(!part || map.size>=24) return false; e = { k:part }; map.set(id, e); }
     else if(part){
       if(DRAW_SHAPES.has(part.tool)) e.k.pts = part.pts;
       else { const p = e.k.pts, off = 2*Math.round(num(m.i,0,0,DRAW_MAX_PTS)); if(off<p.length) p.length = off; for(const v of part.pts) if(p.length<DRAW_MAX_PTS*2) p.push(v); }
     }
     e.at = Date.now(); e.done = !!m.done;
     this.dirty(el); return true;
+  },
+  // Живые штрихи без хозяина (элемента нет на экране, пульт пропал) иначе чистит только drawRender своего рисунка:
+  // мусорные id элементов от модератора заняли бы все 40 мест навсегда
+  prune(now=Date.now()){
+    for(const [el, m] of this.live){
+      for(const [id, e] of m) if(now-e.at > (e.done ? 8000 : 3000)) m.delete(id);
+      if(!m.size) this.live.delete(el);
+    }
   },
   dirty(elId){ for(const c of this.boxes) if(!elId || c._el?.id===elId) c._dirty = true; this.loop(); },
   loop(){ if(!this.raf && typeof requestAnimationFrame==='function') this.raf = requestAnimationFrame(()=>{ this.raf = 0; this.frame(); }); },
