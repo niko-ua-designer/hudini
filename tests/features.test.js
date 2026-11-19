@@ -287,8 +287,8 @@ const { step, check, eq, until, sleep } = T;
   await step('small fixes: custom "tense" case sound survives, IRC tags cannot poison prototypes, silence() mutes the case', async () => {
     const snd = await mod.evaluate(() => sanitizeEl({ id: 'x', type: 'case', snd: { tense: 'https://example.com/a.mp3', bogus: 'https://example.com/b.mp3' } }).snd);
     eq(Object.keys(snd), ['tense'], 'custom "tense" sound is kept, unknown moments are dropped');
-    const tags = await mod.evaluate(() => { const t = parseTags('__proto__=x;constructor=y;subscriber=1;whatever=2'); return [Object.getPrototypeOf(t) === null, ({}).x, t.subscriber, t.whatever]; });
-    eq(tags, [true, undefined, '1', undefined], 'tags parsed into a prototype-less object; only the tags the app reads are kept');
+    const tags = await mod.evaluate(() => { const t = parseTags('__proto__=x;constructor=y;subscriber=1;whatever=2;room-id=42'); return [Object.getPrototypeOf(t) === null, ({}).x, t.subscriber, t.whatever, t['room-id']]; });
+    eq(tags, [true, undefined, '1', undefined, '42'], 'tags parsed into a prototype-less object; only the tags the app reads are kept');
     check(await wid.evaluate(() => typeof Case3D.silence === 'function'), 'Case3D.silence exists on the widget');
   });
 

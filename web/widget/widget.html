@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com/mqtt@5.16.1/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https: http:; connect-src 'self' wss://irc-ws.chat.twitch.tv ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com/mqtt@5.16.1/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src * data: blob:; media-src * data: blob:; frame-src https: http:; connect-src 'self' wss://irc-ws.chat.twitch.tv https://7tv.io https://api.betterttv.net https://api.frankerfacez.com ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -127,7 +127,7 @@ let visible=true, lastState={ visible:true, els:[], raffle:null };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
-  lastState=s; setVolumes(s); visible=s.visible; if(!visible) window.Case3D?.silence?.();
+  lastState=s; setVolumes(s); ThirdEmotes.setOn(s.emx); visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
   drawList(s).forEach((el,i)=>{
@@ -168,6 +168,25 @@ function applyState(s){
     node.querySelector('video')?.pause(); chatUnbind(node);
     setTimeout(()=>node.remove(), 400);
   }
+  if(!assetGcT) assetGcT=setTimeout(runAssetGc, ASSET_KEEP_MS);
+}
+// Файлы, которых нет на экране дольше минуты, отдают память (blob-URL). Вернутся на экран: скачаются снова.
+const ASSET_KEEP_MS=60000, assetSeen=new Map(); let assetGcT=null;
+function assetGc(s, now, keep){   // → id освобождённых файлов
+  const live=assetsOf(s, new Set(keep)), gone=[];
+  for(const id of [...Assets.urls.keys()]){
+    if(live.has(id) || !assetSeen.has(id)){ assetSeen.set(id, now); continue; }
+    if(now-assetSeen.get(id)>=ASSET_KEEP_MS){ Assets.drop(id); assetSeen.delete(id); gone.push(id); }
+  }
+  for(const id of assetSeen.keys()) if(!Assets.urls.has(id)) assetSeen.delete(id);
+  return gone;
+}
+function runAssetGc(){
+  assetGcT=null;
+  const byUrl=new Map([...Assets.urls].map(([id,u])=>[u,id])), keep=[...pendingSounds.keys()];
+  for(const a of sounds) if(byUrl.has(a.src)) keep.push(byUrl.get(a.src));   // звук ещё играет
+  assetGc(lastState, Date.now(), keep);
+  if(Assets.urls.size) assetGcT=setTimeout(runAssetGc, ASSET_KEEP_MS);
 }
 // Анимации движения: 60 кадров в секунду, считаются по общему времени с пультом
 function animLoop(){
@@ -203,7 +222,7 @@ const PENDING_MS=10000;            // дольше не ждём: звук че�
 function playSound(src, vol){
   if(hostHidden()) return;
   const id=assetId(src);
-  if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, { vol, at:Date.now() }); return; } src=u; }
+  if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, { vol, at:Date.now() }); return; } src=u; assetSeen.set(id, Date.now()); }
   const a=new Audio(src); a.volume=num(num(vol,0.7,0,1)*masterVol(),0.7,0,1);
   sounds.add(a); a.addEventListener('ended', ()=>sounds.delete(a));
   a.play().catch(e=>{ sounds.delete(a); status('Звук не проигрался: '+e.message); });
