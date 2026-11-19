@@ -605,6 +605,11 @@ function addCounter(){
     every:60, goal:0, running:false, startAt:Date.now() });
 }
 
+// радар по умолчанию в левом верхнем углу сцены: x и y — центр элемента, его размер берём из рамки карты матча
+function radarCorner(fs){
+  const d=radarDims(CS2?.map), m=1.2, pad=.4;                 // отступ от края (% высоты) и поля карточки в em
+  return { x:+(m*.5625+((d.w+pad)*fs*.5625)/2).toFixed(1), y:+(m+((d.h+pad)*fs)/2).toFixed(1) };   // единица сцены — 1% высоты, ширина сцены = 1.78 высоты
+}
 function addCs2(){
   const n=state.els.filter(e=>e.type==='cs2').length%5;
   addEl({ type:'cs2', view:'card', x:16+n*4, y:86-n*14, fs:3.4, font:'montserrat', color:'#ffffff', card:'#15171d', accent:'#ffb020', label:'' });
@@ -2349,7 +2354,7 @@ bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.no
 bindInput('iCsView',   (el,f)=>{ el.view=f.value;
   if(el.view==='teams' && el.fs>2.6) el.fs=2.4;            // панели команд крупные — сразу поменьше
   if(el.view==='scorebar'){ el.x=50; el.y=7; }
-  if(el.view==='radar'){ el.x=13; el.y=30; el.fs=2.6; el.rot=0; }
+  if(el.view==='radar'){ el.fs=2.6; el.rot=0; Object.assign(el, radarCorner(el.fs)); }
   if(el.view==='streak'){ el.x=50; el.y=32; if(el.fs<5) el.fs=5; }
   if(CS2_FULL.has(el.view)){ el.x=50; el.y=50; el.rot=0; el.fs=4; } });
 // ---- HUD CS2: цвета, эффекты, команды, аватарки, выбор игроков ----

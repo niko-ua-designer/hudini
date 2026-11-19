@@ -660,12 +660,13 @@
 .ctab-ht .cs2.full .hd-feed{opacity:0}
 .ctab-ht .cs2[data-view="scorebar"]{transform:translateY(calc(var(--u,10px) * -60));opacity:0}
 
-/* ---------- CS2 радар: квадрат, подложка Hudini в теме элемента, точки игроков ---------- */
-.cs2[data-view="radar"]{padding:.35em!important}
-.cs2 .rd{position:relative;width:14em;height:14em;border-radius:.45em;overflow:hidden;background:#0b0d14b0}
+/* ---------- CS2 радар: карточка по размеру карты, подложка Hudini в теме элемента, точки игроков ---------- */
+.cs2[data-view="radar"]{padding:.2em!important}
+.cs2 .rd{position:relative;width:calc(var(--rw,10.5) * 1em);height:calc(var(--rh,10.5) * 1em);border-radius:.45em;overflow:hidden;background:#0b0d14b0}
 .cs2 .rd-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff14 1px,transparent 1px),linear-gradient(90deg,#ffffff14 1px,transparent 1px);background-size:10% 10%;opacity:1;transition:opacity .3s}
 .cs2 .rd.has-img .rd-grid{opacity:0}
-.cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.cs2 .rd-sq{position:absolute;width:calc(100% / var(--bw,1));height:calc(100% / var(--bh,1));left:calc(var(--bu,0) / var(--bw,1) * -100%);top:calc(var(--bv,0) / var(--bh,1) * -100%)}
+.cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
 .cs2 .rd-dots{position:absolute;inset:0}
 .cs2 .rd-cap{position:absolute;left:.5em;bottom:.35em;font-size:.55em;opacity:.75;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 .3em #000;max-width:90%}
 .cs2 .rd-dot{position:absolute;width:1.15em;height:1.15em;margin:-.575em 0 0 -.575em;border-radius:50%;background:var(--tc,#5d9cec);display:grid;place-items:center;
