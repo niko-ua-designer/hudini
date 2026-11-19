@@ -21,7 +21,7 @@ const WEAPONS = [
     <style>body{margin:0;background:#556}.stage{position:relative;width:1920px;height:1080px;overflow:hidden;--u:10.8px}</style></head><body><div class="stage" id="stage"></div></body></html>`);
   await p.waitForFunction(() => typeof buildNode === 'function');
   const show = (view, theme, fs, lang, o) => p.evaluate(([view, theme, fs, lang, o]) => {
-    const P = (n, team, slot, x = {}) => ({ id: 's' + slot, name: n, team, slot, hp: 100, armor: 100, helmet: true, money: 50, k: 4, d: 1, a: 1, adr: 86, hsp: 0, mvps: 0, alive: true, weapon: 'weapon_knife', nades: [], kit: false, bomb: false, ...x });
+    const P = (n, team, slot, x = {}) => ({ id: 's' + slot, name: n, team, slot: (slot + 9) % 10, hp: 100, armor: 100, helmet: true, money: 50, k: 4, d: 1, a: 1, adr: 86, hsp: 0, mvps: 0, alive: true, weapon: 'weapon_knife', nades: [], kit: false, bomb: false, ...x });
     const players = [P('LuIsetsiKk', 'CT', 1, o), P('b', 'CT', 2), P('c', 'CT', 3), P('d', 'CT', 4), P('e', 'CT', 5), P('f', 'T', 6), P('g', 'T', 7), P('h', 'T', 8), P('i', 'T', 9), P('j', 'T', 0)];
     CS2 = { at: Date.now(), map: 'de_dust2', round: 3, ct: 2, tt: 1, ...players[0], players, observed: players[0], obs: 's1', evs: [] };
     STREAM_LANG = lang;
@@ -53,6 +53,13 @@ const WEAPONS = [
       check(m.score === first.score && m.left === first.left && m.right === first.right, `neighbouring blocks stay put for ${m.w}`);
       check(m.overlaps === 0 && m.out === 0, `nothing overlaps or leaves the card for ${m.w}`, m);
     }
+  });
+  await step('slots 0..9 are labelled 1 2 3 4 5 6 7 8 9 0, a missing slot is empty', async () => {
+    await show('hud_tour', 'classic', 4, 'ru', {});
+    const lab = side => p.evaluate(s => [...document.querySelectorAll(`.hd-side.tm-${s} .hd-slot`)].map(e => e.textContent).join(' '), side);
+    check(await lab('ct') === '1 2 3 4 5' && await lab('t') === '6 7 8 9 0', 'HUD sides: ' + await lab('ct') + ' | ' + await lab('t'));
+    const odd = await p.evaluate(() => [-1, null, undefined, 10, 'x'].map(slotLabel).join('|') + '#' + [-1, 3, 0].map(slotOrd).join());
+    check(odd === '||||#99,3,0', 'bad slots give no label: ' + odd);
   });
   await T.closeBrowser(); await web.close();
   process.exit(T.finish());

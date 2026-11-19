@@ -76,7 +76,7 @@ const { step, check, eq, until, sleep } = T;
 
   // ---- fight hint ----
   // allplayers packet as a spectator sees it: players by steamid, observer_slot is the observer key
-  const ROSTER = [['101', 'SaiYeah', 'CT', 3], ['102', 'ct2', 'CT', 1], ['201', 'gospoja', 'T', 7], ['202', 't2', 'T', 0]];
+  const ROSTER = [['101', 'SaiYeah', 'CT', 2], ['102', 'ct2', 'CT', 0], ['201', 'gospoja', 'T', 6], ['202', 't2', 'T', 9]];
   const spec = (over = {}, round = 5) => {
     const allplayers = {};
     for(const [id, name, team, slot] of ROSTER){
@@ -85,7 +85,7 @@ const { step, check, eq, until, sleep } = T;
         match_stats: { kills: o.k ?? 0, deaths: 0, assists: 0 }, weapons: { weapon_0: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: o.ammo ?? 30, ammo_clip_max: 30, ammo_reserve: 90 } } };
     }
     return { provider: { steamid: '999' }, map: { name: 'de_mirage', mode: 'competitive', round, phase: 'live', team_ct: { score: 0 }, team_t: { score: 0 } },
-      round: { phase: 'live' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 3, state: { health: 100 } }, allplayers };
+      round: { phase: 'live' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 2, state: { health: 100 } }, allplayers };
   };
   // the dock reads /api/status without logging in (localhost, as the widget's origin)
   const dockStatus = async () => (await fetch(`http://localhost:${host.port}/api/status`, { headers: { host: `localhost:${host.port}` } })).json();
@@ -97,13 +97,15 @@ const { step, check, eq, until, sleep } = T;
     const a = src.indexOf('const FIGHT_WIN'), b = src.indexOf('\nlet fightPrev');
     const vm = require('vm'), ctx = {}; vm.createContext(ctx);
     vm.runInContext(src.slice(a, b) + '\nthis.detectFight = detectFight; this.slotKey = slotKey;', ctx);
-    eq([1, 5, 9, 0, 10, null, undefined, 11, -1, 2.5].map(ctx.slotKey), [1, 5, 9, 0, 0, null, null, null, null, null], 'observer_slot → observer key 1–9, 0');
-    const P = (id, team, hp, ammo, slot) => ({ id, name: 'n' + id, team, hp, ammo, weapon: 'weapon_ak47', slot });
+    eq([0, 4, 8, 9, 10, null, undefined, -1, 2.5].map(ctx.slotKey), [1, 5, 9, 0, null, null, null, null, null], 'observer_slot 0..9 → observer key 1 2 .. 9 0');
+    const P = (id, team, hp, ammo, slot) => ({ id, name: 'n' + id, team, hp, ammo, weapon: 'weapon_ak47', slot });   // slot = raw observer_slot 0..9
     const prev = { a: P('a', 'CT', 100, 30, 1), b: P('b', 'T', 100, 30, 6) };
     let r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 73, 30, 6)], [], 1000, null);
-    eq(r.fight && [r.fight.a.slot, r.fight.a.name, r.fight.b.slot, r.fight.b.name], [1, 'na', 6, 'nb'], 'CT shoots, T loses HP: CT left, T right');
+    eq(r.fight && [r.fight.a.slot, r.fight.a.name, r.fight.b.slot, r.fight.b.name], [2, 'na', 7, 'nb'], 'CT shoots, T loses HP: CT left, T right');
+    r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 100, 30, 6)], [], 1000, null);
+    eq(r.fight, null, 'a shot with nobody else active and no positions is not a fight');
     r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 100, 25, 6)], [], 1000, null);
-    eq(r.fight, null, 'shots without damage are not a fight');
+    eq(r.fight && r.fight.key, 'a|b', 'both teams shooting (no positions): the fight shows before any damage');
     r = ctx.detectFight({ a: prev.a, c: P('c', 'CT', 100, 30, 2) }, [P('a', 'CT', 60, 30, 1), P('c', 'CT', 100, 20, 2)], [], 1000, null);
     eq(r.fight, null, 'damage inside one team is not a fight');
     r = ctx.detectFight(prev, [P('a', 'CT', 100, 30, 1), P('b', 'T', 100, 30, 6)], [], 4000, { hurt: { b: 1000 }, act: { a: 1000, b: 1000 } });
@@ -112,6 +114,48 @@ const { step, check, eq, until, sleep } = T;
     eq(r.fight && r.fight.key, 'a|b', 'a frag counts too');
     r = ctx.detectFight(prev, [P('x', 'CT', 100, 30, 1), P('y', 'T', 100, 30, 6)], [], 1500, { hurt: { gone: 1000 }, act: { y: 1000 } });
     eq(r.fight, null, 'a player hurt in the previous packet who is gone now does not break the next packet');
+  });
+
+  // positions: x, y, forward angle in degrees (0 = +x). Fight candidates by the packet alone, no timers
+  await step('fight by shots and by aim: early, before any damage', async () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+    const a = src.indexOf('const FIGHT_WIN'), b = src.indexOf('\nlet fightPrev');
+    const vm = require('vm'), ctx = {}; vm.createContext(ctx);
+    vm.runInContext(src.slice(a, b) + '\nthis.detectFight = detectFight;', ctx);
+    // x, y, fw; ammo falls for the ids in `shot`
+    const G = (list, shot = []) => list.map(([id, team, x, y, fw, hp = 100]) => ({ id, name: 'n' + id, team, hp, alive: hp > 0, slot: 0, weapon: 'weapon_ak47', ammo: shot.includes(id) ? 20 : 30, pos: [x, y, 0], fw }));
+    const idle = l => Object.fromEntries(G(l).map(p => [p.id, p]));
+    const fight = (list, shot, prevList, now = 1000, cur) => ctx.detectFight(idle(prevList || list), G(list, shot), [], now, null, cur).fight;
+    // CT a looks along +x at T b 800 units away; T c is behind a
+    const L = [['a', 'CT', 0, 0, 0], ['b', 'T', 800, 0, 180], ['c', 'T', -3000, 0, 0], ['d', 'CT', 100, 900, 0]];
+    let f = fight(L, ['a']);
+    eq(f && f.key, 'a|b', 'a shot at an enemy in view: the fight is there in the same packet, no damage yet');
+    f = fight([['a', 'CT', 0, 0, 0], ['b', 'T', 800, 0, 90], ['c', 'T', 0, 700, 0]], ['a']);
+    eq(f && f.key, 'a|b', 'the enemy in the cone wins over a nearer one at the side');
+    f = fight([['a', 'CT', 0, 0, 0], ['b', 'T', 6000, 0, 180]], ['a']);
+    eq(f, null, 'a far enemy gives no fight (looking at it or not)');
+    f = fight([['a', 'CT', 0, 0, 0], ['d', 'CT', 400, 0, 0], ['b', 'T', 6000, 0, 0]], ['a']);
+    eq(f, null, 'an ally in view gives no fight');
+    f = fight([['a', 'CT', 0, 0, 0], ['b', 'T', 5000, 0, 180]], ['b']);
+    eq(f, null, 'a far shooter and a far enemy: nothing');
+    f = fight([['a', 'CT', 0, 0, 90], ['b', 'T', 600, 0, 0]], ['a']);
+    eq(f && f.key, 'a|b', 'a close enemy outside the cone still counts (turn and shoot)');
+    f = fight([['a', 'CT', 0, 0, 0, 0], ['b', 'T', 600, 0, 180]], ['a']);
+    eq(f, null, 'a dead player does not shoot');
+    // pre-fight: both look at each other, within 1500
+    f = fight([['a', 'CT', 0, 0, 0], ['b', 'T', 1200, 0, 180]], []);
+    eq(f && [f.key, f.pri], ['a|b', 1], 'two enemies look at each other closer than 1500: a pre-fight without shots');
+    eq(fight([['a', 'CT', 0, 0, 0], ['b', 'T', 1200, 0, 0]], []), null, 'one looks away: nothing');
+    eq(fight([['a', 'CT', 0, 0, 0], ['b', 'T', 1800, 0, 180]], []), null, 'too far: nothing');
+    eq(fight([['a', 'CT', 0, 0, 0], ['b', 'T', 1200, 0, 180, 0]], []), null, 'one is dead: nothing');
+    eq(fight([['a', 'CT', 0, 0, 0], ['d', 'CT', 1200, 0, 180]], []), null, 'allies looking at each other: nothing');
+    eq(fight([['a', 'CT', 0, 0, 0], ['b', 'T', 1000, 1000, 180]], []), null, 'about 45 degrees off: nothing');
+    // the pair changes: a new shot beats the pre-fight, the current pair holds against equal ones
+    const two = [['a', 'CT', 0, 0, 0], ['b', 'T', 1000, 0, 180], ['e', 'CT', 0, 3000, 270], ['f', 'T', 0, 2000, 90]];
+    f = fight(two, ['e']);
+    eq(f && f.key, 'e|f', 'a shot (e at f) is stronger than the a|b pre-fight');
+    f = fight(two, [], null, 1000, 'a|b');
+    eq(f && f.key, 'a|b', 'with no shots the pre-fight pair stays');
   });
 
   await step('fight hint: damage between teams shows both slots and nicks in the dock status', async () => {
@@ -131,13 +175,31 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await fightOf()) === null, 4000), 'gone after 4 s');
   });
 
+  await step('the early fight shows in the same packet as the shot and the next pair replaces it', async () => {
+    await sleep(100);
+    const P2 = (extra, pos) => { const g = spec(extra, 7);
+      for(const [id, [x, y, ang]] of Object.entries(pos)){ g.allplayers[id].position = `${x}, ${y}, 0`; g.allplayers[id].forward = `${Math.cos(ang * Math.PI / 180)}, ${Math.sin(ang * Math.PI / 180)}, 0`; } return g; };
+    const far = { 101: [0, 0, 0], 102: [0, 4000, 0], 201: [700, 0, 180], 202: [0, -6000, 0] };
+    await send(P2({}, far));
+    const f0 = await fightOf();
+    eq(f0 && [f0.a.name, f0.b.name], ['SaiYeah', 'gospoja'], 'they look at each other: the fight is there before any shot');
+    // ct2 and t2 meet: ct2 fires at t2 straight ahead, the pair changes in the same packet
+    await send(P2({ 102: { ammo: 29 } }, { ...far, 102: [0, 4000, 0], 202: [900, 4000, 180] }));
+    const f1 = await fightOf();
+    eq(f1 && [f1.a.name, f1.b.name], ['ct2', 't2'], 'the shot pair replaces the old one at once');
+  });
+
+  await step('the hint goes away 4 s after the last action', async () => {
+    check(await until(async () => (await fightOf()) === null, 6000), 'gone');
+  });
+
   await step('one team or no damage gives no hint', async () => {
     await send(spec({}, 6));
     await send(spec({ 101: { hp: 50, ammo: 25 }, 102: { ammo: 20 } }, 6));
     eq(await fightOf(), null, 'CT hurt, only CT shooting');
     await sleep(2100);   // the CT damage leaves the 2 s window
     await send(spec({ 101: { hp: 50, ammo: 10 }, 102: { ammo: 15 }, 201: { ammo: 12 }, 202: { ammo: 5 } }, 6));
-    eq(await fightOf(), null, 'both teams shooting, nobody hurt');
+    check((await fightOf()) !== null, 'both teams shooting (no positions): the fight shows without damage');
   });
 
   await step('only the panel subscribes to cs2fight, the widget does not', async () => {

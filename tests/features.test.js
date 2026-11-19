@@ -367,9 +367,9 @@ const { step, check, eq, until, sleep } = T;
 
   await step('CS2 observer mode (alpha)', async () => {
     const names = ['s1mple', 'b1t', 'iM', 'jL', 'Aleksib', 'ZywOo', 'apEX', 'flameZ', 'mezii', 'Spinx'];
-    const players = {}; names.forEach((n, i) => players['7650' + i] = { name: n, observer_slot: (i + 1) % 10, team: i < 5 ? 'CT' : 'T', state: { health: i === 3 ? 0 : 100 - i * 7, armor: 100, money: 1000 + i * 650, round_kills: 0 }, match_stats: { kills: 10 + i, deaths: 8, assists: i }, weapons: { w1: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: 20, ammo_clip_max: 30 } } });
+    const players = {}; names.forEach((n, i) => players['7650' + i] = { name: n, observer_slot: i, team: i < 5 ? 'CT' : 'T', state: { health: i === 3 ? 0 : 100 - i * 7, armor: 100, money: 1000 + i * 650, round_kills: 0 }, match_stats: { kills: 10 + i, deaths: 8, assists: i }, weapons: { w1: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: 20, ammo_clip_max: 30 } } });
     await gsi({ provider: { steamid: '999' }, map: { name: 'de_inferno', round: 17, phase: 'live', team_ct: { score: 9, name: 'NAVI' }, team_t: { score: 8, name: 'Vitality' } }, round: { phase: 'live', bomb: 'planted' }, phase_countdowns: { phase: 'bomb', phase_ends_in: '38.2' },
-      player: { steamid: '76505', name: 'ZywOo', team: 'T', observer_slot: 6, state: { health: 65 } }, allplayers: players });
+      player: { steamid: '76505', name: 'ZywOo', team: 'T', observer_slot: 5, state: { health: 65 } }, allplayers: players });
     await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'teams');
     await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'scorebar');
     eq(await until(() => wid.$$eval('.tm-row', n => n.length || 0)), 10, 'team panels list 10 players');
@@ -382,11 +382,11 @@ const { step, check, eq, until, sleep } = T;
 
   await step('CS2 fight hint: a plate over the panel canvas, nothing on stream', async () => {
     const names = ['s1mple', 'b1t', 'iM', 'jL', 'Aleksib', 'ZywOo', 'apEX', 'flameZ', 'mezii', 'Spinx'];
-    const pkt = (hurt, shot) => { const players = {}; names.forEach((n, i) => players['7650' + i] = { name: n, observer_slot: (i + 1) % 10, team: i < 5 ? 'CT' : 'T',
+    const pkt = (hurt, shot) => { const players = {}; names.forEach((n, i) => players['7650' + i] = { name: n, observer_slot: i, team: i < 5 ? 'CT' : 'T',
       state: { health: i === hurt ? 40 : 100, armor: 100, money: 1000, round_kills: 0 }, match_stats: { kills: 0, deaths: 0, assists: 0 },
       weapons: { w1: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: i === shot ? 22 : 30, ammo_clip_max: 30 } } });
       return { provider: { steamid: '999' }, map: { name: 'de_inferno', round: 18, phase: 'live', team_ct: { score: 9 }, team_t: { score: 9 } }, round: { phase: 'live' },
-        player: { steamid: '76505', name: 'ZywOo', team: 'T', observer_slot: 6, state: { health: 100 } }, allplayers: players }; };
+        player: { steamid: '76505', name: 'ZywOo', team: 'T', observer_slot: 5, state: { health: 100 } }, allplayers: players }; };
     await mod.click('[data-tab=chat]');   // the plate shows on any tab
     await gsi(pkt(-1, -1)); await sleep(150); await gsi(pkt(1, 5));
     check(await until(() => mod.isVisible('#fightBar')), 'plate is visible over the canvas');

@@ -125,14 +125,14 @@ const C = box.C;
   });
   const cfg = () => JSON.parse(fs.readFileSync(path.join(s.host.dir, 'overlay-host.json'), 'utf8'));
   const gsi = body => fetch(`http://127.0.0.1:${s.host.port}/gsi`, { method: 'POST', headers: { host: `127.0.0.1:${s.host.port}` }, body: JSON.stringify({ ...body, auth: { token: cfg().gsiToken } }) });
-  const ROSTER = [['101', 'SaiYeah', 'CT', 1, [-500, 1500, 0]], ['102', 'gospoja', 'CT', 2, [0, 0, 0]], ['103', 'runorn', 'CT', 3, [0, 0, 0]], ['104', 'pelmech', 'CT', 4, [0, 0, 0]], ['105', 'etsu', 'CT', 5, [0, 0, 0]],
-    ['201', 'kirpich', 'T', 6, [0, 0, 0]], ['202', 'mamka', 'T', 7, [0, 0, 0]], ['203', 'lesnik', 'T', 8, [0, 0, 0]], ['204', 'zhuk', 'T', 9, [0, 0, 0]], ['205', 'tapok', 'T', 0, [0, 0, 0]]];
+  const ROSTER = [['101', 'SaiYeah', 'CT', 0, [-500, 1500, 0]], ['102', 'gospoja', 'CT', 1, [0, 0, 0]], ['103', 'runorn', 'CT', 2, [0, 0, 0]], ['104', 'pelmech', 'CT', 3, [0, 0, 0]], ['105', 'etsu', 'CT', 4, [0, 0, 0]],
+    ['201', 'kirpich', 'T', 5, [0, 0, 0]], ['202', 'mamka', 'T', 6, [0, 0, 0]], ['203', 'lesnik', 'T', 7, [0, 0, 0]], ['204', 'zhuk', 'T', 8, [0, 0, 0]], ['205', 'tapok', 'T', 9, [0, 0, 0]]];
   const spec = ({ map = 'de_dust2', phase = 'live', pphase = 'live', ct = 3, tt = 2, round = 5, names } = {}) => {
     const allplayers = {};
     for(const [id, name, team, slot, pos] of ROSTER) allplayers[id] = { name, team, observer_slot: slot, position: pos.join(', '), forward: '1, 0, 0',
       state: { health: 100, armor: 100, money: 1000 }, match_stats: { kills: 5, deaths: 3, assists: 1, mvps: id === '201' ? 2 : 0 }, weapons: { weapon_0: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: 30, ammo_clip_max: 30, ammo_reserve: 90 } } };
     return { provider: { steamid: '999' }, map: { name: map, mode: 'competitive', round, phase, team_ct: { score: ct, ...(names ? { name: names[0] } : {}) }, team_t: { score: tt, ...(names ? { name: names[1] } : {}) } },
-      round: { phase: 'freezetime' }, phase_countdowns: { phase: pphase, phase_ends_in: '24.0' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 1, state: { health: 100 } }, allplayers };
+      round: { phase: 'freezetime' }, phase_countdowns: { phase: pphase, phase_ends_in: '24.0' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 0, state: { health: 100 } }, allplayers };
   };
   const tabOn = () => s.widget.evaluate(() => { const b = document.getElementById('ctab'); return !b.hidden && b.classList.contains('show') ? { st: b.dataset.st, th: b.dataset.th, m: b.dataset.m, rows: b.querySelectorAll('.pl:not(.ph)').length, hb: document.getElementById('stage').classList.contains('ctab-hb'), ht: document.getElementById('stage').classList.contains('ctab-ht'), text: b.textContent } : null; });
 

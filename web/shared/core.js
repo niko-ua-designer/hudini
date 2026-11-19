@@ -1429,6 +1429,10 @@ const WEAPONS = { ak47:'AK-47', m4a1:'M4A4', m4a1_silencer:'M4A1-S', awp:'AWP', 
   smokegrenade:'Дым', molotov:'Молотов', incgrenade:'Зажигалка', decoy:'Ложная' };
 function weaponName(w){ if(!w) return ''; const id=String(w).replace(/^weapon_/,''); return /knife|bayonet/.test(id) ? st('Нож') : st((Object.hasOwn(WEAPONS, id) && WEAPONS[id]) || id.toUpperCase()); }
 function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|gd)_/,''); return n.charAt(0).toUpperCase()+n.slice(1); }
+// observer_slot CS2 идёт 0–9: слот 0 — первый игрок (клавиша 1), слот 9 — десятый (клавиша 0). Подпись 1 2 … 9 0, порядок — по слоту.
+// Та же формула в server.js (slotKey). -1 и пустое значение дают пустую подпись и уходят в конец.
+const slotLabel = s => { const n=Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=9 ? String((n+1)%10) : ''; };
+const slotOrd = s => slotLabel(s)==='' ? 99 : Number(s);
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
 // Линейные иконки HUD вместо эмодзи: эмодзи разного размера и сидят на разной высоте.
@@ -1577,7 +1581,7 @@ function paintCs2(c, el){
     case 'observed': {
       const o = d.observed || (d.spec ? null : { ...d, alive:d.alive!==false });
       if(!o){ parts.push(h('div','c-none',st('👁 Наблюдатель: выбери игрока'))); break; }
-      const top=h('div','c-top'); top.append(h('span','c-name', `${o.slot!=null?o.slot+' · ':''}${o.name||st('Игрок')}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
+      const top=h('div','c-top'); top.append(h('span','c-name', `${slotLabel(o.slot)?slotLabel(o.slot)+' · ':''}${o.name||st('Игрок')}`), h('span', o.team==='CT'?'c-ct':'c-t', o.team||''));
       const okd = o.d ? (o.k/o.d).toFixed(2) : (o.k||0).toFixed(2);
       const kr=h('div','c-kda'); kr.append(kdNode(null, el, '', o.k, o.d), h('b',null,String(o.a??0)), h('i',null,'A'));
       const och=h('span','c-chips'); och.append(chip('K/D', h('b',null,okd))); kr.append(och);
@@ -1596,11 +1600,11 @@ function paintCs2(c, el){
         const col=h('div','tm-col tm-'+side.toLowerCase());
         const head=h('div','tm-head'); head.append(h('span',null, (side==='CT'?d.ctName:d.tName) || st(side==='CT'?'Спецназ':'Террористы')), h('b',null,String(side==='CT'?d.ct??0:d.tt??0)));
         col.appendChild(head);
-        const list=d.players.filter(p=>p.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99));
+        const list=d.players.filter(p=>p.team===side).sort((a,b)=>slotOrd(a.slot)-slotOrd(b.slot));
         for(const p of list){
           const r=h('div','tm-row'+(p.alive?'':' dead')+(d.obs===p.id?' obs':''));
           const hpw=h('div','tm-hp'), hf=h('div','tm-hpf'); hf.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; hpw.appendChild(hf);
-          const nm=h('div','tm-name'); nm.append(h('span','tm-slot', p.slot!=null?String(p.slot):''), document.createTextNode(p.name||'?'));
+          const nm=h('div','tm-name'); nm.append(h('span','tm-slot', slotLabel(p.slot)), document.createTextNode(p.name||'?'));
           // колонки фиксированной ширины: у всех строк цифры и иконки стоят друг под другом
           const ic=h('span','tm-ic'); if(p.alive){ if(p.bomb) ic.appendChild(hudIc('bomb','hi-c4')); if(p.kit) ic.appendChild(hudIc('kit')); if(armorIc(p)) ic.appendChild(hudIc(armorIc(p))); }
           const hpn=h('span','tm-hpn'); if(p.alive) hpn.textContent=String(p.hp); else hpn.appendChild(hudIc('skull'));
@@ -1672,7 +1676,7 @@ function playerCard(c, el, p, obs){
   top.append(hp); if(p.alive!==false && armorIc(p)) top.append(hudIc(armorIc(p), 'hd-arm'));
   card.appendChild(top);
   const bar=h('div','hd-bar'), f=h('div','hd-fill'); f.style.width=Math.max(0,Math.min(100,p.hp||0))+'%'; f.style.background=hpColor(p.hp||0); bar.appendChild(f);
-  const nm=h('div','hd-name'); if(p.slot!=null) nm.appendChild(h('span','hd-slot', String(p.slot))); nm.append(p.name||'?');
+  const nm=h('div','hd-name'); if(slotLabel(p.slot)) nm.appendChild(h('span','hd-slot', slotLabel(p.slot))); nm.append(p.name||'?');
   card.append(bar, nm);
   const key=p.id||p.name, row=h('div','hd-row'); row.append(kdNode(c, el, key, p.k, p.d), fnum(c, el, key+'$', money(p.money), 'hd-money'));
   card.appendChild(row);
@@ -1770,7 +1774,7 @@ function paintHud(c, el, d){
     if(!players.length){ c.replaceChildren(h('div','hd-wait', st('👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)'))); return; }
     parts.push(scoreTop(el, d, true)); if(el.kfeed) parts.push(killfeed(d, el));
     const bot=h('div','hd-bottom');
-    const col=side=>{ const g=h('div','hd-side tm-'+side.toLowerCase()); for(const p of players.filter(x=>x.team===side).sort((a,b)=>(a.slot??99)-(b.slot??99)).slice(0,5)) g.appendChild(playerCard(c, el, p, d.obs===p.id)); return g; };
+    const col=side=>{ const g=h('div','hd-side tm-'+side.toLowerCase()); for(const p of players.filter(x=>x.team===side).sort((a,b)=>slotOrd(a.slot)-slotOrd(b.slot)).slice(0,5)) g.appendChild(playerCard(c, el, p, d.obs===p.id)); return g; };
     const ob=d.observed ? { ...d.observed, ...(players.find(x=>x.id===d.observed.id)||{}) } : null;
     const center=h('div','hd-center'); if(ob) center.appendChild(bigCard(c, el, ob));
     bot.append(col('CT'), center, col('T')); parts.push(bot);
@@ -1897,7 +1901,7 @@ function cs2TabTitle(d, m, look){
 function cs2TabRow(p, mvp){
   const r=h('div','pl'+(p.alive===false?' dead':'')+(mvp?' mvp':''));
   const nm=h('span','nm', p.name||'?'); if(mvp) nm.append(h('i','star',' ★ MVP'));
-  r.append(h('span','sl', p.slot!=null ? String(p.slot) : ''), nm, kdNode(null, null, '', p.k, p.d, 'num kdn'),
+  r.append(h('span','sl', slotLabel(p.slot)), nm, kdNode(null, null, '', p.k, p.d, 'num kdn'),
     h('span','num', String(p.adr??0)), h('span','num', (p.hsp??0)+'%'), h('span','wpn', weaponShort(p.main||p.weapon)), h('span','num money', money(p.money)));
   return r;
 }
@@ -1906,7 +1910,7 @@ function cs2TabHead(){
 }
 function cs2TabCard(p, mvp){
   const c=h('div','pc'+(p.alive===false?' dead':'')+(mvp?' mvp':''));
-  c.append(h('div','nm', `${p.slot!=null?p.slot+' · ':''}${p.name||'?'}${mvp?' ★':''}`));
+  c.append(h('div','nm', `${slotLabel(p.slot)?slotLabel(p.slot)+' · ':''}${p.name||'?'}${mvp?' ★':''}`));
   const s=h('div','st'); s.append(kdNode(null, null, '', p.k, p.d), h('span',null,'ADR '+(p.adr??0)), h('span',null,'HS '+(p.hsp??0)+'%')); c.appendChild(s);
   c.appendChild(h('div','mo', `${weaponShort(p.main||p.weapon)} · ${money(p.money)}`));
   return c;
@@ -1915,7 +1919,7 @@ function cs2TabCard(p, mvp){
 function cs2TabBuild(box, d, a, m, look){
   const [title, sub, timer]=cs2TabTitle(d, m, look), end=m==='end';
   const list=d.players?.length ? d.players : (d.name ? [{ ...d, id:d.id||'me', slot:null }] : []);
-  const key=p=>p.slot==null ? 99 : p.slot===0 ? 10 : p.slot;   // клавиша 0 — десятый игрок
+  const key=slotOrd;
   const side=t=>list.filter(p=>p.team===t).sort((x,y)=>key(x)-key(y)).slice(0,5);
   const CT=side('CT'), TT=side('T'), mvp=end ? cs2Mvp(list) : null;
   const ctN=d.ctName || st('Спецназ'), tN=d.tName || st('Террористы'), ser=seriesLabel();
@@ -2021,8 +2025,8 @@ function paintRadar(c, el, d){
     if(!n){ n=h('div','rd-dot'); n.append(h('i','rd-dir'), h('b')); r.dots.appendChild(n); r.map.set(key, n); }
     n.className='rd-dot tm-'+(p.team==='T'?'t':'ct')+(p.alive===false?' dead':'')+(p.id===d.obs?' obs':'')+(p.bomb?' c4':'')
       +(typeof cs2Lower==='function' && cs2Lower(map, p.pos)!==lower ? ' other' : '');
-    n.lastChild.textContent=p.alive===false ? '✕' : p.slot!=null ? String(p.slot) : '';
-    n.title=(p.slot!=null ? p.slot+' · ' : '')+(p.name||'');   // ник из cs2View (с подменой)
+    n.lastChild.textContent=p.alive===false ? '✕' : slotLabel(p.slot);
+    n.title=(p.slot!=null ? slotLabel(p.slot)+' · ' : '')+(p.name||'');   // ник из cs2View (с подменой)
     if(p.fw!=null) n.style.setProperty('--a', (-p.fw)+'deg');
     n.firstChild.hidden=p.fw==null || p.alive===false;
     n.hidden=!place(n, p.pos);

@@ -732,49 +732,87 @@ function compactGsi(g){
   return out;
 }
 // ---- файт: подсказка кастеру «бой у игроков №N и №M» (только в пульт и док, на стрим не идёт) ----
-// Номер на экране — это клавиша наблюдателя CS2: observer_slot уже идёт как 1–9 и 0 (десятый игрок),
-// так же его показывают панели команд. 10 на всякий случай тоже считаем клавишей 0.
+// Номер на экране — клавиша наблюдателя CS2. observer_slot идёт 0–9: слот 0 — первый игрок (клавиша 1), слот 9 — десятый (клавиша 0).
+// Та же формула в core.js (slotLabel). -1 и пустое значение — «нет номера».
 const FIGHT_WIN = 2000, FIGHT_TTL = 4000;
-function slotKey(s){ const n = Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=10 ? n%10 : null; }
-// Чистая функция: по прошлому и новому пакету allplayers (и событиям frag) решает, есть ли бой.
-// recent = { hurt:{id:t}, act:{id:t} } — кого ранили и кто действовал (ранен, стрелял, убил) за последние 2 с.
-// Бой: игрок одной команды получил урон или погиб, а игрок другой команды за то же окно действовал.
-// Пару выбираем по самому свежему урону. Враг — ближайший из активных, если есть позиции (allplayers_position), иначе самый свежий.
-function detectFight(prevPlayers, players, evs, now, recent){
+function slotKey(s){ const n = Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=9 ? (n+1)%10 : null; }
+// Чистая функция: по прошлому и новому пакету allplayers (и событиям frag) решает, есть ли бой. Кандидаты по силе:
+//  3. урон: игрок одной команды получил урон или погиб, а игрок другой команды за окно 2 с действовал (recent = { hurt, act });
+//  2. выстрел: у игрока в этом пакете упали патроны (то же оружие). Враг — ближайший в поле зрения (угол ≤ 25°, до 2500 юнитов),
+//     иначе ближайший в 1000 юнитах; без позиций — самый свежий раненый или активный враг;
+//  1. предфайт: два живых врага ближе 1500 юнитов смотрят друг на друга (угол обоих ≤ 30°).
+// Выстрел и предфайт показывают файт до первого урона. cur — ключ текущей пары: она остаётся, пока не появился кандидат сильнее.
+const SHOT_CONE = 25, SHOT_DIST = 2500, SHOT_NEAR = 1000, PRE_CONE = 30, PRE_DIST = 1500;
+const isSide = t => t==='CT' || t==='T';
+const distOf = (a, b) => a.pos && b.pos ? Math.hypot(a.pos[0]-b.pos[0], a.pos[1]-b.pos[1], (a.pos[2]-b.pos[2])*.5) : null;
+// угол между направлением взгляда p (p.fw, градусы) и направлением на q; null, если чего-то не хватает
+function aimOff(p, q){
+  if(!p.pos || !q.pos || p.fw==null) return null;
+  const d = Math.atan2(q.pos[1]-p.pos[1], q.pos[0]-p.pos[0]) * 180 / Math.PI - p.fw;
+  return Math.abs(((d % 360) + 540) % 360 - 180);
+}
+function detectFight(prevPlayers, players, evs, now, recent, cur){
   const keep = m => { const o = {}; for(const [id, t] of Object.entries(m||{})) if(now-t < FIGHT_WIN) o[id] = t; return o; };
   const hurt = keep(recent?.hurt), act = keep(recent?.act);
   const byId = new Map((players||[]).map(p => [String(p.id), p]));
   const mark = (m, id, t) => { if(byId.has(String(id)) && now-t < FIGHT_WIN) m[id] = Math.max(m[id]||0, t); };
+  const shots = [];
   for(const p of byId.values()){
     const pv = prevPlayers?.[p.id]; if(!pv) continue;
     if((p.hp??0) < (pv.hp??0)){ mark(hurt, p.id, now); mark(act, p.id, now); }
     // выстрел: в том же оружии стало меньше патронов (перезарядка их только добавляет)
-    if(p.weapon && p.weapon===pv.weapon && p.ammo!=null && pv.ammo!=null && p.ammo < pv.ammo) mark(act, p.id, now);
+    if(p.weapon && p.weapon===pv.weapon && p.ammo!=null && pv.ammo!=null && p.ammo < pv.ammo && p.alive!==false){ mark(act, p.id, now); shots.push(p); }
   }
   for(const e of evs||[]) if(e?.k==='frag' && now-(e.t||0) < FIGHT_WIN){ if(e.kid!=null) mark(act, e.kid, e.t); if(e.vid!=null){ mark(hurt, e.vid, e.t); mark(act, e.vid, e.t); } }
   const who = id => { const p = byId.get(String(id)); return { id:p.id, slot:slotKey(p.slot), name:String(p.name||'?').slice(0, 40), team:p.team }; };
-  let fight = null;
-  for(const [hid, ht] of Object.entries(hurt).sort((a, b) => b[1]-a[1])){
-    const hp = byId.get(String(hid)); if(!hp || (hp.team!=='CT' && hp.team!=='T')) continue;   // кого ранили, но в новом пакете его уже нет (другой матч, ушёл)
-    const d2 = id => { const a = hp.pos, b = byId.get(String(id))?.pos; return a && b ? (a[0]-b[0])**2 + (a[1]-b[1])**2 : null; };
-    const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return (t==='CT' || t==='T') && t!==hp.team; })
-      .sort((a, b) => { const da = d2(a[0]), db = d2(b[0]); return da!=null && db!=null && da!==db ? da-db : b[1]-a[1]; })[0];
-    if(!foe) continue;
-    const x = who(hid), y = who(foe[0]), [a, b] = x.team==='CT' ? [x, y] : [y, x];
-    fight = { a, b, t:Math.max(ht, foe[1]), key:`${a.id}|${b.id}` };
-    break;
+  const cands = [];
+  const add = (id1, id2, pri, t, dist) => {
+    const x = who(id1), y = who(id2), [a, b] = x.team==='CT' ? [x, y] : [y, x];
+    const key = `${a.id}|${b.id}`; if(!cands.some(c => c.key===key && c.pri>=pri)) cands.push({ a, b, t, key, pri, dist:dist ?? 1e9 });
+  };
+  // 3. урон
+  for(const [hid, ht] of Object.entries(hurt)){
+    const hp = byId.get(String(hid)); if(!hp || !isSide(hp.team)) continue;   // кого ранили, но в новом пакете его уже нет
+    const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return isSide(t) && t!==hp.team; })
+      .sort((a, b) => { const da = distOf(hp, byId.get(String(a[0]))), db = distOf(hp, byId.get(String(b[0]))); return da!=null && db!=null && da!==db ? da-db : b[1]-a[1]; })[0];
+    if(foe) add(hid, foe[0], 3, Math.max(ht, foe[1]));
   }
+  const alive = [...byId.values()].filter(p => isSide(p.team) && p.alive!==false && (p.hp==null || p.hp>0));
+  // 2. выстрел
+  for(const sh of shots){
+    if(!isSide(sh.team)) continue;
+    const foes = alive.filter(p => p.team!==sh.team);
+    let foe = null;
+    if(sh.pos && sh.fw!=null && foes.some(p => p.pos)){
+      const near = foes.map(p => ({ p, d:distOf(sh, p), ang:aimOff(sh, p) })).filter(x => x.d!=null).sort((x, y) => x.d-y.d);
+      foe = (near.find(x => x.ang<=SHOT_CONE && x.d<=SHOT_DIST) || near.find(x => x.d<=SHOT_NEAR))?.p;
+    } else {
+      const f = foes.map(p => ({ p, t:Math.max(hurt[p.id]||0, act[p.id]||0) })).filter(x => x.t).sort((x, y) => y.t-x.t)[0];
+      foe = f?.p;
+    }
+    if(foe) add(sh.id, foe.id, 2, now, distOf(sh, foe));
+  }
+  // 1. предфайт: смотрят друг на друга, оба живы
+  for(const x of alive) for(const y of alive){
+    if(x.team!=='CT' || y.team!=='T') continue;
+    const d = distOf(x, y), ax = aimOff(x, y), ay = aimOff(y, x);
+    if(d!=null && d<=PRE_DIST && ax!=null && ay!=null && ax<=PRE_CONE && ay<=PRE_CONE) add(x.id, y.id, 1, now, d);
+  }
+  cands.sort((p, q) => q.pri-p.pri || q.t-p.t || p.dist-q.dist);
+  const keepCur = cur && cands.find(c => c.key===cur && c.pri>=(cands[0]?.pri||0));
+  const fight = keepCur || cands[0] || null;
   return { fight, recent:{ hurt, act } };
 }
 let fightPrev = {}, fightRecent = null, fight = null, fightPubAt = 0;
 function fightNow(){ const left = fight ? fight.until - Date.now() : 0; return left > 0 ? { a:fight.a, b:fight.b, ttl:left } : null; }
 function trackFight(out){
   if(!out.players){ fightPrev = {}; fightRecent = null; return; }
-  const now = Date.now(), r = detectFight(fightPrev, out.players, out.evs, now, fightRecent);
+  const now = Date.now(), live = fightNow(), r = detectFight(fightPrev, out.players, out.evs, now, fightRecent, live && fight.key);
   fightRecent = r.recent; fightPrev = Object.fromEntries(out.players.map(p => [p.id, p]));
   if(!r.fight) return;
-  const same = fightNow() && fight.key===r.fight.key;
+  const same = live && fight.key===r.fight.key;
   fight = { ...r.fight, until:r.fight.t + FIGHT_TTL };
+  // новая пара уходит сразу, одна и та же — раз в секунду, только чтобы продлить ttl
   if(!same || now-fightPubAt > 1000) publishFight();
 }
 // Отдельная неретейн-тема cs2fight: пульт подписан, виджет OBS — нет. Публикует только программа (в PUB_MOD/PUB_LOCAL её нет).
