@@ -50,6 +50,8 @@ function row(cls, label, value){
 }
 async function refresh(){
   try{ s=await api('/api/status'); }catch{ $('rows').replaceChildren(row('bad', 'Hudini Host', 'не отвечает')); return; }
+  // Opened on 127.0.0.1 the status has no room and no numbers (it is the management origin): go to localhost, where the dock belongs
+  if(s.alive && !('room' in s) && location.hostname==='127.0.0.1'){ location.replace(`http://localhost:${location.port}/dock`); return; }
   const g=s.storage||{}, mb=b=>Math.round((b||0)/1048576);
   $('rows').replaceChildren(
     row(s.obsOnline?'ok':'bad', 'OBS', s.obsOnline?'виджет работает':(s.room?'виджет не подключён':'вставь ссылку в настройках')),

@@ -251,6 +251,14 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     await dock.context().close();
   });
 
+  await step('OBS dock opened on 127.0.0.1 moves to localhost and shows the real status', async () => {
+    const dock = await T.newPage('dock-127', { w: 320, h: 500 });
+    await dock.goto(host.admin + '/dock');
+    check(await until(() => new URL(dock.url()).hostname === 'localhost'), 'the dock moved to localhost: ' + dock.url());
+    check(await until(async () => /виджет работает/.test(await dock.textContent('#rows'))), 'the dock shows the OBS status, not "вставь ссылку": ' + await dock.textContent('#rows'));
+    await dock.context().close();
+  });
+
   await step('rekey: Host rotates the password and drops old moderators', async () => {
     const before = JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8')).modPass;
     await panel.click('[data-tab=room]'); await panel.click('#roomRekey');
