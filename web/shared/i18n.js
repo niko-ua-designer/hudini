@@ -1346,6 +1346,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
     "Киллфид Hudini": "Hudini kill feed",
     "(свой список киллов поверх игры)": "(its own kill list over the game)",
+    "⚔ Файт": "⚔ Fight",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2 fight: the number is the observer key. Not shown on stream",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2691,6 +2693,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
     "Киллфид Hudini": "Кілфід Hudini",
     "(свой список киллов поверх игры)": "(власний список кілів поверх гри)",
+    "⚔ Файт": "⚔ Файт",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "Бій у CS2: номер — клавіша спостерігача. На стрим не йде",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4036,6 +4040,8 @@ const HUDINI_DICT = {
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
     "Киллфид Hudini": "Hudini-Killfeed",
     "(свой список киллов поверх игры)": "(eigene Kill-Liste über dem Spiel)",
+    "⚔ Файт": "⚔ Fight",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2-Kampf: Die Nummer ist die Beobachter-Taste. Nicht im Stream sichtbar",
   },
 };
 

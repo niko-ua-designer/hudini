@@ -26,6 +26,13 @@ function rid(n){
   const abc='abcdefghijkmnpqrstuvwxyz23456789', b=crypto.getRandomValues(new Uint8Array(n));
   return Array.from(b, x=>abc[x%abc.length]).join('');
 }
+// подсказка «файт» от программы стримера: «3 SaiYeah ↔ 7 gospoja», номер = клавиша наблюдателя CS2. Живёт ttl мс (не больше 4 с)
+function showFight(f){
+  const bar=$('fightBar'); if(!bar || !f?.a || !f?.b) return;
+  const fill=(id, p)=>{ const s=$(id); s.className=p.team==='T'?'t':'ct'; s.replaceChildren(); if(p.slot!=null){ const n=document.createElement('em'); n.textContent=String(p.slot); s.appendChild(n); } s.append(String(p.name||'?').slice(0,40)); };
+  fill('fightA', f.a); fill('fightB', f.b); bar.hidden=false;
+  clearTimeout(showFight.t); showFight.t=setTimeout(()=>{ bar.hidden=true; }, Math.max(500, Math.min(4000, Number(f.ttl)||4000)));
+}
 function toast(t, ms=2400){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'), ms); }
 function setPill(el, cls, text){ el.className='pill '+cls; el.textContent=text; }
 // Данные пульта лежат в HudiniStore: в приложении это файл data/store.json на ПК, в тестах и браузере localStorage
@@ -116,7 +123,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/host'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -306,6 +313,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);

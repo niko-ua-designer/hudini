@@ -380,6 +380,23 @@ const { step, check, eq, until, sleep } = T;
     check((await mod.$eval('#iCsView option[value=teams]', o => o.textContent)).startsWith('α'), 'observer views carry the α mark');
   });
 
+  await step('CS2 fight hint: a plate over the panel canvas, nothing on stream', async () => {
+    const names = ['s1mple', 'b1t', 'iM', 'jL', 'Aleksib', 'ZywOo', 'apEX', 'flameZ', 'mezii', 'Spinx'];
+    const pkt = (hurt, shot) => { const players = {}; names.forEach((n, i) => players['7650' + i] = { name: n, observer_slot: (i + 1) % 10, team: i < 5 ? 'CT' : 'T',
+      state: { health: i === hurt ? 40 : 100, armor: 100, money: 1000, round_kills: 0 }, match_stats: { kills: 0, deaths: 0, assists: 0 },
+      weapons: { w1: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: i === shot ? 22 : 30, ammo_clip_max: 30 } } });
+      return { provider: { steamid: '999' }, map: { name: 'de_inferno', round: 18, phase: 'live', team_ct: { score: 9 }, team_t: { score: 9 } }, round: { phase: 'live' },
+        player: { steamid: '76505', name: 'ZywOo', team: 'T', observer_slot: 6, state: { health: 100 } }, allplayers: players }; };
+    await mod.click('[data-tab=chat]');   // the plate shows on any tab
+    await gsi(pkt(-1, -1)); await sleep(150); await gsi(pkt(1, 5));
+    check(await until(() => mod.isVisible('#fightBar')), 'plate is visible over the canvas');
+    eq(await mod.$eval('#fightBar', b => [b.querySelector('#fightA').textContent, b.querySelector('#fightB').textContent]), ['2b1t', '6ZywOo'], 'slot keys and nicks: 2 b1t ↔ 6 ZywOo');
+    check(await mod.$eval('#fightBar', b => !!b.closest('#stageBox') && !b.closest('#stage')), 'it sits over the canvas, not on it');
+    check(await wid.evaluate(() => !document.body.textContent.includes('b1t ↔') && !document.getElementById('fightBar')), 'nothing about it in the widget');
+    if(process.env.HUDINI_SHOT_DIR) await mod.screenshot({ path: path.join(process.env.HUDINI_SHOT_DIR, 'fight-panel.png') });
+    check(await until(() => mod.isHidden('#fightBar'), 6000), 'plate goes away by itself');
+  });
+
   await step('CS2 HUD: tournament, ADR, kill feed, table, compare', async () => {
     const names = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b3', 'b4', 'b5'];
     const P = (hp, k, dmg) => { const o = {}; names.forEach((n, i) => o['9' + i] = { name:n, observer_slot:i, team:i < 5 ? 'CT' : 'T', state:{ health:hp[i], armor:50, money:2000, round_kills:0, round_totaldmg:dmg[i] }, match_stats:{ kills:k[i], deaths:1, assists:0 }, weapons:{ w:{ name:'weapon_ak47', type:'Rifle', state:'active' } } }); return o; };
