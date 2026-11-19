@@ -43,6 +43,20 @@ ru: {
 <li><b>Папки в слоях.</b> Выдели несколько элементов (Shift+клик по слоям выделяет диапазон, Ctrl+клик добавляет один) и нажми Ctrl+G: они станут папкой «Группа 1», которая двигается вместе. Двойной клик по имени или F2 переименует папку, ▸ сворачивает её. 👁 и ⚡ папки действуют на всё внутри. Чтобы скрыть сразу много слоёв, зажми 👁 и проведи по строкам.</li>
 <li><b>Сцены</b> запоминают весь экран, а <b>библиотека</b> хранит отдельные элементы.</li>
 <li><b>Ctrl+C / Ctrl+V</b> копируют элементы, в том числе в другую комнату. Подробнее о клавишах в конце справки.</li>
+<li><b>Слои.</b> Строки слоёв тащатся мышью: так меняется порядок. Элемент, брошенный на папку, входит в неё, вытащенный из папки выходит. У строки есть кнопка удаления.</li>
+<li><b>Скрыть всё</b> в шапке закрывает глазки у видимых элементов и запоминает их. «Показать всё» открывает ровно их, а то, что ты открыл вручную в промежутке, остаётся открытым.</li>
+<li><b>Боковые панели.</b> Две кнопки в шапке прячут левую и правую панель, холст растягивается. Выбор запоминается.</li>
+<li><b>Отмена по элементам.</b> <kbd>Ctrl+Z</kbd> отменяет последнее действие, <kbd>Ctrl+Y</kbd> или <kbd>Ctrl+Shift+Z</kbd> возвращает. Отмена касается только твоих правок: если другой модератор в это время менял другой элемент, его работа не откатится.</li>
+</ul>`],
+['draw', 'Рисование', `
+<p>Добавить → <b>Рисунок</b> создаёт слой для рисования. Рисуешь прямо на холсте пульта, над холстом появляется полоса с инструментами.</p>
+<ul>
+<li><b>Кисти</b>: ручка, маркер, неон, фигуры и стрелки (прямая, стрелка, круг, прямоугольник) и ластик.</li>
+<li><b>Кисть из фото</b>: выбери картинку и один из двух режимов. «Штамп» ставит копии картинки вдоль линии, «текстура» заливает линию фотографией.</li>
+<li><b>Пипетка</b> берёт цвет с холста или из фото. <b>Палитра из фото</b> показывает 6–8 главных цветов картинки.</li>
+<li><b>«Вживую»</b>: штрих виден на стриме сразу. <b>«По кнопке»</b>: стрим увидит рисунок после «Показать».</li>
+<li><b>Штрихи тают</b>: галочка прячет линии через заданное время (по умолчанию 5 с, ползунок от 1 до 60 с).</li>
+<li>Рисовать могут все модераторы сразу, штрихи не теряются. Готовый рисунок сохраняется в библиотеку, как любой элемент.</li>
 </ul>`],
 ['files', 'Файлы и место', `
 <p>Картинки, GIF и видео с компьютера хранятся у стримера в Hudini, <b>зашифрованными</b>: программа не может их прочитать, расшифровывает только виджет.</p>
@@ -54,7 +68,8 @@ ru: {
 <p>Кнопка <b>🌐</b> в шапке открывает браузер справа. По умолчанию там чат Twitch твоего канала: войди в свой аккаунт один раз, и все кнопки модератора (удалить, таймаут, бан) работают как на сайте. Кнопка «+» добавляет вкладки с любыми сайтами. Ширина колонки меняется за её левый край. Это работает в программе Hudini; на сайте вместо неё встроенный чат.</p>
 <p><b>Голосование</b>: зрители пишут цифру варианта. Один зритель — один голос, засчитывается последний выбор. <b>Счётчик</b> в режиме «По сообщениям в чате» считает команду или слово (например, «F»), можно только от модераторов.</p>
 <p>Подключай чат только в одном пульте, иначе всё посчитается дважды.</p>
-<p><b>Команды в чате</b> (Чат → «Команды в чате», выбери, кому можно): <code>!опрос</code>, <code>!опрос 60</code> — закрыть само через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
+<p><b>Команды в чате</b> (Чат → «Команды в чате», выбери, кому можно): <code>!опрос</code>, <code>!опрос 60</code> — закрыть само через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>
+<p><b>Смайлы 7TV, BTTV и FFZ.</b> В настройках чата три галочки на каждую комнату, по умолчанию выключены. Включённые смайлы видны в ленте пульта, в чате и в сообщениях на стриме. Смайлы грузятся с внешних серверов, на это есть подпись рядом с галочками.</p>`],
 ['scenarios', 'Сценарии β', `
 <p>«Если… → то…»: например, кто-то написал <code>!кринж</code> → показать картинку на 5 секунд и запустить конфетти. Условия: команда в чате, событие CS2, конец таймера, цель счётчика или кнопка.</p>
 <p>Сценарии выполняет открытый пульт. Если пульт открыт у двух модераторов, включи «Выполнять сценарии» только у одного.</p>`],
@@ -73,7 +88,21 @@ ru: {
 <p>У видео, сайтов, кейса, таймера и розыгрыша своя громкость, на стриме она умножается на общую. Значок 🔇 выключает звук элемента (у видео и сайтов это их собственный звук).</p>`],
 ['cs2', 'CS2 β', `
 <p>В окне Hudini стримера нажми <b>🎯 Подключить CS2</b> и перезапусти игру. Это официальная функция Valve (Game State Integration): игра сама отправляет данные программе. Ничего не внедряется в игру, бана за это нет.</p>
-<p>В пульте добавь виджет 🎯 CS2 и выбери вид: карточка игрока, K/D/A, HP, деньги, оружие, всплывашка DOUBLE / TRIPLE / ACE. Виды «наблюдатель» (α) работают, когда стример смотрит игру зрителем.</p>`],
+<p>В пульте добавь виджет 🎯 CS2 и выбери вид: карточка игрока, K/D/A, HP, деньги, оружие, всплывашка DOUBLE / TRIPLE / ACE. Виды «наблюдатель» (α) работают, когда стример смотрит игру зрителем.</p>
+<ul>
+<li><b>Киллфид</b> Hudini по умолчанию выключен, на экране виден киллфид самой игры. Включается галочкой у элемента CS2.</li>
+<li><b>K/D</b> показывается значками: прицел 12 · череп 5. Коэффициент 2.40 остался там, где был.</li>
+<li><b>«Файт».</b> Над холстом пульта на 2–5 секунд появляется плашка вроде «Файт: 3 SaiYeah ↔ 7 gospoja». Она видна на любой вкладке и в доке, на стрим не идёт.</li>
+<li><b>Серия карт</b>: формат BO1, BO3 или BO5. Host сам записывает итог каждой карты, счёт можно сбросить или поправить вручную. Серия видна в scorebar, hud_tour и в авто-табе.</li>
+<li><b>Авто-таб</b>: анимированная таблица со всеми игроками (K/D, ADR, HS%, деньги, оружие, счёт, серия). Появляется сама на тактических таймаутах и паузе, при смене сторон и в конце карты с итогами и MVP. Тумблер и выбор моментов во вкладке CS2, есть четыре стиля.</li>
+<li><b>Радар</b>: где стоит каждый игрок, цвет команды, номер слота, мёртвые и бомба. Фирменные карты в трёх темах.</li>
+</ul>`],
+['perms', 'Права модераторов и док OBS', `
+<p><b>Права.</b> В настройках Hudini стример выбирает, что разрешено модераторам. Четыре галочки, все включены по умолчанию: звуки и видео; сайты и файлы; чат, рисование и эффекты; кейсы, розыгрыши, опросы и CS2. Выключенное пропадает из пульта и не проходит на стрим.</p>
+<p><b>Быстрые выключатели</b> в доке OBS отключают на стриме прямо сейчас чат, CS2-HUD, звуки, рисунки или эффекты.</p>
+<p><b>Док OBS</b> теперь показывает статусы, список элементов на экране с глазками (стример сам прячет лишнее), блок «Кто на связи» (модераторы, пинг, способ связи, кнопка «отключить») и блок CS2 со счётом, наблюдаемым игроком и крупной подсказкой «файт».</p>
+<p><b>Стример сам себе модератор.</b> Кнопка <b>«Открыть пульт»</b> в Hudini открывает полный пульт на этом же ПК без кода и пароля. Модераторы могут работать параллельно.</p>
+<p><b>Журнал и «О программе».</b> В окне Hudini есть журнал подключений (адреса модераторов записаны частично, например <code>100.x.x.12 (Tailscale)</code>) и раздел «О программе» с версией и благодарностями тестерам.</p>`],
 ['labels', 'Что значат β и α', `
 <p>Всё без меток стабильное. <b>β (бета)</b> работает, но мало проверено на разных компьютерах. <b>α (альфа)</b> — эксперимент, может ломаться и меняться. Нажми на метку в пульте, чтобы сообщить о проблеме.</p>`],
 ['layout', 'Вид пульта и обучение', `
@@ -112,7 +141,7 @@ ru: {
 <p>Не помогло? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Напиши о проблеме</a>.</p>`],
 ['keys', 'Клавиши', `
 <ul>
-<li><kbd>Ctrl+Z</kbd> отменить · <kbd>Del</kbd> удалить · <kbd>Esc</kbd> снять выделение</li>
+<li><kbd>Ctrl+Z</kbd> отменить · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> вернуть · <kbd>Del</kbd> удалить · <kbd>Esc</kbd> снять выделение</li>
 <li><kbd>Ctrl+C</kbd> / <kbd>Ctrl+V</kbd> копировать и вставить · <kbd>Ctrl+X</kbd> вырезать · <kbd>Ctrl+D</kbd> копия рядом</li>
 <li><kbd>Shift</kbd>+клик или рамкой — выделить несколько · <kbd>Ctrl+A</kbd> всё · <kbd>Ctrl+G</kbd> группа</li>
 <li><kbd>H</kbd> скрыть/показать · <kbd>F</kbd> показать на N секунд · <kbd>1</kbd>…<kbd>9</kbd> слой с этим номером</li>
@@ -163,6 +192,20 @@ en: {
 <li><b>Folders in layers.</b> Select several elements (Shift+click selects a range of layers, Ctrl+click adds one) and press Ctrl+G: they become a folder called "Group 1" that moves together. Double-click the name or press F2 to rename it, ▸ folds it. The folder's 👁 and ⚡ act on everything inside. To hide many layers at once, hold 👁 and drag over the rows.</li>
 <li><b>Scenes</b> remember the whole screen, the <b>library</b> keeps single elements.</li>
 <li><b>Ctrl+C / Ctrl+V</b> copy elements, also into another room. Keys are listed at the end of this help.</li>
+<li><b>Layers.</b> Drag layer rows to change the order. An element dropped on a folder goes inside, one pulled out of a folder leaves it. Every row has a delete button.</li>
+<li><b>Hide all</b> in the header closes the eyes of the visible elements and remembers them. "Show all" opens exactly those, and anything you opened by hand in between stays open.</li>
+<li><b>Side panels.</b> Two buttons in the header hide the left and the right panel, and the canvas stretches. The choice is remembered.</li>
+<li><b>Undo per element.</b> <kbd>Ctrl+Z</kbd> undoes your last action, <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd> redoes it. It only touches your own edits: if another moderator changed a different element meanwhile, their work is not rolled back.</li>
+</ul>`],
+['draw', 'Drawing', `
+<p>Add → <b>Drawing</b> creates a layer to draw on. You draw right on the panel canvas, and a toolbar appears above it.</p>
+<ul>
+<li><b>Brushes</b>: pen, marker, neon, shapes and arrows (line, arrow, circle, rectangle) and an eraser.</li>
+<li><b>Photo brush</b>: pick a picture and one of two modes. "Stamp" puts copies of the picture along the line, "texture" fills the line with the photo.</li>
+<li><b>Eyedropper</b> picks a colour from the canvas or from a photo. <b>Palette from a photo</b> shows the 6-8 main colours of the picture.</li>
+<li><b>"Live"</b>: a stroke shows on stream at once. <b>"On button"</b>: the stream sees the drawing after you press Show.</li>
+<li><b>Fading strokes</b>: the tick hides lines after a set time (5 s by default, slider from 1 to 60 s).</li>
+<li>All moderators can draw at the same time and no strokes get lost. A finished drawing goes to the library like any element.</li>
 </ul>`],
 ['files', 'Files and storage', `
 <p>Pictures, GIFs and videos from your computer are stored on the streamer's PC in Hudini, <b>encrypted</b>: the app can't read them, only the widget decrypts them.</p>
@@ -174,7 +217,8 @@ en: {
 <p>The <b>🌐</b> button in the header opens a browser on the right. By default it shows the Twitch chat of your channel: log in once and all moderator buttons (delete, timeout, ban) work like on the site. The «+» button adds tabs with any website. Drag the column's left edge to resize it. This works in the Hudini app; on the website an embedded chat is shown instead.</p>
 <p><b>Poll</b>: viewers type the number of an option. One viewer, one vote; the last choice counts. The <b>counter</b> in "By chat messages" mode counts a command or a word (for example "F"), optionally from moderators only.</p>
 <p>Connect the chat in one panel only, otherwise everything is counted twice.</p>
-<p><b>Chat commands</b> (Chat → “Chat commands”, choose who may use them): <code>!poll</code>, <code>!poll 60</code> to close by itself in 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
+<p><b>Chat commands</b> (Chat → “Chat commands”, choose who may use them): <code>!poll</code>, <code>!poll 60</code> to close by itself in 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>
+<p><b>7TV, BTTV and FFZ emotes.</b> In the chat settings there are three ticks per room, off by default. Emotes you turn on show in the panel feed, in the chat and in messages on stream. They load from outside servers, and a note next to the ticks says so.</p>`],
 ['scenarios', 'Scenarios β', `
 <p>"If… → then…": for example, someone types <code>!cringe</code> → show a picture for 5 seconds and fire confetti. Triggers: a chat command, a CS2 event, a timer ending, a counter goal or a button.</p>
 <p>Scenarios run in an open panel. If two moderators have the panel open, turn on "Run scenarios" in only one of them.</p>`],
@@ -193,7 +237,21 @@ en: {
 <p>Videos, websites, the case, the timer and the giveaway have their own volume, which is multiplied by the overall one on stream. The 🔇 icon mutes an element (for videos and websites that is their own sound).</p>`],
 ['cs2', 'CS2 β', `
 <p>In the streamer's Hudini window press <b>🎯 Connect CS2</b> and restart the game. This is an official Valve feature (Game State Integration): the game itself sends data to the app. Nothing is injected into the game, so there's no ban risk.</p>
-<p>In the panel add the 🎯 CS2 widget and pick a view: player card, K/D/A, HP, money, weapon, DOUBLE / TRIPLE / ACE popup. The "observer" views (α) work when the streamer watches a match as a spectator.</p>`],
+<p>In the panel add the 🎯 CS2 widget and pick a view: player card, K/D/A, HP, money, weapon, DOUBLE / TRIPLE / ACE popup. The "observer" views (α) work when the streamer watches a match as a spectator.</p>
+<ul>
+<li><b>Kill feed.</b> Hudini's own kill feed is off by default, so the game's kill feed shows on screen. Turn it on with the tick on the CS2 element.</li>
+<li><b>K/D</b> uses icons: crosshair 12 · skull 5. The 2.40 ratio stays where it was.</li>
+<li><b>"Fight".</b> A strip like "Fight: 3 SaiYeah ↔ 7 gospoja" appears above the panel canvas for 2-5 seconds. It shows on any tab and in the dock, and does not go to the stream.</li>
+<li><b>Map series</b>: format BO1, BO3 or BO5. Hudini records the result of each map itself, and you can reset the score or fix it by hand. The series shows in the scorebar, hud_tour and the auto scoreboard.</li>
+<li><b>Auto scoreboard</b>: an animated table with all players (K/D, ADR, HS%, money, weapon, score, series). It appears on its own during tactical timeouts and pauses, at the side switch and at the end of the map with results and MVP. The switch and the choice of moments are in the CS2 tab, and there are four styles.</li>
+<li><b>Radar</b>: where each player stands, team colour, slot number, the dead and the bomb. Branded maps in three themes.</li>
+</ul>`],
+['perms', 'Moderator permissions and the OBS dock', `
+<p><b>Permissions.</b> In Hudini's settings the streamer chooses what moderators may do. Four ticks, all on by default: sounds and video; websites and files; chat, drawing and effects; cases, giveaways, polls and CS2. Whatever is off disappears from the panel and does not reach the stream.</p>
+<p><b>Quick switches</b> in the OBS dock turn off chat, the CS2 HUD, sounds, drawings or effects on the stream right now.</p>
+<p><b>The OBS dock</b> now shows the status, a list of elements on screen with eyes (the streamer hides extras on their own), a "Who is online" block (moderators, ping, connection method, a "disconnect" button) and a CS2 block with the score, the watched player and a big "fight" hint.</p>
+<p><b>Streamer as their own moderator.</b> The <b>"Open panel"</b> button in Hudini opens the full panel on the same PC with no code and no password. Moderators can work at the same time.</p>
+<p><b>Log and "About".</b> Hudini's window has a connection log (moderator addresses are partly hidden, for example <code>100.x.x.12 (Tailscale)</code>) and an "About" section with the version and thanks to the testers.</p>`],
 ['labels', 'What β and α mean', `
 <p>Everything without a mark is stable. <b>β (beta)</b> works but hasn't been tested on many computers yet. <b>α (alpha)</b> is an experiment and may break or change. Click a mark in the panel to report a problem.</p>`],
 ['layout', 'Panel look and tour', `
@@ -232,7 +290,7 @@ en: {
 <p>Still stuck? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Report a problem</a>.</p>`],
 ['keys', 'Shortcuts', `
 <ul>
-<li><kbd>Ctrl+Z</kbd> undo · <kbd>Del</kbd> delete · <kbd>Esc</kbd> deselect</li>
+<li><kbd>Ctrl+Z</kbd> undo · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> redo · <kbd>Del</kbd> delete · <kbd>Esc</kbd> deselect</li>
 <li><kbd>Ctrl+C</kbd> / <kbd>Ctrl+V</kbd> copy and paste · <kbd>Ctrl+X</kbd> cut · <kbd>Ctrl+D</kbd> duplicate</li>
 <li><kbd>Shift</kbd>+click or drag a box to select several · <kbd>Ctrl+A</kbd> all · <kbd>Ctrl+G</kbd> group</li>
 <li><kbd>H</kbd> hide/show · <kbd>F</kbd> show for N seconds · <kbd>1</kbd>…<kbd>9</kbd> layer with that number</li>
@@ -283,6 +341,20 @@ uk: {
 <li><b>Папки в шарах.</b> Виділи кілька елементів (Shift+клік по шарах виділяє діапазон, Ctrl+клік додає один) і натисни Ctrl+G: вони стануть папкою «Група 1», яка рухається разом. Подвійний клік по назві або F2 перейменує папку, ▸ згортає її. 👁 і ⚡ папки діють на все всередині. Щоб сховати одразу багато шарів, затисни 👁 і проведи по рядках.</li>
 <li><b>Сцени</b> запам'ятовують весь екран, а <b>бібліотека</b> зберігає окремі елементи.</li>
 <li><b>Ctrl+C / Ctrl+V</b> копіюють елементи, зокрема в іншу кімнату. Клавіші описані наприкінці довідки.</li>
+<li><b>Шари.</b> Рядки шарів тягаються мишею: так змінюється порядок. Елемент, кинутий на папку, входить до неї, витягнутий з папки виходить. У рядка є кнопка видалення.</li>
+<li><b>Сховати все</b> у шапці закриває очка видимих елементів і запам'ятовує їх. «Показати все» відкриває саме їх, а те, що ти відкрив вручну між цим, лишається відкритим.</li>
+<li><b>Бокові панелі.</b> Дві кнопки в шапці ховають ліву й праву панель, полотно розтягується. Вибір запам'ятовується.</li>
+<li><b>Скасування по елементах.</b> <kbd>Ctrl+Z</kbd> скасовує останню дію, <kbd>Ctrl+Y</kbd> або <kbd>Ctrl+Shift+Z</kbd> повертає. Скасування стосується лише твоїх правок: якщо інший модератор змінював інший елемент, його робота не відкотиться.</li>
+</ul>`],
+['draw', 'Малювання', `
+<p>Додати → <b>Малюнок</b> створює шар для малювання. Малюєш просто на полотні пульта, над полотном з'являється смуга з інструментами.</p>
+<ul>
+<li><b>Пензлі</b>: ручка, маркер, неон, фігури й стрілки (пряма, стрілка, коло, прямокутник) та гумка.</li>
+<li><b>Пензель із фото</b>: вибери картинку й один із двох режимів. «Штамп» ставить копії картинки вздовж лінії, «текстура» заливає лінію фотографією.</li>
+<li><b>Піпетка</b> бере колір з полотна або з фото. <b>Палітра з фото</b> показує 6–8 головних кольорів картинки.</li>
+<li><b>«Наживо»</b>: штрих видно на стрімі одразу. <b>«За кнопкою»</b>: стрім побачить малюнок після «Показати».</li>
+<li><b>Штрихи тануть</b>: галочка ховає лінії через заданий час (за замовчуванням 5 с, повзунок від 1 до 60 с).</li>
+<li>Малювати можуть усі модератори одразу, штрихи не губляться. Готовий малюнок зберігається в бібліотеку, як будь-який елемент.</li>
 </ul>`],
 ['files', 'Файли й місце', `
 <p>Картинки, GIF і відео з комп'ютера зберігаються у стримера в Hudini, <b>зашифрованими</b>: програма не може їх прочитати, розшифровує лише віджет.</p>
@@ -294,7 +366,8 @@ uk: {
 <p>Кнопка <b>🌐</b> у шапці відкриває браузер праворуч. За замовчуванням там чат Twitch твого каналу: увійди у свій акаунт один раз, і всі кнопки модератора (видалити, таймаут, бан) працюють як на сайті. Кнопка «+» додає вкладки з будь-якими сайтами. Ширина колонки змінюється за її лівий край. Це працює в програмі Hudini; на сайті замість неї вбудований чат.</p>
 <p><b>Голосування</b>: глядачі пишуть цифру варіанта. Один глядач — один голос, зараховується останній вибір. <b>Лічильник чату</b> рахує команду чи слово (наприклад, «F»).</p>
 <p>Підключай чат лише в одному пульті, інакше все порахується двічі.</p>
-<p><b>Команди в чаті</b> (Чат → «Команди в чаті», вибери, кому можна): <code>!опрос</code>, <code>!опрос 60</code> — закрити саме через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>`],
+<p><b>Команди в чаті</b> (Чат → «Команди в чаті», вибери, кому можна): <code>!опрос</code>, <code>!опрос 60</code> — закрити саме через 60 с, <code>!опрос стоп</code>; <code>!таймер 5м</code>, <code>!таймер стоп</code> / <code>старт</code> / <code>сброс</code>.</p>
+<p><b>Смайли 7TV, BTTV і FFZ.</b> У налаштуваннях чату три галочки на кожну кімнату, за замовчуванням вимкнені. Увімкнені смайли видно в стрічці пульта, у чаті й у повідомленнях на стрімі. Смайли вантажаться із зовнішніх серверів, про це є підпис біля галочок.</p>`],
 ['scenarios', 'Сценарії β', `
 <p>«Якщо… → то…»: наприклад, хтось написав <code>!крінж</code> → показати картинку на 5 секунд і запустити конфеті. Умови: команда в чаті, подія CS2, кінець таймера, мета лічильника або кнопка.</p>
 <p>Сценарії виконує відкритий пульт. Якщо пульт відкритий у двох модераторів, увімкни «Виконувати сценарії» лише в одного.</p>`],
@@ -313,7 +386,21 @@ uk: {
 <p>Відео, сайти, кейс, таймер і розіграш мають власну гучність, на стримі вона множиться на загальну. Значок 🔇 вимикає звук елемента (у відео й сайтів це їхній власний звук).</p>`],
 ['cs2', 'CS2 β', `
 <p>У вікні Hudini стримера натисни <b>🎯 Підключити CS2</b> і перезапусти гру. Це офіційна функція Valve (Game State Integration): гра сама надсилає дані програмі. Нічого не впроваджується в гру, бану за це немає.</p>
-<p>У пульті додай віджет 🎯 CS2 і вибери вигляд: картка гравця, K/D/A, HP, гроші, зброя, спливашка DOUBLE / TRIPLE / ACE. Вигляди «спостерігач» (α) працюють, коли стример дивиться гру глядачем.</p>`],
+<p>У пульті додай віджет 🎯 CS2 і вибери вигляд: картка гравця, K/D/A, HP, гроші, зброя, спливашка DOUBLE / TRIPLE / ACE. Вигляди «спостерігач» (α) працюють, коли стример дивиться гру глядачем.</p>
+<ul>
+<li><b>Кілфід</b> Hudini за замовчуванням вимкнений, на екрані видно кілфід самої гри. Вмикається галочкою в елемента CS2.</li>
+<li><b>K/D</b> показується значками: приціл 12 · череп 5. Коефіцієнт 2.40 лишився там, де був.</li>
+<li><b>«Файт».</b> Над полотном пульта на 2–5 секунд з'являється плашка на кшталт «Файт: 3 SaiYeah ↔ 7 gospoja». Вона видна на будь-якій вкладці й у доці, на стрім не йде.</li>
+<li><b>Серія карт</b>: формат BO1, BO3 або BO5. Host сам записує підсумок кожної карти, рахунок можна скинути або поправити вручну. Серія видна в scorebar, hud_tour і в авто-табі.</li>
+<li><b>Авто-таб</b>: анімована таблиця з усіма гравцями (K/D, ADR, HS%, гроші, зброя, рахунок, серія). З'являється сама на тактичних таймаутах і паузі, під час зміни сторін і в кінці карти з підсумками та MVP. Перемикач і вибір моментів на вкладці CS2, є чотири стилі.</li>
+<li><b>Радар</b>: де стоїть кожен гравець, колір команди, номер слота, мертві й бомба. Фірмові карти в трьох темах.</li>
+</ul>`],
+['perms', 'Права модераторів і док OBS', `
+<p><b>Права.</b> У налаштуваннях Hudini стример обирає, що дозволено модераторам. Чотири галочки, усі ввімкнені за замовчуванням: звуки й відео; сайти й файли; чат, малювання й ефекти; кейси, розіграші, опитування й CS2. Вимкнене зникає з пульта й не проходить на стрім.</p>
+<p><b>Швидкі вимикачі</b> в доці OBS вимикають на стрімі просто зараз чат, CS2-HUD, звуки, малюнки або ефекти.</p>
+<p><b>Док OBS</b> тепер показує статуси, список елементів на екрані з очками (стример сам ховає зайве), блок «Хто на зв'язку» (модератори, пінг, спосіб зв'язку, кнопка «відключити») і блок CS2 з рахунком, гравцем, за яким стежать, і великою підказкою «файт».</p>
+<p><b>Стример сам собі модератор.</b> Кнопка <b>«Відкрити пульт»</b> у Hudini відкриває повний пульт на цьому ж ПК без коду й пароля. Модератори можуть працювати паралельно.</p>
+<p><b>Журнал і «Про програму».</b> У вікні Hudini є журнал підключень (адреси модераторів записано частково, наприклад <code>100.x.x.12 (Tailscale)</code>) і розділ «Про програму» з версією та подяками тестерам.</p>`],
 ['labels', 'Що означають β і α', `
 <p>Усе без позначок стабільне. <b>β (бета)</b> працює, але мало перевірене на різних комп'ютерах. <b>α (альфа)</b> — експеримент, може ламатися й змінюватися. Натисни на позначку в пульті, щоб повідомити про проблему.</p>`],
 ['layout', 'Вигляд пульта й навчання', `
@@ -352,7 +439,7 @@ uk: {
 <p>Не допомогло? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Напиши про проблему</a>.</p>`],
 ['keys', 'Клавіші', `
 <ul>
-<li><kbd>Ctrl+Z</kbd> скасувати · <kbd>Del</kbd> видалити · <kbd>Esc</kbd> зняти виділення</li>
+<li><kbd>Ctrl+Z</kbd> скасувати · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> повернути · <kbd>Del</kbd> видалити · <kbd>Esc</kbd> зняти виділення</li>
 <li><kbd>Ctrl+C</kbd> / <kbd>Ctrl+V</kbd> копіювати й вставити · <kbd>Ctrl+X</kbd> вирізати · <kbd>Ctrl+D</kbd> копія поруч</li>
 <li><kbd>Shift</kbd>+клік або рамкою — виділити кілька · <kbd>Ctrl+A</kbd> усе · <kbd>Ctrl+G</kbd> група</li>
 <li><kbd>H</kbd> сховати/показати · <kbd>F</kbd> показати на N секунд · <kbd>1</kbd>…<kbd>9</kbd> шар із цим номером</li>
@@ -403,6 +490,20 @@ de: {
 <li><b>Ordner in den Ebenen.</b> Wähle mehrere Elemente (Shift+Klick wählt einen Bereich von Ebenen, Strg+Klick fügt eine hinzu) und drücke Strg+G: Sie werden zu einem Ordner „Gruppe 1“, der sich gemeinsam bewegt. Doppelklick auf den Namen oder F2 benennt ihn um, ▸ klappt ihn zu. 👁 und ⚡ des Ordners wirken auf alles darin. Um viele Ebenen auf einmal zu verstecken, halte 👁 gedrückt und ziehe über die Zeilen.</li>
 <li><b>Szenen</b> merken sich den ganzen Bildschirm, die <b>Bibliothek</b> einzelne Elemente.</li>
 <li><b>Strg+C / Strg+V</b> kopieren Elemente, auch in einen anderen Raum. Die Tasten stehen am Ende dieser Hilfe.</li>
+<li><b>Ebenen.</b> Ebenenzeilen lassen sich mit der Maus ziehen, so ändert sich die Reihenfolge. Ein Element, das auf einen Ordner fallen gelassen wird, kommt hinein, eines, das herausgezogen wird, verlässt ihn. Jede Zeile hat eine Löschtaste.</li>
+<li><b>Alles ausblenden</b> in der Kopfzeile schließt die Augen der sichtbaren Elemente und merkt sie sich. „Alles zeigen“ öffnet genau diese, und was du zwischendurch von Hand geöffnet hast, bleibt offen.</li>
+<li><b>Seitenleisten.</b> Zwei Tasten in der Kopfzeile blenden die linke und die rechte Leiste aus, die Fläche wird größer. Die Wahl wird gemerkt.</li>
+<li><b>Rückgängig pro Element.</b> <kbd>Ctrl+Z</kbd> macht deine letzte Aktion rückgängig, <kbd>Ctrl+Y</kbd> oder <kbd>Ctrl+Shift+Z</kbd> stellt sie wieder her. Das betrifft nur deine eigenen Änderungen: Hat ein anderer Moderator inzwischen ein anderes Element geändert, wird seine Arbeit nicht zurückgedreht.</li>
+</ul>`],
+['draw', 'Zeichnen', `
+<p>Hinzufügen → <b>Zeichnung</b> erstellt eine Ebene zum Zeichnen. Du zeichnest direkt auf der Fläche des Pults, über der Fläche erscheint eine Werkzeugleiste.</p>
+<ul>
+<li><b>Pinsel</b>: Stift, Marker, Neon, Formen und Pfeile (Linie, Pfeil, Kreis, Rechteck) und ein Radierer.</li>
+<li><b>Fotopinsel</b>: Wähle ein Bild und einen von zwei Modi. „Stempel“ setzt Kopien des Bildes entlang der Linie, „Textur“ füllt die Linie mit dem Foto.</li>
+<li><b>Pipette</b> nimmt eine Farbe von der Fläche oder aus einem Foto. Die <b>Palette aus einem Foto</b> zeigt die 6–8 Hauptfarben des Bildes.</li>
+<li><b>„Live“</b>: Ein Strich ist sofort im Stream zu sehen. <b>„Per Knopf“</b>: Der Stream sieht die Zeichnung nach „Zeigen“.</li>
+<li><b>Striche verblassen</b>: Das Häkchen blendet Linien nach einer festen Zeit aus (standardmäßig 5 s, Regler von 1 bis 60 s).</li>
+<li>Alle Moderatoren können gleichzeitig zeichnen, Striche gehen nicht verloren. Eine fertige Zeichnung kommt wie jedes Element in die Bibliothek.</li>
 </ul>`],
 ['files', 'Dateien und Speicherplatz', `
 <p>Bilder, GIFs und Videos von deinem Computer liegen beim Streamer in Hudini, <b>verschlüsselt</b>: Das Programm kann sie nicht lesen, nur das Widget entschlüsselt sie.</p>
@@ -414,7 +515,8 @@ de: {
 <p>Die Schaltfläche <b>🌐</b> in der Kopfzeile öffnet rechts einen Browser. Standardmäßig zeigt er den Twitch-Chat deines Kanals: Melde dich einmal an, und alle Moderatorknöpfe (löschen, Timeout, Bann) funktionieren wie auf der Seite. Mit «+» fügst du Tabs mit beliebigen Websites hinzu. Die Breite änderst du am linken Rand der Spalte. Das funktioniert in der Hudini-App; auf der Website wird stattdessen ein eingebetteter Chat gezeigt.</p>
 <p><b>Umfrage</b>: Zuschauer schreiben die Nummer einer Option. Ein Zuschauer, eine Stimme; die letzte Wahl zählt. Der <b>Chat-Zähler</b> zählt einen Befehl oder ein Wort (zum Beispiel „F“).</p>
 <p>Verbinde den Chat nur in einem Pult, sonst wird alles doppelt gezählt.</p>
-<p><b>Chat-Befehle</b> (Chat → „Chat-Befehle“, wähle, wer sie nutzen darf): <code>!poll</code>, <code>!poll 60</code> schließt nach 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>`],
+<p><b>Chat-Befehle</b> (Chat → „Chat-Befehle“, wähle, wer sie nutzen darf): <code>!poll</code>, <code>!poll 60</code> schließt nach 60 s, <code>!poll stop</code>; <code>!timer 5m</code>, <code>!timer stop</code> / <code>start</code> / <code>reset</code>.</p>
+<p><b>Emotes von 7TV, BTTV und FFZ.</b> In den Chat-Einstellungen gibt es drei Häkchen pro Raum, standardmäßig aus. Eingeschaltete Emotes erscheinen im Feed des Pults, im Chat und in Nachrichten im Stream. Sie werden von externen Servern geladen, ein Hinweis neben den Häkchen sagt das.</p>`],
 ['scenarios', 'Szenarien β', `
 <p>„Wenn… → dann…“: Zum Beispiel schreibt jemand <code>!cringe</code> → ein Bild 5 Sekunden zeigen und Konfetti starten. Auslöser: ein Chat-Befehl, ein CS2-Ereignis, ein abgelaufener Timer, ein Zählerziel oder ein Knopf.</p>
 <p>Szenarien laufen in einem offenen Pult. Haben zwei Mods das Pult offen, schalte „Szenarien ausführen“ nur bei einem ein.</p>`],
@@ -433,7 +535,21 @@ de: {
 <p>Videos, Websites, Case, Timer und Verlosung haben eine eigene Lautstärke, die im Stream mit der Gesamtlautstärke multipliziert wird. Das Symbol 🔇 schaltet ein Element stumm (bei Videos und Websites ist das ihr eigener Ton).</p>`],
 ['cs2', 'CS2 β', `
 <p>Klicke im Hudini-Fenster des Streamers auf <b>🎯 CS2 verbinden</b> und starte das Spiel neu. Das ist eine offizielle Valve-Funktion (Game State Integration): Das Spiel schickt die Daten selbst an das Programm. Es wird nichts ins Spiel eingeschleust, also kein Bann-Risiko.</p>
-<p>Füge im Pult das Widget 🎯 CS2 hinzu und wähle eine Ansicht: Spielerkarte, K/D/A, HP, Geld, Waffe, DOUBLE / TRIPLE / ACE-Popup. Die „Zuschauer“-Ansichten (α) funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt.</p>`],
+<p>Füge im Pult das Widget 🎯 CS2 hinzu und wähle eine Ansicht: Spielerkarte, K/D/A, HP, Geld, Waffe, DOUBLE / TRIPLE / ACE-Popup. Die „Zuschauer“-Ansichten (α) funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt.</p>
+<ul>
+<li><b>Killfeed.</b> Der eigene Killfeed von Hudini ist standardmäßig aus, auf dem Bildschirm ist der Killfeed des Spiels zu sehen. Mit dem Häkchen am CS2-Element schaltest du ihn ein.</li>
+<li><b>K/D</b> erscheint mit Symbolen: Fadenkreuz 12 · Totenkopf 5. Das Verhältnis 2.40 bleibt, wo es war.</li>
+<li><b>„Fight“.</b> Über der Fläche des Pults erscheint 2–5 Sekunden ein Streifen wie „Fight: 3 SaiYeah ↔ 7 gospoja“. Er ist auf jedem Tab und im Dock sichtbar und geht nicht in den Stream.</li>
+<li><b>Kartenserie</b>: Format BO1, BO3 oder BO5. Host speichert das Ergebnis jeder Karte selbst, den Stand kannst du zurücksetzen oder von Hand korrigieren. Die Serie steht im Scorebar, im hud_tour und im Auto-Tab.</li>
+<li><b>Auto-Tab</b>: eine animierte Tabelle mit allen Spielern (K/D, ADR, HS%, Geld, Waffe, Stand, Serie). Sie erscheint von selbst bei taktischen Auszeiten und Pausen, beim Seitenwechsel und am Kartenende mit Ergebnis und MVP. Schalter und Auswahl der Momente sind im CS2-Tab, es gibt vier Stile.</li>
+<li><b>Radar</b>: wo jeder Spieler steht, Teamfarbe, Slot-Nummer, Tote und die Bombe. Eigene Karten in drei Themen.</li>
+</ul>`],
+['perms', 'Rechte der Moderatoren und das OBS-Dock', `
+<p><b>Rechte.</b> In den Einstellungen von Hudini legt der Streamer fest, was Moderatoren dürfen. Vier Häkchen, standardmäßig alle an: Sounds und Videos; Websites und Dateien; Chat, Zeichnen und Effekte; Cases, Verlosungen, Umfragen und CS2. Was aus ist, verschwindet aus dem Pult und gelangt nicht in den Stream.</p>
+<p><b>Schnellschalter</b> im OBS-Dock schalten Chat, CS2-HUD, Sounds, Zeichnungen oder Effekte im Stream sofort aus.</p>
+<p><b>Das OBS-Dock</b> zeigt jetzt den Status, eine Liste der Elemente auf dem Bildschirm mit Augen (der Streamer blendet Überflüssiges selbst aus), einen Block „Wer ist online“ (Moderatoren, Ping, Verbindungsart, Knopf „trennen“) und einen CS2-Block mit Spielstand, beobachtetem Spieler und einem großen „Fight“-Hinweis.</p>
+<p><b>Streamer als eigener Moderator.</b> Die Taste <b>„Pult öffnen“</b> in Hudini öffnet das volle Pult auf demselben PC ohne Code und Passwort. Moderatoren können gleichzeitig arbeiten.</p>
+<p><b>Protokoll und „Über das Programm“.</b> Das Hudini-Fenster hat ein Verbindungsprotokoll (Moderator-Adressen sind teilweise verdeckt, zum Beispiel <code>100.x.x.12 (Tailscale)</code>) und einen Bereich „Über das Programm“ mit Version und Dank an die Tester.</p>`],
 ['labels', 'Was β und α bedeuten', `
 <p>Alles ohne Markierung ist stabil. <b>β (Beta)</b> funktioniert, ist aber noch auf wenigen Computern getestet. <b>α (Alpha)</b> ist ein Experiment und kann kaputtgehen oder sich ändern. Klicke im Pult auf eine Markierung, um ein Problem zu melden.</p>`],
 ['layout', 'Aussehen des Pults und Tour', `
@@ -472,7 +588,7 @@ de: {
 <p>Weiter nichts? <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Problem melden</a>.</p>`],
 ['keys', 'Tastenkürzel', `
 <ul>
-<li><kbd>Strg+Z</kbd> rückgängig · <kbd>Entf</kbd> löschen · <kbd>Esc</kbd> Auswahl aufheben</li>
+<li><kbd>Strg+Z</kbd> rückgängig · <kbd>Strg+Y</kbd> / <kbd>Strg+Umschalt+Z</kbd> wiederholen · <kbd>Entf</kbd> löschen · <kbd>Esc</kbd> Auswahl aufheben</li>
 <li><kbd>Strg+C</kbd> / <kbd>Strg+V</kbd> kopieren und einfügen · <kbd>Strg+X</kbd> ausschneiden · <kbd>Strg+D</kbd> duplizieren</li>
 <li><kbd>Umschalt</kbd>+Klick oder Rahmen ziehen: mehrere wählen · <kbd>Strg+A</kbd> alle · <kbd>Strg+G</kbd> gruppieren</li>
 <li><kbd>H</kbd> verstecken/zeigen · <kbd>F</kbd> für N Sekunden zeigen · <kbd>1</kbd>…<kbd>9</kbd> Ebene mit dieser Nummer</li>
