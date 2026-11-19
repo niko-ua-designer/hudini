@@ -29,7 +29,10 @@ function rid(n){
 // подсказка «файт» от программы стримера: «3 SaiYeah ↔ 7 gospoja», номер = клавиша наблюдателя CS2. Живёт ttl мс (не больше 4 с)
 function showFight(f){
   const bar=$('fightBar'); if(!bar || !f?.a || !f?.b) return;
-  const fill=(id, p)=>{ const s=$(id); s.className=p.team==='T'?'t':'ct'; s.replaceChildren(); if(p.slot!=null){ const n=document.createElement('em'); n.textContent=String(p.slot); s.appendChild(n); } s.append(String(p.name||'?').slice(0,40)); };
+  // ники игроков из настроек CS2-элемента (Host их не знает, поэтому в доке остаётся игровой ник)
+  const nk=state.els.find(e=>e.type==='cs2' && e.nicks && Object.keys(e.nicks).length)?.nicks||{};
+  const nick=p=>(p.id && Object.hasOwn(nk, p.id)) ? nk[p.id] : p.name;
+  const fill=(id, p)=>{ const s=$(id); s.className=p.team==='T'?'t':'ct'; s.replaceChildren(); if(p.slot!=null){ const n=document.createElement('em'); n.textContent=String(p.slot); s.appendChild(n); } s.append(String(nick(p)||'?').slice(0,40)); };
   fill('fightA', f.a); fill('fightB', f.b); bar.hidden=false;
   clearTimeout(showFight.t); showFight.t=setTimeout(()=>{ bar.hidden=true; }, Math.max(500, Math.min(4000, Number(f.ttl)||4000)));
 }
