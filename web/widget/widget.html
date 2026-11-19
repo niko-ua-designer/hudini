@@ -365,7 +365,7 @@ async function start(){
   // время последнего принятого экрана помним и после перезапуска OBS: старый сохранённый экран не вернётся
   const tKey='hudini.stateT.'+room;
   try{ lastStateT=Math.max(lastStateT, Number(localStorage.getItem(tKey))||0); }catch{}
-  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host' };
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   // файлы берём из программы на этом же компьютере и проверяем подпись модератора
@@ -385,7 +385,7 @@ async function start(){
   setInterval(async()=>{ if(!client.connected) return;
     client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host], { qos:1 }); Assets.retry(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -410,6 +410,8 @@ async function start(){
     if(!plain){ console.warn('[overlay] отброшено неподписанное сообщение', topic); return; }
     let msg; try{ msg=JSON.parse(TD.decode(plain)); }catch{ return; }
     if(!msg || typeof msg!=='object') return;
+    // живой штрих рисунка: модератор ещё ведёт линию (только свежие, подписанные модератором)
+    if(topic===T.ink){ if(!packet.retain && Math.abs(nowMs()-(Number(msg.t)||0))<20000) DrawFx.ink(msg); return; }
     // сообщение экрана нельзя выдать за эффект и наоборот
     if(topic===T.state ? !Array.isArray(msg.els) : topic===T.fx ? typeof msg.type!=='string' : true) return;
     if(topic===T.state && Number(msg.t)>Date.now()+5*60*1000) return;   // из будущего: так можно было бы заблокировать новые
