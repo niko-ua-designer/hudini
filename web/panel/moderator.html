@@ -707,14 +707,14 @@
         <button id="kfClear" title="Удалить все кадры">🗑</button>
         <button id="kfSave" title="Сохранить анимацию в готовые">💾</button>
       </div>
-      <div class="lbl"><span>Скорость</span><span id="vAs" title="Сбросить на 1×"></span></div>
-      <input type="range" id="iAs" min="-2" max="2" step="0.05">
+      <div class="lbl"><span>Длительность, сек</span><span id="vAs" title="Вернуть исходную длительность"></span></div>
+      <div class="row"><input type="range" id="iAs" class="grow" min="0" max="86" step="1"><input class="u-width-64px" type="number" id="iAd" min="0.1" max="60" step="0.1"></div>
       <div id="kfOpts">
         <div class="row"><select id="kfMode" class="grow"><option value="loop">🔁 По кругу</option><option value="once">1️⃣ Один раз</option><option value="pingpong">↔ Туда-обратно</option></select>
           <select id="kfEnd" class="grow"><option value="stay">в конце остаться</option><option value="hide">в конце исчезнуть</option><option value="back">в конце вернуться</option></select></div>
       </div>
       <div id="kfList"></div>
-      <div class="hint">Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Скорость действует и на готовые эффекты, и на кадры.</div>
+      <div class="hint">Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Длительность растягивает или сжимает и готовые эффекты, и все кадры равномерно.</div>
     </div>
     <div class="lbl"><span>Размер</span><span id="vSize"></span></div>
     <input type="range" id="iSize">

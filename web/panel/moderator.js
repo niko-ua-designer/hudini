@@ -2371,7 +2371,7 @@ $('layers').addEventListener('click', e=>{
 });
 
 // ================== ДЕЙСТВИЯ ==================
-function act1(el, fn){ beginChange(); fn(el); commit(); }
+function act1(el, fn){ beginChange(); keepAnimSpeed(el, ()=>fn(el)); commit(); }
 function act(fn){ const el=byId(selectedId); if(el) act1(el, fn); }
 function timerToggle(el){
   const now=Date.now();
@@ -3097,13 +3097,30 @@ function kfToggle(el){
   if(el.kf.playing){ el.kf.playing=false; }
   else { el.kf.playing=true; el.kf.start=Date.now(); el.hidden=false; delete el.ttl; }
 }
-const speedOf=v=>Math.round(Math.pow(2,+v)*100)/100;
+// Слайдер длительности: 0,1-1 с шагом 0,05; 1-10 с шагом 0,5; 10-60 с шагом 1 (индексы 0..86)
+const durOfIdx=i=>{ i=Math.round(+i)||0; return i<=18 ? Math.round((0.1+0.05*i)*100)/100 : i<=36 ? 1+0.5*(i-18) : 10+(i-36); };
+const idxOfDur=d=>{ let b=0; for(let i=0;i<=86;i++) if(Math.abs(durOfIdx(i)-d)<Math.abs(durOfIdx(b)-d)) b=i; return b; };
+const fmtSec=v=>(Math.round(v*100)/100).toFixed(1).replace('.',',');
+// Текущая итоговая длительность анимации, сек (0 = анимации нет)
+const animTotal=el=>{ const n=animNatural(el); return n>0 ? n/animSpeed(el) : 0; };
+// Менять кадры/эффект, не трогая скорость: заданная длительность пересчитывается под новую естественную
+function keepAnimSpeed(el, fn){
+  const n0=animNatural(el), sp=animSpeed(el);
+  fn();
+  if(!(el.adur>0)) return;
+  const n1=animNatural(el);
+  if(n1===n0) return;
+  if(n1>0) el.adur=Math.min(600, Math.max(0.1, Math.round(n1/sp*100)/100)); else delete el.adur;
+}
 let kfShownEl=null;
 function renderKf(el){
   const has=!!el.kf, list=$('kfList');
   $('kfOpts').hidden=!has;
   for(const id of ['kfPlay','kfStop','kfDelLast','kfClear','kfSave']) $(id).disabled=!has;
-  setField(I('iAs'), String(Math.round(Math.log2(animSpeed(el))*20)/20)); $('vAs').textContent=animSpeed(el)+'×';
+  const nat=animNatural(el), tot=animTotal(el);
+  $('iAs').disabled=$('iAd').disabled=!nat;
+  setField(I('iAs'), String(tot ? idxOfDur(tot) : 0)); setField(I('iAd'), tot ? String(Math.round(tot*100)/100) : '');
+  $('vAs').textContent=nat ? 'исходно '+fmtSec(nat)+' сек' : '';
   if(kfShownEl!==el.id){ kfShownEl=el.id; const sel=$('kfPreset'); sel.value=el.anim!=='none' ? 'e:'+el.anim : ''; $('kfDelSaved').hidden=true; }
   if(document.activeElement && list.contains(document.activeElement)) return;  // не мешаем вводу
   list.replaceChildren();
@@ -3133,9 +3150,11 @@ $('kfList').addEventListener('change', e=>{
   const el=byId(selectedId), row=e.target.closest('.kf'); if(!el?.kf || !row) return;
   const f=el.kf.f[+row.dataset.i], k=e.target.dataset.k;
   beginChange();
-  if(k==='d') f.d=num(e.target.value,1,0,600)*1000;
-  if(k==='e') f.e=e.target.value;
-  if(k==='s') f.s=num(e.target.value,100,0,2000)/100;
+  keepAnimSpeed(el, ()=>{
+    if(k==='d') f.d=num(e.target.value,1,0,600)*1000;
+    if(k==='e') f.e=e.target.value;
+    if(k==='s') f.s=num(e.target.value,100,0,2000)/100;
+  });
   e.target.blur(); commit();
 });
 $('kfList').addEventListener('click', e=>{
@@ -3155,11 +3174,19 @@ $('kfAdd').onclick=()=>act(el=>{
 });
 $('kfDelLast').onclick=()=>act(el=>{ if(el.kf){ el.kf.playing=false; el.kf.f.pop(); if(!el.kf.f.length) delete el.kf; } });
 bindInput('iAs', (el,f)=>{
-  const old=animSpeed(el), v=speedOf(f.value), now=Date.now();
-  if(v===1) delete el.spd; else el.spd=v;
-  if(el.kf?.playing) el.kf.start=now-(now-el.kf.start)*old/v;   // кадр не прыгает при смене скорости
+  setAnimDur(el, durOfIdx(f.value));
 });
-$('vAs').onclick=()=>act(el=>{ delete el.spd; });
+// длительность: ввод в поле (точно, десятые доли)
+bindInput('iAd', (el,f)=>{ const d=parseFloat(String(f.value).replace(',','.')); if(d>0) setAnimDur(el, Math.min(60, Math.max(0.1, d))); });
+// Выставить итоговую длительность (сек); кадр не прыгает при смене скорости
+function setAnimDur(el, d){
+  const n=animNatural(el); if(!n) return;
+  const old=animSpeed(el); d=Math.round(d*100)/100;
+  delete el.spd; el.adur=d;
+  const v=animSpeed(el), now=Date.now();
+  if(el.kf?.playing) el.kf.start=now-(now-el.kf.start)*old/v;
+}
+$('vAs').onclick=()=>act(el=>{ delete el.spd; delete el.adur; });   // вернуть исходную длительность
 $('kfClear').onclick=()=>act(el=>{ delete el.kf; });
 $('kfApply').onclick=()=>{
   const v=$('kfPreset').value, el=byId(selectedId); if(!v || !el) return toast('Выбери анимацию в списке');

@@ -356,7 +356,10 @@ function sanitizeEl(e){
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
   if(e.g){ o.g=str(e.g,12).replace(/[^a-z0-9]/gi,''); if(o.g && e.gn) o.gn=str(e.gn,40); else if(!o.g) delete o.g; }
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
-  const spd=num(e.spd,1,0.25,4); if(spd!==1) o.spd=spd;   // общий множитель скорости анимации (нет = 1)
+  // общая длительность анимации в секундах (приоритетнее старого множителя spd; вместе не храним)
+  const rawDur=num(e.adur,0,0,600);
+  if(rawDur>0) o.adur=Math.max(0.1, Math.round(rawDur*100)/100);
+  else { const spd=num(e.spd,1,0.25,4); if(spd!==1) o.spd=spd; }   // старый множитель скорости (нет = 1)
   // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
   if(BOXABLE.has(o.type)){ o.bw=num(e.bw,o.type==='chat'?26:0,0,100); o.bh=num(e.bh,o.type==='chat'?55:0,0,100); }
   if(CROPPABLE.has(o.type)){ const cr=sanitizeCrop(e.crop); if(cr) o.crop=cr; }
@@ -394,7 +397,19 @@ function kfSegments(kf){
   return segs;
 }
 function kfDuration(kf){ return kfSegments(kf).reduce((a,s)=>a+s[2],0); }
-function animSpeed(el){ const v=+el?.spd; return v>=0.25 && v<=4 ? v : 1; }
+// Период одного цикла готового эффекта, сек (как в core.css)
+const ANIM_PERIOD = { pulse:1, wobble:1.2, float:2, spin:3, shake:0.25, rainbow:2 };
+// Естественная длительность анимации элемента, сек: кадры (сумма времени кадров) или цикл готового эффекта; 0 = анимации нет
+function animNatural(el){
+  const k=el?.kf ? kfDuration(el.kf)/1000 : 0;
+  return k>0 ? k : (ANIM_PERIOD[el?.anim]||0);
+}
+// Множитель скорости: заданная длительность adur (сек) даёт natural/dur; иначе старый spd
+function animSpeed(el){
+  const d=+el?.adur, n=animNatural(el);
+  if(d>0 && n>0) return Math.min(1000, Math.max(0.001, n/d));
+  const v=+el?.spd; return v>=0.25 && v<=4 ? v : 1;
+}
 // Сколько мс реального времени идёт анимация «один раз» с учётом скорости элемента
 function kfRealDuration(el){ return el.kf ? kfDuration(el.kf)/animSpeed(el) : 0; }
 // Состояние анимации в момент t (мс от старта)
