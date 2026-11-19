@@ -265,6 +265,7 @@ function sanitizeEl(e){
   if(e.ttl) o.ttl=num(e.ttl,0,0,1e15);
   if(e.g){ o.g=str(e.g,12).replace(/[^a-z0-9]/gi,''); if(o.g && e.gn) o.gn=str(e.gn,40); else if(!o.g) delete o.g; }
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
+  const spd=num(e.spd,1,0.25,4); if(spd!==1) o.spd=spd;   // общий множитель скорости анимации (нет = 1)
   // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
   if(BOXABLE.has(o.type)){ o.bw=num(e.bw,o.type==='chat'?26:0,0,100); o.bh=num(e.bh,o.type==='chat'?55:0,0,100); }
   return o;
@@ -301,6 +302,9 @@ function kfSegments(kf){
   return segs;
 }
 function kfDuration(kf){ return kfSegments(kf).reduce((a,s)=>a+s[2],0); }
+function animSpeed(el){ const v=+el?.spd; return v>=0.25 && v<=4 ? v : 1; }
+// Сколько мс реального времени идёт анимация «один раз» с учётом скорости элемента
+function kfRealDuration(el){ return el.kf ? kfDuration(el.kf)/animSpeed(el) : 0; }
 // Состояние анимации в момент t (мс от старта)
 function kfAt(kf, t){
   const f=kf.f; if(f.length===1) return { ...f[0], done: kf.mode==='once' };
@@ -322,7 +326,7 @@ function kfAt(kf, t){
 // Применить анимацию к элементу. true = анимация рисует элемент, 'reset' = надо вернуть обычный вид.
 function animApply(node, el, now){
   const kf=el.kf;
-  let st = kf && kf.playing ? kfAt(kf, Math.max(0, now-kf.start)) : null;
+  let st = kf && kf.playing ? kfAt(kf, Math.max(0, now-kf.start)*animSpeed(el)) : null;
   if(st && st.done && kf.end==='back') st=null;
   if(!st){ if(node._animOn){ node._animOn=false; node.classList.remove('animating'); return 'reset'; } return false; }
   node._animOn=true; node.classList.add('animating');
@@ -718,6 +722,7 @@ function paintNode(node, el, z){
   node.style.transform=`translate(-50%,-50%) rotate(${el.rot}deg)`;
   const fx=node.firstChild, c=node.querySelector('.content');
   const cls='fx'+(el.anim!=='none'?' a-'+el.anim:''); if(fx.className!==cls) fx.className=cls;
+  const sp=animSpeed(el); if(fx._as!==sp){ fx._as=sp; if(sp===1) fx.style.removeProperty('--as'); else fx.style.setProperty('--as', sp); }
   if(el.type==='text'){
     node.style.width='';
     if(c.textContent!==el.text) c.textContent=el.text;
