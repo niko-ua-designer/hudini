@@ -499,10 +499,11 @@ aedes.on('publish', (packet, client) => {
 // Программа видит зашифрованный экран (тема state) и ключ комнаты у неё есть: расшифровывает сама, проверяет подпись
 // модератора и отдаёт доку только список {id, type, name, hidden}. Сам экран и файлы дальше не уходят.
 let screen = null, screenBuf = null, screenBusy = false;
-async function openSigned(buf){
+// Экран (тема state) и команды серии CS2 (cs2cmd) разбирает одна функция; max — предел размера сообщения
+async function openSigned(buf, max=Infinity){
   try{
     const b = new Uint8Array(buf);
-    if(b.length<79 || b[0]!==1 || b[1]!==1 || !AES || !PUB) return null;
+    if(b.length<79 || b.length>max || b[0]!==1 || b[1]!==1 || !AES || !PUB) return null;
     const iv = b.subarray(2, 14), sig = b.subarray(14, 78), ct = b.subarray(78);
     const msg = new Uint8Array(12 + ct.length); msg.set(iv); msg.set(ct, 12);
     if(!await subtle.verify({ name:'ECDSA', hash:'SHA-256' }, PUB, sig, msg)) return null;
@@ -847,21 +848,11 @@ async function publishSeries(force){
   serPub = key;
   aedes.publish({ cmd:'publish', topic:T('cs2series'), payload:await sealAES({ ...v, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
 }
-// Пульт подписывает команду ключом модератора: проверяем подпись открытым ключом комнаты и расшифровываем
-let cmdKey = null, cmdKeyOf = '';
-async function openSigned(buf){
-  const b = new Uint8Array(buf);
-  if(!AES || !ROOM?.p || b.length < 94 || b.length > 16384 || b[0]!==1 || b[1]!==1) return null;
-  try{
-    if(cmdKeyOf!==ROOM.p){ cmdKey = await subtle.importKey('raw', Buffer.from(ROOM.p, 'base64url'), { name:'ECDSA', namedCurve:'P-256' }, false, ['verify']); cmdKeyOf = ROOM.p; }
-    const iv = b.subarray(2, 14), ct = b.subarray(78), msg = new Uint8Array(12 + ct.length); msg.set(iv); msg.set(ct, 12);
-    if(!await subtle.verify({ name:'ECDSA', hash:'SHA-256' }, cmdKey, b.subarray(14, 78), msg)) return null;
-    return JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name:'AES-GCM', iv }, AES, ct)));
-  }catch{ return null; }
-}
+// Пульт подписывает команду ключом модератора: openSigned проверяет подпись открытым ключом комнаты и расшифровывает.
+// Команды шлют модераторы и пульт стримера на этом ПК (у обоих в PUB_MOD есть cs2cmd).
 aedes.on('publish', async (packet, client) => {
-  if(!client?.conn?._mod || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
-  const m = await openSigned(packet.payload);
+  if(!(client?.conn?._mod || client?.conn?._streamer) || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
+  const m = await openSigned(packet.payload, 16384);
   if(!m || !(Math.abs(Date.now() - Number(m.t)) < 120000)) return;   // старую команду повторно не принимаем
   if(seriesCmd(series, m)){ saveSeries(); log('🏆 Серия CS2:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'сброс' : 'правка вручную'); publishSeries(true); }
 });

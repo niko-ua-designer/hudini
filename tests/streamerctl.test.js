@@ -136,6 +136,14 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => (await shown()).tx1), 'the second click brings it back');
   });
 
+  await step('dock: a big screen (over 16 KB, e.g. a drawing) is still listed', async () => {
+    const strokes = Array.from({ length: 60 }, (_, i) => ({ id: 'stk' + String(i).padStart(4, '0'), tool: 'pen', color: '#ffffff', size: 6, t: 1, pts: Array.from({ length: 200 }, (_, j) => (i * 7 + j * 3) % 1000) }));
+    await put([{ id: 'big1', type: 'text', text: 'большой экран' }, { id: 'pad0', type: 'draw', x: 50, y: 50, strokes, del: [], hidden: true }]);
+    check(await panel.evaluate(() => JSON.stringify(state).length) > 20000, 'the screen is bigger than 16 KB');
+    check(await until(async () => (await fetch(host.base + '/api/status').then(r => r.json())).els?.some(e => e.id === 'big1')), 'the dock sees the new element');
+    await panel.evaluate(() => { state.els = state.els.filter(e => e.id !== 'big1' && !e.id.startsWith('pad')); renderAll(); publishNow(1); });
+  });
+
   await step('dock: who is online, masked address, kick one moderator', async () => {
     await tab('ppl');
     const t = await until(async () => { const t = await dock.textContent('#ppl'); return /Модератор/.test(t) && t; });

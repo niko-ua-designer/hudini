@@ -110,6 +110,15 @@ const { step, check, eq, until, sleep } = T;
     await host.api('/api/control', { action: 'resume' });
   });
 
+  await step('the streamer panel changes the CS2 series format too', async () => {
+    const bo = () => JSON.parse(fs.readFileSync(path.join(host.dir, 'cs2-series.json'), 'utf8')).bo;
+    await sp.evaluate(() => serCmd({ op: 'bo', bo: 5 }));
+    check(await until(() => { try{ return bo() === 5; }catch{ return false; } }), 'the Host takes the command from the streamer panel');
+    await until(() => mod.evaluate(() => !!client?.connected), 40000);   // the pause above sent the moderator away for a while
+    await mod.evaluate(() => serCmd({ op: 'bo', bo: 1 }));
+    check(await until(() => bo() === 1), 'and from a moderator');
+  });
+
   await step('a session ends with the room: new room keys need a new key', async () => {
     const stale = await sp.evaluate(() => homeInfo.pass);
     await host.api('/api/room/new', { name: 'Новая' });
