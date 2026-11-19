@@ -285,3 +285,15 @@ body.web #web{display:flex}
 :root .u-margin-8px-0-0-18px-padding-0{margin:8px 0 0 18px;padding:0}
 :root .u-text-align-center-display-block{text-align:center;display:block}
 :root .u-width-100-margin-top-8px{width:100%;margin-top:8px}
+
+.rseg{display:flex;gap:3px;padding:3px;margin:0 0 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.rseg button{flex:1;border:0;background:none;padding:6px 4px;font-size:12px;border-radius:6px;position:relative}
+.rseg button.on{background:var(--acc);color:#fff}
+.rseg .live{position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.rou-it{display:flex;gap:5px;align-items:center;margin:4px 0}
+.rou-it input[type=color]{width:26px;height:26px;padding:0;flex:none}
+.rou-it .pc{width:46px;text-align:right;color:var(--muted);font-size:11.5px;flex:none}
+#iRouPeople{width:100%;resize:vertical;font:inherit}
+.rou-it input[data-f=n]{flex:1;min-width:0}
+.rou-it input[data-f=w]{flex:none;width:54px;padding-left:4px;padding-right:2px}
+.rou-it .pc{width:34px}

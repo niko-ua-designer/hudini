@@ -530,9 +530,9 @@ function addPoll(){
 
 // ---- язык надписей на стриме (по умолчанию как у пульта) ----
 const DEFAULT_TXT={
-  en:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistol skin', 'Скин на винтовку':'Rifle skin', 'Нож':'Knife', 'Предмет':'Item' },
-  uk:{ 'Перекрут':'Перекрут', 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш', 'Наклейка':'Наліпка', 'Скин на пистолет':'Скін на пістолет', 'Скин на винтовку':'Скін на гвинтівку', 'Нож':'Ніж', 'Предмет':'Предмет' },
-  de:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistolen-Skin', 'Скин на винтовку':'Gewehr-Skin', 'Нож':'Messer', 'Предмет':'Gegenstand' },
+  en:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'TIME!', 'До Нового года':'Until New Year', 'С НОВЫМ ГОДОМ!':'HAPPY NEW YEAR!', 'F в чат':'F in chat', 'Смертей':'Deaths', 'Что дальше?':'What next?', 'Вариант':'Option', 'Розыгрыш':'Giveaway', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistol skin', 'Скин на винтовку':'Rifle skin', 'Нож':'Knife', 'Предмет':'Item', 'Приз':'Prize', 'Заказ песни':'Song request', 'Привет в чате':'Shout-out in chat', 'Бан в чате на 10 минут':'10 min timeout', 'Ещё одна попытка':'Spin again' },
+  uk:{ 'Перекрут':'Перекрут', 'ВРЕМЯ!':'ЧАС!', 'До Нового года':'До Нового року', 'С НОВЫМ ГОДОМ!':'З НОВИМ РОКОМ!', 'F в чат':'F у чат', 'Смертей':'Смертей', 'Что дальше?':'Що далі?', 'Вариант':'Варіант', 'Розыгрыш':'Розіграш', 'Наклейка':'Наліпка', 'Скин на пистолет':'Скін на пістолет', 'Скин на винтовку':'Скін на гвинтівку', 'Нож':'Ніж', 'Предмет':'Предмет', 'Приз':'Приз', 'Заказ песни':'Замовлення пісні', 'Привет в чате':'Привіт у чаті', 'Бан в чате на 10 минут':'Бан у чаті на 10 хвилин', 'Ещё одна попытка':'Ще одна спроба' },
+  de:{ 'Перекрут':'Respin', 'ВРЕМЯ!':'ZEIT!', 'До Нового года':'Bis Neujahr', 'С НОВЫМ ГОДОМ!':'FROHES NEUES!', 'F в чат':'F in den Chat', 'Смертей':'Tode', 'Что дальше?':'Was als Nächstes?', 'Вариант':'Option', 'Розыгрыш':'Gewinnspiel', 'Наклейка':'Sticker', 'Скин на пистолет':'Pistolen-Skin', 'Скин на винтовку':'Gewehr-Skin', 'Нож':'Messer', 'Предмет':'Gegenstand', 'Приз':'Preis', 'Заказ песни':'Songwunsch', 'Привет в чате':'Gruß im Chat', 'Бан в чате на 10 минут':'10 Min. Timeout', 'Ещё одна попытка':'Noch ein Versuch' },
 };
 function streamLang(){ const r=curRoom(); return STREAM_LANGS.includes(r?.slang) ? r.slang : (STREAM_LANGS.includes(window.HudiniI18n?.lang) ? window.HudiniI18n.lang : 'ru'); }
 const sT=s=>DEFAULT_TXT[streamLang()]?.[s] ?? s;
@@ -659,7 +659,7 @@ async function addFonts(files){
 }
 function fillFonts(){
   const want=(state.fonts||[]).map(f=>f.id+'|'+f.name).join(',');
-  for(const [id, withAdd] of [['iFont', true], ['iRFont', false]]){
+  for(const [id, withAdd] of [['iFont', true], ['iRFont', false], ['iRouFont', false]]){
     const sel=I(id); let g=sel.querySelector('optgroup[data-own]');
     if(!g){ g=document.createElement('optgroup'); g.dataset.own=''; g.label='Свои шрифты'; sel.appendChild(g);
       if(withAdd){ const add=document.createElement('option'); add.value='__add'; add.textContent='＋ Добавить свой шрифт…'; sel.appendChild(add); } }
@@ -744,7 +744,7 @@ function renderAll(){
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
-  renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
+  renderLayers(); renderMixer(); renderRaffleTab(); renderRTabs(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
@@ -757,6 +757,7 @@ function elIcon(el){
   if(el.type==='poll') return '📊';
   if(el.type==='raffle') return '🎁';
   if(el.type==='case') return '📦';
+  if(el.type==='roulette') return el.view==='wheel' ? '🎡' : '🎰';
   if(el.type==='cs2') return '🎯';
   if(el.type==='msg' || el.type==='chat') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
@@ -770,6 +771,7 @@ function elName(el){
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
+  if(el.type==='roulette') return 'Рулетка · '+(el.title||(el.view==='wheel' ? 'колесо' : 'автомат'))+(rouBusy(el, nowMs()) ? ' · крутится' : '');
   if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
   if(el.type==='web'){ try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
   if(assetId(el.src)) return el.type==='video' ? 'видео с компьютера' : 'картинка с компьютера';
@@ -777,7 +779,7 @@ function elName(el){
 }
 // ---- вкладка «Звук»: общая громкость, эффекты и каждый звучащий элемент ----
 const muteMem=new Map();   // что было на ползунке до 🔇
-const hasSound = el => ['video','web','case','raffle'].includes(el.type) || (el.type==='timer' && !!el.endSound);
+const hasSound = el => ['video','web','case','raffle','roulette'].includes(el.type) || (el.type==='timer' && !!el.endSound);
 const mxRows = () => [{ key:'master', name:'Общая громкость' }, { key:'fx', name:'Звуковые эффекты (кнопка «Звук», сценарии)' },
   ...drawList(state).filter(hasSound).map(el=>({ key:el.id, el, name:elIcon(el)+' '+elName(el).slice(0,40) }))];
 function mxGet(r){ return r.key==='master' ? num(state.vol,1,0,1) : r.key==='fx' ? num(state.fxVol,1,0,1) : num(r.el.vol,1,0,1); }
@@ -977,7 +979,6 @@ function renderInspector(){
   }
   if(el.type==='msg'){ setField(I('iMaxw'), String(el.maxw)); $('vMaxw').textContent=Math.round(el.maxw)+'% экрана'; setField(I('iMsgAccent'), el.accent); setField(I('iMsgCard'), el.card); }
   if(el.type==='cs2'){ renderCsHud(el); $('csSideRow').hidden = el.view!=='teams'; $('csStreakRow').hidden = el.view!=='streak'; setField(I('iCsMinK'), String(el.minK)); setField(I('iCsSide'), el.side); setField(I('iCsView'), el.view); setField(I('iCsLabel'), el.label); setField(I('iCsAccent'), el.accent); setField(I('iCsCard'), el.card); renderCsStatus(); }
-  if(el.type==='case') renderCase(el);
   if(el.type==='poll'){
     setField(I('iPTitle'), el.title); setField(I('iPOpts'), el.opts.join('\n'));
     setField(I('iAccent'), el.accent); setField(I('iPCard'), el.card);
@@ -1273,7 +1274,6 @@ $('addChatFeed').onclick=()=>{
 };
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   const a=b.dataset.add;
-  if(a==='case') return addCase();
   if(a==='counter') addCounter(); else if(a==='poll') addPoll(); else if(a==='cs2') addCs2(); else addTimer(a);
 });
 
@@ -1741,45 +1741,53 @@ function renderCase(el){
   const h=lsGet('hudini.caseHist', []); const hb=$('kHist'); hb.dataset.i18nSkip='';
   hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} ${x.d||'тест'} → ${x.n}`).join('\n') : '—'; hb.style.whiteSpace='pre-line';
 }
+// Кейс и рулетка живут на вкладке «Розыгрыши»: управляем выбранным, а если выбран не кейс, то первым на экране
+const caseEl=()=>{ const s=byId(selectedId); return s?.type==='case' ? s : state.els.find(e=>e.type==='case')||null; };
+function actC(fn){ const el=caseEl(); if(el) act1(el, fn); }
+function bindCase(id, apply, evt='input'){
+  const f=$(id);
+  f.addEventListener(evt, ()=>{ const el=caseEl(); if(!el) return; beginChange(); apply(el, f); changed(); });
+  f.addEventListener('change', ()=>{ if(caseEl()) commit(); });
+}
 let kFileFor=null;
 function caseUpload(target, accept){ kFileFor=target; $('kFile').accept=accept||'image/*'; $('kFile').click(); }
 async function caseSetFile(f, target){
-  if(!f) return; const el=byId(selectedId); if(el?.type!=='case') return;
+  if(!f) return; const el=caseEl(); if(!el) return;
   try{ showUpload(`Загрузка ${f.name}…`, 0); const blob = f.type.startsWith('image/') ? await shrinkImage(f) : f; const src=await uploadBlob(blob, f.name);
-    act(e=>{ if(target.kind==='logo') e.logo=src; else if(target.kind==='snd') e.snd[target.k]=src; else if(e.items[target.i]) e.items[target.i].img=src; }); }
+    actC(e=>{ if(target.kind==='logo') e.logo=src; else if(target.kind==='snd') e.snd[target.k]=src; else if(e.items[target.i]) e.items[target.i].img=src; }); }
   catch(err){ if(!err.shown) toast('Не загрузилось: '+(err.message||err)); }
   hideUpload();
 }
 $('kFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; caseSetFile(f, kFileFor); };
-bindInput('iKName', (el,f)=>el.name=f.value.slice(0,40)||'HUDINI CASE');
-for(const r of document.querySelectorAll('#kKinds input')) r.addEventListener('change', ()=>{ if(r.checked) act(el=>{ el.kind=r.value; if(el.kind==='second') addRespin(el); }); });
+bindCase('iKName', (el,f)=>el.name=f.value.slice(0,40)||'HUDINI CASE');
+for(const r of document.querySelectorAll('#kKinds input')) r.addEventListener('change', ()=>{ if(r.checked) actC(el=>{ el.kind=r.value; if(el.kind==='second') addRespin(el); }); });
 function addRespin(el){ if(el.items.length<40 && !el.items.some(it=>it.sp)) el.items.push({ n:sT('Перекрут'), r:2, p:10, img:'', sp:1 }); }
-$('kSp').onclick=()=>act(addRespin);
-bindInput('iKUhh', (el,f)=>el.uhhText=f.value.slice(0,24));
-bindInput('iKUpT', (el,f)=>el.upText=f.value.slice(0,24));
-bindInput('iKColor', (el,f)=>el.cc=f.value);
-bindInput('iKVol', (el,f)=>el.vol=Number(f.value));
-bindInput('iKHide', (el,f)=>el.hideAfter=num(f.value,12,3,120));
-bindInput('iKLow', (el,f)=>el.q=f.checked?'low':'high', 'change');
-$('kLogo').onclick=()=>caseUpload({ kind:'logo' }); $('kLogoDel').onclick=()=>act(el=>el.logo='');
-$('kAdd').onclick=()=>act(el=>{ if(el.items.length<40) el.items.push({ n:sT('Предмет'), r:2, p:0, img:'' }); });
-$('kFix').onclick=()=>act(el=>{ const used=it=>!it.sp || el.kind==='second', s=el.items.reduce((a,it)=>a+(used(it)?it.p:0),0); if(s>0) el.items.forEach(it=>{ if(used(it)) it.p=Math.round(it.p/s*10000)/100; }); });
-$('kOpen').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; if(!$('kDonor').value.trim()) return toast('Впиши ник зрителя'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
-$('kTest').onclick=()=>{ const el=byId(selectedId); if(el?.type!=='case') return; beginChange(); if(caseOpen(el, '', '')) commit(); };
+$('kSp').onclick=()=>actC(addRespin);
+bindCase('iKUhh', (el,f)=>el.uhhText=f.value.slice(0,24));
+bindCase('iKUpT', (el,f)=>el.upText=f.value.slice(0,24));
+bindCase('iKColor', (el,f)=>el.cc=f.value);
+bindCase('iKVol', (el,f)=>el.vol=Number(f.value));
+bindCase('iKHide', (el,f)=>el.hideAfter=num(f.value,12,3,120));
+bindCase('iKLow', (el,f)=>el.q=f.checked?'low':'high', 'change');
+$('kLogo').onclick=()=>caseUpload({ kind:'logo' }); $('kLogoDel').onclick=()=>actC(el=>el.logo='');
+$('kAdd').onclick=()=>actC(el=>{ if(el.items.length<40) el.items.push({ n:sT('Предмет'), r:2, p:0, img:'' }); });
+$('kFix').onclick=()=>actC(el=>{ const used=it=>!it.sp || el.kind==='second', s=el.items.reduce((a,it)=>a+(used(it)?it.p:0),0); if(s>0) el.items.forEach(it=>{ if(used(it)) it.p=Math.round(it.p/s*10000)/100; }); });
+$('kOpen').onclick=()=>{ const el=caseEl(); if(!el) return; if(!$('kDonor').value.trim()) return toast('Впиши ник зрителя'); beginChange(); if(caseOpen(el, $('kDonor').value.trim(), $('kAmount').value.trim())){ commit(); $('kDonor').value=''; $('kAmount').value=''; } };
+$('kTest').onclick=()=>{ const el=caseEl(); if(!el) return; beginChange(); if(caseOpen(el, '', '')) commit(); };
 $('kItems').addEventListener('change', e=>{
   const row=e.target.closest('.kit'); if(!row) return; const i=+row.dataset.i, f=e.target.dataset.f; if(!f) return;
-  act(el=>{ const it=el.items[i]; if(!it) return; if(f==='n') it.n=e.target.value.slice(0,40); else if(f==='r') it.r=Math.round(num(e.target.value,2,0,6)); else if(f==='p') it.p=num(e.target.value,0,0,100); });
+  actC(el=>{ const it=el.items[i]; if(!it) return; if(f==='n') it.n=e.target.value.slice(0,40); else if(f==='r') it.r=Math.round(num(e.target.value,2,0,6)); else if(f==='p') it.p=num(e.target.value,0,0,100); });
   e.target.blur?.();
 });
 $('kItems').addEventListener('click', e=>{
   const b=e.target.closest('button'); const row=e.target.closest('.kit'); if(!b || !row) return; const i=+row.dataset.i;
-  if(b.dataset.act==='del') act(el=>el.items.splice(i,1));
+  if(b.dataset.act==='del') actC(el=>el.items.splice(i,1));
   if(b.dataset.act==='img') caseUpload({ kind:'item', i });
 });
 $('kItems').addEventListener('dragover', e=>{ if(e.target.closest('.kit')) e.preventDefault(); });
 $('kItems').addEventListener('drop', e=>{ const row=e.target.closest('.kit'); const f=e.dataTransfer?.files?.[0]; if(!row || !f || !f.type.startsWith('image/')) return; e.preventDefault(); caseSetFile(f, { kind:'item', i:+row.dataset.i }); });
 $('kSnd').addEventListener('click', e=>{ const b=e.target.closest('button'); const r=e.target.closest('[data-k]'); if(!b || !r) return; const k=r.dataset.k;
-  if(b.dataset.act==='snd') caseUpload({ kind:'snd', k }, 'audio/*'); else if(b.dataset.act==='sdel') act(el=>{ delete el.snd[k]; }); });
+  if(b.dataset.act==='snd') caseUpload({ kind:'snd', k }, 'audio/*'); else if(b.dataset.act==='sdel') actC(el=>{ delete el.snd[k]; }); });
 let rafFileFor='';
 function rafUpload(kind){
   rafFileFor=kind; const f=$('rFile');
@@ -2147,6 +2155,137 @@ document.querySelectorAll('[data-tadd]').forEach(b=>b.onclick=()=>act(el=>timerA
 $('tNY').onclick=()=>act(el=>{ el.target=nextNewYear(); if(!el.label) el.label=sT('До Нового года'); });
 $('tHour').onclick=()=>act(el=>el.target=Date.now()+3600000);
 $('cPlus').onclick=()=>act(el=>el.value+=el.step);
+// ---- вкладка «Розыгрыши»: переключатель инструментов, кейс и рулетка ----
+let rTool=lsGet('hudini.rtool','raffle');
+function showRTool(t, save){
+  if(!['raffle','case','roulette'].includes(t)) t='raffle';
+  rTool=t; if(save) lsSet('hudini.rtool', t);
+  document.querySelectorAll('[data-rtool]').forEach(b=>b.classList.toggle('on', b.dataset.rtool===t));
+  document.querySelectorAll('[data-rtp]').forEach(p=>p.hidden=p.dataset.rtp!==t);
+}
+document.querySelectorAll('[data-rtool]').forEach(b=>b.onclick=()=>showRTool(b.dataset.rtool, true));
+$('toRaffles').onclick=()=>{ const el=byId(selectedId); showTab('raffle'); showRTool(el?.type==='roulette' ? 'roulette' : 'case', true); };
+$('caseCreate').onclick=()=>{ if(!caseEl()) addCase(); };
+function renderCaseTab(){
+  const el=caseEl();
+  $('caseEmpty').hidden=!!el; $('caseBody').hidden=!el;
+  if(el) renderCase(el);
+}
+
+// ---- рулетка (капсульный автомат и колесо) ----
+const rouEl=()=>{ const s=byId(selectedId); return s?.type==='roulette' ? s : state.els.find(e=>e.type==='roulette')||null; };
+function actU(fn){ const el=rouEl(); if(el) act1(el, fn); }
+function bindU(id, apply, evt='input'){
+  const f=$(id);
+  f.addEventListener(evt, ()=>{ const el=rouEl(); if(!el) return; beginChange(); apply(el, f); changed(); });
+  f.addEventListener('change', ()=>{ if(rouEl()) commit(); });
+}
+function addRoulette(){
+  if(rouEl()) return;
+  const prizes=[['Скин на пистолет',5],['Заказ песни',30],['Привет в чате',35],['Бан в чате на 10 минут',15],['Ещё одна попытка',15]].map(([n,w],i)=>({ n:sT(n), w, c:ROU_COLORS[i], note:'' }));
+  addEl({ type:'roulette', view:'capsule', x:50, y:46, fs:4, font:'montserrat', color:'#ffffff', accent:'#a970ff', title:'', prizes, people:[], hideAfter:10, vol:0.8 });
+}
+// Крутить: приз по весам, ник из поля или из списка участников. Всё решается здесь, на стриме только показ
+function rouSpin(el, who, test){
+  if(rouBusy(el, nowMs())) return toast('Рулетка ещё крутится'), false;
+  const pi=roulettePrize(el, cryptoUnit());
+  if(pi<0) return toast('Добавь призы с весом больше 0'), false;
+  let viewer=String(who||'').trim().slice(0,40);
+  if(!test){
+    let pj = viewer ? el.people.findIndex(p=>p.n.toLowerCase()===viewer.toLowerCase()) : roulettePerson(el, cryptoUnit());
+    if(!viewer && pj>=0) viewer=el.people[pj].n;
+    if(!viewer && !test && !el.people.length) return toast('Впиши ник зрителя или добавь участников'), false;
+    if(pj>=0 && el.once){ const [p]=el.people.splice(pj, 1); el.used=[...(el.used||[]), p].slice(-ROU_PEOPLE); }
+  }
+  const was = el.spinAt && el.win>=0 ? rouTarget(el).rest : 0;
+  el.from=was; el.segs=el.prizes.map(x=>({ ...x })); el.win=pi; el.jit=(cryptoUnit()-0.5)*0.8; el.viewer=viewer;
+  el.spinAt=Date.now()+400; el.hidden=false;
+  const h=lsGet('hudini.rouHist', []); h.unshift({ t:Date.now(), v:viewer, n:el.segs[pi].n }); lsSet('hudini.rouHist', h.slice(0,100));
+  return true;
+}
+function rouReset(el){ if(el.spinAt && el.win>=0) el.from=rouTarget(el).rest; el.spinAt=0; el.win=-1; el.segs=[]; el.viewer=''; }
+const peopleText=list=>list.map(p=>p.w>1 ? `${p.n} x${p.w}` : p.n).join('\n');
+function parsePeople(text){
+  const seen=new Set(), out=[];
+  for(const raw of String(text).split('\n')){
+    const m=/^(.*?)\s*[x×*]\s*(\d{1,3})$/i.exec(raw.trim()), n=(m ? m[1] : raw).trim().slice(0,40), key=n.toLowerCase();
+    if(!n || seen.has(key)) continue; seen.add(key); out.push({ n, w:m ? Math.min(100, Math.max(1, +m[2])) : 1 });
+    if(out.length>=ROU_PEOPLE) break;
+  }
+  return out;
+}
+function rouLive(){
+  const c=caseEl(), r=rouEl(), now=nowMs();
+  $('rLiveCase').hidden=!(c && c.openAt && now<c.openAt+caseT(c).reveal);
+  $('rLiveRou').hidden=!(r && rouBusy(r, now));
+  if(r){ const busy=rouBusy(r, now); $('rouSpin').disabled=busy; $('rouTest').disabled=busy; }
+}
+setInterval(rouLive, 400);
+function renderRouTab(){
+  const el=rouEl();
+  $('rouEmpty').hidden=!!el; $('rouBody').hidden=!el;
+  if(!el) return;
+  fillFonts();
+  setField(I('iRouView'), el.view); setField(I('iRouTitle'), el.title); setField(I('iRouAccent'), el.accent); setField(I('iRouColor'), el.color); setField(I('iRouFont'), el.font);
+  setField(I('iRouVol'), String(el.vol)); setField(I('iRouHide'), String(el.hideAfter)); setField(I('iRouSize'), String(el.fs)); $('vRouSize').textContent=el.fs.toFixed(1);
+  I('iRouOnce').checked=el.once; I('iRouWhoOn').checked=el.who; I('iRouOdds').checked=el.odds; I('iRouShow').checked=!el.hidden;
+  setField($('iRouPeople'), peopleText(el.people));
+  $('rouPeopleN').textContent=`· ${el.people.length}` + (el.used?.length ? ` · выбыло ${el.used.length}` : '');
+  $('rouBack').hidden=!el.used?.length;
+  const total=el.prizes.reduce((a,x)=>a+x.w,0);
+  $('rouSum').textContent=`· ${el.prizes.length} · вес: ${+total.toFixed(2)}`;
+  $('rouInfo').textContent = rouBusy(el, nowMs()) ? 'Крутится на стриме…' : el.spinAt && el.win>=0 ? `Выпало: ${el.segs[el.win]?.n || '—'}${el.viewer ? ' · '+el.viewer : ''}` : '';
+  const box=$('rouPrizes'), sig=el.prizes.length+'|'+el.view;
+  if(!document.activeElement?.closest('#rouPrizes') && box._sig!==sig){
+    box._sig=sig;
+    box.replaceChildren(...el.prizes.map((p,i)=>{
+      const r=document.createElement('div'); r.className='rou-it'; r.dataset.i=i;
+      const c=document.createElement('input'); c.type='color'; c.dataset.f='c'; c.title='Цвет';
+      const n=document.createElement('input'); n.type='text'; n.className='grow'; n.maxLength=40; n.dataset.f='n'; n.placeholder='Приз';
+      const w=document.createElement('input'); w.type='number'; w.min='0'; w.max='1000'; w.step='any'; w.dataset.f='w'; w.title='Вес';
+      const pc=document.createElement('span'); pc.className='pc';
+      const d=document.createElement('button'); d.textContent='✕'; d.title='Убрать приз'; d.dataset.act='del';
+      r.append(c, n, w, pc, d); return r;
+    }));
+  }
+  [...box.children].forEach((r,i)=>{
+    const p=el.prizes[i]; if(!p) return;
+    setField(r.querySelector('[data-f=c]'), p.c); setField(r.querySelector('[data-f=n]'), p.n); setField(r.querySelector('[data-f=w]'), String(p.w));
+    r.querySelector('.pc').textContent = total>0 && p.w>0 ? (p.w/total*100).toFixed(p.w/total<0.1 ? 1 : 0)+'%' : '—';
+  });
+  const h=lsGet('hudini.rouHist', []), hb=$('rouHist'); hb.dataset.i18nSkip=''; hb.style.whiteSpace='pre-line';
+  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} ${x.v||'тест'} → ${x.n}`).join('\n') : '—';
+  rouLive();
+}
+function renderRTabs(){ showRTool(rTool); renderCaseTab(); renderRouTab(); }
+$('rouCreate').onclick=addRoulette;
+$('rouDel').onclick=()=>{ const el=rouEl(); if(!el) return; if(!confirm('Убрать рулетку с экрана? Призы и участники пропадут.')) return;
+  beginChange(); state.els=state.els.filter(e=>e.id!==el.id); selectedId=null; commit(); };
+$('rouSpin').onclick=()=>{ const el=rouEl(); if(!el) return; beginChange(); if(rouSpin(el, $('iRouWho').value, false)){ commit(); $('iRouWho').value=''; } };
+$('rouTest').onclick=()=>{ const el=rouEl(); if(!el) return; beginChange(); if(rouSpin(el, '', true)) commit(); };
+$('rouReset').onclick=()=>actU(rouReset);
+$('rouCenter').onclick=()=>actU(el=>{ el.x=50; el.y=46; });
+$('rouAdd').onclick=()=>actU(el=>{ if(el.prizes.length<ROU_MAX) el.prizes.push({ n:sT('Приз')+' '+(el.prizes.length+1), w:10, c:ROU_COLORS[el.prizes.length%ROU_COLORS.length], note:'' }); });
+$('rouEven').onclick=()=>actU(el=>el.prizes.forEach(p=>p.w=1));
+$('rouBack').onclick=()=>actU(el=>{ el.people=[...el.people, ...(el.used||[])].slice(0,ROU_PEOPLE); el.used=[]; });
+$('rouPrizes').addEventListener('change', e=>{
+  const row=e.target.closest('.rou-it'), f=e.target.dataset.f; if(!row || !f) return; const i=+row.dataset.i, v=e.target.value;
+  actU(el=>{ const p=el.prizes[i]; if(!p) return; if(f==='n') p.n=v.slice(0,40); else if(f==='w') p.w=num(v,1,0,1000); else if(f==='c') p.c=hex(v, p.c); });
+});
+$('rouPrizes').addEventListener('click', e=>{ const b=e.target.closest('button'), row=e.target.closest('.rou-it'); if(b?.dataset.act==='del' && row) actU(el=>el.prizes.splice(+row.dataset.i, 1)); });
+bindU('iRouView', (el,f)=>el.view=ROU_VIEWS.includes(f.value) ? f.value : 'capsule', 'change');
+bindU('iRouTitle', (el,f)=>el.title=f.value.slice(0,30));
+bindU('iRouAccent', (el,f)=>el.accent=f.value);
+bindU('iRouColor', (el,f)=>el.color=f.value);
+bindU('iRouFont', (el,f)=>el.font=f.value, 'change');
+bindU('iRouVol', (el,f)=>el.vol=Number(f.value));
+bindU('iRouHide', (el,f)=>el.hideAfter=num(f.value,10,3,120));
+bindU('iRouSize', (el,f)=>el.fs=num(f.value,4,1,12));
+bindU('iRouOnce', (el,f)=>el.once=f.checked, 'change');
+bindU('iRouWhoOn', (el,f)=>el.who=f.checked, 'change');
+bindU('iRouOdds', (el,f)=>el.odds=f.checked, 'change');
+bindU('iRouShow', (el,f)=>el.hidden=!f.checked, 'change');
+$('iRouPeople').addEventListener('change', e=>actU(el=>{ el.people=parsePeople(e.target.value); }));
 $('cMinus').onclick=()=>act(el=>el.value-=el.step);
 $('cReset').onclick=()=>act(el=>{ el.value=0; el.startAt=Date.now(); chatSeen.delete(el.id); });
 $('cToggle').onclick=()=>act(counterToggle);

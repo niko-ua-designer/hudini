@@ -83,7 +83,6 @@
       <button data-add="counter">🔢 Счётчик</button>
       <button data-add="poll">📊 Голосование</button>
       <button data-add="cs2" class="wide u-grid-column-span-2">🎯 CS2</button>
-      <button data-add="case" class="wide u-grid-column-span-2">📦 3D-кейс</button>
       <button id="addChatFeed" class="wide u-grid-column-span-2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
     </div>
 
@@ -146,6 +145,12 @@
 
   <section data-pane="raffle" hidden>
     <h2>🎁 Розыгрыши</h2>
+    <div class="rseg" id="rTools">
+      <button data-rtool="raffle" class="on">💬 Чат</button>
+      <button data-rtool="case">📦 Кейс<i class="live" id="rLiveCase" hidden></i></button>
+      <button data-rtool="roulette">🎰 Рулетка<i class="live" id="rLiveRou" hidden></i></button>
+    </div>
+    <div data-rtp="raffle">
     <div id="rafEmpty">
       <div class="hint">Розыгрыш с рулеткой: зрители пишут слово в чат, рулетка выбирает победителя. Он один на экран и не лежит в списке слоёв.</div>
       <div class="row"><button id="rafCreate" class="primary grow">＋ Создать розыгрыш</button></div>
@@ -190,6 +195,83 @@
       <div class="row"><span class="hint u-width-54px">Размер</span><input type="range" id="iRSize" min="1" max="8" step="0.1" class="grow"><span class="hint u-width-36px-text-align-right" id="vRSize"></span></div>
       <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRShow"><span class="tgl-k"></span><span>Показывать рулетку на экране</span></label>
       <div class="row"><button id="rCenter" class="grow">⌖ В центр</button><button id="rDelete" class="grow" title="Убрать розыгрыш с экрана вместе с участниками">🗑 Удалить розыгрыш</button></div>
+    </div>
+    </div>
+    <div data-rtp="case" hidden>
+      <div id="caseEmpty">
+        <div class="hint">3D-кейс: открывается за донат или награду, лента с предметами и взрыв цвета редкости.</div>
+        <div class="row"><button id="caseCreate" class="primary grow">＋ Создать 3D-кейс</button></div>
+      </div>
+      <div id="caseBody" hidden>
+    <div class="row"><input type="text" id="iKName" class="grow" placeholder="Название кейса"><input type="color" id="iKColor" title="Цвет кейса"><button id="kLogo" title="Картинка на крышке">🖼</button><button id="kLogoDel" title="Убрать картинку" hidden>🗑</button></div>
+    <div class="lbl">Вид кейса</div>
+    <div id="kKinds">
+      <label class="kk"><input type="radio" name="kKind" value="normal"><span><b>Обычный</b><small>честная лента</small></span></label>
+      <label class="kk"><input type="radio" name="kKind" value="bait"><span><b>Байтовый</b><small>почти выпало, но нет</small></span></label>
+      <label class="kk"><input type="radio" name="kKind" value="random"><span><b>Рандомный</b><small>вид выбирается сам, зрители не знают</small></span></label>
+      <label class="kk"><input type="radio" name="kKind" value="second"><span><b>Второй шанс</b><small>выпал «Перекрут» — лента крутится ещё раз</small></span></label>
+    </div>
+    <div class="row"><button id="kSp" class="grow" hidden title="Выпала — лента крутится ещё раз">＋ Карточка «Перекрут»</button></div>
+    <div class="lbl">Открыть</div>
+    <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник зрителя"><input class="u-width-110px" type="text" id="kAmount" placeholder="Сумма (по желанию)"></div>
+    <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть для проверки">▶ Тест</button></div>
+    <div class="hint" id="kInfo"></div>
+    <div class="lbl">Предметы <span class="hint" id="kSum"></span></div>
+    <div id="kItems"></div>
+    <div class="row"><button id="kAdd" class="grow">➕ Предмет</button><button id="kFix" title="Пропорционально подогнать шансы, чтобы вместе было 100%">⚖ До 100%</button></div>
+    <div class="hint">Шанс в процентах. Редкость задаёт цвет, как в CS2. Перетащи картинку на строку предмета.</div>
+    <details><summary>🔊 Звуки и вид</summary>
+      <div class="row u-margin-top-6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
+      <div class="row"><span class="hint">Показывать итог</span><input class="u-width-64px" type="number" id="iKHide" min="3" max="120"><span class="hint">сек</span></div>
+      <label class="tgl u-margin-top-6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
+      <div class="hint u-margin-top-6px">Своя надпись (по желанию, пусто = без надписи):</div>
+      <input type="text" id="iKUhh" maxlength="24" placeholder="когда байтовая лента почти выпала, например: УХХ!">
+      <input class="u-margin-top-4px" type="text" id="iKUpT" maxlength="24" placeholder="при втором шансе, например: ПЕРЕКРУТ!">
+      <div class="hint u-margin-top-6px">Свой звук вместо встроенного (по желанию):</div>
+      <div id="kSnd"></div>
+    </details>
+    <details><summary>📜 История открытий</summary><div id="kHist" class="hint u-x16"></div></details>
+    <input type="file" id="kFile" accept="image/*" hidden>
+      </div>
+    </div>
+    <div data-rtp="roulette" hidden>
+      <div id="rouEmpty">
+        <div class="hint">Капсульный автомат или колесо: приз выпадает случайно по шансам, победитель один на всех модераторов и на стриме.</div>
+        <div class="row"><button id="rouCreate" class="primary grow">＋ Создать рулетку</button></div>
+      </div>
+      <div id="rouBody" hidden>
+        <div class="row"><select id="iRouView" class="grow"><option value="capsule">🎰 Капсульный автомат</option><option value="wheel">🎡 Колесо</option></select></div>
+        <input type="text" id="iRouTitle" maxlength="30" placeholder="Название на автомате или в центре колеса">
+        <div class="lbl">Крутить</div>
+        <div class="row"><input type="text" id="iRouWho" class="grow" maxlength="40" placeholder="Ник зрителя (пусто: возьму из списка)"></div>
+        <div class="row"><button id="rouSpin" class="go grow">🎰 Крутить</button><button id="rouTest" title="Крутнуть без ника, для проверки">▶ Тест</button><button id="rouReset" title="Убрать результат с экрана">↺ Сброс</button></div>
+        <div class="hint" id="rouInfo"></div>
+        <div class="lbl">Призы <span class="hint" id="rouSum"></span></div>
+        <div id="rouPrizes"></div>
+        <div class="row"><button id="rouAdd" class="grow">➕ Приз</button><button id="rouEven" title="Одинаковый вес у всех призов">⚖ Поровну</button></div>
+        <div class="hint">Вес: чем больше число, тем чаще выпадает. Шанс в процентах считается сам.</div>
+        <div class="lbl">Участники <span class="hint" id="rouPeopleN"></span></div>
+        <textarea id="iRouPeople" rows="5" placeholder="Один ник в строке. Чтобы шанс был больше: ник x3"></textarea>
+        <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouOnce"><span class="tgl-k"></span><span>Выбывает из списка после прокрутки</span></label>
+        <div class="row"><button id="rouBack" class="grow" hidden>↩ Вернуть выбывших</button></div>
+        <details><summary>🎛 Вид и звук</summary>
+          <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouWhoOn"><span class="tgl-k"></span><span>Показывать ник зрителя</span></label>
+          <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouOdds"><span class="tgl-k"></span><span>Показывать шанс приза</span></label>
+          <div class="row u-margin-top-6px"><span class="hint">Громкость</span><input type="range" id="iRouVol" min="0" max="1" step="0.05" class="grow"></div>
+          <div class="row"><span class="hint">Показывать итог</span><input class="u-width-64px" type="number" id="iRouHide" min="3" max="120"><span class="hint">сек</span></div>
+          <div class="row"><span class="hint">Акцент</span><input type="color" id="iRouAccent"><span class="hint">Цвет текста</span><input type="color" id="iRouColor"></div>
+          <div class="row"><select id="iRouFont" class="grow"><option value="montserrat">Montserrat (жирный)</option>
+          <option value="russo">Russo One</option>
+          <option value="impact">Impact (мемный)</option>
+          <option value="pixel">Press Start 2P (пиксели)</option>
+          <option value="comfortaa">Comfortaa</option>
+          <option value="caveat">Caveat (рукописный)</option></select></div>
+          <div class="row"><span class="hint u-width-54px">Размер</span><input type="range" id="iRouSize" min="1" max="12" step="0.1" class="grow"><span class="hint u-width-36px-text-align-right" id="vRouSize"></span></div>
+        </details>
+        <details><summary>📜 История</summary><div id="rouHist" class="hint u-x16"></div></details>
+        <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouShow"><span class="tgl-k"></span><span>Показывать рулетку на экране</span></label>
+        <div class="row"><button id="rouCenter" class="grow">⌖ В центр</button><button id="rouDel" class="grow" title="Убрать рулетку с экрана">🗑 Удалить рулетку</button></div>
+      </div>
     </div>
   </section>
 
@@ -434,38 +516,10 @@
       <div class="hint" id="csStatus"></div>
     </div>
 
-    <!-- кейс -->
-    <div data-for="case" class="box">
-      <div class="t">📦 Кейс</div>
-      <div class="row"><input type="text" id="iKName" class="grow" placeholder="Название кейса"><input type="color" id="iKColor" title="Цвет кейса"><button id="kLogo" title="Картинка на крышке">🖼</button><button id="kLogoDel" title="Убрать картинку" hidden>🗑</button></div>
-      <div class="lbl">Вид кейса</div>
-      <div id="kKinds">
-        <label class="kk"><input type="radio" name="kKind" value="normal"><span><b>Обычный</b><small>честная лента</small></span></label>
-        <label class="kk"><input type="radio" name="kKind" value="bait"><span><b>Байтовый</b><small>почти выпало, но нет</small></span></label>
-        <label class="kk"><input type="radio" name="kKind" value="random"><span><b>Рандомный</b><small>вид выбирается сам, зрители не знают</small></span></label>
-        <label class="kk"><input type="radio" name="kKind" value="second"><span><b>Второй шанс</b><small>выпал «Перекрут» — лента крутится ещё раз</small></span></label>
-      </div>
-      <div class="row"><button id="kSp" class="grow" hidden title="Выпала — лента крутится ещё раз">＋ Карточка «Перекрут»</button></div>
-      <div class="lbl">Открыть</div>
-      <div class="row"><input type="text" id="kDonor" class="grow" placeholder="Ник зрителя"><input class="u-width-110px" type="text" id="kAmount" placeholder="Сумма (по желанию)"></div>
-      <div class="row"><button id="kOpen" class="go grow">📦 Открыть кейс</button><button id="kTest" title="Открыть для проверки">▶ Тест</button></div>
-      <div class="hint" id="kInfo"></div>
-      <div class="lbl">Предметы <span class="hint" id="kSum"></span></div>
-      <div id="kItems"></div>
-      <div class="row"><button id="kAdd" class="grow">➕ Предмет</button><button id="kFix" title="Пропорционально подогнать шансы, чтобы вместе было 100%">⚖ До 100%</button></div>
-      <div class="hint">Шанс в процентах. Редкость задаёт цвет, как в CS2. Перетащи картинку на строку предмета.</div>
-      <details><summary>🔊 Звуки и вид</summary>
-        <div class="row u-margin-top-6px"><span class="hint">Громкость</span><input type="range" id="iKVol" min="0" max="1" step="0.05" class="grow"></div>
-        <div class="row"><span class="hint">Показывать итог</span><input class="u-width-64px" type="number" id="iKHide" min="3" max="120"><span class="hint">сек</span></div>
-        <label class="tgl u-margin-top-6px"><input type="checkbox" id="iKLow"><span class="tgl-k"></span><span>Лёгкий режим для слабого ПК</span></label>
-        <div class="hint u-margin-top-6px">Своя надпись (по желанию, пусто = без надписи):</div>
-        <input type="text" id="iKUhh" maxlength="24" placeholder="когда байтовая лента почти выпала, например: УХХ!">
-        <input class="u-margin-top-4px" type="text" id="iKUpT" maxlength="24" placeholder="при втором шансе, например: ПЕРЕКРУТ!">
-        <div class="hint u-margin-top-6px">Свой звук вместо встроенного (по желанию):</div>
-        <div id="kSnd"></div>
-      </details>
-      <details><summary>📜 История открытий</summary><div id="kHist" class="hint u-x16"></div></details>
-      <input type="file" id="kFile" accept="image/*" hidden>
+    <!-- кейс и рулетка: настройки во вкладке «Розыгрыши» -->
+    <div data-for="case roulette" class="box">
+      <div class="hint">Настройки этого элемента: вкладка «Розыгрыши».</div>
+      <div class="row"><button id="toRaffles" class="grow">🎁 Открыть вкладку «Розыгрыши»</button></div>
     </div>
 
     <!-- розыгрыш -->
