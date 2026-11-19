@@ -67,7 +67,7 @@ async function roomKeys(code){ const r=rooms.find(x=>x.code===code); if(!r) thro
 async function roomKeysOk(r){ try{ await importRoomKeys(r); return true; }catch{ return false; } }
 async function useRoom(code){ const k=await roomKeys(code); room=code; KEYS=k; }
 
-let state={ visible:true, vol:1, fxVol:1, els:[], raffle:null };
+let state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
 const undoStack=[]; let changeOpen=false;
 function byId(id){ return state.els.find(e=>e.id===id); }
@@ -384,7 +384,7 @@ function publishNow(qos=0){
   STREAM_LANG=streamLang();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -411,7 +411,7 @@ async function switchRoom(code){
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
-  state={ visible:true, vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
+  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
@@ -719,7 +719,7 @@ function addHandles(node){
 }
 function renderAll(){
   syncSel();
-  stage.classList.toggle('all-hidden', !state.visible);
+  stage.classList.toggle('all-hidden', allHiddenNow());
   const seen=new Set(), now=nowMs();
   drawList(state).forEach((el,i)=>{
     seen.add(el.id);
@@ -745,7 +745,7 @@ function renderAll(){
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
   renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
-  $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
+  $('globalEye').textContent = hidAllActive() ? '👁 Показать всё' : '🙈 Скрыть всё';
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
 const MODE_NAME={ countdown:'Таймер', stopwatch:'Секундомер', until:'Отсчёт до', clock:'Часы' };
@@ -843,7 +843,7 @@ function renderMixer(){
 }
 const gT=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
 // Слои: одиночные элементы и папки (группы). Участники группы показываются под папкой; группа из одного элемента папкой не считается.
-let selFolder=null, layerAnchor=null;
+let selFolder=null, layerAnchor=null, layerDrag=null;
 const gfold=new Set((()=>{ const v=lsGet('overlay.gfold', []); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; })());
 function saveFold(){ lsSet('overlay.gfold', [...gfold]); }
 function layerUnits(){   // сверху вниз: { el } или { g, name, els }
@@ -883,6 +883,8 @@ function renderLayers(){
     if(el.kf) btnTo(row, 'kfplay', el.kf.playing?'⏹':'🎬', 'Проиграть / остановить анимацию (P)');
     btnTo(row, 'eye', el.hidden?'🙈':'👁', 'Показать / скрыть (H). Зажми и проведи по глазкам, чтобы скрыть несколько');
     btnTo(row, 'flash', '⚡', 'Показать на N секунд (F)');
+    btnTo(row, 'del', '🗑', 'Удалить');
+    if(layerDrag?.moved && layerDrag.id===el.id) row.classList.add('dragging');
     return row;
   };
   for(const u of units){
@@ -898,6 +900,8 @@ function renderLayers(){
     btnTo(f, 'eye', allHid?'🙈':'👁', 'Скрыть или показать всю папку');
     btnTo(f, 'flash', '⚡', 'Показать на N секунд (F)');
     btnTo(f, 'ungroup', '⛓️‍💥', 'Разгруппировать');
+    btnTo(f, 'del', '🗑', 'Удалить папку вместе с элементами');
+    if(layerDrag?.moved && layerDrag.g===u.g) f.classList.add('dragging');
     box.appendChild(f);
     if(!folded) for(const e of u.els) box.appendChild(elRow(e, true));
   }
@@ -1292,7 +1296,18 @@ $('shake').onclick=()=>{ if(sendFx({ type:'shake' })) toast('💥'); };
 $('calibBtn').onclick=()=>{ if(sendFx({ type:'calib' })) toast('У стримера на 10 секунд появилась рамка по краям оверлея', 4000); };
 
 $('clearAll').onclick=()=>{ if(!state.els.length) return; beginChange(); state.els=[]; selectedId=null; commit(); toast('Очищено. Ctrl+Z, чтобы вернуть'); };
-$('globalEye').onclick=()=>{ beginChange(); state.visible=!state.visible; commit(); };
+// «Скрыть всё» закрывает глазки у видимых элементов и запоминает их в state.hidAll; «Показать всё» открывает ровно их.
+// Открытое вручную в промежутке остаётся открытым, а то, что скрыли руками, «Показать всё» не трогает.
+function hidAllList(){ const all=drawList(state); return (state.hidAll||[]).map(id=>all.find(e=>e.id===id)).filter(Boolean); }
+function hidAllActive(){ return hidAllList().some(e=>e.hidden); }
+function allHiddenNow(){ return hidAllActive() && drawList(state).every(e=>e.hidden); }
+function toggleHideAll(){
+  beginChange();
+  if(hidAllActive()){ for(const e of hidAllList()) if(e.hidden){ e.hidden=false; delete e.ttl; } state.hidAll=[]; }
+  else{ const vis=drawList(state).filter(e=>!e.hidden); for(const e of vis){ e.hidden=true; delete e.ttl; } state.hidAll=vis.map(e=>e.id); }
+  commit();
+}
+$('globalEye').onclick=toggleHideAll;
 $('undoBtn').onclick=undo;
 
 function widgetLink(){
@@ -1375,9 +1390,59 @@ $('roomDel').onclick=()=>{
   if(!confirm(`Убрать «${r.name}» из списка?\nКлючи пропадут из этого пульта. Сохрани бэкап, если комната ещё нужна.`)) return;
   rooms=rooms.filter(x=>x.code!==room); room=null; switchRoom(rooms[0].code).then(()=>{ saveRooms(); renderRooms(); });
 };
+// Окно пароля вместо prompt(): поле type=password с кнопкой 👁, ошибки показываются в самом окне.
+// fields: [{ label, optional }], check(values) → текст ошибки или null (можно async), sameAs: пароль, который подставляет галочка «Тот же, что на пульт» (в поле он не показывается).
+// Возвращает массив значений или null, если окно закрыли.
+function pwDialog({ title, note, fields, ok='Готово', check, sameAs }){
+  return new Promise(res=>{
+    $('pwDlg')?.remove();
+    const wrap=document.createElement('div'); wrap.id='pwDlg';
+    const form=document.createElement('form'); form.className='lockbox pwbox'; form.autocomplete='off';
+    const h=document.createElement('h3'); h.textContent=title; form.appendChild(h);
+    if(note){ const p=document.createElement('div'); p.className='hint'; p.textContent=note; form.appendChild(p); }
+    const inputs=fields.map((f,i)=>{
+      const lab=document.createElement('label'); lab.className='pwf';
+      const sp=document.createElement('span'); sp.textContent=f.label;
+      const row=document.createElement('div'); row.className='pwrow';
+      const inp=document.createElement('input'); inp.type='password'; inp.autocomplete='new-password'; inp.spellcheck=false; inp.dataset.i18nSkip='';
+      const eye=document.createElement('button'); eye.type='button'; eye.className='pweye'; eye.title='Показать / скрыть пароль'; eye.textContent='👁';
+      eye.onclick=()=>{ const show=inp.type==='password'; inp.type=show?'text':'password'; eye.textContent=show?'🙈':'👁'; inp.focus(); };
+      row.append(inp, eye); lab.append(sp, row); form.appendChild(lab); return inp;
+    });
+    let same=null;
+    if(sameAs){
+      const lab=document.createElement('label'); lab.className='chk';
+      same=document.createElement('input'); same.type='checkbox';
+      same.onchange=()=>{ inputs[0].disabled=same.checked; if(!same.checked) inputs[0].focus(); };
+      lab.append(same, document.createTextNode(' '), document.createTextNode(gT('Тот же, что на пульт'))); form.appendChild(lab);
+    }
+    const err=document.createElement('div'); err.className='hint pwerr'; form.appendChild(err);
+    const btns=document.createElement('div'); btns.className='row';
+    const go=document.createElement('button'); go.type='submit'; go.id='pwOk'; go.className='primary grow'; go.textContent=ok;
+    const no=document.createElement('button'); no.type='button'; no.id='pwCancel'; no.textContent='Отмена';
+    btns.append(go, no); form.appendChild(btns); wrap.appendChild(form); document.body.appendChild(wrap);
+    const close=v=>{ wrap.remove(); res(v); };
+    no.onclick=()=>close(null);
+    wrap.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(null); } });
+    let busy=false;
+    form.onsubmit=async e=>{
+      e.preventDefault(); if(busy) return;
+      const v=inputs.map(i=>i.value); if(same?.checked) v[0]=sameAs;
+      const empty=fields.findIndex((f,i)=>!f.optional && !v[i]);
+      const fail=m=>{ err.textContent=m; busy=false; go.disabled=false; (same?.checked ? same : inputs[Math.max(0, empty)]).focus(); };
+      busy=true; go.disabled=true;
+      if(empty>=0) return fail(gT('Введи пароль'));
+      if(check){ err.textContent=gT('Проверяю…'); const m=await check(v); if(m) return fail(gT(m)); }
+      close(v);
+    };
+    inputs[0].focus();
+  });
+}
 // Бэкап: в нём закрытые ключи, поэтому он всегда зашифрован паролем
 $('roomExport').onclick=async()=>{
-  const pass=prompt('Придумай пароль для файла бэкапа (в нём ключи всех комнат):', vaultPass||''); if(!pass) return;
+  const r=await pwDialog({ title:'Пароль для файла бэкапа', note:'В бэкапе ключи всех комнат, поэтому файл всегда шифруется. Без пароля его не открыть.', fields:[{ label:'Пароль бэкапа' }], sameAs:vaultPass||null });
+  if(!r) return;
+  const pass=r[0];
   const box=await lockJSON(pass, { rooms, library, anims:myAnims, scenes, scenarios:scnStore });
   const blob=new Blob([JSON.stringify({ overlayBackup:2, box })], { type:'application/json' });
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='overlay-backup.json'; a.click();
@@ -1390,8 +1455,10 @@ $('roomFile').onchange=async e=>{
   let data; try{ data=JSON.parse(await f.text()); }catch{ return toast('Это не файл бэкапа оверлея'); }
   if(!data || typeof data!=='object' || Array.isArray(data)) return toast('Это не файл бэкапа оверлея');
   if(data.overlayBackup===2){
-    const pass=prompt('Пароль от файла бэкапа:', ''); if(!pass) return;
-    data=await unlockJSON(pass, data.box); if(!data || typeof data!=='object') return toast('Неверный пароль');
+    const boxData=data.box; let opened=null;
+    const r=await pwDialog({ title:'Пароль от файла бэкапа', fields:[{ label:'Пароль' }], check:async v=>{ opened=await unlockJSON(v[0], boxData); return opened && typeof opened==='object' ? null : 'Неверный пароль'; } });
+    if(!r) return;
+    data=opened;
   } else if(!confirm('Файл бэкапа без пароля: добавить из него комнаты, сцены и сценарии? Открывай только файлы, которым доверяешь.')) return;
   const arr=v=>Array.isArray(v) ? v : [];
   let added=0, libAdded=0, animAdded=0;
@@ -1422,18 +1489,18 @@ $('vaultWarnLater').onclick=()=>{ lsSet(VAULT_SNOOZE, Date.now()+3*24*3600e3); r
 // «Больше не показывать»: карточка не появится, но кнопка «⚠ Нет пароля» остаётся оранжевой
 $('vaultWarnNever').onclick=()=>{ lsSet(VAULT_SNOOZE, Number.MAX_SAFE_INTEGER); renderLockBtns(); };
 $('passBtn').onclick=async()=>{
+  const NEW_CHECK=(v, i)=>v[i].length<6 ? 'Пароль хотя бы 6 символов' : v[i]!==v[i+1] ? 'Пароли не совпали' : null;
   if(vaultPass){
-    const old=prompt('Текущий пароль (чтобы изменить или снять):'); if(old==null) return;
-    if(old!==vaultPass) return toast('Неверный пароль');
-    const np=prompt('Новый пароль. Оставь пустым, чтобы снять пароль:', ''); if(np==null) return;
-    if(np && np.length<6) return toast('Пароль хотя бы 6 символов');
-    vaultPass=np||null;
+    const r=await pwDialog({ title:'Сменить или снять пароль', fields:[{ label:'Текущий пароль' }, { label:'Новый пароль (пусто: снять пароль)', optional:true }, { label:'Повтори новый пароль', optional:true }],
+      check:v=>v[0]!==vaultPass ? 'Неверный пароль' : v[1] ? NEW_CHECK(v, 1) : null });
+    if(!r) return;
+    vaultPass=r[1]||null;
     if(!vaultPass){ await syncSessions(); sessSecrets={}; }   // пароль снят: ключи сессий возвращаются в список
   } else {
-    const np=prompt('Пароль на пульт (хотя бы 6 символов). Без него никто с этого компьютера не откроет твои комнаты.\nЗапомни его: восстановить нельзя, только из бэкапа.', ''); if(!np) return;
-    if(np.length<6) return toast('Пароль хотя бы 6 символов');
-    if(prompt('Повтори пароль:', '')!==np) return toast('Пароли не совпали');
-    vaultPass=np;
+    const r=await pwDialog({ title:'Пароль на пульт', note:'Хотя бы 6 символов. Без пароля никто с этого компьютера не откроет твои комнаты. Запомни его: восстановить нельзя, только из бэкапа.',
+      fields:[{ label:'Пароль' }, { label:'Повтори пароль' }], check:v=>NEW_CHECK(v, 0) });
+    if(!r) return;
+    vaultPass=r[0];
   }
   await saveRooms();
   if(vaultPass) await syncSessions().catch(e=>console.warn('sessions vault', e)); renderLockBtns(); toast(vaultPass ? 'Пароль установлен 🔒' : 'Пароль снят');
@@ -1899,6 +1966,104 @@ $('layers').addEventListener('pointerdown', e=>{
   addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('blur', up);
   e.preventDefault();
 });
+// --- перетаскивание строк слоёв: бросок внутрь папки добавляет в неё, вне папки снимает; папка тянется блоком ---
+const ldUnit=row=>{   // единица списка, которой принадлежит строка: папка (заголовок и участники) или одиночный элемент
+  const g=row.dataset.g || (row.classList.contains('in') ? byId(row.dataset.id)?.g : null);
+  return g ? { g, key:'g:'+g } : { id:row.dataset.id, key:'e:'+row.dataset.id };
+};
+const ldRows=()=>[...$('layers').querySelectorAll('.layer')];
+const ldUnitRows=u=>ldRows().filter(r=>ldUnit(r).key===u.key);
+function layerDropTarget(x, y, dg){
+  const rows=ldRows(); if(!rows.length) return null;
+  const selfKey=dg.g ? 'g:'+dg.g : 'e:'+dg.id;
+  const R=r=>r.getBoundingClientRect();
+  const first=R(rows[0]), last=R(rows.at(-1));
+  const sideOf=(u, side)=>u.g ? { g:u.g, side } : { ref:u.id, side };
+  const line=(r, below, left)=>{ const b=R(r); return { top:b[below?'bottom':'top']+(below?2:-2), left:left ?? b.left, width:b.right-(left ?? b.left) }; };
+  if(y<first.top-6 || y>last.bottom+6){   // за краем списка: над первой или под последней единицей
+    const below=y>last.bottom+6, u=ldUnit(below?rows.at(-1):rows[0]);
+    if(u.key===selfKey) return null;
+    const ur=ldUnitRows(u);
+    return { ...sideOf(u, below?'below':'above'), join:null, line:line(below?ur.at(-1):ur[0], below, R(ur[0]).left) };
+  }
+  let row=null, best=1e9;
+  for(const r of rows){ const b=R(r), d=y<b.top?b.top-y:y>b.bottom?y-b.bottom:0; if(d<best){ best=d; row=r; } }
+  const u=ldUnit(row);
+  if(u.key===selfKey || (!dg.g && row.dataset.id===dg.id)) return null;
+  const b=R(row), ur=ldUnitRows(u), below=y>=b.top+b.height/2;
+  if(!row.dataset.g && !row.classList.contains('in')) return { ref:u.id, side:below?'below':'above', join:null, line:line(row, below) };   // одиночный элемент
+  if(dg.g){   // папка над папкой: ставим рядом, единица делится пополам по высоте
+    const ub=y>=(R(ur[0]).top+R(ur.at(-1)).bottom)/2;
+    return { g:u.g, side:ub?'below':'above', join:null, line:line(ub?ur.at(-1):ur[0], ub, R(ur[0]).left) };
+  }
+  if(row.dataset.g){   // элемент над заголовком папки: верхняя треть — над папкой, остальное — внутрь, наверх
+    if((y-b.top)/b.height<0.34) return { g:u.g, side:'above', join:null, line:line(row, false) };
+    return { g:u.g, side:'above', join:u.g, line:line(row, true, b.left+18), into:row };
+  }
+  if(below && row===ur.at(-1) && x<b.left) return { g:u.g, side:'below', join:null, line:line(row, true, R(ur[0]).left) };   // левее отступа под последним участником: ниже папки
+  return { ref:row.dataset.id, side:below?'below':'above', join:u.g, line:line(row, below) };
+}
+function layerDrop(dg, t){
+  const ids=dg.g ? state.els.filter(e=>e.g===dg.g).map(e=>e.id) : [dg.id];
+  const set=new Set(ids), moved=state.els.filter(e=>set.has(e.id)), rest=state.els.filter(e=>!set.has(e.id));
+  let at;
+  if(t.ref){ const i=rest.findIndex(e=>e.id===t.ref); if(i<0) return false; at=t.side==='above' ? i+1 : i; }
+  else { const m=rest.map((e,i)=>e.g===t.g?i:-1).filter(i=>i>=0); if(!m.length) return false; at=t.side==='above' ? m.at(-1)+1 : m[0]; }   // список хранится снизу вверх
+  const next=[...rest.slice(0,at), ...moved, ...rest.slice(at)];
+  const sig=a=>a.map(e=>e.id).join(',');
+  const gNow=dg.g ? dg.g : (byId(dg.id).g || null), gNew=dg.g ? dg.g : (t.join || null);
+  if(sig(next)===sig(state.els) && gNow===gNew) return false;
+  const name=t.join ? rest.find(e=>e.g===t.join && e.gn)?.gn || gT('Группа') : null;
+  beginChange();
+  if(!dg.g){ const e=moved[0]; if(t.join){ e.g=t.join; e.gn=name; } else { delete e.g; delete e.gn; } }
+  state.els=next;
+  if(gNow && gNow!==gNew && !dg.g && state.els.filter(e=>e.g===gNow).length===1) state.els.forEach(e=>{ if(e.g===gNow){ delete e.g; delete e.gn; } });   // в папке остался один: она больше не папка
+  packGroups();
+  if(!dg.g){ msel.clear(); msel.add(dg.id); selectedId=dg.id; selFolder=null; }
+  commit(); return true;
+}
+$('layers').addEventListener('pointerdown', e=>{
+  if(e.button!==0 || e.shiftKey || e.ctrlKey || e.metaKey || e.target.closest('button,input,select')) return;
+  const row=e.target.closest('.layer'); if(!row) return;
+  const dg={ x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY, moved:false, g:row.dataset.g||null, id:row.dataset.g?null:row.dataset.id, t:null };
+  if(dg.id && !byId(dg.id)) return;
+  const scroller=$('layers').closest('aside');
+  const mark=el=>{ document.querySelectorAll('#layers .drop-in').forEach(n=>n.classList.remove('drop-in')); el?.classList.add('drop-in'); };
+  const update=()=>{
+    dg.t=layerDropTarget(dg.x, dg.y, dg);
+    let d=$('layerDrop'); if(!d){ d=document.createElement('div'); d.id='layerDrop'; document.body.appendChild(d); }
+    if(!dg.t){ d.hidden=true; mark(null); return; }
+    d.hidden=false; Object.assign(d.style, { top:dg.t.line.top-1.5+'px', left:dg.t.line.left+'px', width:dg.t.line.width+'px' }); mark(dg.t.into);
+  };
+  let timer=null;
+  const end=drop=>{
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', cancel); removeEventListener('blur', cancel); removeEventListener('keydown', key, true);
+    clearInterval(timer); $('layerDrop')?.remove(); mark(null); document.body.classList.remove('ld-active');
+    const was=layerDrag; layerDrag=null;
+    if(was?.moved){
+      const stop=ev=>{ ev.stopPropagation(); ev.preventDefault(); };   // после броска click не должен выбирать строку
+      $('layers').addEventListener('click', stop, { capture:true, once:true }); setTimeout(()=>$('layers').removeEventListener('click', stop, true), 0);
+      if(!(drop && dg.t && layerDrop(dg, dg.t))) renderLayers();
+    }
+  };
+  const move=ev=>{
+    if(ev.buttons===0) return cancel();
+    dg.x=ev.clientX; dg.y=ev.clientY;
+    if(!dg.moved){
+      if(Math.hypot(dg.x-dg.x0, dg.y-dg.y0)<5) return;
+      dg.moved=true; layerDrag=dg; document.body.classList.add('ld-active'); renderLayers();
+      timer=setInterval(()=>{   // у края списка прокручиваем
+        const b=scroller.getBoundingClientRect(), zone=28;
+        if(dg.y<b.top+zone) scroller.scrollTop-=12; else if(dg.y>b.bottom-zone) scroller.scrollTop+=12; else return;
+        update();
+      }, 30);
+    }
+    update();
+  };
+  const up=()=>end(true), cancel=()=>end(false);
+  const key=ev=>{ if(ev.key==='Escape'){ ev.stopPropagation(); cancel(); } };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', cancel); addEventListener('blur', cancel); addEventListener('keydown', key, true);
+});
 function selectRange(toId){
   const order=layerOrder(), a=order.indexOf(layerAnchor), b=order.indexOf(toId);
   if(a<0 || b<0) return select(toId, 'replace');
@@ -1914,7 +2079,8 @@ $('layers').addEventListener('click', e=>{
   if(row.dataset.g){
     const g=row.dataset.g, members=state.els.filter(x=>x.g===g);
     if(e.detail>=2 && !act && e.target.closest('.name,.ico')){ renameFolder(g); return; }   // двойной клик: первый клик уже перерисовал список, поэтому ловим по click, а не dblclick
-    if(act==='eye'){ const hide=members.some(x=>!x.hidden); beginChange(); members.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
+    if(act==='del') removeIds(members.map(x=>x.id));
+    else if(act==='eye'){ const hide=members.some(x=>!x.hidden); beginChange(); members.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
     else if(act==='flash'){ beginChange(); const t=Date.now()+flashSecs()*1000; members.forEach(x=>{ x.hidden=false; x.ttl=t; if(x.type==='video'||x.type==='web') x.restart=Date.now(); if(x.kf){ x.kf.playing=true; x.kf.start=Date.now(); } }); commit(); }
     else if(act==='fold'){ gfold.has(g)?gfold.delete(g):gfold.add(g); saveFold(); renderLayers(); }
     else if(act==='ungroup'){ beginChange(); members.forEach(x=>{ delete x.g; delete x.gn; }); if(selFolder===g) selFolder=null; commit(); toast('Группа разбита'); }
@@ -1923,7 +2089,8 @@ $('layers').addEventListener('click', e=>{
     return;
   }
   const el=byId(row.dataset.id); if(!el) return;
-  if(act==='eye') toggleHidden(el);
+  if(act==='del') removeIds([el.id]);
+  else if(act==='eye') toggleHidden(el);
   else if(act==='flash') flash(el);
   else if(act==='ttoggle') act1(el, timerToggle);
   else if(act==='kfplay') act1(el, kfToggle);
@@ -2256,7 +2423,17 @@ function duplicate(){
     if(el.g){ if(!gmap.has(el.g)) gmap.set(el.g, rid(6)); c.g=gmap.get(el.g); } state.els.push(c); ids.push(c.id); }
   msel.clear(); ids.forEach(i=>msel.add(i)); selectedId=ids.at(-1); commit();
 }
-function remove(){ if(!msel.size) return; beginChange(); state.els=state.els.filter(e=>!msel.has(e.id)); msel.clear(); selectedId=null; commit(); }
+// Удаление одним шагом отмены: и для выделения (Del, 🗑 на панели), и для строки или папки в списке слоёв
+function removeIds(ids){
+  const set=new Set(ids); if(!set.size) return;
+  beginChange();
+  state.els=state.els.filter(e=>!set.has(e.id));
+  for(const id of set) msel.delete(id);
+  if(selectedId && set.has(selectedId)) selectedId=msel.size?[...msel][0]:null;
+  if(selFolder && !state.els.some(e=>e.g===selFolder)) selFolder=null;
+  commit();
+}
+function remove(){ if(msel.size) removeIds([...msel]); }
 function hideSel(){ const list=selList(); if(!list.length) return; const hide=list.some(x=>!x.hidden); beginChange(); list.forEach(x=>{ x.hidden=hide; delete x.ttl; }); commit(); }
 function groupSel(){
   const list=selList(); if(list.length<2) return toast('Выдели 2+ элемента (Shift+клик или рамкой)');
@@ -3028,7 +3205,7 @@ function webPlace(force){
 // то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
 function webBlocked(){
   const slot=$('webSlot').getBoundingClientRect();
-  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','persistBox','lvlPop','upload','langPick'].some(id=>{
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','pwDlg','lvlPop','upload','langPick'].some(id=>{
     const el=$(id); if(!el || el.hidden) return false;
     const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
     const r=el.getBoundingClientRect();

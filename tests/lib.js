@@ -136,7 +136,7 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
     const snooze = Date.now() + 864e5;
     if(app){ const s = JSON.parse(localStorage.getItem('fake.store') || '{}'); if(!s['overlay.vaultWarn']){ s['overlay.vaultWarn'] = snooze; localStorage.setItem('fake.store', JSON.stringify(s)); } }
     else if(!localStorage.getItem('store:overlay.vaultWarn')) localStorage.setItem('store:overlay.vaultWarn', String(snooze));
-    if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1, persist:Date.now() }));
+    if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1 }));
   }catch{} }, [lang, tour, app]);
   await ctx.route(/jtvnw\.net/, r => r.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/img.png')), contentType: 'image/png' }));
   // Twitch chat without the network: window.__irc(line) feeds a raw IRC line to the panel
@@ -177,6 +177,20 @@ async function stack({ hostEnv, irc = false, lang = 'ru', w = 1600, h = 900 } = 
   return { web, host, panel, widget, link, online, obsLink: set.obsLink,
     async close(){ await host.stop(); await web.close(); await closeRelays(); } };
 }
+// Fills in the panel's password dialog (#pwDlg) by itself: every item of `list` holds the values of one dialog, in order
+async function answerPw(p, list){
+  await p.evaluate(list => {
+    window.__pwAnswers = list;
+    if(window.__pwWatch) return;
+    window.__pwWatch = new MutationObserver(() => {
+      const d = document.getElementById('pwDlg'); if(!d || d.dataset.done || !window.__pwAnswers.length) return;
+      const vals = window.__pwAnswers.shift(); d.dataset.done = '1';
+      d.querySelectorAll('input[type=password], input[type=text]').forEach((i, n) => { i.value = vals[n] ?? ''; });
+      d.querySelector('form').requestSubmit();
+    });
+    window.__pwWatch.observe(document.body, { childList: true });
+  }, list);
+}
 function finish(){
   if(pageErrors.length) for(const e of [...new Set(pageErrors)]) check(false, 'page error: ' + e);
   const bad = results.filter(r => !r.ok);
@@ -184,4 +198,4 @@ function finish(){
   return bad.length ? 1 : 0;
 }
 // A sealed asset made the same way the panel does it, using core.js inside a page
-module.exports = { ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };
+module.exports = { answerPw, ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };

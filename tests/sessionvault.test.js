@@ -19,7 +19,7 @@ const FP = 'cd'.repeat(32), PW = 'secret123';
   }
   const rawStore = p => p.evaluate(() => localStorage.getItem('fake.store') || '');
   // password dialogs: answers in order
-  const answer = (p, list) => { p.removeAllListeners('dialog'); p.on('dialog', d => d.type() === 'prompt' ? d.accept(list.shift() ?? '') : d.accept()); };
+  const answer = (p, list) => T.answerPw(p, list);
   const unlock = async (p, pw) => { await p.waitForSelector('#lockPass', { state: 'visible' }); await p.fill('#lockPass', pw); await p.click('#lockGo'); };
   const online = p => until(async () => (await p.getAttribute('#status', 'class')).includes('ok'), 15000);
   // a secret value that must not appear in plain: the signing material as JSON text
@@ -29,7 +29,7 @@ const FP = 'cd'.repeat(32), PW = 'secret123';
     const k = await keysFrom();
     const p = await open('pv1', '', { 'app.sessions': [sess('room_vault1', k)] });
     await p.waitForFunction(() => window.hudiniReady);
-    answer(p, [PW, PW]);
+    await answer(p, [[PW, PW]]);
     await p.click('#moreBtn'); await p.click('#passBtn');
     check(await until(async () => { const s = (await T.stored(p, 'app.sessions'))?.[0]; return s && s.sealed === 1 && s.k === undefined; }), 'session is sealed, no k');
     const raw = await rawStore(p);
@@ -54,7 +54,7 @@ const FP = 'cd'.repeat(32), PW = 'secret123';
     const k = await keysFrom();
     const p = await open('pv2', '', { 'app.sessions': [sess('room_vault2', k)] });
     await p.waitForFunction(() => window.hudiniReady);
-    answer(p, [PW, PW]); await p.click('#moreBtn'); await p.click('#passBtn');
+    await answer(p, [[PW, PW]]); await p.click('#moreBtn'); await p.click('#passBtn');
     check(await until(async () => (await T.stored(p, 'app.sessions'))?.[0]?.sealed === 1), 'sealed');
     await p.goto(base + '?session=room_vault2');
     await unlock(p, 'wrong-password');
@@ -71,9 +71,9 @@ const FP = 'cd'.repeat(32), PW = 'secret123';
     const k = await keysFrom();
     const p = await open('pv3', '', { 'app.sessions': [sess('room_vault3', k)] });
     await p.waitForFunction(() => window.hudiniReady);
-    answer(p, [PW, PW]); await p.click('#moreBtn'); await p.click('#passBtn');
+    await answer(p, [[PW, PW]]); await p.click('#moreBtn'); await p.click('#passBtn');
     check(await until(async () => (await T.stored(p, 'app.sessions'))?.[0]?.sealed === 1), 'sealed');
-    answer(p, [PW, '']); await p.click('#moreBtn'); await p.click('#passBtn');
+    await answer(p, [[PW, '', '']]); await p.click('#moreBtn'); await p.click('#passBtn');
     check(await until(async () => (await T.stored(p, 'overlay.vault2'))?.plain), 'vault is plain again');
     const s = (await T.stored(p, 'app.sessions'))[0];
     eq([s.k, s.p, s.s, s.sealed, s.pass], [k.k, k.p, k.s, undefined, pass], 'keys and host password are back, marker gone');
@@ -100,7 +100,7 @@ const FP = 'cd'.repeat(32), PW = 'secret123';
     const k1 = await keysFrom(), k2 = await keysFrom();
     const p = await open('pv5', '', { 'app.sessions': [sess('room_vault5', k1)] });
     await p.waitForFunction(() => window.hudiniReady);
-    answer(p, [PW, PW]); await p.click('#moreBtn'); await p.click('#passBtn');
+    await answer(p, [[PW, PW]]); await p.click('#moreBtn'); await p.click('#passBtn');
     check(await until(async () => (await T.stored(p, 'app.sessions'))?.[0]?.sealed === 1), 'first sealed');
     // the sessions window has no password: a new session with keys arrives in plain form
     await p.evaluate(([s]) => { HudiniStore.set('app.sessions', [...HudiniStore.get('app.sessions', []), s]); }, [sess('room_vault6', k2)]);

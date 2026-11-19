@@ -137,7 +137,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 .keys{font-size:12px;color:var(--muted);line-height:1.9}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;transition:transform .25s;z-index:100000;pointer-events:none;max-width:80vw}
 #toast.show{transform:translateX(-50%) translateY(0)}
-#lock{position:fixed;inset:0;background:#0b0d11f2;z-index:100002;display:flex;align-items:center;justify-content:center}
+#lock,#pwDlg{position:fixed;inset:0;background:#0b0d11f2;z-index:100002;display:flex;align-items:center;justify-content:center}
 #lock[hidden]{display:none!important}
 #hostTip{position:fixed;inset:0;background:#0b0d11cc;z-index:100001;display:flex;align-items:center;justify-content:center}
 #hostTip[hidden]{display:none!important}
@@ -285,3 +285,21 @@ body.web #web{display:flex}
 :root .u-margin-8px-0-0-18px-padding-0{margin:8px 0 0 18px;padding:0}
 :root .u-text-align-center-display-block{text-align:center;display:block}
 :root .u-width-100-margin-top-8px{width:100%;margin-top:8px}
+/* перетаскивание слоёв */
+.layer{user-select:none;-webkit-user-select:none}
+.layer.dragging{opacity:.4}
+.layer.drop-in{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+body.ld-active,body.ld-active .layer{cursor:grabbing}
+#layerDrop{position:fixed;z-index:100010;height:3px;border-radius:2px;background:var(--acc);box-shadow:0 0 6px var(--acc);pointer-events:none}
+#layerDrop[hidden]{display:none}
+.layer button[data-act=del]:hover{color:var(--bad)}
+/* окно пароля */
+.pwbox{width:380px;max-width:92vw;text-align:left}
+.pwbox h3{text-align:center}
+.pwf{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.pwrow{display:flex;gap:6px}
+.pwrow input{flex:1;min-width:0}
+.pwrow .pweye{padding:4px 9px}
+.pwerr{min-height:18px;color:var(--bad)}
+.pwbox .row{display:flex;gap:8px}
+.pwbox .row .grow{flex:1}
