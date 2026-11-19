@@ -401,6 +401,16 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
   });
 
+  await step('CS2 team names and logos follow the team after a side swap', async () => {
+    const r = await mod.evaluate(() => {
+      const el = sanitizeEl({ id: 'x', type: 'cs2', tnCT: 'Alpha', tnT: 'Beta', lgCT: 'https://example.com/a.png', lgT: 'https://example.com/b.png' });
+      const a = cs2View(el, { ctName: 'x', tName: 'y', sw: 0 }), b = cs2View(el, { ctName: 'x', tName: 'y', sw: 1 });
+      const bare = cs2View(sanitizeEl({ id: 'y', type: 'cs2' }), { ctName: 'NAVI', tName: 'Vitality', sw: 1 });
+      return [a.ctName, a.tName, a.lgCT, b.ctName, b.tName, b.lgCT, b.lgT, bare.ctName, bare.tName];
+    });
+    eq(r, ['Alpha', 'Beta', 'https://example.com/a.png', 'Beta', 'Alpha', 'https://example.com/b.png', 'https://example.com/a.png', 'NAVI', 'Vitality'], 'manual names and logos swap, names from the game are used as sent by the Host');
+  });
+
   await step('snapping to other elements: move, resize, Ctrl and highlight of the target', async () => {
     await mod.click('[data-tab=add]');
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });

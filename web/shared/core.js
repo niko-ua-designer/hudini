@@ -1167,8 +1167,16 @@ function timerSet(t, flip){
 }
 function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+// Что видит HUD: названия и логотипы команд едут вместе с командой
+// при смене сторон (d.sw пришёл от Host: нечётное = стороны сменили). Ручные названия tnCT/tnT заданы для начальных сторон.
+function cs2View(el, d){
+  if(!d) return d;
+  const flip=d.sw ? 1 : 0, mine=(a,b)=>flip ? b : a;
+  const out={ ...d, ctName: mine(el.tnCT, el.tnT) || d.ctName, tName: mine(el.tnT, el.tnCT) || d.tName, lgCT: mine(el.lgCT, el.lgT)||'', lgT: mine(el.lgT, el.lgCT)||'' };
+  return out;
+}
 function paintCs2(c, el){
-  let d = cs2Fresh() ? CS2 : null;
+  let d = cs2Fresh() ? cs2View(el, CS2) : null;
   if(c._view!==el.view){ c.replaceChildren(); c._view=el.view; c._seen=null; c.classList.remove('nodata','on','pop'); }
   if(el.view==='streak'){
     // всплывашка по событиям от программы стримера: свои мульти-киллы и (в режиме наблюдателя) любого игрока
@@ -1344,9 +1352,9 @@ function bigCard(c, el, p){
 }
 function scoreTop(el, d, withSeries){
   const top=h('div','hd-score');
-  const team=(side)=>{ const b=h('div','hd-team tm-'+side); const lg=side==='ct'?el.lgCT:el.lgT;
+  const team=(side)=>{ const b=h('div','hd-team tm-'+side); const lg=side==='ct'?d.lgCT:d.lgT;
     if(lg){ const i=document.createElement('img'); i.src=resolveSrc(lg); i.alt=''; b.appendChild(i); }
-    b.appendChild(h('span','hd-tname', (side==='ct'?(el.tnCT||d.ctName):(el.tnT||d.tName)) || (side==='ct'?'CT':'T'))); return b; };
+    b.appendChild(h('span','hd-tname', (side==='ct'?d.ctName:d.tName) || (side==='ct'?'CT':'T'))); return b; };
   const mid=h('div','hd-mid');
   const tm=timerNode('hd-time'+(d.pphase==='bomb'?' bomb':''), !!el.flip);
   mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), tm);
@@ -1393,7 +1401,7 @@ function paintHud(c, el, d){
   scoreTop.c=c; statRows.c=c; statRows.el=el;
   // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
   const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
-  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
+  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.ctName, d.tName, d.sw, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
   if(c._sig===sig) return; c._sig=sig;
   if(!d){ c.replaceChildren(h('div','hd-wait', st('🎯 CS2: ждём данные из игры'))); return; }
   const players=d.players||[], byName=n=>players.find(x=>String(x.name||'').toLowerCase()===String(n||'').toLowerCase());

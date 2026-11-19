@@ -383,15 +383,56 @@ function addEv(k, extra){ evs.push({ s:++evSeq, k, t:Date.now(), ...extra }); if
 // Файл data/cs2-stats.json переживает перезапуск программы посреди матча; новая карта или матч обнуляют его.
 const STATS_FILE = path.join(BASE, 'cs2-stats.json');
 let mstats = {}, mKey = '', mLast = -1, mRounds = 0, statsT = null;
+// Смена сторон: sw = чётность смен в матче, nf/sf = Host сам меняет названия/счёт местами (CS2 их не поменял), teams = игроки по сторонам, raw = прошлые сырые значения
+let sd = { key:'', sw:0, nf:false, sf:false, teams:{}, raw:null, round:-1 };
 try{
   const j = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
   if(j && j.v === 1 && j.stats && typeof j.stats === 'object'){ for(const [id, x] of Object.entries(j.stats)) if(x && typeof x === 'object') mstats[id] = { dmg:{ ...x.dmg }, hs:{ ...x.hs }, k:{ ...x.k } };
     mKey = String(j.key || ''); mLast = Number.isInteger(j.last) ? j.last : -1; }
+  if(j && j.sides && typeof j.sides === 'object') sd = { ...sd, sw:j.sides.sw ? 1 : 0, nf:!!j.sides.nf, sf:!!j.sides.sf, key:mKey };
 }catch{}
 function saveStats(now){
   if(statsT){ clearTimeout(statsT); statsT = null; }
   if(!now){ statsT = setTimeout(() => saveStats(true), 2000); return; }
-  try{ fs.writeFileSync(STATS_FILE, JSON.stringify({ v:1, key:mKey, last:mLast, stats:mstats }), { mode:0o600 }); }catch{}
+  try{ fs.writeFileSync(STATS_FILE, JSON.stringify({ v:1, key:mKey, last:mLast, stats:mstats, sides:{ sw:sd.sw, nf:sd.nf, sf:sd.sf } }), { mode:0o600 }); }catch{}
+}
+// Названия и счёт команд едут вместе с командой на новую сторону. Смену сторон видим по игрокам: тот же steamid
+// сменил CT на T. CS2 обычно сам меняет team_ct/team_t местами, но если названия или счёт остались на старой стороне,
+// Host меняет их сам; если CS2 поменял, ничего не трогаем. Мгновенно и надёжно, без подсчёта раундов (mr12/mr15/овертайм).
+function trackSides(g, out){
+  const map = g.map || {}, round = Number.isInteger(map.round) ? map.round : -1;
+  const key = (map.name || '') + '|' + (map.mode || '');
+  const was = [sd.sw, sd.nf, sd.sf].join();
+  if(map.phase === 'warmup' || key !== sd.key || round < sd.round){ sd = { key, sw:0, nf:false, sf:false, teams:{}, raw:null, round }; }
+  else sd.round = round;
+  const now = {};
+  const note = (id, t) => { if(id && (t === 'CT' || t === 'T')) now[id] = t; };
+  if(g.player) note(g.player.steamid, g.player.team);
+  if(g.allplayers) for(const [id, pl] of Object.entries(g.allplayers)) note(id, pl?.team);
+  let same = 0, diff = 0;
+  for(const id in now){ if(sd.teams[id]) (sd.teams[id] === now[id] ? same++ : diff++); }
+  const swapped = map.phase !== 'warmup' && diff > 0 && diff > same;
+  const raw = { ct:Number(map.team_ct?.score), tt:Number(map.team_t?.score), cn:map.team_ct?.name || '', tn:map.team_t?.name || '' }, pr = sd.raw;
+  if(swapped){
+    sd.sw ^= 1;
+    for(const id in sd.teams) sd.teams[id] = sd.teams[id] === 'CT' ? 'T' : 'CT';
+  }
+  if(pr){
+    // названия: CS2 поменял их сам (ровно наоборот) или не тронул
+    if(pr.cn && pr.tn && pr.cn !== pr.tn){
+      if(raw.cn === pr.tn && raw.tn === pr.cn) sd.nf = false;
+      else if(swapped && raw.cn === pr.cn && raw.tn === pr.tn) sd.nf = !sd.nf;
+    }
+    const plain = raw.ct >= pr.ct && raw.tt >= pr.tt, sw = raw.ct >= pr.tt && raw.tt >= pr.ct;
+    if(sw && !plain) sd.sf = false;
+    else if(swapped && plain && !sw) sd.sf = !sd.sf;
+  }
+  for(const id in now) sd.teams[id] = now[id];
+  sd.raw = raw;
+  if(sd.nf){ out.ctName = map.team_t?.name; out.tName = map.team_ct?.name; }
+  if(sd.sf){ out.ct = map.team_t?.score; out.tt = map.team_ct?.score; }
+  out.sw = sd.sw;
+  if([sd.sw, sd.nf, sd.sf].join() !== was) saveStats();
 }
 const sumOf = o => { let n = 0; for(const k in o) n += o[k]; return n; };
 function noteStat(id, round, st){
@@ -455,6 +496,7 @@ function compactGsi(g){
     ct:map.team_ct?.score, tt:map.team_t?.score, ctName:map.team_ct?.name, tName:map.team_t?.name,
     rphase:g.round?.phase, bomb:g.bomb?.state || g.round?.bomb, win:g.round?.win_team,
     spectating: !own && p.name ? p.name : null, ...mine };
+  trackSides(g, out);
   // таймер фазы раунда (заморозка / раунд / бомба / разминирование)
   const pc=g.phase_countdowns;
   if(pc && pc.phase_ends_in!=null){ out.pphase=pc.phase; out.pend=Date.now()+Number(pc.phase_ends_in)*1000; }
