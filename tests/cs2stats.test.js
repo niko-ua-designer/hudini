@@ -76,7 +76,7 @@ const { step, check, eq, until, sleep } = T;
 
   // ---- fight hint ----
   // allplayers packet as a spectator sees it: players by steamid, observer_slot is the observer key
-  const ROSTER = [['101', 'SaiYeah', 'CT', 3], ['102', 'ct2', 'CT', 1], ['201', 'gospoja', 'T', 7], ['202', 't2', 'T', 0]];
+  const ROSTER = [['101', 'SaiYeah', 'CT', 2], ['102', 'ct2', 'CT', 0], ['201', 'gospoja', 'T', 6], ['202', 't2', 'T', 9]];
   const spec = (over = {}, round = 5) => {
     const allplayers = {};
     for(const [id, name, team, slot] of ROSTER){
@@ -85,7 +85,7 @@ const { step, check, eq, until, sleep } = T;
         match_stats: { kills: o.k ?? 0, deaths: 0, assists: 0 }, weapons: { weapon_0: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: o.ammo ?? 30, ammo_clip_max: 30, ammo_reserve: 90 } } };
     }
     return { provider: { steamid: '999' }, map: { name: 'de_mirage', mode: 'competitive', round, phase: 'live', team_ct: { score: 0 }, team_t: { score: 0 } },
-      round: { phase: 'live' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 3, state: { health: 100 } }, allplayers };
+      round: { phase: 'live' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 2, state: { health: 100 } }, allplayers };
   };
   // the dock reads /api/status without logging in (localhost, as the widget's origin)
   const dockStatus = async () => (await fetch(`http://localhost:${host.port}/api/status`, { headers: { host: `localhost:${host.port}` } })).json();
@@ -97,11 +97,11 @@ const { step, check, eq, until, sleep } = T;
     const a = src.indexOf('const FIGHT_WIN'), b = src.indexOf('\nlet fightPrev');
     const vm = require('vm'), ctx = {}; vm.createContext(ctx);
     vm.runInContext(src.slice(a, b) + '\nthis.detectFight = detectFight; this.slotKey = slotKey;', ctx);
-    eq([1, 5, 9, 0, 10, null, undefined, 11, -1, 2.5].map(ctx.slotKey), [1, 5, 9, 0, 0, null, null, null, null, null], 'observer_slot → observer key 1–9, 0');
-    const P = (id, team, hp, ammo, slot) => ({ id, name: 'n' + id, team, hp, ammo, weapon: 'weapon_ak47', slot });
+    eq([0, 4, 8, 9, 10, null, undefined, -1, 2.5].map(ctx.slotKey), [1, 5, 9, 0, null, null, null, null, null], 'observer_slot 0..9 → observer key 1 2 .. 9 0');
+    const P = (id, team, hp, ammo, slot) => ({ id, name: 'n' + id, team, hp, ammo, weapon: 'weapon_ak47', slot });   // slot = raw observer_slot 0..9
     const prev = { a: P('a', 'CT', 100, 30, 1), b: P('b', 'T', 100, 30, 6) };
     let r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 73, 30, 6)], [], 1000, null);
-    eq(r.fight && [r.fight.a.slot, r.fight.a.name, r.fight.b.slot, r.fight.b.name], [1, 'na', 6, 'nb'], 'CT shoots, T loses HP: CT left, T right');
+    eq(r.fight && [r.fight.a.slot, r.fight.a.name, r.fight.b.slot, r.fight.b.name], [2, 'na', 7, 'nb'], 'CT shoots, T loses HP: CT left, T right');
     r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 100, 25, 6)], [], 1000, null);
     eq(r.fight, null, 'shots without damage are not a fight');
     r = ctx.detectFight({ a: prev.a, c: P('c', 'CT', 100, 30, 2) }, [P('a', 'CT', 60, 30, 1), P('c', 'CT', 100, 20, 2)], [], 1000, null);
