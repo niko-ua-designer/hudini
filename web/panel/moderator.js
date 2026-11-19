@@ -1142,7 +1142,6 @@ function renderInspector(){
   $('bCrop').disabled = !el.crop;
   setField(I('iRot'), String(Math.round(normRot(el.rot)))); $('vRot').textContent=Math.round(normRot(el.rot))+'°';
   setField(I('iOp'), String(el.op)); $('vOp').textContent=Math.round(el.op*100)+'%';
-  setField(I('iAnim'), el.anim);
 }
 // ---- выделение: несколько элементов, группы ----
 const msel=new Set();
@@ -2413,7 +2412,6 @@ bindInput('iSize',   (el,f)=>{ if('fs' in el) el.fs=Number(f.value); else el.w=N
 bindInput('iRot',    (el,f)=>el.rot=Number(f.value));
 bindInput('iHh',     (el,f)=>el.hh=Number(f.value));
 bindInput('iOp',     (el,f)=>el.op=Number(f.value));
-bindInput('iAnim',   (el,f)=>el.anim=f.value);
 bindInput('iSound',  (el,f)=>el.sound=f.checked);
 bindInput('iVol',    (el,f)=>el.vol=+f.value);
 // таймеры / счётчики
@@ -2937,13 +2935,18 @@ setInterval(()=>sendFx({ type:'sync' }, true), 5000);
 // ================== АНИМАЦИИ ДВИЖЕНИЯ ==================
 let myAnims=lsGet('overlay.anims', []); if(!Array.isArray(myAnims)) myAnims=[];
 function saveAnims(){ lsSet('overlay.anims', myAnims); }
+const EFFECT_NAME={ none:'Без эффекта', pulse:'Пульс', wobble:'Качание', float:'Парение', spin:'Вращение', shake:'Тряска', rainbow:'Радуга' };
 const EASE_NAME={ linear:'ровно', inout:'плавно', in:'разгон', out:'торможение', back:'пружина', bounce:'отскок' };
 function renderKfPresets(){
   const sel=$('kfPreset'), v=sel.value; sel.replaceChildren();
   const add=(val, txt)=>{ const o=document.createElement('option'); o.value=val; o.textContent=txt; sel.appendChild(o); };
-  add('', '— готовые анимации —');
-  for(const [k,name] of Object.entries(KF_PRESETS)) add('p:'+k, name);
-  myAnims.forEach((a,i)=>add('u:'+i, '★ '+a.name));
+  add('', '— выбрать анимацию —');
+  const grp=(label)=>{ const g=document.createElement('optgroup'); g.label=label; sel.appendChild(g); return g; };
+  let g=grp('Эффект на месте');
+  for(const [k,name] of Object.entries(EFFECT_NAME)){ const o=document.createElement('option'); o.value='e:'+k; o.textContent=name; g.appendChild(o); }
+  g=grp('Движение');
+  for(const [k,name] of Object.entries(KF_PRESETS)){ const o=document.createElement('option'); o.value='p:'+k; o.textContent=name; g.appendChild(o); }
+  if(myAnims.length){ g=grp('Мои'); myAnims.forEach((a,i)=>{ const o=document.createElement('option'); o.value='u:'+i; o.textContent='★ '+a.name; g.appendChild(o); }); }
   sel.value=[...sel.options].some(o=>o.value===v) ? v : '';
   $('kfDelSaved').hidden=!sel.value.startsWith('u:');
 }
@@ -2954,15 +2957,19 @@ function kfToggle(el){
   if(el.kf.playing){ el.kf.playing=false; }
   else { el.kf.playing=true; el.kf.start=Date.now(); el.hidden=false; delete el.ttl; }
 }
+const speedOf=v=>Math.round(Math.pow(2,+v)*100)/100;
+let kfShownEl=null;
 function renderKf(el){
   const has=!!el.kf, list=$('kfList');
   $('kfOpts').hidden=!has;
+  for(const id of ['kfPlay','kfStop','kfDelLast','kfClear','kfSave']) $(id).disabled=!has;
+  setField(I('iAs'), String(Math.round(Math.log2(animSpeed(el))*20)/20)); $('vAs').textContent=animSpeed(el)+'×';
+  if(kfShownEl!==el.id){ kfShownEl=el.id; const sel=$('kfPreset'); sel.value=el.anim!=='none' ? 'e:'+el.anim : ''; $('kfDelSaved').hidden=true; }
   if(document.activeElement && list.contains(document.activeElement)) return;  // не мешаем вводу
   list.replaceChildren();
   if(!has) return;
   setField(I('kfMode'), el.kf.mode); setField(I('kfEnd'), el.kf.end);
   $('kfEnd').hidden = el.kf.mode!=='once';
-  $('kfPlay').textContent = el.kf.playing ? '↻ Сначала (P)' : '▶ Проиграть (P)';
   const last = el.kf.mode==='loop' ? -1 : el.kf.f.length-1;
   el.kf.f.forEach((f,i)=>{
     const row=document.createElement('div'); row.className='kf'; row.dataset.i=i;
@@ -3006,9 +3013,17 @@ $('kfAdd').onclick=()=>act(el=>{
   el.kf.f.push(frameFrom(el));
   toast(el.kf.f.length===1 ? 'Кадр 1 есть. Передвинь элемент и добавь следующий' : `Кадр ${el.kf.f.length} добавлен`);
 });
+$('kfDelLast').onclick=()=>act(el=>{ if(el.kf){ el.kf.playing=false; el.kf.f.pop(); if(!el.kf.f.length) delete el.kf; } });
+bindInput('iAs', (el,f)=>{
+  const old=animSpeed(el), v=speedOf(f.value), now=Date.now();
+  if(v===1) delete el.spd; else el.spd=v;
+  if(el.kf?.playing) el.kf.start=now-(now-el.kf.start)*old/v;   // кадр не прыгает при смене скорости
+});
+$('vAs').onclick=()=>act(el=>{ delete el.spd; });
 $('kfClear').onclick=()=>act(el=>{ delete el.kf; });
 $('kfApply').onclick=()=>{
   const v=$('kfPreset').value, el=byId(selectedId); if(!v || !el) return toast('Выбери анимацию в списке');
+  if(v.startsWith('e:')){ const k=v.slice(2); if(ANIMS.includes(k)) act1(el, x=>{ x.anim=k; }); return; }
   let kf;
   if(v.startsWith('p:')) kf=kfPreset(v.slice(2), el, boxOf(el.id));
   else { const a=myAnims[+v.slice(2)]; if(!a) return;
@@ -3046,7 +3061,7 @@ requestAnimationFrame(animLoop);
 setInterval(()=>{
   const now=Date.now(); let any=false;
   for(const el of state.els){
-    const k=el.kf; if(!k?.playing || k.mode!=='once' || now-k.start < kfDuration(k)) continue;
+    const k=el.kf; if(!k?.playing || k.mode!=='once' || now-k.start < kfRealDuration(el)) continue;
     if(k.end==='hide'){ el.hidden=true; k.playing=false; any=true; }
     else if(k.end==='back'){ k.playing=false; any=true; }
   }

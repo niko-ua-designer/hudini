@@ -74,6 +74,43 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = []; selectedId = null; commit(); });
   });
 
+  await step('one Animation block: keyframes add and delete, one speed multiplier scales effects and keyframes', async () => {
+    await mod.click('[data-tab=add]');
+    await mod.fill('#newText', 'ANIM'); await mod.click('#addText');
+    const id = await mod.evaluate(() => { const e = state.els.at(-1); selectedId = e.id; msel.clear(); renderAll(); return e.id; });
+    await sleep(300);
+    eq(await mod.$$eval('#iAnim', n => n.length), 0, 'no separate effect select any more');
+    await mod.click('#kfAdd'); await mod.evaluate(i => { beginChange(); const e = state.els.find(x => x.id === i); e.x = 20; commit(); }, id); await mod.click('#kfAdd');
+    eq(await mod.evaluate(i => state.els.find(x => x.id === i).kf.f.length, id), 2, 'two keyframes added');
+    await mod.click('#kfDelLast');
+    eq(await mod.evaluate(i => state.els.find(x => x.id === i).kf.f.length, id), 1, 'the last keyframe deleted');
+    await mod.click('#kfClear');
+    eq(await mod.evaluate(i => !!state.els.find(x => x.id === i).kf, id), false, 'all keyframes cleared');
+    // old screen without the multiplier: nothing stored, factor 1
+    const old = await mod.evaluate(() => { const o = sanitizeEl({ id: 'q', type: 'text', text: 'x', anim: 'pulse' }); return { has: 'spd' in o, f: animSpeed(o), big: sanitizeEl({ id: 'q', type: 'text', spd: 99 }).spd, small: sanitizeEl({ id: 'q', type: 'text', spd: 0.01 }).spd, one: 'spd' in sanitizeEl({ id: 'q', type: 'text', spd: 1 }) }; });
+    eq([old.has, old.f, old.big, old.small, old.one], [false, 1, 4, 0.25, false], 'no multiplier = 1, values clamp to 0.25-4');
+    // keyframes: 0 -> 100 in 2 s, linear; position after 1 s of real time
+    const pos = await mod.evaluate(() => {
+      const kf = sanitizeKf({ f: [{ x: 0, y: 50, d: 2000, e: 'linear' }, { x: 100, y: 50 }], mode: 'once', playing: true, start: 1000 });
+      const at = spd => { const n = { style: {}, classList: { add() {}, remove() {} } }; animApply(n, { kf, op: 1, spd }, 2000); return parseFloat(n.style.left); };
+      return [at(undefined), at(2), at(0.5), at(4)];
+    });
+    eq(pos.map(v => Math.round(v)), [50, 100, 25, 100], 'keyframes run 1x / 2x / 0.5x / 4x');
+    // the slider writes the multiplier (2^value), the widget gets it
+    await mod.evaluate(i => { const e = state.els.find(x => x.id === i); beginChange(); e.anim = 'pulse'; commit(); selectedId = i; renderAll(); }, id);
+    await sleep(500);
+    const dur = () => wid.evaluate(() => getComputedStyle(document.querySelector('.fx.a-pulse')).animationDuration);
+    eq(await dur(), '1s', 'effect at the default speed lasts 1 s');
+    await mod.evaluate(() => { const f = document.getElementById('iAs'); f.value = '1'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); });
+    eq(await mod.evaluate(i => state.els.find(x => x.id === i).spd, id), 2, 'slider +1 stores 2x');
+    check(await until(async () => (await dur()) === '0.5s'), 'the widget plays the effect twice as fast');
+    await mod.evaluate(() => { const f = document.getElementById('iAs'); f.value = '-1'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); });
+    check(await until(async () => (await dur()) === '2s'), 'and twice as slow at 0.5x');
+    await mod.click('#vAs');
+    eq(await mod.evaluate(i => 'spd' in state.els.find(x => x.id === i), id), false, 'clicking the value resets to 1x');
+    await mod.evaluate(() => { beginChange(); state.els = []; selectedId = null; commit(); });
+  });
+
   await step('poll counts chat votes once per viewer', async () => {
     await mod.click('[data-tab=add]'); await mod.click('[data-add=poll]'); await mod.click('#pToggle');
     await mod.evaluate(() => { onChat('a', '1'); onChat('b', '!2'); onChat('c', '2'); onChat('c', '1'); onChat('d', 'hello 2'); });

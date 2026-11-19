@@ -356,3 +356,5 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 .ser-score{font-size:15px;white-space:nowrap;padding:0 4px}
 .ser-map{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px auto;gap:4px;align-items:center;margin-top:4px}
 .ser-map input{min-width:0}
+.kfbar{gap:4px}.kfbar button{flex:1;min-width:0;padding-left:0;padding-right:0}
+#vAs{cursor:pointer}
