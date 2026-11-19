@@ -487,7 +487,15 @@ function shortPlayer(p, id){
     kit:!!st.defusekit, bomb:ws.some(x=>x.name==='weapon_c4'), alive:(st.health??0)>0,
     dmg:st.round_totaldmg||0, rhs:st.round_killhs||0, equip:st.equip_value, flashed:st.flashed||0,
     pistol:(ws.find(x=>x.type==='Pistol')||{}).name, nades:ws.filter(x=>NADE[x.name]).map(x=>NADE[x.name]),
-    adr:adrOf(id), hsp:hspOf(id) };
+    adr:adrOf(id), hsp:hspOf(id), ...posOf(p) };
+}
+// Радар: позиция игрока на карте (x, y, z мира CS2, округлено) и куда он смотрит (угол в градусах, 0 = +x, против часовой).
+// Приходит с allplayers_position в режиме наблюдателя; у своего игрока без него поля нет.
+const vec3 = s => { const a = String(s ?? '').split(',').map(Number); return a.length===3 && a.every(Number.isFinite) ? a : null; };
+function posOf(p){
+  const v = vec3(p?.position); if(!v) return {};
+  const f = vec3(p?.forward);
+  return { pos:v.map(Math.round), ...(f && (f[0] || f[1]) ? { fw:Math.round(Math.atan2(f[1], f[0]) * 180 / Math.PI) } : {}) };
 }
 function compactGsi(g){
   const me = g.provider?.steamid, p = g.player || {}, own = !!me && p.steamid === me;
@@ -506,6 +514,7 @@ function compactGsi(g){
   const out = { t:Date.now(), map:map.name, mode:map.mode, phase:map.phase, round:map.round,
     ct:map.team_ct?.score, tt:map.team_t?.score, ctName:map.team_ct?.name, tName:map.team_t?.name,
     rphase:g.round?.phase, bomb:g.bomb?.state || g.round?.bomb, win:g.round?.win_team,
+    ...(vec3(g.bomb?.position) ? { bpos:vec3(g.bomb.position).map(Math.round) } : {}),
     spectating: !own && p.name ? p.name : null, ...mine };
   // таймер фазы раунда (заморозка / раунд / бомба / разминирование)
   const pc=g.phase_countdowns;
@@ -567,7 +576,7 @@ function slotKey(s){ const n = Number(s); return s!=null && s!=='' && Number.isI
 // Чистая функция: по прошлому и новому пакету allplayers (и событиям frag) решает, есть ли бой.
 // recent = { hurt:{id:t}, act:{id:t} } — кого ранили и кто действовал (ранен, стрелял, убил) за последние 2 с.
 // Бой: игрок одной команды получил урон или погиб, а игрок другой команды за то же окно действовал.
-// Пару выбираем по самому свежему урону; позиций в данных нет, поэтому «ближайший враг» = самый свежий активный враг.
+// Пару выбираем по самому свежему урону. Враг — ближайший из активных, если есть позиции (allplayers_position), иначе самый свежий.
 function detectFight(prevPlayers, players, evs, now, recent){
   const keep = m => { const o = {}; for(const [id, t] of Object.entries(m||{})) if(now-t < FIGHT_WIN) o[id] = t; return o; };
   const hurt = keep(recent?.hurt), act = keep(recent?.act);
@@ -584,7 +593,9 @@ function detectFight(prevPlayers, players, evs, now, recent){
   let fight = null;
   for(const [hid, ht] of Object.entries(hurt).sort((a, b) => b[1]-a[1])){
     const hp = byId.get(String(hid)); if(hp.team!=='CT' && hp.team!=='T') continue;
-    const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return (t==='CT' || t==='T') && t!==hp.team; }).sort((a, b) => b[1]-a[1])[0];
+    const d2 = id => { const a = hp.pos, b = byId.get(String(id))?.pos; return a && b ? (a[0]-b[0])**2 + (a[1]-b[1])**2 : null; };
+    const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return (t==='CT' || t==='T') && t!==hp.team; })
+      .sort((a, b) => { const da = d2(a[0]), db = d2(b[0]); return da!=null && db!=null && da!==db ? da-db : b[1]-a[1]; })[0];
     if(!foe) continue;
     const x = who(hid), y = who(foe[0]), [a, b] = x.team==='CT' ? [x, y] : [y, x];
     fight = { a, b, t:Math.max(ht, foe[1]), key:`${a.id}|${b.id}` };
@@ -646,6 +657,7 @@ function gsiCfgText(){
     "allplayers_state"       "1"
     "allplayers_match_stats" "1"
     "allplayers_weapons"     "1"
+    "allplayers_position"    "1"
     "phase_countdowns"       "1"
     "bomb"                   "1"
   }
