@@ -2372,6 +2372,7 @@ function renderCsHud(el){
   if(document.activeElement!==$('iCsPa')) fillSel($('iCsPa'), el.pa, 'Игрок 1');
   if(document.activeElement!==$('iCsPb')) fillSel($('iCsPb'), el.pb, 'Игрок 2');
   setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx); setField(I('iCsTheme'), el.theme); I('iCsFlip').checked=el.flip;
+  $('csRadarBox').hidden=el.view!=='radar'; setField(I('iCsRds'), String(el.rds??1)); $('vCsRds').textContent=Math.round((el.rds??1)*100)+'%';
   I('iCsKf').checked=!!el.kfeed; $('csKfRow').hidden=!['hud_solo','hud_tour'].includes(el.view);
   setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
   const list=$('csAvList'); list.replaceChildren();
@@ -2420,6 +2421,7 @@ bindInput('iCsGlow', (el,f)=>el.glow=f.checked, 'change');
 bindInput('iCsFx', (el,f)=>el.fx=f.value, 'change');
 bindInput('iCsTheme', (el,f)=>{ el.theme=f.value; if(el.theme==='ko' && el.font==='montserrat') el.font='russo'; }, 'change');   // к пиксельному стилю подходит рубленый шрифт
 bindInput('iCsFlip', (el,f)=>el.flip=f.checked, 'change');
+bindInput('iCsRds', (el,f)=>{ el.rds=num(f.value,1,0.5,2.5); $('vCsRds').textContent=Math.round(el.rds*100)+'%'; });
 bindInput('iCsKf', (el,f)=>el.kfeed=f.checked, 'change');
 bindInput('iCsTnCT', (el,f)=>el.tnCT=f.value.slice(0,30));
 bindInput('iCsTnT', (el,f)=>el.tnT=f.value.slice(0,30));
