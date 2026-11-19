@@ -196,6 +196,7 @@ function sanitizeEl(e){
     o.av=Object.create(null); if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
+    o.rbg=e.rbg!==false; o.rmap=e.rmap!==false;   // радар: рамка с плашкой и сеткой; сама картинка карты
     o.rds=num(e.rds,1,0.5,2.5);   // размер значков радара: множитель от маленького по умолчанию
     o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip; o.kfeed=!!e.kfeed;   // свой киллфид в HUD (kf занят анимацией движения)
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
@@ -1965,6 +1966,7 @@ function paintRadar(c, el, d){
   if(!d){ r.cap.textContent=st('🎯 CS2: ждём данные из игры'); r.dots.replaceChildren(); r.map.clear(); return; }
   const map=String(d.map||''), players=(d.players||[]).filter(p=>Array.isArray(p.pos));
   const obs=players.find(p=>p.id===d.obs), lower=typeof cs2Lower==='function' && obs ? cs2Lower(map, obs.pos) : false;
+  c.dataset.rbg=el.rbg===false ? '0' : '1'; r.box.classList.toggle('nomap', el.rmap===false);
   const dim=radarDims(map), bs=r.box.style;
   bs.setProperty('--ds', (0.6*(el.rds||1)).toFixed(3)+'em');
   bs.setProperty('--rw', dim.w.toFixed(3)); bs.setProperty('--rh', dim.h.toFixed(3));

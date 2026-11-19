@@ -664,7 +664,8 @@
 .cs2[data-view="radar"]{padding:.2em!important}
 .cs2 .rd{position:relative;width:calc(var(--rw,10.5) * 1em);height:calc(var(--rh,10.5) * 1em);border-radius:.45em;overflow:hidden;background:#0b0d14b0}
 .cs2 .rd-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff14 1px,transparent 1px),linear-gradient(90deg,#ffffff14 1px,transparent 1px);background-size:10% 10%;opacity:1;transition:opacity .3s}
-.cs2 .rd.has-img .rd-grid{opacity:0}
+.cs2 .rd.has-img:not(.nomap) .rd-grid{opacity:0}
+.cs2 .rd.nomap .rd-img{display:none}
 .cs2 .rd-sq{position:absolute;width:calc(100% / var(--bw,1));height:calc(100% / var(--bh,1));left:calc(var(--bu,0) / var(--bw,1) * -100%);top:calc(var(--bv,0) / var(--bh,1) * -100%)}
 .cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
 .cs2 .rd-dots{position:absolute;inset:0}
@@ -683,6 +684,12 @@
 .cs2 .rd-bomb{position:absolute;font-size:var(--ds,.6em);width:.95em;height:.95em;margin:-.475em 0 0 -.475em;color:#ff4d5e;filter:drop-shadow(0 0 .25em #ff4d5e);transition:left .25s linear,top .25s linear;z-index:2}
 .cs2 .rd-bomb .hi{width:100%;height:100%}
 .cs2 .rd-bomb.planted{animation:rd-blink 1s infinite}
+/* без фона карточки: ни рамки, ни плашки, ни сетки; остаётся карта (если включена) и точки */
+.cs2[data-view="radar"][data-rbg="0"]{background:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;padding:0!important}
+.cs2[data-view="radar"][data-rbg="0"]::before,.cs2[data-view="radar"][data-rbg="0"]::after{display:none!important}
+.cs2[data-view="radar"][data-rbg="0"] .rd{background:none!important;box-shadow:none!important;border-radius:0}
+.cs2[data-view="radar"][data-rbg="0"] .rd-grid{display:none}
+.cs2[data-view="radar"][data-rbg="0"]:not(.nodata) .rd-cap{display:none}
 @keyframes rd-blink{50%{opacity:.35}}
 .cs2[data-theme="classic"] .rd{border-radius:.25em;background:#15171cf0}
 .cs2[data-theme="ko"] .rd{background:#0b0b24c0}
