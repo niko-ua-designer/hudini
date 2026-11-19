@@ -1097,7 +1097,7 @@ function rzSnap(d, axis, pos){
 }
 // kx, ky: во сколько раз меняется видимая часть; a: якорь в осях элемента; uni: один общий множитель
 function rzSolve(d, e, a, sym, uni){
-  const p=d.loc(e.clientX, e.clientY), ep={ u:d.g.u+(p.u-d.p0.u), v:d.g.v+(p.v-d.p0.v) };
+  const p=d.loc(e.clientX, e.clientY), ep={ u:d.g.u + (p.u - d.p0.u), v:d.g.v + (p.v - d.p0.v) };
   const k1=ax=>{ const gv=d.g[ax]-a[ax]; return Math.abs(gv)<1e-6 ? 1 : (ep[ax]-a[ax])/gv; };
   const minK=ax=>8/Math.max(1, ax==='u' ? d.vw : d.vh);
   const snap={ vx:null, vy:null, ids:[] };
@@ -1106,7 +1106,7 @@ function rzSolve(d, e, a, sym, uni){
   if(uni){
     let k;
     if(d.sx && d.sy){
-      const gu=d.g.u-a.u, gv=d.g.v-a.v; k=((ep.u-a.u)*gu+(ep.v-a.v)*gv)/(gu*gu+gv*gv);
+      const gu=d.g.u - a.u, gv=d.g.v - a.v; k=((ep.u - a.u)*gu + (ep.v - a.v)*gv)/(gu*gu+gv*gv);
     } else k=d.sx ? k1('u') : k1('v');
     k=Math.max(k, minK(d.sx ? 'u' : 'v'));
     if(useSnap){
@@ -1249,7 +1249,7 @@ stage.addEventListener('pointermove', e=>{
     $('gv').classList.toggle('show', snapX); $('gh').classList.toggle('show', snapY);
     for(const it of drag.items){ const t=byId(it.id); if(t){ t.x=num(it.x0+dx,50,0,100); t.y=num(it.y0+dy,50,0,100); } }
   } else if(drag.mode==='crop'){
-    const d=drag, p=d.loc(e.clientX, e.clientY), du=p.u-d.p0.u, dv=p.v-d.p0.v, c=[...d.cr0];
+    const d=drag, p=d.loc(e.clientX, e.clientY), du=p.u - d.p0.u, dv=p.v - d.p0.v, c=[...d.cr0];
     const lim=(v,opp)=>Math.max(0, Math.min(90-opp, v));
     if(d.sx>0) c[2]=lim(d.cr0[2]-du/d.W*100, c[0]); else if(d.sx<0) c[0]=lim(d.cr0[0]+du/d.W*100, c[2]);
     if(d.sy>0) c[3]=lim(d.cr0[3]-dv/d.H*100, c[1]); else if(d.sy<0) c[1]=lim(d.cr0[1]+dv/d.H*100, c[3]);
