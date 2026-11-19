@@ -328,8 +328,9 @@ async function onMessage(topic, payload, packet){
   }
   acceptState(s);
 }
-const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
-function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
+const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh','crop'];
+function isGeom(m){ return m==='move' || m==='grp'; }
+function dragIds(){ return isGeom(drag.mode) ? drag.items.map(i=>i.id) : [drag.id]; }
 function acceptState(s){
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
@@ -708,14 +709,29 @@ $('cleanFiles2').onclick=cleanFiles;
 
 // ================== ОТРИСОВКА ==================
 const nodes=new Map();
+const RZ_DIRS=['nw','n','ne','e','se','s','sw','w'];
+function rzHandle(dir){
+  const d=document.createElement('div'); d.className='h h-rz rz-'+dir+(dir.length===1?' edge':''); d.dataset.h='rz'; d.dataset.d=dir;
+  if(dir.length===1) d.title='Потяни: размер от противоположного края · Shift: с пропорциями · Ctrl: от центра · Alt: обрезать · двойной клик: рамка по содержимому';
+  return d;
+}
 function addHandles(node){
-  for(const h of ['size','rot','sw','shh']){ const d=document.createElement('div'); d.className='h h-'+h; d.dataset.h=h; if(h==='sw'||h==='shh') d.title='Потяни: своя ширина или высота рамки · двойной клик: снова по содержимому'; node.appendChild(d); }
+  for(const dir of RZ_DIRS) node.appendChild(rzHandle(dir));
+  { const d=document.createElement('div'); d.className='h h-rot'; d.dataset.h='rot'; node.appendChild(d); }
   const t=document.createElement('div'); t.className='tag'; node.appendChild(t);
   const c=node.querySelector('.content');
   if(c.tagName==='IMG' || c.tagName==='VIDEO'){
     c.addEventListener('error', ()=>node.classList.add('broken'));
     c.addEventListener(c.tagName==='VIDEO'?'loadeddata':'load', ()=>node.classList.remove('broken'));
   }
+}
+function updGrp(){
+  const g=$('grpBox'); if(!g) return;
+  if(!g.firstChild) for(const dir of RZ_DIRS) g.appendChild(rzHandle(dir));
+  const ids=msel.size>1 ? selList().filter(x=>x.type!=='raffle').map(x=>x.id) : [];
+  const b=ids.length>1 ? selBounds(ids) : null;
+  g.style.display=b ? 'block' : 'none';
+  if(b) Object.assign(g.style, { left:b.l+'%', top:b.t+'%', width:(b.r-b.l)+'%', height:(b.b-b.t)+'%' });
 }
 function renderAll(){
   syncSel();
@@ -744,6 +760,8 @@ function renderAll(){
     if(el.type==='video' && el.restart && node._restart!==el.restart){ node._restart=el.restart; node.querySelector('video').currentTime=0; }
   });
   for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
+  stage.classList.toggle('multi', msel.size>1);
+  updGrp();
   renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
   $('globalEye').textContent = state.visible ? '🙈 Скрыть всё' : '👁 Показать всё';
 }
@@ -998,6 +1016,7 @@ function renderInspector(){
     setField(I('iHh'), String(el.hh||0)); $('vHh').textContent = el.hh ? el.hh.toFixed(1)+'% высоты' : 'по пропорциям';
     $('bRatio').disabled = !el.hh;
   }
+  $('bCrop').disabled = !el.crop;
   setField(I('iRot'), String(Math.round(normRot(el.rot)))); $('vRot').textContent=Math.round(normRot(el.rot))+'°';
   setField(I('iOp'), String(el.op)); $('vOp').textContent=Math.round(el.op*100)+'%';
   setField(I('iAnim'), el.anim);
@@ -1054,23 +1073,6 @@ function snapMove(pts, lines, thr){
   for(const p of pts) for(const l of lines){ const d=l.v-p; if(Math.abs(d)<thr && (!best || Math.abs(d)<Math.abs(best.d))) best={ d, v:l.v, id:l.id }; }
   return best;
 }
-// Рамка растёт от центра c на половину h в обе стороны: ловим линию краем. Возвращает новую половину.
-function snapHalf(c, h, lines, thr){
-  let best=null;
-  for(const l of lines){
-    for(const side of [-1, 1]){
-      const dist=Math.abs(c+side*h-l.v), nh=(l.v-c)*side;
-      if(dist<thr && nh>0.2 && (!best || dist<best.dist)) best={ h:nh, v:l.v, id:l.id, dist };
-    }
-  }
-  return best;
-}
-function snapScale(d, k){
-  const b=d.b0, rx=b.hw>0.1 ? snapHalf(b.cx, b.hw*k, d.sn.xs, d.sn.thrX) : null, ry=b.hh>0.1 ? snapHalf(b.cy, b.hh*k, d.sn.ys, d.sn.thrY) : null;
-  const useX = rx && (!ry || rx.dist/d.sn.thrX<=ry.dist/d.sn.thrY), best = useX ? rx : ry;
-  if(!best) return null;
-  return { k:best.h/(useX ? b.hw : b.hh), vx:useX ? best.v : null, vy:useX ? null : best.v, ids:[best.id] };
-}
 let snapShown=[];
 function showSnap(vx, vy, ids){
   for(const [id, pos] of [['gv2', vx], ['gh2', vy]]){ const g=$(id); g.classList.toggle('show', pos!=null); if(pos!=null) g.style[id==='gv2'?'left':'top']=pos+'%'; }
@@ -1079,9 +1081,63 @@ function showSnap(vx, vy, ids){
   for(const id of snapShown) nodes.get(id)?.classList.add('snapT');
 }
 const noSnap = e => e.ctrlKey || e.metaKey;
+// ---- размер за любой край: общий расчёт для одного элемента (оси элемента) и группы (оси кадра) ----
+// Магнит двигаемого края: сетка, края и центры других элементов, границы и середина кадра. Работает без поворота (или на 180°).
+function rzSnap(d, axis, pos){
+  if(!d.sg || !d.sn) return null;
+  const isX=axis==='u', base=isX ? d.cx-d.r.left : d.cy-d.r.top, size=isX ? d.r.width : d.r.height;
+  const wp=(base+d.sg*pos)/size*100;
+  let line=null;
+  if(gridOn){ line={ v:Math.round(wp/gridStep)*gridStep, grid:true }; }
+  else {
+    const thr=isX ? d.sn.thrX : d.sn.thrY;
+    for(const l of [...(isX ? d.sn.xs : d.sn.ys), { v:0 }, { v:50 }, { v:100 }]) if(Math.abs(l.v-wp)<thr && (!line || Math.abs(l.v-wp)<Math.abs(line.v-wp))) line=l;
+  }
+  return line ? { pos:d.sg*(line.v/100*size-base), v:line.grid ? null : line.v, id:line.id } : null;
+}
+// kx, ky: во сколько раз меняется видимая часть; a: якорь в осях элемента; uni: один общий множитель
+function rzSolve(d, e, a, sym, uni){
+  const p=d.loc(e.clientX, e.clientY), ep={ u:d.g.u+(p.u-d.p0.u), v:d.g.v+(p.v-d.p0.v) };
+  const k1=ax=>{ const gv=d.g[ax]-a[ax]; return Math.abs(gv)<1e-6 ? 1 : (ep[ax]-a[ax])/gv; };
+  const minK=ax=>8/Math.max(1, ax==='u' ? d.vw : d.vh);
+  const snap={ vx:null, vy:null, ids:[] };
+  const useSnap=!(e.altKey);
+  let kx=1, ky=1;
+  if(uni){
+    let k;
+    if(d.sx && d.sy){
+      const gu=d.g.u-a.u, gv=d.g.v-a.v; k=((ep.u-a.u)*gu+(ep.v-a.v)*gv)/(gu*gu+gv*gv);
+    } else k=d.sx ? k1('u') : k1('v');
+    k=Math.max(k, minK(d.sx ? 'u' : 'v'));
+    if(useSnap){
+      let best=null;
+      for(const [ax,s] of [['u',d.sx],['v',d.sy]]){
+        if(!s) continue;
+        const r=rzSnap(d, ax, a[ax]+(d.g[ax]-a[ax])*k); if(!r) continue;
+        const kk=(r.pos-a[ax])/(d.g[ax]-a[ax]);
+        if(kk>0 && (!best || Math.abs(kk-k)<Math.abs(best.k-k))) best={ k:kk, r, ax };
+      }
+      if(best){ k=best.k; if(best.ax==='u') snap.vx=best.r.v; else snap.vy=best.r.v; if(best.r.id) snap.ids.push(best.r.id); }
+    }
+    kx=ky=k;
+  } else {
+    for(const [ax,s] of [['u',d.sx],['v',d.sy]]){
+      if(!s) continue;
+      if(useSnap){
+        const r=rzSnap(d, ax, ep[ax]);
+        if(r){ ep[ax]=r.pos; if(ax==='u') snap.vx=r.v; else snap.vy=r.v; if(r.id) snap.ids.push(r.id); }
+      }
+    }
+    if(d.sx) kx=Math.max(k1('u'), minK('u'));
+    if(d.sy) ky=Math.max(k1('v'), minK('v'));
+  }
+  return { kx, ky, snap };
+}
 
 stage.addEventListener('pointerdown', e=>{
   if(e.button!==0) return;
+  const gh=e.target.closest('#grpBox .h');
+  if(gh){ startGroupScale(e, gh.dataset.d); return; }
   const node=e.target.closest('.el');
   document.activeElement?.blur?.();
   if(!node){
@@ -1099,25 +1155,28 @@ stage.addEventListener('pointerdown', e=>{
   if(msel.has(el.id) && msel.size>1 && !h){ selectedId=el.id; renderAll(); } else select(el.id);
   const opened=!changeOpen; beginChange();   // простой клик без движения не оставляет шага отмены (см. endDrag)
   const { cx, cy, r }=centerPx(el);
-  const media = el.type==='image' || el.type==='video';
-  const prevHandle = lastHandle; lastHandle={ t:Date.now(), h, id:el.id }; void prevHandle;
-  if(media && (h==='sw' || h==='shh' || (h==='size' && e.shiftKey))){
-    // растягивание: считаем по осям самого элемента (с учётом поворота)
-    const c=node.querySelector('.content'), a=el.rot*Math.PI/180;
-    const loc=(x,y)=>({ u:(x-cx)*Math.cos(a)+(y-cy)*Math.sin(a), v:-(x-cx)*Math.sin(a)+(y-cy)*Math.cos(a) });
-    const p0=loc(e.clientX, e.clientY);
-    drag={ mode:'stretch', axis: h==='sw'?'x':h==='shh'?'y':'xy', loc, u0:Math.max(4,Math.abs(p0.u)), v0:Math.max(4,Math.abs(p0.v)),
-      w0:el.w, hh0: el.hh || c.offsetHeight/r.height*100 };
-  } else if(BOXABLE.has(el.type) && (h==='sw' || h==='shh') && Date.now()-(prevHandle.t||0)<400 && prevHandle.h===h && prevHandle.id===el.id){
-    // двойной клик по ручке рамки: снова размер по содержимому
-    if(h==='sw') el.bw=0; else el.bh=0; commit(); toast('Размер снова по содержимому'); return;
-  } else if(BOXABLE.has(el.type) && (h==='sw' || h==='shh')){
-    // своя рамка: тянем ширину или высоту, содержимое подстраивается внутри
-    const c=node.querySelector('.content');
-    drag={ mode:'box', axis:h==='sw'?'x':'y', cx, cy, x0:e.clientX, y0:e.clientY, a:el.rot*Math.PI/180, sw:r.width, sh:r.height,
-      bw0: el.bw || node.offsetWidth/r.width*100, bh0: el.bh || c.offsetHeight/r.height*100 };
-  } else if(h==='size'){
-    drag={ mode:'size', cx, cy, d0:Math.max(5, Math.hypot(e.clientX-cx, e.clientY-cy)), fs0:el.fs, w0:el.w, hh0:el.hh };
+  const prevHandle = lastHandle; lastHandle={ t:Date.now(), h, id:el.id, d:e.target.dataset?.d }; void prevHandle;
+  const full = node.classList.contains('full') || el.type==='case';
+  if(h==='rz'){
+    const dir=e.target.dataset.d, alt=e.altKey, canCrop=CROPPABLE.has(el.type);
+    const sx=dir.includes('e')?1:dir.includes('w')?-1:0, sy=dir.includes('s')?1:dir.includes('n')?-1:0;
+    if(Date.now()-(prevHandle.t||0)<400 && prevHandle.d===dir && prevHandle.id===el.id){
+      if(alt && canCrop){   // Alt + двойной клик по краю: сбросить обрезку с этой стороны
+        const c=[...(el.crop||[0,0,0,0])]; if(sx>0) c[2]=0; if(sx<0) c[0]=0; if(sy>0) c[3]=0; if(sy<0) c[1]=0;
+        if(c.some(v=>v>=0.01)) el.crop=c; else delete el.crop;
+        commit(); toast('Обрезка сброшена'); return;
+      }
+      if(!alt && BOXABLE.has(el.type) && dir.length===1 && !full){ if(sx) el.bw=0; else el.bh=0; commit(); toast('Размер снова по содержимому'); return; }
+    }
+    const fx=node.querySelector('.fx'), W=fx.offsetWidth||1, H=fx.offsetHeight||1, a=el.rot*Math.PI/180;
+    const ca=Math.cos(a), sa=Math.sin(a), cr=el.crop||[0,0,0,0];
+    const loc=(X,Y)=>({ u:(X-cx)*ca+(Y-cy)*sa, v:-(X-cx)*sa+(Y-cy)*ca });
+    const uL=W*(cr[0]/100-.5), uR=W*(.5-cr[2]/100), vT=H*(cr[1]/100-.5), vB=H*(.5-cr[3]/100);   // видимая часть в осях элемента
+    const c={ u:(uL+uR)/2, v:(vT+vB)/2 };
+    const g={ u:sx>0?uR:sx<0?uL:c.u, v:sy>0?vB:sy<0?vT:c.v }, opp={ u:sx>0?uL:sx<0?uR:c.u, v:sy>0?vT:sy<0?vB:c.v };
+    const base={ sx, sy, dir, loc, W, H, g, c, opp, vw:uR-uL, vh:vB-vT, p0:loc(e.clientX,e.clientY), cx, cy, r, ca, sa, x0:el.x, y0:el.y, sg:Math.abs(sa)<1e-3?(ca>0?1:-1):0 };
+    if(alt && canCrop) drag={ mode:'crop', ...base, cr0:[...cr] };
+    else drag={ mode:'rz', ...base, full, f0:{ fs:el.fs, w:el.w, hh:el.hh||0, bw:el.bw||0, bh:el.bh||0, hhEff:el.hh||H/r.height*100 } };
   } else if(h==='rot' || e.altKey){
     drag={ mode:'rot', cx, cy, prev:angleOf(e,cx,cy), acc:0, rot0:el.rot };
   } else {
@@ -1127,13 +1186,28 @@ stage.addEventListener('pointerdown', e=>{
     drag={ mode:'move', mx:e.clientX, my:e.clientY, x0:el.x, y0:el.y, r, items, bb };
   }
   drag.id=el.id; drag.opened=opened; drag.moved=false;
-  if(drag.mode!=='rot'){
+  if(drag.mode!=='rot' && drag.mode!=='crop'){
     drag.sn=snapSetup(new Set(drag.mode==='move' ? drag.items.map(i=>i.id) : [el.id]));
     const b=drag.mode==='move' ? drag.bb : boxOf(el.id);
     if(b) drag.b0={ cx:(b.l+b.r)/2, cy:(b.t+b.b)/2, hw:(b.r-b.l)/2, hh:(b.b-b.t)/2 };
   }
   stage.setPointerCapture(e.pointerId);
 });
+// масштаб всего выделения за рамку из восьми ручек: якорь — противоположная сторона, Ctrl — центр
+function startGroupScale(e, dir){
+  const list=selList().filter(x=>x.type!=='raffle'); if(list.length<2) return;
+  e.preventDefault();
+  const r=stage.getBoundingClientRect(), bb=selBounds(list.map(x=>x.id)); if(!bb) return;
+  const opened=!changeOpen; beginChange();
+  const sx=dir.includes('e')?1:dir.includes('w')?-1:0, sy=dir.includes('s')?1:dir.includes('n')?-1:0;
+  const L=bb.l/100*r.width, Rr=bb.r/100*r.width, T=bb.t/100*r.height, B=bb.b/100*r.height, c={ u:(L+Rr)/2, v:(T+B)/2 };
+  const g={ u:sx>0?Rr:sx<0?L:c.u, v:sy>0?B:sy<0?T:c.v }, opp={ u:sx>0?L:sx<0?Rr:c.u, v:sy>0?T:sy<0?B:c.v };
+  const loc=(X,Y)=>({ u:X-r.left, v:Y-r.top });
+  const items=list.map(t=>({ id:t.id, x0:t.x, y0:t.y, fs:t.fs, w:t.w, hh:t.hh||0, bw:t.bw||0, bh:t.bh||0, full:t.type==='case' || (t.type==='cs2' && CS2_FULL.has(t.view)) }));
+  drag={ mode:'grp', sx, sy, loc, g, c, opp, vw:Rr-L, vh:B-T, p0:loc(e.clientX,e.clientY), cx:r.left, cy:r.top, r, sg:1, items, id:list[0].id, opened, moved:false,
+    sn:snapSetup(new Set(list.map(x=>x.id))) };
+  stage.setPointerCapture(e.pointerId);
+}
 stage.addEventListener('pointermove', e=>{
   if(!drag) return;
   if(drag.mode==='rect'){
@@ -1174,38 +1248,53 @@ stage.addEventListener('pointermove', e=>{
     }
     $('gv').classList.toggle('show', snapX); $('gh').classList.toggle('show', snapY);
     for(const it of drag.items){ const t=byId(it.id); if(t){ t.x=num(it.x0+dx,50,0,100); t.y=num(it.y0+dy,50,0,100); } }
-  } else if(drag.mode==='stretch'){
-    const p=drag.loc(e.clientX, e.clientY);
-    let ku=Math.abs(p.u)/drag.u0, kv=Math.abs(p.v)/drag.v0, vx=null, vy=null; const ids=[];
-    if(!noSnap(e) && drag.sn && drag.b0 && Math.abs(Math.sin(el.rot*Math.PI/180))<1e-3){   // без поворота края рамки совпадают с осями кадра
-      const b=drag.b0;
-      if(drag.axis!=='y' && b.hw>0.1){ const r=snapHalf(b.cx, b.hw*ku, drag.sn.xs, drag.sn.thrX); if(r){ ku=r.h/b.hw; vx=r.v; ids.push(r.id); } }
-      if(drag.axis!=='x' && b.hh>0.1){ const r=snapHalf(b.cy, b.hh*kv, drag.sn.ys, drag.sn.thrY); if(r){ kv=r.h/b.hh; vy=r.v; ids.push(r.id); } }
+  } else if(drag.mode==='crop'){
+    const d=drag, p=d.loc(e.clientX, e.clientY), du=p.u-d.p0.u, dv=p.v-d.p0.v, c=[...d.cr0];
+    const lim=(v,opp)=>Math.max(0, Math.min(90-opp, v));
+    if(d.sx>0) c[2]=lim(d.cr0[2]-du/d.W*100, c[0]); else if(d.sx<0) c[0]=lim(d.cr0[0]+du/d.W*100, c[2]);
+    if(d.sy>0) c[3]=lim(d.cr0[3]-dv/d.H*100, c[1]); else if(d.sy<0) c[1]=lim(d.cr0[1]+dv/d.H*100, c[3]);
+    const k=sanitizeCrop(c.map(v=>Math.round(v*100)/100));
+    if(k) el.crop=k; else delete el.crop;
+  } else if(drag.mode==='rz'){
+    const d=drag, tp=el.type, media=tp==='image' || tp==='video', box=BOXABLE.has(tp), corner=!!(d.sx && d.sy);
+    const sym=e.ctrlKey || e.metaKey || d.full;
+    const uni = d.full || (!media && !box) || e.shiftKey || (box && corner);   // общий множитель: шрифт/ширина вместе с высотой
+    const a=sym ? d.c : d.opp;
+    const R=rzSolve(d, e, a, sym, uni);
+    drag.snapNow=R.snap;
+    let kx=R.kx, ky=R.ky;
+    if(uni){
+      const k=kx;
+      if('fs' in el){
+        el.fs=num(d.f0.fs*k, 8, 0.5, 100); kx=ky=el.fs/d.f0.fs;
+        if(box){ if(d.f0.bw>0) el.bw=num(d.f0.bw*kx, 10, 2, 100); if(d.f0.bh>0) el.bh=num(d.f0.bh*kx, 10, 2, 100); }
+      } else {
+        el.w=num(d.f0.w*k, 25, 1, 200); kx=ky=el.w/d.f0.w;
+        if(d.f0.hh) el.hh=num(d.f0.hh*kx, 10, 0.5, 300);
+      }
+    } else if(media){
+      el.w=num(d.f0.w*kx, 25, 1, 200); kx=el.w/d.f0.w;
+      if(d.f0.hh>0 || Math.abs(ky-kx)>1e-6){ el.hh=num(d.f0.hhEff*ky, 10, 0.5, 300); ky=el.hh/d.f0.hhEff; } else ky=kx;
+    } else {   // рамка своей ширины/высоты; шрифт не трогаем
+      if(d.sx){ const w0=d.W/d.r.width*100; el.bw=num(w0*kx, 10, 2, 100); kx=el.bw/w0; } else kx=1;
+      if(d.sy){ const h0=d.H/d.r.height*100; el.bh=num(h0*ky, 10, 2, 100); ky=el.bh/h0; } else ky=1;
     }
-    drag.snapNow={ vx, vy, ids };
-    if(drag.axis!=='y') el.w=num(drag.w0*ku, 25, 1, 200);
-    if(drag.axis!=='x') el.hh=num(drag.hh0*kv, 10, 0.5, 300);
-    else if(!el.hh) el.hh=num(drag.hh0, 10, 0.5, 300);   // высоту фиксируем, иначе картинка поедет пропорционально
-  } else if(drag.mode==='box'){
-    // смещение мыши в осях элемента; рамка растёт в обе стороны от центра
-    const dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
-    const du=dx*Math.cos(drag.a)+dy*Math.sin(drag.a), dv=-dx*Math.sin(drag.a)+dy*Math.cos(drag.a);
-    let bw=drag.bw0 + 2*du/drag.sw*100, bh=drag.bh0 + 2*dv/drag.sh*100, vx=null, vy=null; const ids=[];
-    if(!noSnap(e) && drag.sn && drag.b0 && Math.abs(Math.sin(drag.a))<1e-3){
-      const b=drag.b0;
-      if(drag.axis==='x'){ const r=snapHalf(b.cx, b.hw+(bw-drag.bw0)/2, drag.sn.xs, drag.sn.thrX); if(r){ bw=drag.bw0+2*(r.h-b.hw); vx=r.v; ids.push(r.id); } }
-      else { const r=snapHalf(b.cy, b.hh+(bh-drag.bh0)/2, drag.sn.ys, drag.sn.thrY); if(r){ bh=drag.bh0+2*(r.h-b.hh); vy=r.v; ids.push(r.id); } }
+    // якорь (противоположный край или центр) остаётся на месте: сдвигаем центр элемента
+    const du=a.u*(1-kx), dv=a.v*(1-ky);
+    el.x=num(d.x0+(du*d.ca-dv*d.sa)/d.r.width*100, 50, 0, 100);
+    el.y=num(d.y0+(du*d.sa+dv*d.ca)/d.r.height*100, 50, 0, 100);
+  } else if(drag.mode==='grp'){
+    const d=drag, a=(e.ctrlKey||e.metaKey) ? d.c : d.opp;
+    const R=rzSolve(d, e, a, false, true); drag.snapNow=R.snap;
+    const k=R.kx;
+    for(const it of d.items){
+      const t=byId(it.id); if(!t) continue;
+      t.x=num((a.u+(it.x0/100*d.r.width-a.u)*k)/d.r.width*100, 50, 0, 100);
+      t.y=num((a.v+(it.y0/100*d.r.height-a.v)*k)/d.r.height*100, 50, 0, 100);
+      if(it.full) continue;
+      if('fs' in t) t.fs=num(it.fs*k, 8, 0.5, 100); else { t.w=num(it.w*k, 25, 1, 200); if(it.hh) t.hh=num(it.hh*k, 10, 0.5, 300); }
+      if(BOXABLE.has(t.type)){ if(it.bw) t.bw=num(it.bw*k, 10, 2, 100); if(it.bh) t.bh=num(it.bh*k, 10, 2, 100); }
     }
-    drag.snapNow={ vx, vy, ids };
-    if(drag.axis==='x') el.bw=num(bw, 10, 2, 100);
-    else el.bh=num(bh, 10, 2, 100);
-  } else if(drag.mode==='size'){
-    let k=Math.hypot(e.clientX-drag.cx, e.clientY-drag.cy)/drag.d0;
-    const sk = !noSnap(e) && drag.sn && drag.b0 ? snapScale(drag, k) : null;
-    if(sk) k=sk.k;
-    drag.snapNow=sk ? { vx:sk.vx, vy:sk.vy, ids:sk.ids } : null;
-    if('fs' in el) el.fs=num(drag.fs0*k,8,0.5,100);
-    else { el.w=num(drag.w0*k,25,1,200); if(drag.hh0) el.hh=num(drag.hh0*k,10,0.5,300); }
   } else {
     const a=angleOf(e,drag.cx,drag.cy); let d=a-drag.prev;
     if(d>180) d-=360; if(d<-180) d+=360;
@@ -2214,6 +2303,7 @@ $('rFile').onchange=async e=>{
 $('bCenter').onclick=()=>act(el=>{ el.x=50; el.y=50; });
 $('bRot0').onclick=()=>act(el=>el.rot=0);
 $('bRatio').onclick=()=>act(el=>el.hh=0);
+$('bCrop').onclick=()=>act(el=>{ delete el.crop; });
 // участники группы стоят подряд: блок встаёт на место самого верхнего участника, порядок внутри сохраняется
 function packGroups(){
   const out=[], done=new Set();

@@ -227,7 +227,8 @@
       Тащить — двигать · уголок — размер · кружок — поворот<br>
       <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+клик — добавить к выделению · рамкой по пустому месту — выделить несколько<br>
       <kbd>Ctrl+A</kbd> выделить всё · <kbd>Ctrl+G</kbd> группа · <kbd>Ctrl+Shift+G</kbd> разгруппировать<br>
-      Картинки: боковые ручки или <kbd>Shift</kbd>+уголок — растянуть<br>
+      Любой край или уголок — размер от противоположной стороны · <kbd>Shift</kbd> — с пропорциями · <kbd>Ctrl</kbd> — от центра<br>
+      <kbd>Alt</kbd>+край — обрезать · <kbd>Alt</kbd>+двойной клик по краю — сбросить обрезку<br>
       <kbd>Колёсико</kbd> размер · <kbd>Shift</kbd>/<kbd>Alt</kbd>+колёсико поворот · <kbd>Alt</kbd>+тащить поворот<br>
       <kbd>Ctrl</kbd> при перетаскивании — за край и без магнита<br>
       <kbd>Стрелки</kbd> сдвиг (<kbd>Shift</kbd> сильнее) · <kbd>H</kbd> скрыть/показать<br>
@@ -260,7 +261,7 @@
       <div id="gridLayer"></div>
       <div id="elLayer"></div>
       <div class="guide" id="gv"></div><div class="guide" id="gh"></div><div class="guide" id="gv2"></div><div class="guide" id="gh2"></div>
-      <div id="selRect"></div>
+      <div id="selRect"></div><div class="grp" id="grpBox"></div>
       <div id="dropHint">Отпусти, чтобы добавить</div>
       <div id="upload" hidden><span id="upText"></span><div class="b"><i id="upBar"></i></div></div>
     </div>
@@ -574,6 +575,9 @@
       <div class="lbl"><span>Высота (растянуть)</span><span id="vHh"></span></div>
       <input type="range" id="iHh" min="0" max="150" step="0.5">
       <div class="row"><button id="bRatio" class="grow" title="Убрать растяжение">↺ Вернуть пропорции</button></div>
+    </div>
+    <div data-for="image video web text timer counter poll msg chat">
+      <div class="row"><button id="bCrop" class="grow" title="Alt + тянуть край — обрезать">✂ Сбросить обрезку</button></div>
     </div>
     <div class="lbl"><span>Поворот</span><span id="vRot"></span></div>
     <input type="range" id="iRot" min="-180" max="180" step="1">
