@@ -2073,6 +2073,8 @@ function setNick(id, val){
 function renderNicks(el){
   const box=$('csNickBox'), list=$('csNickList'); if(!box || list.contains(document.activeElement)) return;
   const nk=el?.nicks||{}, ps=csPlayers(), seen=new Set(ps.map(p=>p.id));
+  // CS2 шлёт пакеты по 10 раз в секунду: список перерисовываем только когда в нём что-то поменялось, иначе поле ввода уходит из-под рук
+  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk]); if(list._sig===sig) return; list._sig=sig;
   list.replaceChildren();
   if(!ps.length && !Object.keys(nk).length){ const e=document.createElement('div'); e.className='hint'; e.textContent='Игроков пока нет: нужна запущенная CS2 и Hudini Host'; list.appendChild(e); return; }
   for(const p of [...ps, ...Object.keys(nk).filter(id=>!seen.has(id)).map(id=>({ id, name:'', offline:true }))]){
