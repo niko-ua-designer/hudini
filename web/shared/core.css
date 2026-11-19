@@ -265,26 +265,26 @@
 .cs2.full[data-fx="bright"] .hd-drop{font-size:2.2em;color:#ff6b7a}
 .hd-card.hit,.hd-big.hit{animation:hd-hit .35s ease}
 .cs2.full[data-fx="none"] *{animation:none!important;transition:none!important}
-/* большая карточка (наблюдаемый / соло) */
-.hd-big{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:.7em;background:var(--panel);border-radius:.4em;padding:.55em .8em;border-bottom:.24em solid var(--tc);min-width:0;width:100%}
+/* большая карточка (наблюдаемый / соло): сетка с фиксированными строками, высота и положение не зависят от оружия, гранат, денег и цифр.
+   Шрифт карточки сжимается под ширину колонки (cqw), поэтому все строки помещаются при любом размере HUD; название оружия одной строкой с «…» */
+.hd-center,.hd-bottom.solo{container-type:inline-size}
+.hd-big{position:relative;display:grid;grid-template-columns:3.6em minmax(0,1fr) auto;grid-template-rows:1.4em 1.7em 1.1em 1.2em;column-gap:.7em;row-gap:.2em;align-items:center;background:var(--panel);border-radius:.4em;padding:.55em .8em;border-bottom:.24em solid var(--tc);min-width:0;width:100%;box-sizing:border-box;font-size:1em}
+@supports (font-size:1cqw){.hd-big{font-size:min(1em,calc(100cqw/20))}}
 .hd-big.dead{opacity:.6;filter:grayscale(.7)}
-.hd-bav{width:3.6em;height:3.6em;font-size:1em}
-.hd-bmid{flex:1 1 7em;min-width:0}
-.hd-bname{font-weight:800;font-size:1.15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hd-bbars{display:flex;align-items:center;gap:.5em}.hd-bbars .hd-bar{flex:1;height:.4em}.hd-bhp{font-size:1.4em}
+.hd-bav{width:3.6em;height:3.6em;font-size:1em;grid-column:1;grid-row:1/3;align-self:center}
+.hd-bmid{display:contents}
+.hd-bname{grid-column:2;grid-row:1;font-weight:800;font-size:1.15em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hd-big>.hd-money{grid-column:3;grid-row:1;justify-self:end;font-size:.9em;white-space:nowrap}
+.hd-bbars{grid-column:2/4;grid-row:2;display:flex;align-items:center;gap:.5em;min-width:0}.hd-bbars .hd-bar{flex:1;height:.4em;margin:0;min-width:1.2em}.hd-bhp{font-size:1.4em}
 .hd-big.low:not(.dead) .hd-bhp{color:#ff4d5e;animation:hd-pulse 1.2s ease-in-out infinite}
 .hd-bar-ar{font-size:.75em;opacity:.9;display:inline-flex;align-items:center;gap:.25em;flex:none}
-.hd-bhp{display:inline-flex;align-items:center;flex:none}
-/* статы переносятся целыми парами «подпись число»; правая колонка не шире 38% карточки (если середине не хватает 7em, колонка уходит вниз), оружие обрезается, значки снаряжения
-   переносятся на новую строку: ничего не налезает на текст и друг на друга при любой ширине, теме и языке */
-.hd-bstats{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:.6em;row-gap:.1em;font-size:.8em;min-width:0}
+.hd-bhp{display:inline-flex;align-items:center;flex:none;line-height:1}
+.hd-bstats{grid-column:1/4;grid-row:3;display:flex;flex-wrap:nowrap;align-items:baseline;column-gap:.7em;font-size:.8em;min-width:0;overflow:hidden;white-space:nowrap}
 .hd-bst{display:inline-flex;align-items:baseline;gap:.25em;white-space:nowrap}
 .hd-bstats i{font-style:normal;opacity:.72;font-size:.75em}
-.hd-bbars{min-width:0;flex-wrap:wrap;row-gap:.1em}.hd-bbars .hd-bar{min-width:1.2em}
-.hd-bright{flex:0 1 auto;min-width:0;max-width:38%;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:.15em;font-size:.8em;white-space:nowrap}
-.hd-bright>*{max-width:100%}
-.hd-bright .hd-w{overflow:hidden;text-overflow:ellipsis}
-.hd-bright .hd-ic{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.15em .25em;font-size:1.05em}
+.hd-big>.hd-bright{display:flex;grid-column:1/4;grid-row:4;align-items:center;justify-content:space-between;gap:.6em;min-width:0;font-size:.8em;white-space:nowrap}
+.hd-bright .hd-ic{display:flex;flex:0 1 auto;gap:.15em .25em;font-size:1.05em;overflow:hidden;min-width:0}
+.hd-bright .hd-w{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis}
 /* таблица */
 .hd-table{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:96%;background:var(--panel);border-radius:.5em;padding:.6em .9em 1em;display:flex;flex-direction:column;gap:.7em}
 .hd-table .hd-top{position:static;transform:none}
