@@ -1344,6 +1344,11 @@ const HUDINI_DICT = {
     "на экране максимум": "the screen holds at most",
     "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
+    "🏷 Ники игроков": "🏷 Player nicknames",
+    "Ник в HUD (пусто = игровой)": "HUD nickname (empty = in-game)",
+    "Сбросить ник": "Reset nickname",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "No players yet: CS2 and Hudini Host must be running",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Nicknames apply to all CS2 elements. Only the stream changes; the in-game name stays the same.",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2687,6 +2692,11 @@ const HUDINI_DICT = {
     "на экране максимум": "на екрані максимум",
     "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
+    "🏷 Ники игроков": "🏷 Ніки гравців",
+    "Ник в HUD (пусто = игровой)": "Нік у HUD (порожньо = ігровий)",
+    "Сбросить ник": "Скинути нік",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Гравців поки немає: потрібні запущені CS2 і Hudini Host",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Ніки ставляться всім CS2-елементам. Змінюється лише те, що видно на стрімі, в грі нік той самий.",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4030,6 +4040,11 @@ const HUDINI_DICT = {
     "на экране максимум": "auf dem Bildschirm höchstens",
     "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
+    "🏷 Ники игроков": "🏷 Spielernamen",
+    "Ник в HUD (пусто = игровой)": "Name im HUD (leer = Spielname)",
+    "Сбросить ник": "Name zurücksetzen",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Noch keine Spieler: CS2 und Hudini Host müssen laufen",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Namen gelten für alle CS2-Elemente. Nur der Stream ändert sich, der Spielname bleibt gleich.",
   },
 };
 

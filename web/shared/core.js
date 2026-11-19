@@ -189,6 +189,7 @@ function sanitizeEl(e){
     o.ctc=hex(e.ctc,'#5d9cec'); o.tc=hex(e.tc,'#e0a030'); o.glow=e.glow!==false; o.fx=['none','soft','bright'].includes(e.fx)?e.fx:'soft';
     o.av=Object.create(null); if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
+    o.nicks=cleanNicks(e.nicks);
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
     o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip;
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
@@ -1167,12 +1168,30 @@ function timerSet(t, flip){
 }
 function cs2Fresh(){ return CS2 && Date.now()-(CS2.at||0) < 30000; }
 function h(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
-// Что видит HUD: названия и логотипы команд едут вместе с командой
+// Ники игроков: steamid64 (17 цифр) -> показываемый ник. До 20 записей, ник до 24 символов, без управляющих
+function cleanNicks(v){
+  const o=Object.create(null); if(!v || typeof v!=='object') return o;
+  for(const [k,x] of Object.entries(v)){ if(Object.keys(o).length>=20) break;
+    if(!/^\d{17}$/.test(k) || typeof x!=='string') continue;
+    const n=x.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g,'').trim().slice(0,24); if(n) o[k]=n; }
+  return o;
+}
+// Что видит HUD: ники игроков подменены (исходный ник в gname), названия и логотипы команд едут вместе с командой
 // при смене сторон (d.sw пришёл от Host: нечётное = стороны сменили). Ручные названия tnCT/tnT заданы для начальных сторон.
 function cs2View(el, d){
   if(!d) return d;
+  const nk=el.nicks||{}, has=Object.keys(nk).length>0;
   const flip=d.sw ? 1 : 0, mine=(a,b)=>flip ? b : a;
   const out={ ...d, ctName: mine(el.tnCT, el.tnT) || d.ctName, tName: mine(el.tnT, el.tnCT) || d.tName, lgCT: mine(el.lgCT, el.lgT)||'', lgT: mine(el.lgT, el.lgCT)||'' };
+  if(!has) return out;
+  const nm=(id,name)=>(id && Object.hasOwn(nk,id)) ? nk[id] : name;
+  const pl=p=>p && Object.hasOwn(nk,p.id) ? { ...p, name:nk[p.id], gname:p.name } : p;
+  if(d.players) out.players=d.players.map(pl);
+  if(d.observed) out.observed=pl(d.observed);
+  if(d.id && Object.hasOwn(nk,d.id)){ out.gname=d.name; out.name=nk[d.id]; }
+  if(d.spectating && d.observed && Object.hasOwn(nk,d.observed.id)) out.spectating=nk[d.observed.id];
+  if(d.evs) out.evs=d.evs.map(e=>(e.kid&&Object.hasOwn(nk,e.kid)) || (e.vid&&Object.hasOwn(nk,e.vid)) || (e.k==='multikill'&&e.id&&Object.hasOwn(nk,e.id))
+    ? { ...e, killer: nm(e.kid, e.killer), victim: nm(e.vid, e.victim), name: e.k==='multikill' ? nm(e.id, e.name) : e.name } : e);
   return out;
 }
 function paintCs2(c, el){
@@ -1191,7 +1210,7 @@ function paintCs2(c, el){
   c.classList.toggle('nodata', !d);
   if(!d){ c.replaceChildren(h('div','c-none',st('🎯 CS2: ждём данные из игры'))); return; }
   // выбранный игрок по нику (в режиме наблюдателя есть все игроки)
-  if(el.pick && d.players){ const p=d.players.find(x=>String(x.name||'').toLowerCase()===el.pick.toLowerCase()); if(p) d={ ...d, ...p, name:p.name, spectating:null }; }
+  if(el.pick && d.players){ const p=d.players.find(x=>String(x.gname||x.name||'').toLowerCase()===el.pick.toLowerCase()); if(p) d={ ...d, ...p, name:p.name, spectating:null }; }
   const kd = d.d ? (d.k/d.d).toFixed(2) : (d.k||0).toFixed(2);
   const name = el.label || d.name || st('Игрок');
   const hpBar = ()=>{ const b=h('div','c-bar'), f=h('div','c-fill'); f.style.width=Math.max(0,Math.min(100,d.hp||0))+'%'; f.style.background = (d.hp||0)>50 ? '#3ddc84' : (d.hp||0)>20 ? '#ffb020' : '#ff4d5e'; b.appendChild(f); return b; };
@@ -1295,7 +1314,7 @@ function fnum(c, el, key, text, cls){
 const WSHORT = { deagle:'Deagle', galilar:'Galil', elite:'Berettas', bizon:'Bizon', fiveseven:'Five-7', usp_silencer:'USP-S', m4a1_silencer:'M4A1-S', mp5sd:'MP5', sawedoff:'Sawed-Off' };
 function weaponShort(w){ const id=String(w||'').replace(/^weapon_/,''); return Object.hasOwn(WSHORT, id) ? WSHORT[id] : weaponName(w); }
 function avatar(el, p, cls){
-  const box=h('div', cls||'hd-av'), avk=String(p?.name||'').toLowerCase(), src=el.av && Object.hasOwn(el.av, avk) ? el.av[avk] : null;
+  const box=h('div', cls||'hd-av'), avk=String(p?.gname||p?.name||'').toLowerCase(), src=el.av && Object.hasOwn(el.av, avk) ? el.av[avk] : null;
   const team=p?.team==='T'?'t':'ct'; box.classList.add('tm-'+team);
   if(src){ const img=document.createElement('img'); img.alt=''; img.src=resolveSrc(src); img.draggable=false; box.appendChild(img); }
   else box.textContent=String(p?.name||'?').replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase() || '?';
@@ -1401,10 +1420,10 @@ function paintHud(c, el, d){
   scoreTop.c=c; statRows.c=c; statRows.el=el;
   // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
   const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
-  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.ctName, d.tName, d.sw, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
+  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.ctName, d.tName, d.sw, d.name, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
   if(c._sig===sig) return; c._sig=sig;
   if(!d){ c.replaceChildren(h('div','hd-wait', st('🎯 CS2: ждём данные из игры'))); return; }
-  const players=d.players||[], byName=n=>players.find(x=>String(x.name||'').toLowerCase()===String(n||'').toLowerCase());
+  const players=d.players||[], byName=n=>players.find(x=>{ const q=String(n||'').toLowerCase(); return String(x.name||'').toLowerCase()===q || String(x.gname||'').toLowerCase()===q; });
   const me={ ...d, id:d.id||'me', team:d.team };
   const parts=[];
   if(el.view==='hud_solo'){

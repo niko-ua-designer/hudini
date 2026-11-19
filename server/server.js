@@ -514,7 +514,7 @@ function compactGsi(g){
       const dk=(mine.k||0)-(prevOwn.k||0);
       if(dk>0 && dk<6 && !g.allplayers) addEv('frag', { killer:mine.name, kid:me, kteam:mine.team, victim:null, weapon:mine.weapon, hs:(mine.rhs||0)>(prevOwn.rhs||0), me:true });
       if(dk>0 && dk<6) addEv('kill', { n:dk, name:mine.name, team:mine.team, hs:(mine.rhs||0)>(prevOwn.rhs||0), weapon:mine.weapon, rk:mine.rk||0 });
-      if((mine.rk||0)>=2 && (mine.rk||0)>(prevOwn.rk||0)) addEv('multikill', { n:mine.rk, name:mine.name, team:mine.team, hs:mine.rhs||0, weapon:mine.weapon, me:true });
+      if((mine.rk||0)>=2 && (mine.rk||0)>(prevOwn.rk||0)) addEv('multikill', { n:mine.rk, id:me, name:mine.name, team:mine.team, hs:mine.rhs||0, weapon:mine.weapon, me:true });
       if((mine.mvps||0)>(prevOwn.mvps||0)) addEv('mvp', { name:mine.name });
       if(prevOwn.alive && !mine.alive) addEv('death', { name:mine.name });
     }
@@ -525,7 +525,7 @@ function compactGsi(g){
     const killers=[], victims=[];
     for(const pl of out.players){
       const pv=prevAll[pl.id];
-      if(pv && (pl.rk||0)>=2 && (pl.rk||0)>(pv.rk||0)) addEv('multikill', { n:pl.rk, name:pl.name, team:pl.team, weapon:pl.weapon });
+      if(pv && (pl.rk||0)>=2 && (pl.rk||0)>(pv.rk||0)) addEv('multikill', { n:pl.rk, id:pl.id, name:pl.name, team:pl.team, weapon:pl.weapon });
       if(pv){
         for(let i=0;i<Math.min(5,(pl.k||0)-(pv.k||0));i++) killers.push({ pl, hs:(pl.rhs||0)>(pv.rhs||0) });
         if(pv.alive && !pl.alive) victims.push(pl);
