@@ -164,7 +164,7 @@ const C = box.C;
     await s.panel.selectOption('#iCsView', 'hud_tour'); await s.panel.selectOption('#iCsTheme', 'ko');
     await s.panel.click('[data-tab=cs2]');
     await s.panel.selectOption('#taStyle', 'D'); await s.panel.$eval('#taHideTop', e => e.click());
-    await until(async () => (await s.widget.evaluate(() => lastState.cs2auto?.theme)) === 'D', 5000);
+    await until(() => s.widget.evaluate(() => lastState.cs2auto?.theme === 'D' && lastState.cs2auto?.hideTop === false), 5000);   // both changes reached the widget
     await gsi(spec({ pphase: 'paused' }));
     const t = await until(tabOn, 5000);
     check(t && t.st === 'D' && t.th === 'ko' && t.hb && !t.ht, 'D in ko, only the bottom cards hide', t);

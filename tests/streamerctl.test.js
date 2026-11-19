@@ -114,7 +114,12 @@ const { step, check, eq, until, sleep } = T;
   await step('dock: four tabs, status pills and the quick switches', async () => {
     eq(await dock.$$eval('#tabs button', b => b.map(x => x.textContent)), ['Статус', 'Элементы', 'Люди', 'CS2'], 'tabs as in the chosen design');
     check(await until(async () => /OBS видит оверлей/.test(await dock.textContent('#pills'))), 'status pills: ' + await dock.textContent('#pills'));
-    eq(await dock.$$eval('#togs .sw', b => b.map(x => x.dataset.tog + ':' + x.classList.contains('on'))), ['chat:true', 'cs2:true', 'sound:true', 'draw:true', 'fx:true'], 'five switches, all on');
+    eq(await dock.$$eval('#togs .sw', b => b.map(x => x.dataset.tog + ':' + x.classList.contains('on'))), ['chat:true', 'cs2:true', 'sound:true', 'draw:true', 'fx:true', 'tab:true'], 'six switches (with the CS2 auto tab), all on');
+    await dock.click('#togs [data-tog="tab"]');
+    check(await until(() => /Стример выключил на стриме: авто-таб CS2/.test(host.log())), 'the auto tab switch is logged by its name');
+    check(await until(() => panel.evaluate(() => !$('taOffNote').hidden)), 'the panel says the auto tab is off on stream');
+    await dock.click('#togs [data-tog="tab"]');
+    check(await until(() => panel.evaluate(() => $('taOffNote').hidden)), 'and that it is back');
     await dock.click('#togs [data-tog="chat"]');
     check(await until(async () => !(await shown()).ms1), 'the chat switch in the dock hides the message on stream');
     check(await until(() => dock.$eval('#togs [data-tog="chat"]', b => !b.classList.contains('on'))), 'the switch shows it is off');
@@ -134,6 +139,14 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => panel.evaluate(() => /скрыто стримером/.test(nodes.get('tx1').textContent))), 'the panel marks it as hidden by the streamer');
     await dock.click('#els [data-eye="tx1"]');
     check(await until(async () => (await shown()).tx1), 'the second click brings it back');
+  });
+
+  await step('dock: a big screen (over 16 KB, e.g. a drawing) is still listed', async () => {
+    const strokes = Array.from({ length: 60 }, (_, i) => ({ id: 'stk' + String(i).padStart(4, '0'), tool: 'pen', color: '#ffffff', size: 6, t: 1, pts: Array.from({ length: 200 }, (_, j) => (i * 7 + j * 3) % 1000) }));
+    await put([{ id: 'big1', type: 'text', text: 'большой экран' }, { id: 'pad0', type: 'draw', x: 50, y: 50, strokes, del: [], hidden: true }]);
+    check(await panel.evaluate(() => JSON.stringify(state).length) > 20000, 'the screen is bigger than 16 KB');
+    check(await until(async () => (await fetch(host.base + '/api/status').then(r => r.json())).els?.some(e => e.id === 'big1')), 'the dock sees the new element');
+    await panel.evaluate(() => { state.els = state.els.filter(e => e.id !== 'big1' && !e.id.startsWith('pad')); renderAll(); publishNow(1); });
   });
 
   await step('dock: who is online, masked address, kick one moderator', async () => {

@@ -3591,6 +3591,8 @@ function markLevels(){
 const taMem={};
 let taPrevUntil=0, taPrevM=null, serDirty=false, serDraft=null;
 function taCfg(){ return cleanCs2Auto(state.cs2auto); }
+// стример выключил авто-таб в доке: кнопкой (ctl.tabOff) или быстрым выключателем (ctl.off.tab), как в widget.html
+const taOffNow=()=>!!hostCtl?.tabOff || hostCtl?.off?.tab===true;
 function taSet(k, v){ state.cs2auto={ ...taCfg(), [k]:v }; renderTa(); publishNow(1); }
 for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']])
   $(id).addEventListener('change', e=>taSet(k, e.target.checked));
@@ -3599,7 +3601,7 @@ function renderTa(){
   const a=taCfg();
   for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']]) setField($(id), a[k], 'checked');
   setField($('taStyle'), a.theme);
-  $('taOffNote').hidden=!hostCtl?.tabOff;
+  $('taOffNote').hidden=!taOffNow();
 }
 // превью во вкладке: «▶ Превью» на 6 с, а в игре — то же, что сейчас на стриме
 function taPlay(m){ taPrevM=m; taPrevUntil=Date.now()+6000; const b=$('taBox'); cs2TabRender(b, null); b._on=false; taTick(); }
@@ -3608,7 +3610,7 @@ function taTick(){
   const a=taCfg(), d=cs2Fresh() ? CS2 : null, now=Date.now();
   let m=null, data=d;
   if(now<taPrevUntil){ m=taPrevM; if(!d?.players?.length) data=cs2DemoFor(m); }
-  else if(!hostCtl?.tabOff) m=cs2TabMoment(d, a, taMem, now);
+  else if(!taOffNow()) m=cs2TabMoment(d, a, taMem, now);
   if($('taPrev').offsetParent===null && m && !box._on) return;   // вкладка закрыта: не рисуем зря
   cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(state.els) } : null);
 }
