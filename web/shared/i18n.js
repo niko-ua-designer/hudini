@@ -1547,6 +1547,10 @@ const HUDINI_DICT = {
     "Сбросить на 1×": "Reset to 1×",
     "Стоп": "Stop",
     "Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Скорость действует и на готовые эффекты, и на кадры.": "Custom keyframes: place the element → «＋», move/rotate it → another «＋». Clicking a keyframe number puts the element in its position. Speed applies to both the ready-made effects and the keyframes.",
+    "Курсоры": "Cursors",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Moderator cursors: see others and show yours. Not sent to the stream",
+    "Ник курсора": "Cursor name",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Name next to your cursor for other moderators (empty: Moderator N)"
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -3093,6 +3097,10 @@ const HUDINI_DICT = {
     "Сбросить на 1×": "Скинути на 1×",
     "Стоп": "Стоп",
     "Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Скорость действует и на готовые эффекты, и на кадры.": "Свої кадри: постав елемент → «＋», пересунь/поверни → ще «＋». Клік по номеру кадру ставить елемент у його положення. Швидкість діє і на готові ефекти, і на кадри.",
+    "Курсоры": "Курсори",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Курсори модераторів: бачити чужі й показувати свій. На стрім не йдуть",
+    "Ник курсора": "Нік курсора",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Ім'я біля твого курсора в інших модераторів (порожньо: Модератор N)"
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4639,6 +4647,10 @@ const HUDINI_DICT = {
     "Сбросить на 1×": "Auf 1× zurücksetzen",
     "Стоп": "Stopp",
     "Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Скорость действует и на готовые эффекты, и на кадры.": "Eigene Keyframes: Element platzieren → «＋», verschieben/drehen → noch ein «＋». Ein Klick auf die Keyframe-Nummer setzt das Element an seine Position. Das Tempo gilt für fertige Effekte und Keyframes.",
+    "Курсоры": "Cursor",
+    "Курсоры модераторов: видеть чужие и показывать свой. На стрим не идут": "Moderator-Cursor: andere sehen und den eigenen zeigen. Geht nicht auf den Stream",
+    "Ник курсора": "Cursor-Name",
+    "Имя возле твоего курсора у других модераторов (пусто: Модератор N)": "Name neben deinem Cursor bei anderen Moderatoren (leer: Moderator N)"
   },
 };
 

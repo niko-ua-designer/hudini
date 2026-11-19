@@ -358,3 +358,13 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 .ser-map input{min-width:0}
 .kfbar{gap:4px}.kfbar button{flex:1;min-width:0;padding-left:0;padding-right:0}
 #vAs{cursor:pointer}
+
+/* курсоры других модераторов (cursors.js): только в пульте, мышь не перехватывают */
+#curLayer{position:absolute;inset:0;pointer-events:none;z-index:99985;overflow:hidden}
+#curLayer[hidden]{display:none}
+#curLayer .cur{position:absolute;display:flex;align-items:flex-start;gap:2px;transition:left .07s linear,top .07s linear;filter:drop-shadow(0 1px 2px #000a);color:var(--c)}
+#curLayer .cur span,#curLayer .curBox span{background:var(--c);color:#111318;border-radius:4px;padding:0 5px;font-size:11px;line-height:16px;margin-top:14px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+#curLayer .curBox{position:absolute;border:1.5px dashed var(--c);border-radius:3px;opacity:.75;transition:left .07s linear,top .07s linear,width .07s linear,height .07s linear}
+#curLayer .curBox.drag{border-style:solid;opacity:1}
+#curLayer .curBox span{position:absolute;left:-1.5px;top:-17px;margin:0}
+#curName{width:124px}

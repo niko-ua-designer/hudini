@@ -968,7 +968,7 @@ const { step, check, eq, until, sleep } = T;
   await step('a plain click changes nothing; a drag over the eyes ends when the button is lost', async () => {
     const p = await T.newPage('click', { app: false });
     await p.goto(`${S.web.url}/panel/moderator.html`); await p.waitForFunction(() => window.hudiniReady, null, { timeout: 15000 });
-    await p.evaluate(() => { window.__sent = []; useMain({ connected: true, subscribe(){}, unsubscribe(){}, publish(t, box, o, cb){ __sent.push(box); cb(); }, on(){}, end(){} });
+    await p.evaluate(() => { window.__sent = []; useMain({ connected: true, subscribe(){}, unsubscribe(){}, publish(t, box, o, cb){ if(!t.endsWith('/cur')) __sent.push(box); cb(); }, on(){}, end(){} });
       state = { visible: true, vol: 1, fxVol: 1, els: [sanitizeEl({ id: 't1', type: 'text', text: 'T', x: 50, y: 50 }), sanitizeEl({ id: 't2', type: 'text', text: 'U', x: 20, y: 20 })], raffle: null }; undoStack.length = 0; renderAll(); });
     const box = await p.locator('.el[data-id="t1"] .content').boundingBox();
     await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await sleep(150);

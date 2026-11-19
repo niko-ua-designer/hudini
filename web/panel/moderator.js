@@ -127,7 +127,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -323,6 +323,7 @@ async function onMessage(topic, payload, packet){
   if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
+  if(topic===T.base+'/cur'){ if(!packet.retain && window.Cursors?.on) window.Cursors.msg(await unsealJSON(keys, payload, true)); return; }   // курсор другого модератора (только пульты)
   if(topic===T.base+'/ink'){ if(!packet.retain) window.Draw?.ink(await unsealJSON(keys, payload, true)); return; }   // живой штрих рисунка
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
@@ -432,7 +433,7 @@ async function switchRoom(code){
   rafFlush(); rafPool.clear(); rafSkip.clear(); chatPend.clear();   // участники и голоса у каждой комнаты свои
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; CS2_SERIES=null; hostNote=''; storage=null; renderStorage();
-  room=code; KEYS=keys; saveRooms();
+  room=code; KEYS=keys; saveRooms(); window.Cursors?.reset();
   state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; redoStack.length=0; changeOpen=false; openChange=null; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
