@@ -271,7 +271,7 @@ const modList = new Map();   // id клиента → { ip, net, since, rtt } д
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 // и быстрые выключатели «на стриме сейчас» (off: чат, CS2-HUD, звуки, рисунки, эффекты; применяет виджет, переживают перезапуск)
 const OFF_KEYS = ['chat', 'cs2', 'sound', 'draw', 'fx', 'tab'];
-const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты' };
+const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты', tab:'авто-таб CS2' };
 const cleanOff = o => Object.fromEntries(OFF_KEYS.map(k => [k, o?.[k]===true]));
 // hideIds — элементы, которые стример спрятал глазиком в доке: их прячет только виджет, экран модераторов не меняется
 const cleanIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && x.length>0 && x.length<=40))].slice(0, 200);
