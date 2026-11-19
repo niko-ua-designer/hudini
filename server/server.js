@@ -310,9 +310,9 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
-// Кто что пишет: модераторы — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
+// Кто что пишет: модераторы — только экран (state), эффекты (fx) и живые штрихи рисунка (ink), виджет OBS — только пульс (hb).
 // srv, cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
-const PUB_MOD = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
+const PUB_MOD = new Set(['state', 'fx', 'ink']), PUB_LOCAL = new Set(['hb']);
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
   if(!(client?.conn?._mod ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
