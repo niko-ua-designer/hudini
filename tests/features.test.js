@@ -74,7 +74,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = []; selectedId = null; commit(); });
   });
 
-  await step('one Animation block: keyframes add and delete, one speed multiplier scales effects and keyframes', async () => {
+  await step('one Animation block: keyframes add and delete, one total duration scales effects and keyframes', async () => {
     await mod.click('[data-tab=add]');
     await mod.fill('#newText', 'ANIM'); await mod.click('#addText');
     const id = await mod.evaluate(() => { const e = state.els.at(-1); selectedId = e.id; msel.clear(); renderAll(); return e.id; });
@@ -86,28 +86,55 @@ const { step, check, eq, until, sleep } = T;
     eq(await mod.evaluate(i => state.els.find(x => x.id === i).kf.f.length, id), 1, 'the last keyframe deleted');
     await mod.click('#kfClear');
     eq(await mod.evaluate(i => !!state.els.find(x => x.id === i).kf, id), false, 'all keyframes cleared');
-    // old screen without the multiplier: nothing stored, factor 1
-    const old = await mod.evaluate(() => { const o = sanitizeEl({ id: 'q', type: 'text', text: 'x', anim: 'pulse' }); return { has: 'spd' in o, f: animSpeed(o), big: sanitizeEl({ id: 'q', type: 'text', spd: 99 }).spd, small: sanitizeEl({ id: 'q', type: 'text', spd: 0.01 }).spd, one: 'spd' in sanitizeEl({ id: 'q', type: 'text', spd: 1 }) }; });
-    eq([old.has, old.f, old.big, old.small, old.one], [false, 1, 4, 0.25, false], 'no multiplier = 1, values clamp to 0.25-4');
-    // keyframes: 0 -> 100 in 2 s, linear; position after 1 s of real time
-    const pos = await mod.evaluate(() => {
-      const kf = sanitizeKf({ f: [{ x: 0, y: 50, d: 2000, e: 'linear' }, { x: 100, y: 50 }], mode: 'once', playing: true, start: 1000 });
-      const at = spd => { const n = { style: {}, classList: { add() {}, remove() {} } }; animApply(n, { kf, op: 1, spd }, 2000); return parseFloat(n.style.left); };
-      return [at(undefined), at(2), at(0.5), at(4)];
+    // old screen with the multiplier keeps working; nothing stored by default; garbage is cleaned
+    const old = await mod.evaluate(() => {
+      const o = sanitizeEl({ id: 'q', type: 'text', text: 'x', anim: 'pulse' });
+      const sp = sanitizeEl({ id: 'q', type: 'text', anim: 'pulse', spd: 2 });
+      const both = sanitizeEl({ id: 'q', type: 'text', anim: 'pulse', spd: 2, adur: 3 });
+      return { has: 'spd' in o || 'adur' in o, f: animSpeed(o), sp: animSpeed(sp), both: [both.adur, 'spd' in both, Math.round(animSpeed(both) * 100) / 100],
+        big: sanitizeEl({ id: 'q', type: 'text', adur: 9999 }).adur, small: sanitizeEl({ id: 'q', type: 'text', adur: 0.001 }).adur,
+        junk: ['adur' in sanitizeEl({ id: 'q', type: 'text', adur: 'abc' }), 'adur' in sanitizeEl({ id: 'q', type: 'text', adur: -4 })],
+        none: animSpeed({ anim: 'none', adur: 3 }) };
     });
-    eq(pos.map(v => Math.round(v)), [50, 100, 25, 100], 'keyframes run 1x / 2x / 0.5x / 4x');
-    // the slider writes the multiplier (2^value), the widget gets it
+    eq([old.has, old.f, old.sp, old.both, old.big, old.small, old.junk, old.none], [false, 1, 2, [3, false, 0.33], 600, 0.1, [false, false], 1], 'old spd works, adur wins and replaces spd, values clamp to 0.1-600, junk dropped');
+    // keyframes: 0 -> 100 in 2 s, linear; position at a given moment for a given total duration
+    const half = await mod.evaluate(() => {
+      const kf = sanitizeKf({ f: [{ x: 0, y: 50, d: 2000, e: 'linear' }, { x: 100, y: 50 }], mode: 'once', playing: true, start: 1000 });
+      const at = (adur, t) => { const n = { style: {}, classList: { add() {}, remove() {} } }; animApply(n, { kf, op: 1, adur }, t); return parseFloat(n.style.left); };
+      return [at(undefined, 2000), at(1, 1500), at(1, 2000), at(4, 3000), at(0.5, 1250), at(0.5, 1500), at(3, 2500), at(3, 4000)];
+    });
+    eq(half.map(v => Math.round(v)), [50, 50, 100, 50, 50, 100, 50, 100], 'keyframes of 2 s: natural / squeezed to 1 s / stretched to 4 s / 0.5 s / 3 s reach the end exactly on time');
+    // the slider and the number field write the same duration, the widget gets it
     await mod.evaluate(i => { const e = state.els.find(x => x.id === i); beginChange(); e.anim = 'pulse'; commit(); selectedId = i; renderAll(); }, id);
     await sleep(500);
     const dur = () => wid.evaluate(() => getComputedStyle(document.querySelector('.fx.a-pulse')).animationDuration);
-    eq(await dur(), '1s', 'effect at the default speed lasts 1 s');
-    await mod.evaluate(() => { const f = document.getElementById('iAs'); f.value = '1'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); });
-    eq(await mod.evaluate(i => state.els.find(x => x.id === i).spd, id), 2, 'slider +1 stores 2x');
-    check(await until(async () => (await dur()) === '0.5s'), 'the widget plays the effect twice as fast');
-    await mod.evaluate(() => { const f = document.getElementById('iAs'); f.value = '-1'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); });
-    check(await until(async () => (await dur()) === '2s'), 'and twice as slow at 0.5x');
+    const fire = (sel, v) => mod.evaluate(([s, v]) => { const f = document.querySelector(s); f.value = v; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); }, [sel, v]);
+    eq(await dur(), '1s', 'effect at the natural duration lasts 1 s');
+    eq(await mod.textContent('#vAs'), 'исходно 1,0 сек', 'the label shows the original duration');
+    for (const d of [0.5, 1, 3]) {
+      await fire('#iAd', String(d));
+      eq(await mod.evaluate(i => state.els.find(x => x.id === i).adur, id), d, 'field stores ' + d + ' s');
+      eq(await mod.evaluate(() => +document.getElementById('iAs').value), await mod.evaluate(v => idxOfDur(v), d), 'slider follows the field at ' + d);
+      check(await until(async () => (await dur()) === d + 's'), 'the widget plays one pulse cycle in exactly ' + d + ' s');
+    }
+    await fire('#iAs', '36');   // index 36 = 10 s
+    eq(await mod.evaluate(() => [state.els.at(-1).adur, document.getElementById('iAd').value]), [10, '10'], 'slider 36 = 10 s and the field follows');
+    eq(await mod.evaluate(() => [durOfIdx(0), durOfIdx(18), durOfIdx(19), durOfIdx(36), durOfIdx(37), durOfIdx(86)]), [0.1, 1, 1.5, 10, 11, 60], 'slider steps: 0.05 s to 1 s, 0.5 s to 10 s, then 1 s');
+    await fire('#iAd', '0.1');
+    check(await until(async () => (await dur()) === '0.1s'), 'a pulse shorter than a second works');
+    // keyframes: the total duration scales every frame evenly; adding a frame keeps the speed
+    await mod.click('#kfAdd');
+    await mod.evaluate(i => { beginChange(); state.els.find(x => x.id === i).x = 70; commit(); }, id);
+    await mod.click('#kfAdd');
+    await mod.evaluate(i => { beginChange(); state.els.find(x => x.id === i).x = 40; commit(); }, id);
+    await mod.click('#kfAdd');
+    await mod.evaluate(i => { const e = state.els.find(x => x.id === i); beginChange(); e.adur = 1; e.kf.f.forEach(f => f.d = 1000); commit(); renderAll(); }, id);
+    eq(await mod.evaluate(i => { const e = state.els.find(x => x.id === i); return [animNatural(e), kfRealDuration(e)]; }, id), [2, 1000], 'three 1 s frames: natural 2 s squeezed to 1 s');
+    await mod.click('#kfAdd');
+    eq(await mod.evaluate(i => { const e = state.els.find(x => x.id === i); return [animNatural(e), e.adur, kfRealDuration(e)]; }, id), [3, 1.5, 1500], 'a fourth frame keeps the multiplier: total grows to 1.5 s, not redistributed');
+    eq(await mod.textContent('#vAs'), 'исходно 3,0 сек', 'the label shows the new natural duration');
     await mod.click('#vAs');
-    eq(await mod.evaluate(i => 'spd' in state.els.find(x => x.id === i), id), false, 'clicking the value resets to 1x');
+    eq(await mod.evaluate(i => { const e = state.els.find(x => x.id === i); return ['adur' in e, 'spd' in e, animSpeed(e), document.getElementById('iAd').value]; }, id), [false, false, 1, '3'], 'clicking the label restores the original duration');
     await mod.evaluate(() => { beginChange(); state.els = []; selectedId = null; commit(); });
   });
 
