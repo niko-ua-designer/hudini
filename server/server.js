@@ -559,6 +559,56 @@ function compactGsi(g){
   out.evs = evs.slice(-14);
   return out;
 }
+// ---- файт: подсказка кастеру «бой у игроков №N и №M» (только в пульт и док, на стрим не идёт) ----
+// Номер на экране — это клавиша наблюдателя CS2: observer_slot уже идёт как 1–9 и 0 (десятый игрок),
+// так же его показывают панели команд. 10 на всякий случай тоже считаем клавишей 0.
+const FIGHT_WIN = 2000, FIGHT_TTL = 4000;
+function slotKey(s){ const n = Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=10 ? n%10 : null; }
+// Чистая функция: по прошлому и новому пакету allplayers (и событиям frag) решает, есть ли бой.
+// recent = { hurt:{id:t}, act:{id:t} } — кого ранили и кто действовал (ранен, стрелял, убил) за последние 2 с.
+// Бой: игрок одной команды получил урон или погиб, а игрок другой команды за то же окно действовал.
+// Пару выбираем по самому свежему урону; позиций в данных нет, поэтому «ближайший враг» = самый свежий активный враг.
+function detectFight(prevPlayers, players, evs, now, recent){
+  const keep = m => { const o = {}; for(const [id, t] of Object.entries(m||{})) if(now-t < FIGHT_WIN) o[id] = t; return o; };
+  const hurt = keep(recent?.hurt), act = keep(recent?.act);
+  const byId = new Map((players||[]).map(p => [String(p.id), p]));
+  const mark = (m, id, t) => { if(byId.has(String(id)) && now-t < FIGHT_WIN) m[id] = Math.max(m[id]||0, t); };
+  for(const p of byId.values()){
+    const pv = prevPlayers?.[p.id]; if(!pv) continue;
+    if((p.hp??0) < (pv.hp??0)){ mark(hurt, p.id, now); mark(act, p.id, now); }
+    // выстрел: в том же оружии стало меньше патронов (перезарядка их только добавляет)
+    if(p.weapon && p.weapon===pv.weapon && p.ammo!=null && pv.ammo!=null && p.ammo < pv.ammo) mark(act, p.id, now);
+  }
+  for(const e of evs||[]) if(e?.k==='frag' && now-(e.t||0) < FIGHT_WIN){ if(e.kid!=null) mark(act, e.kid, e.t); if(e.vid!=null){ mark(hurt, e.vid, e.t); mark(act, e.vid, e.t); } }
+  const who = id => { const p = byId.get(String(id)); return { id:p.id, slot:slotKey(p.slot), name:String(p.name||'?').slice(0, 40), team:p.team }; };
+  let fight = null;
+  for(const [hid, ht] of Object.entries(hurt).sort((a, b) => b[1]-a[1])){
+    const hp = byId.get(String(hid)); if(hp.team!=='CT' && hp.team!=='T') continue;
+    const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return (t==='CT' || t==='T') && t!==hp.team; }).sort((a, b) => b[1]-a[1])[0];
+    if(!foe) continue;
+    const x = who(hid), y = who(foe[0]), [a, b] = x.team==='CT' ? [x, y] : [y, x];
+    fight = { a, b, t:Math.max(ht, foe[1]), key:`${a.id}|${b.id}` };
+    break;
+  }
+  return { fight, recent:{ hurt, act } };
+}
+let fightPrev = {}, fightRecent = null, fight = null, fightPubAt = 0;
+function fightNow(){ const left = fight ? fight.until - Date.now() : 0; return left > 0 ? { a:fight.a, b:fight.b, ttl:left } : null; }
+function trackFight(out){
+  if(!out.players){ fightPrev = {}; fightRecent = null; return; }
+  const now = Date.now(), r = detectFight(fightPrev, out.players, out.evs, now, fightRecent);
+  fightRecent = r.recent; fightPrev = Object.fromEntries(out.players.map(p => [p.id, p]));
+  if(!r.fight) return;
+  const same = fightNow() && fight.key===r.fight.key;
+  fight = { ...r.fight, until:r.fight.t + FIGHT_TTL };
+  if(!same || now-fightPubAt > 1000) publishFight();
+}
+// Отдельная неретейн-тема cs2fight: пульт подписан, виджет OBS — нет. Публикует только программа (в PUB_MOD/PUB_LOCAL её нет).
+async function publishFight(){
+  const f = fightNow(); if(!f || !AES || !ROOM) return;
+  fightPubAt = Date.now();
+  aedes.publish({ cmd:'publish', topic:T('cs2fight'), payload:await sealAES({ ...f, t:Date.now() }), qos:0, retain:false, dup:false }, ()=>{});
+}
 async function pushCs2(data){
   status.cs2 = data; status.cs2Seen = Date.now();
   if(!AES) return;
@@ -1107,7 +1157,7 @@ const local = http.createServer(async (req, res) => {
       const g = JSON.parse(await readBody(req, 512*1024));
       const tok = Buffer.from(String(g?.auth?.token||'')), want = Buffer.from(cfg.gsiToken);
       if(tok.length!==want.length || !nodeCrypto.timingSafeEqual(tok, want)) return send(res, 403, 'bad token');
-      pushCs2(compactGsi(g));
+      const out = compactGsi(g); trackFight(out); pushCs2(out);
       return send(res, 200, 'ok');
     }
     if(p==='/auth' && isLocalAdminHost(req)){
@@ -1126,7 +1176,7 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='GET' && p==='/api/status'){
         if(isLocalAdminHost(req)) return send(res, 200, JSON.stringify({ alive:true, version:VERSION }), 'application/json');
         return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods,
-          obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
+          obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
       }
       if(!(req.method==='POST' && p==='/api/control' && req.headers.origin===`http://localhost:${PORT}`)) return send(res, 403, 'open the management page from the Hudini app');
     }
@@ -1171,7 +1221,7 @@ const local = http.createServer(async (req, res) => {
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
         modList:[...modList.values()].map(({ ip, net, since, rtt }) => ({ ip, net, since, rtt })), role:ROLE_MOD ? 'mod' : 'streamer',
-        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
+        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
       if(p==='/api/gsi/cfg') return send(res, 200, gsiCfgText(), 'application/octet-stream', { 'content-disposition':'attachment; filename="gamestate_integration_streamoverlay.cfg"' });
@@ -1280,3 +1330,5 @@ local.on('error', e => {
   if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
   log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
+
+export { detectFight, slotKey };   // для тестов (tests/cs2stats.test.js берёт их из исходника)

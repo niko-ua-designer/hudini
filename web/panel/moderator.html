@@ -260,6 +260,7 @@
     <select id="gridStep" title="Шаг сетки"><option value="2.5">2.5%</option><option value="5" selected>5%</option><option value="10">10%</option><option value="12.5">⅛</option><option value="25">¼</option></select>
   </div>
   <div id="stageBox">
+    <div id="fightBar" hidden title="Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт"><b>⚔ Файт</b> <span id="fightA" data-i18n-skip></span> <i>↔</i> <span id="fightB" data-i18n-skip></span></div>
     <div id="stage">
       <div id="bgLayer"></div>
       <div id="gridLayer"></div>
@@ -423,6 +424,7 @@
         <div class="row" id="csCmpRow"><select id="iCsPa" class="grow"></select><span class="hint">vs</span><select id="iCsPb" class="grow"></select></div>
         <div id="csFullBox">
           <div class="row"><span class="hint">CT</span><input type="color" id="iCsCt"><span class="hint">T</span><input type="color" id="iCsT"><label class="chk"><input type="checkbox" id="iCsGlow"> Свечение</label></div>
+          <div id="csKfRow"><label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsKf"><span class="tgl-k"></span><span>Киллфид Hudini <span class="hint">(свой список киллов поверх игры)</span></span></label></div>
           <div class="row"><span class="hint">Эффекты</span><select id="iCsFx" class="grow"><option value="soft">Мягкие</option><option value="bright">Яркие</option><option value="none">Без анимаций</option></select></div>
           <div class="row"><input type="text" id="iCsTnCT" class="grow" placeholder="Команда CT"><input type="text" id="iCsTnT" class="grow" placeholder="Команда T"></div>
           <div class="row"><button id="csLgCT" class="grow">🖼 Лого CT</button><button id="csLgT" class="grow">🖼 Лого T</button></div>

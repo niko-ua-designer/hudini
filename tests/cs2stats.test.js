@@ -1,5 +1,6 @@
 // CS2 match stats on the Host: ADR and HS% from per-round maxima, persistence across a restart, reset on a new map or match.
 // No browser: packets go straight to /gsi and the result is read from /api/status.
+// Fight hint: allplayers packets with damage between teams give "slot name ↔ slot name" in /api/status for the dock.
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
 const T = require('./lib');
@@ -71,6 +72,80 @@ const { step, check, eq, until, sleep } = T;
     await send(pkt({ round: 1, map: 'de_inferno', score: [1, 0], dmg: 20 }));
     await send(pkt({ round: 0, map: 'de_inferno', dmg: 10 }));
     eq(await read(), [0, 0], 'round counter went back: a new match, stats are cleared');
+  });
+
+  // ---- fight hint ----
+  // allplayers packet as a spectator sees it: players by steamid, observer_slot is the observer key
+  const ROSTER = [['101', 'SaiYeah', 'CT', 3], ['102', 'ct2', 'CT', 1], ['201', 'gospoja', 'T', 7], ['202', 't2', 'T', 0]];
+  const spec = (over = {}, round = 5) => {
+    const allplayers = {};
+    for(const [id, name, team, slot] of ROSTER){
+      const o = over[id] || {};
+      allplayers[id] = { name, team, observer_slot: slot, state: { health: o.hp ?? 100, armor: 100, money: 1000, round_kills: 0 },
+        match_stats: { kills: o.k ?? 0, deaths: 0, assists: 0 }, weapons: { weapon_0: { name: 'weapon_ak47', type: 'Rifle', state: 'active', ammo_clip: o.ammo ?? 30, ammo_clip_max: 30, ammo_reserve: 90 } } };
+    }
+    return { provider: { steamid: '999' }, map: { name: 'de_mirage', mode: 'competitive', round, phase: 'live', team_ct: { score: 0 }, team_t: { score: 0 } },
+      round: { phase: 'live' }, player: { steamid: '101', name: 'SaiYeah', team: 'CT', observer_slot: 3, state: { health: 100 } }, allplayers };
+  };
+  // the dock reads /api/status without logging in (localhost, as the widget's origin)
+  const dockStatus = async () => (await fetch(`http://localhost:${host.port}/api/status`, { headers: { host: `localhost:${host.port}` } })).json();
+  const fightOf = async () => (await dockStatus()).fight;
+
+  await step('fight helpers: slotKey and detectFight are exported', async () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+    check(/^export \{[^}]*\bdetectFight\b[^}]*\bslotKey\b[^}]*\};/m.test(src), 'export line in server.js');
+    const a = src.indexOf('const FIGHT_WIN'), b = src.indexOf('\nlet fightPrev');
+    const vm = require('vm'), ctx = {}; vm.createContext(ctx);
+    vm.runInContext(src.slice(a, b) + '\nthis.detectFight = detectFight; this.slotKey = slotKey;', ctx);
+    eq([1, 5, 9, 0, 10, null, undefined, 11, -1, 2.5].map(ctx.slotKey), [1, 5, 9, 0, 0, null, null, null, null, null], 'observer_slot → observer key 1–9, 0');
+    const P = (id, team, hp, ammo, slot) => ({ id, name: 'n' + id, team, hp, ammo, weapon: 'weapon_ak47', slot });
+    const prev = { a: P('a', 'CT', 100, 30, 1), b: P('b', 'T', 100, 30, 6) };
+    let r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 73, 30, 6)], [], 1000, null);
+    eq(r.fight && [r.fight.a.slot, r.fight.a.name, r.fight.b.slot, r.fight.b.name], [1, 'na', 6, 'nb'], 'CT shoots, T loses HP: CT left, T right');
+    r = ctx.detectFight(prev, [P('a', 'CT', 100, 27, 1), P('b', 'T', 100, 25, 6)], [], 1000, null);
+    eq(r.fight, null, 'shots without damage are not a fight');
+    r = ctx.detectFight({ a: prev.a, c: P('c', 'CT', 100, 30, 2) }, [P('a', 'CT', 60, 30, 1), P('c', 'CT', 100, 20, 2)], [], 1000, null);
+    eq(r.fight, null, 'damage inside one team is not a fight');
+    r = ctx.detectFight(prev, [P('a', 'CT', 100, 30, 1), P('b', 'T', 100, 30, 6)], [], 4000, { hurt: { b: 1000 }, act: { a: 1000, b: 1000 } });
+    eq(r.fight, null, 'activity older than 2 s is forgotten');
+    r = ctx.detectFight(prev, [P('a', 'CT', 100, 30, 1), P('b', 'T', 0, 30, 6)], [{ k: 'frag', t: 1000, kid: 'a', vid: 'b' }], 1200, null);
+    eq(r.fight && r.fight.key, 'a|b', 'a frag counts too');
+  });
+
+  await step('fight hint: damage between teams shows both slots and nicks in the dock status', async () => {
+    await send(spec());
+    eq(await fightOf(), null, 'first packet: nothing to compare yet');
+    await send(spec({ 101: { ammo: 26 }, 201: { hp: 73 } }));
+    const f = await fightOf();
+    check(f && f.ttl > 3000 && f.ttl <= 4000, 'hint lives up to 4 s');
+    eq(f && [f.a.slot, f.a.name, f.a.team, f.b.slot, f.b.name, f.b.team], [3, 'SaiYeah', 'CT', 7, 'gospoja', 'T'], 'SaiYeah (3) vs gospoja (7)');
+    const st = await host.api('/api/status');
+    check(st.fight && st.fight.b.name === 'gospoja', 'the management page sees it too');
+  });
+
+  await step('fight hint goes away 4 s after the last damage', async () => {
+    await sleep(2200);
+    check((await fightOf()) !== null, 'still there after 2 s');
+    check(await until(async () => (await fightOf()) === null, 4000), 'gone after 4 s');
+  });
+
+  await step('one team or no damage gives no hint', async () => {
+    await send(spec({}, 6));
+    await send(spec({ 101: { hp: 50, ammo: 25 }, 102: { ammo: 20 } }, 6));
+    eq(await fightOf(), null, 'CT hurt, only CT shooting');
+    await sleep(2100);   // the CT damage leaves the 2 s window
+    await send(spec({ 101: { hp: 50, ammo: 10 }, 102: { ammo: 15 }, 201: { ammo: 12 }, 202: { ammo: 5 } }, 6));
+    eq(await fightOf(), null, 'both teams shooting, nobody hurt');
+  });
+
+  await step('only the panel subscribes to cs2fight, the widget does not', async () => {
+    const root = path.join(__dirname, '..', 'web');
+    const widget = fs.readFileSync(path.join(root, 'widget', 'widget.html'), 'utf8'), panel = fs.readFileSync(path.join(root, 'panel', 'moderator.js'), 'utf8');
+    check(!/cs2fight/.test(widget), 'widget.html never mentions cs2fight');
+    check(/mainTopics = \(\) => \[[^\]]*'\/cs2fight'/.test(panel), 'panel subscribes to cs2fight');
+    const srv = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+    check(/topic:T\('cs2fight'\).*retain:false/.test(srv), 'published without retain');
+    check(!/PUB_(MOD|LOCAL) = new Set\([^)]*cs2fight/.test(srv), 'clients cannot publish it');
   });
 
   await host.stop();

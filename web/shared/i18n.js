@@ -1351,6 +1351,10 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Show / hide the password",
     "Смайлы 7TV, BTTV, FFZ": "7TV, BTTV, FFZ emotes",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes are loaded from the external servers of 7TV, BetterTTV and FrankerFaceZ. Turned on for this room: in the panel feed, in the chat and messages on stream.",
+    "Киллфид Hudini": "Hudini kill feed",
+    "(свой список киллов поверх игры)": "(its own kill list over the game)",
+    "⚔ Файт": "⚔ Fight",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2 fight: the number is the observer key. Not shown on stream",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2701,6 +2705,10 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Показати / сховати пароль",
     "Смайлы 7TV, BTTV, FFZ": "Смайли 7TV, BTTV, FFZ",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Смайли завантажуються із зовнішніх серверів 7TV, BetterTTV і FrankerFaceZ. Вмикається для цієї кімнати: у стрічці пульта, у чаті та повідомленнях на стрімі.",
+    "Киллфид Hudini": "Кілфід Hudini",
+    "(свой список киллов поверх игры)": "(власний список кілів поверх гри)",
+    "⚔ Файт": "⚔ Файт",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "Бій у CS2: номер — клавіша спостерігача. На стрим не йде",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4051,6 +4059,10 @@ const HUDINI_DICT = {
     "Показать / скрыть пароль": "Passwort anzeigen / verbergen",
     "Смайлы 7TV, BTTV, FFZ": "7TV-, BTTV-, FFZ-Emotes",
     "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes werden von den externen Servern von 7TV, BetterTTV und FrankerFaceZ geladen. Gilt für diesen Raum: im Panel-Feed, im Chat und in Nachrichten im Stream.",
+    "Киллфид Hudini": "Hudini-Killfeed",
+    "(свой список киллов поверх игры)": "(eigene Kill-Liste über dem Spiel)",
+    "⚔ Файт": "⚔ Fight",
+    "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2-Kampf: Die Nummer ist die Beobachter-Taste. Nicht im Stream sichtbar",
   },
 };
 

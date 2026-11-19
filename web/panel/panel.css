@@ -216,6 +216,13 @@ main{flex-direction:column;align-items:stretch;justify-content:flex-start}
 #toolbar.none .tgrp button{opacity:.35;pointer-events:none}
 #selInfo{min-width:120px}
 #stageBox{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* подсказка кастеру «файт» из CS2: над холстом, на любой вкладке; только в пульте, на стрим не идёт */
+#fightBar{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:100000;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);padding:5px 14px;border-radius:999px;background:#2a1418f0;border:1px solid #ff5d6c;color:#fff;font-size:14px;white-space:nowrap;box-shadow:0 4px 16px #000a;pointer-events:none;animation:fight-in .25s ease-out}
+#fightBar[hidden]{display:none}
+#fightBar b{color:#ff8a95;font-weight:800}#fightBar i{font-style:normal;opacity:.7}
+#fightBar span{overflow:hidden;text-overflow:ellipsis;min-width:0}#fightBar .ct{color:#8fbfff}#fightBar .t{color:#ffc46b}
+#fightBar span em{font-style:normal;font-weight:800;display:inline-block;min-width:1.3em;padding:0 4px;margin-right:4px;border-radius:4px;background:#ffffff26;text-align:center}
+@keyframes fight-in{from{opacity:0;transform:translate(-50%,-6px)}}
 #gridLayer{position:absolute;inset:0;pointer-events:none;display:none;z-index:0;
   background-image:linear-gradient(to right,#7c5cff38 1px,transparent 1px),linear-gradient(to bottom,#7c5cff38 1px,transparent 1px)}
 #stage.grid #gridLayer{display:block}
