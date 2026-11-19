@@ -1,0 +1,9 @@
+/* streamer.js: что стример выключил у себя, и окно «пульт стримера» */
+.perm-off{display:none!important}
+#permNote{margin:0 0 10px;padding:7px 10px;border-radius:8px;background:#2b2210;border:1px solid #6b5420;color:#f3d28a;font-size:12px;white-space:pre-line}
+.el .hoff{position:absolute;left:0;bottom:100%;margin-bottom:2px;white-space:nowrap;font:600 11px/1.3 system-ui,sans-serif;color:#fff;background:#b3263a;padding:1px 6px;border-radius:4px;pointer-events:none;display:none;z-index:5}
+.el.host-off{outline:2px dashed #ff4d5e99;outline-offset:1px}
+.el.host-off .hoff{display:block}
+.layer.host-off .name{text-decoration:line-through;opacity:.6}
+/* в окне пульта стримера нет списка сессий модератора */
+body.streamer-panel #toSessions,body.streamer-panel #csSess{display:none!important}

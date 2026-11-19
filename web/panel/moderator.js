@@ -36,7 +36,7 @@ addEventListener('hudini-store-error', e=>toast(e.detail?.app ? 'Не удало
 
 const qs=new URLSearchParams(location.search);
 // после перехода по ссылке оставляем в адресе только служебные параметры
-function keepQuery(){ const q=new URLSearchParams(); for(const k of ['variant']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
+function keepQuery(){ const q=new URLSearchParams(); for(const k of ['variant', 'streamer']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
 const clientId='mod_'+rid(10);
 const topics = r => ({ base:`${TOPIC_PREFIX}/${r}`, state:`${TOPIC_PREFIX}/${r}/state`, fx:`${TOPIC_PREFIX}/${r}/fx` });
 const validCode = c => typeof c==='string' && /^[a-z0-9_-]{4,64}$/i.test(c) && !['__proto__','constructor','prototype'].includes(c.toLowerCase());
@@ -245,7 +245,7 @@ function openHome(info){
   if(homeClient && homeInfo?.url===info.url && homeInfo?.pass===info.pass) return;
   if(homeClient) dropHome();
   homeInfo=info; hostNote='';
-  const c=mqttClient(info.url, 'h', { username:'mod', password:String(info.pass||''), reconnectPeriod:3000 });
+  const c=mqttClient(info.url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
   homeClient=c; wire(c); hostStatus();
   c.on('connect', ()=>{
     if(homeClient!==c) return;
@@ -255,6 +255,7 @@ function openHome(info){
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
     // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
     if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
+    else if(info.user==='streamer') hostNote='Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз';
     else if(!hostCtl?.paused) hostNote='Неверный пароль: попроси у стримера новый код';
     dropHome(); setTimeout(()=>{ if(!homeClient) reopenHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
   } });
@@ -262,6 +263,7 @@ function openHome(info){
 // Повторная попытка после паузы или отказа
 function reopenHome(){
   if(homeInfo) return;
+  if(window.hudiniStreamer?.home(room)) return;   // пульт стримера: прямо к Hudini Host на этом компьютере (streamer.js)
   session=sessionFor(room);
   if(session && TAURI?.core) openRelay();
   else { if(TAURI?.core) TAURI.core.invoke('relay_close').catch(()=>{}); relayInfo=null; relayPort=0; hostStatus(); }
@@ -3383,6 +3385,7 @@ async function boot(){
   sessSecrets={}; if(vaultPass && data?.sess && typeof data.sess==='object') for(const [id,sec] of Object.entries(data.sess)) { const c=window.HudiniSessions.cleanVault(sec); if(validCode(id) && c) sessSecrets[id]=c; }
   await syncSessions().catch(e=>console.warn('sessions vault', e));
   const inv=location.hash.startsWith('#invite=') ? location.hash.slice(1) : null;
+  const sk=qs.has('streamer') ? window.hudiniStreamer?.take() : null;   // «Открыть пульт» в Hudini Host: одноразовый ключ (streamer.js)
   history.replaceState(null, '', location.pathname+keepQuery());
   const sid=qs.get('session'), want=sid ? sessionFor(sid) : null;
   let cur=lsGet('overlay.current', null);
@@ -3393,6 +3396,12 @@ async function boot(){
     if(!r) return sessionProblem('В коде стримера нет ключей комнаты. Попроси стримера прислать код из программы Hudini Host ещё раз.');
     if(differs) alert('Эта комната уже есть в пульте, но с другими ключами.\nПульт открыт с твоими прежними ключами. Если стример их сменил, попроси новую ссылку-приглашение.');
     if(!rooms.some(x=>x.code===r.code)) rooms.push(r);
+    cur=r.code;
+  }
+  if(sk){   // ключ меняется на сессию и ключи комнаты Hudini Host; комната стримера главнее сохранённой копии
+    const { room:r, error }=await window.hudiniStreamer.login(sk);
+    if(!r) return sessionProblem(error);
+    const i=rooms.findIndex(x=>x.code===r.code); if(i>=0) rooms[i]={ ...rooms[i], ...r }; else rooms.push(r);
     cur=r.code;
   }
   if(!rooms.length && !inv && !TAURI) rooms.push(await makeRoom('Мой стример'));

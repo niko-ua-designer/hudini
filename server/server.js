@@ -141,6 +141,7 @@ async function setRoom(link, full){
     cfg.modPass = rnd(18);
     kickMods('ключи комнаты сменились');
     screen = null; ctl.hideIds = []; cfg.hideIds = [];   // элементы старой комнаты доку больше не нужны
+    dropPanelSessions();   // пульт стримера войдёт заново с новыми ключами
   }
   PUB = pub;
   if(full) cfg.room = full;
@@ -288,6 +289,49 @@ async function publishPerms(){
   if(!ROOM || !AES) return;
   aedes.publish({ cmd:'publish', topic:T('perms'), payload:await sealAES({ ...cfg.perms, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
 }
+// ---------- пульт стримера на этом компьютере («Открыть пульт») ----------
+// Локальный адрес сам по себе доступа не даёт: в localhost может стучаться любая программа и любая страница на ПК.
+// Вход только по одноразовому ключу, который программа сама передаёт своему окну: 32 случайных байта, живёт 60 с,
+// хранится только хэш, сгорает при первой попытке. Ключ меняется на сессию «стример-пульт»: свой логин для MQTT
+// и ключи комнаты. Ни ключ, ни сессия не пишутся в журнал, краш-отчёт, /api/status и адрес (только во фрагменте #).
+// Страницы пульта: окно приложения (tauri) и, для разработки и тестов, адрес из OVERLAY_PANEL_ORIGIN.
+const DEV_PANEL = String(process.env.OVERLAY_PANEL_ORIGIN || '').split(',').map(s => s.trim()).filter(s => /^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(s));
+const PANEL_ORIGINS = new Set(['tauri://localhost', 'https://tauri.localhost', 'http://tauri.localhost', ...DEV_PANEL]);
+const PANEL_KEY_MS = Math.min(60000, Math.max(200, Number(process.env.OVERLAY_PANEL_KEY_MS) || 60000));   // меньше — только в тестах
+const sha256 = s => nodeCrypto.createHash('sha256').update(String(s)).digest();
+const panelKeys = [];   // { h: sha256(ключа), exp, used }
+function newPanelKey(){
+  const now = Date.now();
+  for(let i = panelKeys.length-1; i>=0; i--) if(now - panelKeys[i].exp > 600000) panelKeys.splice(i, 1);
+  if(panelKeys.length >= 20) panelKeys.splice(0, panelKeys.length-19);
+  const key = rnd(32);
+  panelKeys.push({ h:sha256(key), exp:now + PANEL_KEY_MS, used:false });
+  return key;
+}
+// '' — ключ годен (и уже сгорел), иначе причина отказа для журнала
+function takePanelKey(key){
+  if(typeof key!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(key)) return 'нет ключа';
+  const h = sha256(key), k = panelKeys.find(x => nodeCrypto.timingSafeEqual(x.h, h));
+  if(!k) return 'неизвестный ключ';
+  if(k.used) return 'ключ уже использован';
+  k.used = true;
+  return Date.now() > k.exp ? 'ключ просрочен' : '';
+}
+const panelSessions = new Map();   // hex sha256(пароля сессии) → { since, room }
+function newPanelSession(){
+  const pass = rnd(32);
+  if(panelSessions.size >= 8) panelSessions.delete(panelSessions.keys().next().value);
+  panelSessions.set(sha256(pass).toString('hex'), { since:Date.now(), room:ROOM.room });
+  return pass;
+}
+const panelSessionOk = pass => { if(!pass) return false; const s = panelSessions.get(sha256(pass).toString('hex')); return !!s && s.room===ROOM?.room; };
+const ownRoom = () => !!(ROOM && cfg.room?.s && cfg.room.code===ROOM.room && cfg.room.k===ROOM.k);
+const panelUrl = () => DEV_PANEL[0] ? DEV_PANEL[0] + '/panel/moderator.html' : '';
+function dropPanelSessions(){
+  panelSessions.clear();
+  for(const c of Object.values(aedes.clients)) if(c.conn?._streamer){ try{ c.close(); }catch{} }
+}
+
 // Защита пароля от перебора: 5 ошибок подряд с одного адреса → пауза 1 мин, потом 2, 4… до 30 мин
 const fails = new Map();
 // Общей блокировки для всех нет: пароль — 18 случайных байт, подобрать его нельзя, а общий замок позволял кому угодно запереть всех модераторов
@@ -322,7 +366,15 @@ function passOk(ip, pass){
 // Адрес — только из сокета: заголовкам вроде cf-connecting-ip верить нельзя
 const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 aedes.authenticate = (client, user, pass, cb) => {
-  if(!client.conn?._mod) return cb(null, true);   // локальные (OBS) без пароля: порт слушает только этот ПК
+  if(!client.conn?._mod){
+    if(user==='streamer'){   // пульт стримера на этом ПК: только с сессией, полученной за одноразовый ключ
+      if(!panelSessionOk(String(pass||''))){ refuse('local', 'пульт стримера: вход устарел'); return cb(Object.assign(new Error('auth'), { returnCode:4 }), false); }
+      client.conn._streamer = true; return cb(null, true);
+    }
+    // со страницы пульта без входа нельзя; другого логина на этом порту нет (виджет входит без логина)
+    if(client.conn?._panel || user) return cb(Object.assign(new Error('auth'), { returnCode:4 }), false);
+    return cb(null, true);   // виджет OBS без пароля: порт слушает только этот ПК, писать он может только пульс
+  }
   if(ctl.paused){ refuse(client.conn._ip, 'пауза модераторов'); return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false); }   // стример поставил модераторов на паузу
   if(!cfg.modsOn){ refuse(client.conn._ip, 'вход закрыт'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
@@ -334,7 +386,7 @@ aedes.authenticate = (client, user, pass, cb) => {
 const PUB_MOD = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
-  if(!(client?.conn?._mod ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
+  if(!(client?.conn?._mod || client?.conn?._streamer ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
   if(ctl.paused && client?.conn?._mod) return cb(new Error('пауза'));
   cb(null);
 };
@@ -344,22 +396,25 @@ let obsUp = false, obsDropTimer = null;
 const OBS_DROP_MS = 5000;
 aedes.on('client', c => {
   const s = c.conn;
-  if(!s?._mod){
+  if(!s?._mod && !s?._streamer){
     status.obs++;
     clearTimeout(obsDropTimer);
     if(!obsUp){ obsUp = true; logc('🎬 Виджет OBS подключился'); }
     return;
   }
-  const m = { ip:s._ip, net:netOf(s._ip), since:Date.now(), rtt:null, ws:s._ws, pingAt:0, timer:null };
-  const ping = () => { if(m.ws.readyState===1){ m.pingAt = Date.now(); try{ m.ws.ping(); }catch{} } };
-  m.ws.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
+  const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
+  const m = { ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, timer:null };
+  const ping = () => { if(m.ws?.readyState===1){ m.pingAt = Date.now(); try{ m.ws.ping(); }catch{} } };
+  m.ws?.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
   m.timer = setInterval(ping, 5000); ping();
-  modList.set(c.id, m); status.mods = modList.size;
-  logc('👤 Модератор подключился:', who(m.ip));
+  modList.set(c.id, m); status.mods = modCount();
+  if(me) logc('🖥 Пульт стримера подключился');
+  else logc('👤 Модератор подключился:', who(m.ip));
 });
+const modCount = () => [...modList.values()].filter(m => !m.me).length;
 aedes.on('clientDisconnect', c => {
   const m = modList.get(c.id);
-  if(!c.conn?._mod){
+  if(!c.conn?._mod && !c.conn?._streamer){
     status.obs = Math.max(0, status.obs-1);
     if(!status.obs && obsUp){
       clearTimeout(obsDropTimer);
@@ -367,8 +422,10 @@ aedes.on('clientDisconnect', c => {
     }
     return;
   }
-  if(m){ clearInterval(m.timer); modList.delete(c.id); logc('👤 Модератор отключился:', who(m.ip), '— на связи', fmtDur(Math.round((Date.now()-m.since)/1000))); }
-  status.mods = modList.size;
+  if(m){ clearInterval(m.timer); modList.delete(c.id);
+    if(m.me) logc('🖥 Пульт стримера отключился');
+    else logc('👤 Модератор отключился:', who(m.ip), '— на связи', fmtDur(Math.round((Date.now()-m.since)/1000))); }
+  status.mods = modCount();
 });
 
 // Самое большое сообщение — состояние экрана; файлы идут отдельно через /files
@@ -400,7 +457,9 @@ function wsServer(mod){
   return (req, socket, head) => {
     if(new URL(req.url, 'http://x').pathname !== '/mqtt'){ socket.destroy(); return; }
     // локально подключается только виджет OBS с этого же адреса: чужой сайт в браузере стримера сюда не пустим
-    if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin)))){ socket.destroy(); return; }
+    // страница пульта стримера (окно приложения) тоже сюда, но войти она может только с сессией стримера (aedes.authenticate)
+    const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
+    if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin) && !panel))){ socket.destroy(); return; }
     const ip = ipOf(req);
     if(mod){
       let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
@@ -409,7 +468,7 @@ function wsServer(mod){
       if(why){ refuse(ip, why); socket.destroy(); return; }
     }
     wss.handleUpgrade(req, socket, head, ws => {
-      const stream = createWebSocketStream(ws); stream._mod = mod; stream._ip = ip; stream._ws = ws; ws._stream = stream;
+      const stream = createWebSocketStream(ws); stream._mod = mod; stream._panel = panel; stream._ip = ip; stream._ws = ws; ws._stream = stream;
       stream.on('error', ()=>{});
       if(mod){
         perIp.set(ip, (perIp.get(ip)||0) + 1);
@@ -897,7 +956,7 @@ async function doCheck(applyIfIdle){
 // «Простой»: OBS-виджет не подключён и модераторов нет.
 // Роль модератора простоя не знает (пульт работает в окне программы, сервер его не видит): там обновление ставит только
 // кнопка в программе (APPLY), сервер лишь сообщает «UPDATE ready».
-function isIdle(){ return !ROLE_MOD && status.mods===0 && Date.now()-status.obsSeen > 2*60*1000; }
+function isIdle(){ return !ROLE_MOD && modList.size===0 && Date.now()-status.obsSeen > 2*60*1000; }   // modList: и модераторы, и пульт стримера
 function stopForRestart(){
   shuttingDown=true;
   try{ local.closeAllConnections?.(); local.close(); modSrv.closeAllConnections?.(); modSrv.close(); }catch{}
@@ -1101,8 +1160,12 @@ const bearer = req => (String(req.headers.authorization||'').match(/^Bearer\s+(\
 // Куки на этом порту не используются, а без пароля ничего не отдаётся.
 const CORS = { 'access-control-allow-origin':'*', 'access-control-allow-methods':'GET, PUT, POST, DELETE, OPTIONS',
   'access-control-allow-headers':'authorization, content-type', 'access-control-max-age':'600' };
+// Пульт стримера ходит за файлами со своей страницы (окно приложения): ответы только этому origin, с паролем его сессии
+const panelCors = origin => ({ 'access-control-allow-origin':origin, vary:'origin', 'access-control-allow-methods':CORS['access-control-allow-methods'],
+  'access-control-allow-headers':'authorization, content-type', 'access-control-max-age':'600' });
 async function filesApi(req, res, url, mod){
-  const p = url.pathname, extra = mod ? CORS : {};
+  const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
+  const p = url.pathname, extra = mod ? CORS : panel ? panelCors(req.headers.origin) : {};
   const j = (code, obj) => send(res, code, JSON.stringify(obj), 'application/json', extra);
   if(req.method==='OPTIONS') return send(res, 204, '', 'text/plain', extra);
   if(!ROOM) return j(503, { ok:false, error:'комната ещё не создана' });
@@ -1111,9 +1174,9 @@ async function filesApi(req, res, url, mod){
   const room = url.searchParams.get('room') || ROOM.room;
   // Виджет на этом же компьютере читает файлы текущей комнаты без пароля, всё остальное только с паролем модераторов
   if(!(!mod && req.method==='GET' && id && room===ROOM.room)){
-    if(!mod && req.headers.origin && !okOrigin(req.headers.origin)) return j(403, { ok:false, error:'чужой сайт' });
+    if(!mod && req.headers.origin && !okOrigin(req.headers.origin) && !panel) return j(403, { ok:false, error:'чужой сайт' });
     const ip = mod ? ipOf(req) : 'local', wait = locked(ip);
-    if(!passOk(ip, bearer(req))){
+    if(!(!mod && panelSessionOk(bearer(req))) && !passOk(ip, bearer(req))){
       if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
       return j(401, { ok:false, error:'неверный пароль' });
     }
@@ -1164,6 +1227,20 @@ function dockInfo(){
   return { perms:cfg.perms, els:screen ? screen.els : null, cs2:dockCs2(),
     ppl:[...modList].map(([id, m]) => ({ id, me:!!m.me, net:m.net, ip:m.me ? '' : maskHost(m.ip), rtt:m.rtt, since:m.since })) };
 }
+async function streamerSession(req, res){
+  const origin = req.headers.origin || '', cors = PANEL_ORIGINS.has(origin) ? { ...panelCors(origin), 'access-control-allow-methods':'POST, OPTIONS' } : {};
+  const j = (code, obj) => send(res, code, JSON.stringify(obj), 'application/json', { ...cors, 'referrer-policy':'no-referrer' });
+  if(req.method==='OPTIONS') return send(res, 204, '', 'text/plain', cors);
+  if(req.method!=='POST') return j(405, { ok:false, error:'нельзя' });
+  if(!PANEL_ORIGINS.has(origin)){ refuse('local', 'пульт стримера: чужой сайт'); return j(403, { ok:false, error:'чужой сайт' }); }
+  let key = ''; try{ key = JSON.parse(await readBody(req, 1024))?.key; }catch{}
+  const why = takePanelKey(key);
+  if(why){ refuse('local', 'пульт стримера: '+why); return j(403, { ok:false, error:'Ключ входа недействителен: нажми «Открыть пульт» в Hudini Host ещё раз' }); }
+  if(!ownRoom()) return j(409, { ok:false, error:'Пульт на этом компьютере работает с комнатой, которую создал Hudini Host' });
+  const pass = newPanelSession();
+  log('🖥 Пульт стримера открыт на этом компьютере');
+  return j(200, { ok:true, user:'streamer', pass, port:PORT, room:{ code:ROOM.room, name:cfg.room.name || cfg.name || 'Hudini', k:ROOM.k, p:ROOM.p, s:cfg.room.s } });
+}
 function obsLink(){
   if(!ROOM) return '';
   return `http://localhost:${PORT}/widget/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
@@ -1191,6 +1268,7 @@ const local = http.createServer(async (req, res) => {
         'text/html; charset=utf-8', { 'set-cookie':`hudini_admin=${ADMIN_COOKIE}; HttpOnly; SameSite=Strict; Path=/`,
           'x-frame-options':'DENY', 'content-security-policy':"default-src 'none'; frame-ancestors 'none'", 'referrer-policy':'no-referrer' });
     }
+    if(p==='/api/streamer/session') return await streamerSession(req, res);   // пульт стримера меняет одноразовый ключ на сессию
     if(p.startsWith('/api/') && !isAdmin(req)){
       // без входа: «живой» (проверка приложения); со стороны виджета (localhost) — краткий статус и кнопки стримера для дока в OBS
       if(req.method==='GET' && p==='/api/status'){
@@ -1229,6 +1307,13 @@ const local = http.createServer(async (req, res) => {
         if(ch.length) log('🔒 Права модераторов:', ch.map(k => PERM_NAMES[k]+(next[k] ? ' — можно' : ' — нельзя')).join('; '));
         await publishPerms();
         return send(res, 200, JSON.stringify({ ok:true, perms:cfg.perms }), 'application/json');
+      }
+      if(req.method==='POST' && p==='/api/streamer/open'){   // «Открыть пульт»: одноразовый ключ своему окну
+        if(!ownRoom()) throw new HttpErr(409, 'пульт на этом компьютере работает с комнатой, которую создал Hudini Host');
+        const key = newPanelKey();
+        if(APP && APP_TOKEN){ appSay(`PANEL ${key} ${PORT}`); return send(res, 200, JSON.stringify({ ok:true, app:true }), 'application/json'); }   // окно приложения откроет программа
+        if(!panelUrl()) throw new HttpErr(409, 'пульт открывается из приложения Hudini');
+        return send(res, 200, JSON.stringify({ ok:true, key, port:PORT, url:panelUrl() }), 'application/json', { 'referrer-policy':'no-referrer' });
       }
       if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
@@ -1269,7 +1354,7 @@ const local = http.createServer(async (req, res) => {
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
-        modList:[...modList.values()].map(({ ip, net, since, rtt }) => ({ ip, net, since, rtt })), role:ROLE_MOD ? 'mod' : 'streamer',
+        modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
@@ -1325,7 +1410,8 @@ async function shutdown(){
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
-// stdout: строки «READY <порт>», «RESTART», «FAIL <причина>». stdin: «VISIBLE 0/1», «QUIT».
+// stdout: строки «READY <порт>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>». stdin: «VISIBLE 0/1», «QUIT», «PANEL».
+// PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
 function appSay(line){ if(APP) try{ process.stdout.write((APP_TOKEN ? APP_TOKEN+' ' : '')+line+'\n'); }catch{} }
@@ -1341,6 +1427,7 @@ if(APP){
       else if(l==='VISIBLE 1') appHidden = false;
       else if(l==='QUIT') shutdown();
       else if(l==='APPLY' && upd.staged) applyUpdate();
+      else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
     }
   });
   process.stdin.on('end', shutdown); process.stdin.on('close', shutdown); process.stdin.on('error', shutdown);

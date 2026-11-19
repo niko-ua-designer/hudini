@@ -1,7 +1,7 @@
 // Пульт и решения стримера (Hudini Host на его компьютере): права модераторов, выключатели в доке OBS
 // и элементы, которые стример спрятал у себя. Всё это публикует только программа стримера, а применяет виджет;
 // пульт лишь прячет запрещённые кнопки и помечает, что на стрим не попадёт.
-// Загружается после moderator.js (boot.js) и пользуется его общими переменными: room, hostCtl, nodes, state.
+// Загружается перед moderator.js (boot.js): его общие переменные (room, hostCtl, nodes, openHome) берутся только при вызове.
 (function(){
   'use strict';
   const tr = s => window.HudiniI18n ? window.HudiniI18n.t(s) : s;
@@ -20,15 +20,11 @@
   const OFF_OF = { chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
   const offNow = () => typeof hostCtl !== 'undefined' && hostCtl?.off && typeof hostCtl.off === 'object' ? hostCtl.off : {};
   let perms = null, permsRoom = null;
-  const cur = () => permsRoom === room && perms ? perms : { av:true, web:true, fx:true, games:true };
+  const cur = () => perms && permsRoom === room ? perms : { av:true, web:true, fx:true, games:true };
   const permOff = el => { const p = PERM_OF[el?.type]; return !!p && cur()[p] === false; };
 
-  const css = document.createElement('style');
-  css.textContent = '.perm-off{display:none!important}' +
-    '#permNote{margin:0 0 10px;padding:7px 10px;border-radius:8px;background:#2b2210;border:1px solid #6b5420;color:#f3d28a;font-size:12px}' +
-    '.el .hoff{position:absolute;left:0;bottom:100%;margin-bottom:2px;white-space:nowrap;font:600 11px/1.3 system-ui,sans-serif;color:#fff;background:#b3263a;padding:1px 6px;border-radius:4px;pointer-events:none;display:none;z-index:5}' +
-    '.el.host-off{outline:2px dashed #ff4d5e99;outline-offset:1px}.el.host-off .hoff{display:block}' +
-    '.layer.host-off .name{text-decoration:line-through;opacity:.6}';
+  // стили отдельным файлом: CSP окна приложения не пускает <style>, созданный скриптом
+  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'streamer.css?v=1';
   document.head.appendChild(css);
 
   function applyUi(){
@@ -45,7 +41,7 @@
     const lines = [];
     if(off.length) lines.push(tr('🔒 Стример выключил для модераторов:') + ' ' + off.map(k => tr(PERM_NAME[k])).join(', ') + '. ' + tr('На стрим это не попадёт.'));
     if(sw.length) lines.push(tr('⏸ Стример выключил на стриме:') + ' ' + sw.map(k => tr(OFF_NAME[k])).join(', ') + '.');
-    note.textContent = lines.join('\n'); note.style.whiteSpace = 'pre-line';
+    note.textContent = lines.join('\n');
   }
   // Почему элемент не виден на стриме, хотя в пульте он есть (пусто — виден как обычно)
   function whyOff(el){
@@ -81,4 +77,45 @@
   window.hudiniMarks = () => { applyUi(); marks(); };
   window.hudiniPermOff = permOff;
   applyUi();
+
+  // ---------- «Открыть пульт» у стримера (пульт на том же ПК, что и Hudini Host) ----------
+  // Ключ одноразовый и живёт минуту. В приложении его отдаёт окну сама программа (команда panel_key), без приложения
+  // (разработка, тесты) он приходит во фрагменте адреса #hk=…&port=…: фрагмент не уходит на сервер и в Referer,
+  // а boot() сразу стирает его из адреса. Ключ меняется на сессию «стример-пульт» и ключи комнаты.
+  let link = null;   // { room, url, pass }
+  const okPort = v => { const n = Number(v); return Number.isInteger(n) && n >= 1024 && n <= 65534 ? n : 0; };
+  window.hudiniStreamer = {
+    // до того, как boot() сотрёт адрес
+    take(){
+      const h = new URLSearchParams(location.hash.slice(1)), key = h.get('hk'), port = okPort(h.get('port'));
+      if(key && port) return { key, port };
+      return window.__TAURI__?.core ? { app:true } : { missing:true };
+    },
+    async login(sk){
+      const fail = error => ({ room:null, error });
+      try{
+        if(sk.app){ const r = await window.__TAURI__.core.invoke('panel_key'); sk = { key:r?.key, port:okPort(r?.port) }; }
+      }catch{ return fail(tr('Окно пульта открывается кнопкой «Открыть пульт» в Hudini Host.')); }
+      if(sk.missing || !sk.key || !sk.port) return fail(tr('Ключ входа не найден: нажми «Открыть пульт» в Hudini Host ещё раз.'));
+      let r, j = {};
+      try{
+        r = await fetch(`http://127.0.0.1:${sk.port}/api/streamer/session`, { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify({ key:sk.key }), cache:'no-store', referrerPolicy:'no-referrer', credentials:'omit' });
+        j = await r.json().catch(() => ({}));
+      }catch{ return fail(tr('Hudini Host на этом компьютере не отвечает.')); }
+      if(!r.ok || !j.ok) return fail(tr(j.error || 'Ключ входа недействителен: нажми «Открыть пульт» в Hudini Host ещё раз'));
+      const room = typeof cleanRoom === 'function' ? cleanRoom(j.room) : null;
+      if(!room || !await roomKeysOk(room)) return fail(tr('Hudini Host прислал повреждённые ключи комнаты.'));
+      link = { room:room.code, url:`ws://127.0.0.1:${sk.port}/mqtt`, pass:String(j.pass || '') };
+      // окно стримера: списка сессий модератора здесь нет
+      document.body.classList.add('streamer-panel');
+      document.title = 'Hudini · ' + tr('пульт стримера');
+      return { room };
+    },
+    // reopenHome(): своя комната — прямо к Hudini Host на этом ПК с логином стримера
+    home(code){
+      if(!link || code !== link.room) return false;
+      openHome({ url:link.url, pass:link.pass, user:'streamer' });
+      return true;
+    },
+  };
 })();
