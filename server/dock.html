@@ -7,70 +7,221 @@
 <script src="/shared/i18n.js"></script>
 <script src="/shared/icons.js"></script>
 <style>
-:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--pink:#ff5c9a;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:8px}
-.st{display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid var(--line)}
-.st b{font-weight:500;color:var(--muted);flex:1}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
-.ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.bad .dot{background:var(--bad)}
-.btns{display:grid;gap:6px;margin-top:10px}
-button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s,transform .08s}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 9px;cursor:pointer;transition:border-color .15s,background .15s,transform .08s}
 button:hover{border-color:var(--acc)}
-button:active{transform:scale(.98)}
-button.on{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
-button.danger.on{background:var(--bad);border-color:var(--bad);color:#fff}
-.foot{margin-top:10px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+button:active{transform:scale(.97)}
 a{color:#b9a8ff}
-#banner{display:none;margin-top:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
+/* «Файт» всплывает поверх вкладок */
+#fight{position:sticky;top:0;z-index:3;background:linear-gradient(90deg,#7c5cff55,#ff5c9a55),var(--bg);border:1px solid var(--pink);border-radius:10px;padding:10px 12px;font-weight:800;font-size:16px;text-align:center;margin:8px;animation:pulse 1s infinite alternate,drop .25s ease-out}
+@keyframes pulse{to{box-shadow:0 0 18px #ff5c9a88}}
+@keyframes drop{from{transform:translateY(-12px);opacity:0}}
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2}
+.tabs button{flex:1;border:0;border-radius:0;background:none;padding:10px 4px;border-bottom:2px solid transparent;color:var(--muted)}
+.tabs button.on{border-bottom-color:var(--acc);color:#fff}
+.tabs button:active{transform:none}
+.sec{display:none;animation:fade .15s ease-out}.sec.on{display:block}
+@keyframes fade{from{opacity:.4}}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px}
+.card h3{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #ffffff0d}.row:first-of-type{border-top:0}
+.row .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m{color:var(--muted);font-size:11px}
+.eye{width:30px;padding:3px 0;text-align:center;flex:none}.eye.off{opacity:.45;text-decoration:line-through}
+.row.hid .n{opacity:.5}
+.sw{position:relative;width:34px;height:20px;border-radius:99px;background:#2a2f3a;border:0;padding:0;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+.sw.on{background:var(--acc)}.sw.on::after{left:16px}
+.sw:active{transform:none}
+.tog{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #ffffff0d}.tog:first-of-type{border-top:0}
+.btns{display:grid;gap:6px}
+.btns button{text-align:left;padding:8px 10px}
+.btns button.on{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
+.btns button.danger.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.kick{color:var(--bad)}
+.score{display:flex;justify-content:center;align-items:baseline;gap:14px;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.score small{font-size:12px;color:var(--muted);font-weight:600}
+.ct{color:#8fb8ff}.t{color:#f5c463}
+.empty{color:var(--muted);padding:6px 0}
+#banner{margin:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
+.foot{margin:10px 8px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
 </style>
 </head>
 <body>
-<div id="rows"></div>
-<div class="btns">
-  <button id="hide">🙈 Спрятать оверлей</button>
-  <button id="stop">⏹ Остановить звуки</button>
-  <button id="pause" class="danger">⏸ Пауза модераторов</button>
-</div>
-<div id="banner"></div>
-<div class="foot"><span>🎩 Hudini <span id="ver"></span></span><a href="/" target="_blank" rel="noopener">⚙ Настройки</a></div>
+<div id="fight" hidden></div>
+<nav class="tabs" id="tabs">
+  <button data-tab="stat" class="on">Статус</button>
+  <button data-tab="els">Элементы</button>
+  <button data-tab="ppl">Люди</button>
+  <button data-tab="cs2">CS2</button>
+</nav>
+<div id="banner" hidden></div>
+
+<section class="sec on" data-sec="stat">
+  <div class="pills" id="pills"></div>
+  <div class="card"><h3>Быстрые выключатели</h3><div id="togs"></div></div>
+  <div class="card"><h3>Стример</h3>
+    <div class="btns">
+      <button id="hide">🙈 Спрятать оверлей</button>
+      <button id="stop">⏹ Остановить звуки</button>
+      <button id="pause" class="danger">⏸ Пауза модераторов</button>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-sec="els">
+  <div class="card"><h3><span>На экране</span><span id="elCnt" data-i18n-skip></span></h3><div id="els"></div></div>
+  <div class="m" style="margin:0 10px">Глазик прячет элемент только на стриме. Экран модераторов не меняется, в пульте он помечен.</div>
+</section>
+
+<section class="sec" data-sec="ppl">
+  <div class="card"><h3><span>Кто на связи</span><span id="pplCnt" data-i18n-skip></span></h3><div id="ppl"></div></div>
+</section>
+
+<section class="sec" data-sec="cs2">
+  <div class="card"><h3>CS2</h3><div id="cs2"></div></div>
+</section>
+
+<div class="foot"><span>🎩 Hudini <span id="ver" data-i18n-skip></span></span><a href="/" target="_blank" rel="noopener">⚙ Настройки</a></div>
 <script>
 const $=id=>document.getElementById(id);
-let s=null;
+const tr=s=>window.HudiniI18n ? HudiniI18n.t(s) : s;
+let s=null, tab='stat', busy=false;
+try{ const t=localStorage.getItem('hudini.dockTab'); if(['stat','els','ppl','cs2'].includes(t)) tab=t; }catch{}
 async function api(p, body){
   const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
   const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
 }
-function row(cls, label, value){
-  const d=document.createElement('div'); d.className='st '+cls;
-  const dot=document.createElement('span'); dot.className='dot';
-  const b=document.createElement('b'); b.textContent=label;
-  const v=document.createElement('span'); v.textContent=value;
-  d.append(dot, b, v); return d;
+const el=(tag, cls, text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
+function pill(cls, text){ const p=el('span','pill'); p.append(el('span','dot '+cls), text); return p; }
+function showTab(t){
+  tab=t; try{ localStorage.setItem('hudini.dockTab', t); }catch{}
+  for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab===t);
+  for(const x of document.querySelectorAll('.sec')) x.classList.toggle('on', x.dataset.sec===t);
 }
-async function refresh(){
-  try{ s=await api('/api/status'); }catch{ $('rows').replaceChildren(row('bad', 'Hudini Host', 'не отвечает')); return; }
-  // Opened on 127.0.0.1 the status has no room and no numbers (it is the management origin): go to localhost, where the dock belongs
-  if(s.alive && !('room' in s) && location.hostname==='127.0.0.1'){ location.replace(`http://localhost:${location.port}/dock`); return; }
-  const g=s.storage||{}, mb=b=>Math.round((b||0)/1048576);
-  $('rows').replaceChildren(
-    row(s.obsOnline?'ok':'bad', 'OBS', s.obsOnline?'виджет работает':(s.room?'виджет не подключён':'вставь ссылку в настройках')),
-    row(s.ctl?.paused?'warn':(s.mods?'ok':'warn'), 'Модераторы', s.ctl?.paused?'пауза':(s.mods?'онлайн: '+s.mods:'пока никого')),
-    row(s.cs2Online?'ok':'warn', 'CS2', s.cs2Online?'данные идут':'нет данных'),
-    row(g.used>0.9*g.limitBytes?'warn':'ok', 'Файлы', `${mb(g.used)} / ${mb(g.limitBytes)} MB`),
+$('tabs').onclick=e=>{ const b=e.target.closest('button[data-tab]'); if(b) showTab(b.dataset.tab); };
+showTab(tab);
+function banner(text){ $('banner').textContent=text; $('banner').hidden=!text; }
+const act=body=>async()=>{ if(busy) return; busy=true; try{ await api('/api/control', body()); }catch(e){ banner(e.message); } busy=false; refresh(); };
+
+// ---- «Файт» (подсказка кастеру из CS2): поверх любой вкладки ----
+function fightText(f){
+  if(!f) return '';
+  if(typeof f==='string') return f;
+  if(f.text) return String(f.text);
+  const side=p=>p ? [p.key ?? p.slot, p.name].filter(x=>x!=null && x!=='').join(' ') : '?';
+  return f.a || f.b ? `${side(f.a)} ↔ ${side(f.b)}` : '';
+}
+function renderFight(){
+  const t=fightText(s?.fight), box=$('fight');
+  if(!t){ box.hidden=true; box.dataset.t=''; return; }
+  if(box.dataset.t!==t){ box.dataset.t=t; box.textContent='⚔ '+tr('Файт:')+' '+t; }
+  box.hidden=false;
+}
+
+// ---- Статус ----
+const TOGS=[['chat','Чат на стриме'],['cs2','CS2-HUD'],['sound','Звуки'],['draw','Рисунки'],['fx','Эффекты']];
+// Перерисовываем раздел, только если его данные поменялись: кнопка под мышью не пропадает каждую секунду
+function same(box, data){ const sig=JSON.stringify(data); if(box.dataset.sig===sig) return true; box.dataset.sig=sig; return false; }
+function renderStat(){
+  if(same($('togs'), [s.storage, s.ctl, s.ppl?.length, s.obsOnline, s.cs2Online, s.room])) return;
+  const g=s.storage||{}, mb=b=>Math.round((b||0)/1048576), c=s.ctl||{};
+  const mods=(s.ppl||[]).filter(p=>!p.me).length;
+  $('pills').replaceChildren(
+    pill(s.obsOnline?'ok':'bad', s.obsOnline?tr('OBS видит оверлей'):(s.room?tr('OBS: виджет не подключён'):tr('OBS: вставь ссылку в настройках'))),
+    pill(c.paused?'warn':(mods?'ok':'warn'), c.paused?tr('Модераторы: пауза'):tr('Модераторов:')+' '+mods),
+    pill(s.cs2Online?'ok':'warn', s.cs2Online?tr('CS2 на связи'):tr('CS2: нет данных')),
+    pill(g.used>0.9*g.limitBytes?'warn':'ok', `${tr('Файлы')} ${mb(g.used)} / ${mb(g.limitBytes)} MB`),
   );
-  $('ver').textContent='v'+s.version;
-  const c=s.ctl||{};
+  const off=c.off||{};
+  $('togs').replaceChildren(...TOGS.map(([k, name])=>{
+    const row=el('div','tog'), b=el('button','sw'+(off[k]?'':' on'));
+    b.dataset.tog=k; b.title=off[k]?tr('Выключено на стриме: нажми, чтобы вернуть'):tr('Включено: нажми, чтобы выключить на стриме');
+    b.onclick=act(()=>({ action:'off', key:k, on:!off[k] }));
+    row.append(el('span',null,name), b); return row;
+  }));
   $('hide').classList.toggle('on', !!c.hidden); $('hide').textContent = c.hidden ? '👁 Вернуть оверлей' : '🙈 Спрятать оверлей';
   $('pause').classList.toggle('on', !!c.paused); $('pause').textContent = c.paused ? '▶ Снять паузу модераторов' : '⏸ Пауза модераторов';
-  const warn = c.hidden ? 'Оверлей спрятан: зрители его не видят.' : c.paused ? 'Модераторы не могут менять экран.' : '';
-  $('banner').textContent=warn; $('banner').style.display=warn?'block':'none';
 }
-const act=a=>async()=>{ try{ await api('/api/control', { action:a() }); }catch(e){ $('banner').textContent=e.message; $('banner').style.display='block'; } refresh(); };
-$('hide').onclick=act(()=>s?.ctl?.hidden?'show':'hide');
-$('stop').onclick=act(()=>'stopsounds');
-$('pause').onclick=act(()=>s?.ctl?.paused?'resume':'pause');
-refresh(); setInterval(refresh, 2000);
+$('hide').onclick=act(()=>({ action:s?.ctl?.hidden?'show':'hide' }));
+$('stop').onclick=act(()=>({ action:'stopsounds' }));
+$('pause').onclick=act(()=>({ action:s?.ctl?.paused?'resume':'pause' }));
+
+// ---- Элементы: глазик прячет только на стриме (ctl.hideIds) ----
+const TYPE_ICO={ text:'T', image:'🖼', video:'🎞', timer:'⏱', counter:'🔢', web:'🌐', poll:'📊', cs2:'🎯', msg:'💬', chat:'💬', raffle:'🎁', case:'📦', draw:'✏' };
+const TYPE_NAME={ text:'Текст', image:'Картинка', video:'Видео', timer:'Таймер', counter:'Счётчик', web:'Сайт', poll:'Голосование', cs2:'CS2', msg:'Сообщение', chat:'Чат на стриме', raffle:'Розыгрыш', case:'Кейс', draw:'Рисунок' };
+function renderEls(){
+  const box=$('els'), list=s.els, hid=new Set(s.ctl?.hideIds||[]);
+  if(same(box, [list, s.ctl?.hideIds])) return;
+  $('elCnt').textContent=list ? String(list.length) : '';
+  if(!list){ box.replaceChildren(el('div','empty',tr('Экран появится, когда пульт пришлёт его.'))); return; }
+  if(!list.length){ box.replaceChildren(el('div','empty',tr('На экране пусто'))); return; }
+  box.replaceChildren(...[...list].reverse().map(x=>{
+    const row=el('div','row'+(x.hidden||hid.has(x.id)?' hid':'')), off=hid.has(x.id);
+    const eye=el('button','eye'+(off?' off':''),'👁'); eye.dataset.eye=x.id;
+    eye.title=off?tr('Скрыто тобой на стриме: нажми, чтобы вернуть'):tr('Спрятать на стриме');
+    eye.onclick=act(()=>({ action:'hideel', key:x.id, on:!off }));
+    const n=el('span','n'); n.append((TYPE_ICO[x.type]||'•')+' ');
+    const nm=el('span',null,x.name||tr(TYPE_NAME[x.type]||x.type)); if(x.name) nm.setAttribute('data-i18n-skip',''); n.append(nm);
+    const meta=el('span','m', x.hidden ? tr('скрыт в пульте') : tr(TYPE_NAME[x.type]||''));
+    row.append(eye, n, meta); return row;
+  }));
+}
+
+// ---- Люди ----
+const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес', local:'этот компьютер' };
+function renderPpl(){
+  const list=s.ppl||[], box=$('ppl');
+  if(same(box, list)) return;
+  $('pplCnt').textContent=String(list.length);
+  if(!list.length){ box.replaceChildren(el('div','empty',tr('Никого нет'))); return; }
+  box.replaceChildren(...list.map(p=>{
+    const row=el('div','row'), rtt=p.rtt==null?'…':p.rtt+' '+tr('мс');
+    const n=el('span','n', p.me ? tr('Ты: пульт на этом компьютере') : tr('Модератор'));
+    const meta=el('span','m', [p.me ? '' : p.ip, tr(NET[p.net]||p.net||''), rtt].filter(Boolean).join(' · ')); meta.setAttribute('data-i18n-skip','');
+    row.append(el('span','dot '+(p.rtt==null?'warn':p.rtt<200?'ok':'bad')), n, meta);
+    if(!p.me){ const k=el('button','kick',tr('Отключить')); k.dataset.kick=p.id; k.onclick=act(()=>({ action:'kick', key:p.id })); row.append(k); }
+    return row;
+  }));
+}
+
+// ---- CS2 ----
+function renderCs2(){
+  const box=$('cs2'), c=s.cs2;
+  if(same(box, [c, !!fightText(s.fight)])) return;
+  if(!c){ box.replaceChildren(el('div','empty',tr('CS2 не на связи'))); return; }
+  const score=el('div','score');
+  score.append(el('span','ct', c.ctName||'CT'), el('span','ct', String(c.ct??0)), el('small',null,':'), el('span','t', String(c.tt??0)), el('span','t', c.tName||'T'));
+  for(const x of score.children) x.setAttribute('data-i18n-skip','');
+  const info=el('div','m', [c.map ? String(c.map).replace(/^(de|cs|ar)_/,'') : '', c.round!=null ? tr('раунд')+' '+(c.round+1) : ''].filter(Boolean).join(' · '));
+  info.style.cssText='text-align:center;margin:4px 0';
+  const kids=[score, info];
+  if(c.obs){
+    const row=el('div','row'), n=el('span','n');
+    const who=el('span',null,[c.obs.slot, c.obs.name].filter(x=>x!=null && x!=='').join(' · ')); who.setAttribute('data-i18n-skip','');
+    n.append(tr('Наблюдаю:')+' ', who);
+    row.append(n, el('span','m','HP '+(c.obs.hp??'—'))); kids.push(row);
+  }
+  if(!fightText(s.fight)) kids.push(el('div','empty',tr('Файт: тихо')));
+  box.replaceChildren(...kids);
+}
+
+async function refresh(){
+  try{ s=await api('/api/status'); }catch{ $('pills').replaceChildren(pill('bad', tr('Hudini Host не отвечает'))); return; }
+  // Opened on 127.0.0.1 the status has no room and no numbers (it is the management origin): go to localhost, where the dock belongs
+  if(s.alive && !('room' in s) && location.hostname==='127.0.0.1'){ location.replace(`http://localhost:${location.port}/dock`); return; }
+  $('ver').textContent='v'+s.version;
+  const c=s.ctl||{};
+  banner(c.hidden ? tr('Оверлей спрятан: зрители его не видят.') : c.paused ? tr('Модераторы не могут менять экран.') : '');
+  for(const f of [renderFight, renderStat, renderEls, renderPpl, renderCs2]) try{ f(); }catch(e){ console.warn(e); }
+}
+refresh(); setInterval(refresh, 1000);
 </script>
 </body>
-</html>

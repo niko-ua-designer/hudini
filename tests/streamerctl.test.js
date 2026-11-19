@@ -106,6 +106,61 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => panel.evaluate(() => !document.getElementById('permNote'))), 'the panel note is gone');
   });
 
+  // ---------- the new OBS dock: tabs Статус / Элементы / Люди / CS2 ----------
+  const dock = await T.newPage('dock', { w: 360, h: 640, app: false });
+  await dock.goto(host.base + '/dock');
+  const tab = async t => { await dock.click(`#tabs [data-tab="${t}"]`); };
+
+  await step('dock: four tabs, status pills and the quick switches', async () => {
+    eq(await dock.$$eval('#tabs button', b => b.map(x => x.textContent)), ['Статус', 'Элементы', 'Люди', 'CS2'], 'tabs as in the chosen design');
+    check(await until(async () => /OBS видит оверлей/.test(await dock.textContent('#pills'))), 'status pills: ' + await dock.textContent('#pills'));
+    eq(await dock.$$eval('#togs .sw', b => b.map(x => x.dataset.tog + ':' + x.classList.contains('on'))), ['chat:true', 'cs2:true', 'sound:true', 'draw:true', 'fx:true'], 'five switches, all on');
+    await dock.click('#togs [data-tog="chat"]');
+    check(await until(async () => !(await shown()).ms1), 'the chat switch in the dock hides the message on stream');
+    check(await until(() => dock.$eval('#togs [data-tog="chat"]', b => !b.classList.contains('on'))), 'the switch shows it is off');
+    await dock.click('#togs [data-tog="chat"]');
+    check(await until(async () => (await shown()).ms1), 'and brings it back');
+  });
+
+  await step('dock: elements with eyes; the eye hides on stream only', async () => {
+    await tab('els');
+    check(await until(async () => (await dock.textContent('#els')).includes('всегда')), 'the dock lists the screen: ' + await dock.textContent('#els'));
+    const st = await fetch(host.base + '/api/status').then(r => r.json());
+    check(st.els.every(e => JSON.stringify(Object.keys(e)) === '["id","type","name","hidden"]'), 'the status gives only id, type, name and hidden of each element');
+    eq(st.els.find(e => e.id === 'im1')?.name, 'example.com', 'a picture is named by its site, without the full address');
+    await dock.click('#els [data-eye="tx1"]');
+    check(await until(async () => !(await shown()).tx1), 'the text is hidden on stream');
+    eq(await panel.evaluate(() => byId('tx1').hidden), false, 'the moderators\' screen is not changed');
+    check(await until(() => panel.evaluate(() => /скрыто стримером/.test(nodes.get('tx1').textContent))), 'the panel marks it as hidden by the streamer');
+    await dock.click('#els [data-eye="tx1"]');
+    check(await until(async () => (await shown()).tx1), 'the second click brings it back');
+  });
+
+  await step('dock: who is online, masked address, kick one moderator', async () => {
+    await tab('ppl');
+    const t = await until(async () => { const t = await dock.textContent('#ppl'); return /Модератор/.test(t) && t; });
+    check(/127\.x\.x\.1/.test(t) && !/127\.0\.0\.1/.test(t), 'the moderator is listed with a masked address: ' + t);
+    await dock.click('#ppl .kick');
+    check(await until(() => /Стример отключил модератора/.test(host.log())), 'kick is logged');
+    check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 15000), 'the moderator can come back (kick is not a ban)');
+  });
+
+  await step('dock: CS2 score and the «Файт» hint over the tabs', async () => {
+    const token = JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8')).gsiToken;
+    const gsi = { auth: { token }, provider: { steamid: '7' }, map: { name: 'de_mirage', phase: 'live', round: 4, team_ct: { score: 3 }, team_t: { score: 1 } }, player: { steamid: '7', name: 'etsu', team: 'CT', state: { health: 77 } } };
+    eq((await fetch(host.base + '/gsi', { method: 'POST', body: JSON.stringify(gsi) })).status, 200, 'GSI packet accepted');
+    await tab('cs2');
+    const t = await until(async () => { const t = await dock.textContent('#cs2'); return /3:1/.test(t.replace(/\s/g, '')) && t; });
+    check(t && /mirage/.test(t) && /etsu/.test(t) && /HP 77/.test(t), 'score, map and the player: ' + t);
+    // the fight hint comes from CS2 (another part of the Host): here the status is faked to see the dock show it
+    await dock.route('**/api/status', async r => { const res = await r.fetch(); const j = await res.json(); j.fight = { a: { slot: 3, name: 'SaiYeah' }, b: { slot: 7, name: 'gospoja' } }; await r.fulfill({ json: j }); });
+    check(await until(async () => (await dock.isVisible('#fight')) && /Файт: 3 SaiYeah ↔ 7 gospoja/.test(await dock.textContent('#fight'))), 'the hint shows over the tabs: ' + await dock.textContent('#fight'));
+    await tab('els');
+    check(await dock.isVisible('#fight'), 'on any tab');
+    await dock.unroute('**/api/status');
+    check(await until(async () => !(await dock.isVisible('#fight'))), 'and goes away with the fight');
+  });
+
   await S.close(); await T.closeBrowser();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

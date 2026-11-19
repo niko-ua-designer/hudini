@@ -49,6 +49,9 @@
   }
   // Почему элемент не виден на стриме, хотя в пульте он есть (пусто — виден как обычно)
   function whyOff(el){
+    if(!el) return '';
+    const ids = typeof hostCtl !== 'undefined' && Array.isArray(hostCtl?.hideIds) ? hostCtl.hideIds : [];
+    if(ids.includes(el.id)) return tr('🙈 скрыто стримером');
     if(permOff(el)) return tr('выключено стримером');
     if(OFF_OF[el?.type] && offNow()[OFF_OF[el.type]] === true) return tr('выключено на стриме');
     return '';

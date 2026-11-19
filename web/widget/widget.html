@@ -413,6 +413,7 @@ async function start(){
       document.body.classList.toggle('host-hidden', !!c.hidden);
       const o=c.off && typeof c.off==='object' ? c.off : {};
       OFF={ chat:o.chat===true, cs2:o.cs2===true, sound:o.sound===true, draw:o.draw===true, fx:o.fx===true };
+      HIDE_IDS=new Set(Array.isArray(c.hideIds) ? c.hideIds.filter(x=>typeof x==='string').slice(0,200) : []);   // глазик стримера в доке
       if(c.hidden || !soundOk()){ stopSounds(); pendingSounds.clear(); }
       if(c.hidden || !fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
       applyState(lastState);   // спрятано: видео без звука, сайты и ролики выгружены; вернули: всё как в последнем экране

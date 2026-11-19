@@ -111,7 +111,7 @@ process.on('unhandledRejection', e => crash('unhandledRejection', e));
 
 // ---------- комната ----------
 const ROOM_ABC = 'abcdefghijkmnpqrstuvwxyz23456789';
-let ROOM = null, AES = null;
+let ROOM = null, AES = null, PUB = null;   // PUB — открытый ключ подписи модераторов (проверка экрана для дока)
 function parseLink(link){
   try{
     const u = new URL(String(link).trim());
@@ -134,12 +134,15 @@ const linkOf = r => `http://localhost:${PORT}/widget/widget.html?room=${r.code}#
 async function setRoom(link, full){
   const r = parseLink(link); if(!r) throw new Error('Это не ссылка из пульта модератора');
   const key = await subtle.importKey('raw', Buffer.from(r.k, 'base64url'), 'AES-GCM', false, ['encrypt','decrypt']);
+  const pub = await subtle.importKey('raw', Buffer.from(r.p, 'base64url'), { name:'ECDSA', namedCurve:'P-256' }, false, ['verify']);
   const changed = ROOM && (ROOM.room!==r.room || ROOM.k!==r.k);
   if(changed){
     // Новая комната или новые ключи: пароль модераторов меняем и всех отключаем. Так доступ теряют все, у кого старые ключи.
     cfg.modPass = rnd(18);
     kickMods('ключи комнаты сменились');
+    screen = null; ctl.hideIds = []; cfg.hideIds = [];   // элементы старой комнаты доку больше не нужны
   }
+  PUB = pub;
   if(full) cfg.room = full;
   else if(!(cfg.room && cfg.room.code===r.room && cfg.room.k===r.k)) delete cfg.room;
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
@@ -268,7 +271,9 @@ const modList = new Map();   // id клиента → { ip, net, since, rtt } д
 const OFF_KEYS = ['chat', 'cs2', 'sound', 'draw', 'fx'];
 const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты' };
 const cleanOff = o => Object.fromEntries(OFF_KEYS.map(k => [k, o?.[k]===true]));
-const ctl = { hidden:false, paused:false, stop:0, off:cleanOff(cfg.ctlOff) };
+// hideIds — элементы, которые стример спрятал глазиком в доке: их прячет только виджет, экран модераторов не меняется
+const cleanIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && x.length>0 && x.length<=40))].slice(0, 200);
+const ctl = { hidden:false, paused:false, stop:0, off:cleanOff(cfg.ctlOff), hideIds:cleanIds(cfg.hideIds) };
 async function publishCtl(){
   if(!ROOM || !AES) return;
   aedes.publish({ cmd:'publish', topic:T('host'), payload:await sealAES({ ...ctl, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
@@ -427,7 +432,47 @@ function wsServer(mod){
 
 aedes.on('publish', (packet, client) => {
   if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._mod) status.obsSeen = Date.now();
+  if(client && ROOM && packet.topic===T('state') && packet.payload?.length) noteScreen(packet.payload);
 });
+
+// ---------- экран для дока в OBS ----------
+// Программа видит зашифрованный экран (тема state) и ключ комнаты у неё есть: расшифровывает сама, проверяет подпись
+// модератора и отдаёт доку только список {id, type, name, hidden}. Сам экран и файлы дальше не уходят.
+let screen = null, screenBuf = null, screenBusy = false;
+async function openSigned(buf){
+  try{
+    const b = new Uint8Array(buf);
+    if(b.length<79 || b[0]!==1 || b[1]!==1 || !AES || !PUB) return null;
+    const iv = b.subarray(2, 14), sig = b.subarray(14, 78), ct = b.subarray(78);
+    const msg = new Uint8Array(12 + ct.length); msg.set(iv); msg.set(ct, 12);
+    if(!await subtle.verify({ name:'ECDSA', hash:'SHA-256' }, PUB, sig, msg)) return null;
+    return JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name:'AES-GCM', iv }, AES, ct)));
+  }catch{ return null; }
+}
+const line40 = v => typeof v==='string' ? v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 40) : '';
+const hostOf = u => { try{ return new URL(String(u)).hostname.slice(0, 40); }catch{ return ''; } };
+// Подпись элемента в доке: текст, заголовок, ник или сайт (сам экран в док не уходит)
+function elLabel(e){
+  const t = e.type;
+  return line40(t==='text' ? e.text : t==='msg' ? (line40(e.user) ? line40(e.user)+': ' : '')+line40(e.text) : e.label || e.title || e.name || e.chan || e.gn)
+    || (t==='web' ? hostOf(e.url) : t==='image' || t==='video' ? (/^asset:/.test(String(e.src)) ? '' : hostOf(e.src)) : t==='cs2' ? line40(e.view) : '');
+}
+// Экран приходит до 20 раз в секунду (перетаскивание): разбираем последний, не каждый
+function noteScreen(buf){
+  screenBuf = buf; if(screenBusy) return;
+  screenBusy = true;
+  setTimeout(async () => {
+    const b = screenBuf; screenBuf = null;
+    const m = await openSigned(b);
+    if(m && Array.isArray(m.els) && (!screen || (Number(m.t)||0) >= screen.t)){
+      const list = [...m.els.slice(0, 200), ...(m.raffle && typeof m.raffle==='object' ? [m.raffle] : [])];
+      screen = { t:Number(m.t)||0, els:list.filter(e => e && typeof e==='object' && typeof e.id==='string' && typeof e.type==='string')
+        .map(e => ({ id:e.id.slice(0, 40), type:e.type.slice(0, 12), name:elLabel(e), hidden:e.hidden===true })) };
+    }
+    screenBusy = false;
+    if(screenBuf) noteScreen(screenBuf);
+  }, 250);
+}
 
 // ---------- состояние для пульта, уже подключённого к программе ----------
 // Адрес и пароль больше нигде не публикуются: модератор получает их в коде. В свой брокер уходит только пауза.
@@ -1108,9 +1153,16 @@ const errOut = (res, e, extra={}) => {
     send(res, code, JSON.stringify({ ok:false, error:e instanceof HttpErr ? e.message : code===500 ? 'ошибка на ПК стримера' : 'некорректный запрос', ...(e?.extra||{}) }), 'application/json', extra);
   }catch{ try{ res.destroy(); }catch{} }
 };
-// Док в OBS (localhost, без входа): права модераторов
+// Док в OBS (localhost, без входа): права, элементы экрана, кто на связи (адрес в маске), CS2
+function dockCs2(){
+  const c = status.cs2; if(!c || Date.now()-status.cs2Seen > 15000) return null;
+  const o = c.observed || (!c.spectating && c.name ? c : null);
+  return { map:c.map, round:c.round, phase:c.phase, ct:c.ct, tt:c.tt, ctName:c.ctName, tName:c.tName,
+    obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
+}
 function dockInfo(){
-  return { perms:cfg.perms };
+  return { perms:cfg.perms, els:screen ? screen.els : null, cs2:dockCs2(),
+    ppl:[...modList].map(([id, m]) => ({ id, me:!!m.me, net:m.net, ip:m.me ? '' : maskHost(m.ip), rtt:m.rtt, since:m.since })) };
 }
 function obsLink(){
   if(!ROOM) return '';
@@ -1186,6 +1238,20 @@ const local = http.createServer(async (req, res) => {
           if(!OFF_KEYS.includes(key)) throw new HttpErr(400, 'неизвестный выключатель');
           if(ctl.off[key]!==!!on){ log(on ? '🚫 Стример выключил на стриме: '+OFF_NAMES[key] : '✅ Стример вернул на стрим: '+OFF_NAMES[key]); }
           ctl.off = { ...ctl.off, [key]:!!on }; cfg.ctlOff = ctl.off; saveCfg();
+        }
+        else if(action==='hideel'){   // глазик в доке: спрятать элемент на стриме (только у стримера)
+          const id = typeof key==='string' && key.length<=40 ? key : '';
+          if(!id) throw new HttpErr(400, 'нет элемента');
+          ctl.hideIds = cleanIds(on ? [...ctl.hideIds, id] : ctl.hideIds.filter(x => x!==id));
+          cfg.hideIds = ctl.hideIds; saveCfg();
+        }
+        else if(action==='kick'){   // «Отключить» одного модератора в доке
+          const c = typeof key==='string' && Object.hasOwn(aedes.clients, key) ? aedes.clients[key] : null;
+          if(!c?.conn?._mod) throw new HttpErr(404, 'такого модератора нет');
+          const m = modList.get(key);
+          try{ c.close(); }catch{}
+          logc('👤 Стример отключил модератора:', m ? who(m.ip) : '?');
+          return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
         }
         else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
