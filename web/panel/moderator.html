@@ -554,19 +554,26 @@
     </div>
 
 
-    <!-- анимация движения -->
+    <!-- анимация: готовые эффекты, движение по кадрам, общая скорость -->
     <div class="box" id="kfBox">
-      <div class="t">🎬 Движение (ключевые кадры)</div>
+      <div class="t">🎬 Анимация</div>
       <div class="row"><select id="kfPreset" class="grow"></select><button id="kfApply">Применить</button><button id="kfDelSaved" title="Удалить сохранённую анимацию" hidden>🗑</button></div>
-      <div id="kfList"></div>
-      <div class="row"><button id="kfAdd" class="grow" title="Запомнить текущее положение, поворот, прозрачность элемента">＋ Кадр отсюда</button><button id="kfClear" title="Удалить все кадры">🗑</button></div>
+      <div class="row kfbar">
+        <button id="kfPlay" class="go" title="Проиграть с начала (P)">▶</button>
+        <button id="kfStop" title="Стоп">⏹</button>
+        <button id="kfAdd" title="Добавить кадр: запомнить текущее положение, поворот, прозрачность элемента">＋</button>
+        <button id="kfDelLast" title="Удалить последний кадр">✕</button>
+        <button id="kfClear" title="Удалить все кадры">🗑</button>
+        <button id="kfSave" title="Сохранить анимацию в готовые">💾</button>
+      </div>
+      <div class="lbl"><span>Скорость</span><span id="vAs" title="Сбросить на 1×"></span></div>
+      <input type="range" id="iAs" min="-2" max="2" step="0.05">
       <div id="kfOpts">
         <div class="row"><select id="kfMode" class="grow"><option value="loop">🔁 По кругу</option><option value="once">1️⃣ Один раз</option><option value="pingpong">↔ Туда-обратно</option></select>
           <select id="kfEnd" class="grow"><option value="stay">в конце остаться</option><option value="hide">в конце исчезнуть</option><option value="back">в конце вернуться</option></select></div>
-        <div class="row"><button id="kfPlay" class="go grow">▶ Проиграть (P)</button><button id="kfStop">⏹ Стоп</button></div>
-        <div class="row"><button id="kfSave" class="grow">💾 Сохранить анимацию</button></div>
       </div>
-      <div class="hint">Свои кадры: поставь элемент → «＋ Кадр отсюда», передвинь/поверни → ещё кадр… Клик по кадру ставит элемент в его положение.</div>
+      <div id="kfList"></div>
+      <div class="hint">Свои кадры: поставь элемент → «＋», передвинь/поверни → ещё «＋». Клик по номеру кадра ставит элемент в его положение. Скорость действует и на готовые эффекты, и на кадры.</div>
     </div>
     <div class="lbl"><span>Размер</span><span id="vSize"></span></div>
     <input type="range" id="iSize">
@@ -579,16 +586,6 @@
     <input type="range" id="iRot" min="-180" max="180" step="1">
     <div class="lbl"><span>Непрозрачность</span><span id="vOp"></span></div>
     <input type="range" id="iOp" min="0.05" max="1" step="0.05">
-    <div class="lbl">Анимация</div>
-    <select id="iAnim">
-      <option value="none">Без анимации</option>
-      <option value="pulse">Пульс</option>
-      <option value="wobble">Качание</option>
-      <option value="float">Парение</option>
-      <option value="spin">Вращение</option>
-      <option value="shake">Тряска</option>
-      <option value="rainbow">Радуга</option>
-    </select>
 
     <div class="grid2">
       <button id="bCenter">⊕ По центру</button>

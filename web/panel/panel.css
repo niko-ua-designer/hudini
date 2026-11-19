@@ -285,3 +285,5 @@ body.web #web{display:flex}
 :root .u-margin-8px-0-0-18px-padding-0{margin:8px 0 0 18px;padding:0}
 :root .u-text-align-center-display-block{text-align:center;display:block}
 :root .u-width-100-margin-top-8px{width:100%;margin-top:8px}
+.kfbar{gap:4px}.kfbar button{flex:1;min-width:0;padding-left:0;padding-right:0}
+#vAs{cursor:pointer}

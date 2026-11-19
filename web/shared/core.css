@@ -8,19 +8,19 @@
 
 /* ---------- анимации ---------- */
 .fx{transform-origin:50% 50%}
-.a-pulse{animation:a-pulse 1s ease-in-out infinite}
+.a-pulse{animation:a-pulse calc(1s / var(--as,1)) ease-in-out infinite}
 @keyframes a-pulse{50%{transform:scale(1.12)}}
-.a-wobble{animation:a-wobble 1.2s ease-in-out infinite}
+.a-wobble{animation:a-wobble calc(1.2s / var(--as,1)) ease-in-out infinite}
 @keyframes a-wobble{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
-.a-float{animation:a-float 2s ease-in-out infinite}
+.a-float{animation:a-float calc(2s / var(--as,1)) ease-in-out infinite}
 @keyframes a-float{50%{transform:translateY(-12%)}}
-.a-spin{animation:a-spin 3s linear infinite}
+.a-spin{animation:a-spin calc(3s / var(--as,1)) linear infinite}
 @keyframes a-spin{to{transform:rotate(360deg)}}
-.a-shake{animation:a-shake .25s linear infinite}
+.a-shake{animation:a-shake calc(.25s / var(--as,1)) linear infinite}
 @keyframes a-shake{25%{transform:translate(-3%,2%)}50%{transform:translate(3%,-2%)}75%{transform:translate(-2%,-3%)}}
-.a-rainbow img,.a-rainbow video{animation:a-hue 2s linear infinite}
+.a-rainbow img,.a-rainbow video{animation:a-hue calc(2s / var(--as,1)) linear infinite}
 @keyframes a-hue{to{filter:hue-rotate(360deg)}}
-.a-rainbow .txt,.a-rainbow .tw{animation:a-rbtxt 2s linear infinite}
+.a-rainbow .txt,.a-rainbow .tw{animation:a-rbtxt calc(2s / var(--as,1)) linear infinite}
 .a-rainbow .tw{--c:currentColor}
 @keyframes a-rbtxt{0%,100%{color:#ff4d4d}17%{color:#ffb84d}33%{color:#fff94d}50%{color:#4dff88}67%{color:#4dc3ff}83%{color:#b44dff}}
 .pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
