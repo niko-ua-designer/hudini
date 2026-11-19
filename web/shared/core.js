@@ -146,6 +146,14 @@ function outline(color, wEm){
 
 // Элементы, у которых размер можно задать рамкой: тогда они не прыгают от данных
 const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg','chat']);
+// Обрезка как в OBS: [слева, сверху, справа, снизу] в % размера элемента. Для CS2, кейса и розыгрыша не нужна
+const CROPPABLE = new Set(['image','video','web','text','timer','counter','poll','msg','chat']);
+function sanitizeCrop(c){
+  if(!Array.isArray(c) || c.length!==4) return null;
+  const a=c.map(v=>Math.round(num(v,0,0,90)*100)/100);
+  for(const [i,j] of [[0,2],[1,3]]){ const t=a[i]+a[j]; if(t>90){ a[i]=Math.floor(a[i]*90/t*100)/100; a[j]=Math.floor(a[j]*90/t*100)/100; } }
+  return a.some(v=>v>=0.01) ? a : null;
+}
 // Розыгрыш: сбор → (закрыт) → лента. Время ленты общее для пульта и виджета, поэтому все видят одно и то же
 const RAFFLE_PHASES = ['idle','collect','closed','spin'];
 // Кейс: время сцены от openAt, одинаковое у пульта и виджета
@@ -267,6 +275,7 @@ function sanitizeEl(e){
   const kf=sanitizeKf(e.kf); if(kf) o.kf=kf;
   // своя рамка: ширина в % экрана и высота в % высоты экрана (0 = по содержимому)
   if(BOXABLE.has(o.type)){ o.bw=num(e.bw,o.type==='chat'?26:0,0,100); o.bh=num(e.bh,o.type==='chat'?55:0,0,100); }
+  if(CROPPABLE.has(o.type)){ const cr=sanitizeCrop(e.crop); if(cr) o.crop=cr; }
   return o;
 }
 // ---------- анимация движения по ключевым кадрам ----------
@@ -813,6 +822,12 @@ function paintNode(node, el, z){
     if(cap.textContent!==el.label) cap.textContent=el.label;
     cap.hidden=!el.label;
   }
+  // обрезка: режем содержимое, а рамка и анимации остаются на месте; --L/--R/... нужны ручкам пульта
+  { const cr = CROPPABLE.has(el.type) && el.crop ? el.crop : null, b = node.querySelector('.content');
+    if(b){ const v = cr ? `inset(${cr[1]}% ${cr[2]}% ${cr[3]}% ${cr[0]}%)` : ''; if(b.style.clipPath!==v) b.style.clipPath=v; }
+    const sp=(k,v)=>{ if(node.style.getPropertyValue(k)!==v) node.style.setProperty(k,v); }, c=cr||[0,0,0,0];
+    sp('--L',c[0]+'%'); sp('--T',c[1]+'%'); sp('--R',(100-c[2])+'%'); sp('--B',(100-c[3])+'%');
+    sp('--CX',((c[0]+100-c[2])/2)+'%'); sp('--CY',((c[1]+100-c[3])/2)+'%'); }
   // рамка, которую модератор растянул руками: содержимое живёт внутри неё
   if(BOXABLE.has(el.type) && !(el.type==='cs2' && CS2_FULL.has(el.view))){
     const box=node.querySelector('.content');
