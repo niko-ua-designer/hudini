@@ -91,7 +91,7 @@ function cancelOfflineWait(){
   clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=15, widgets=new Map();
+const WIDGET_VER=16, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -124,7 +124,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -316,6 +316,7 @@ async function onMessage(topic, payload, packet){
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
+  if(topic===T.base+'/ink'){ if(!packet.retain) window.Draw?.ink(await unsealJSON(keys, payload, true)); return; }   // живой штрих рисунка
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);
   if(!msg || topic!==topics(room).state) return;  // подделка, или комнату сменили, пока расшифровывали
@@ -341,6 +342,7 @@ const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
 function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
 function acceptState(s, t){
   if(mergeChat(s, t)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
+  if(window.Draw?.merge(s)) scheduleSend();   // наши штрихи рисунка, которых там ещё нет
   if(changeOpen) rebaseChange(s);
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
@@ -393,6 +395,7 @@ function publishNow(qos=0){
   if(!client || !client.connected){ if(room) pendingOffline=room; return; }
   if(offlineWait) return;   // ещё ждём сохранённый экран: отправим после него
   STREAM_LANG=streamLang();
+  window.Draw?.beforeSend();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
   const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[], emx:emxNow() };
@@ -857,6 +860,7 @@ function elIcon(el){
   if(el.type==='poll') return '📊';
   if(el.type==='raffle') return '🎁';
   if(el.type==='case') return '📦';
+  if(el.type==='draw') return '🎨';
   if(el.type==='cs2') return '🎯';
   if(el.type==='msg' || el.type==='chat') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
@@ -869,6 +873,7 @@ function elName(el){
   if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
+  if(el.type==='draw') return 'Рисунок · '+el.strokes.length;
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
   if(el.type==='raffle') return (el.title||'Розыгрыш')+' · '+({ idle:'ждёт', collect:'сбор', closed:'сбор закрыт', spin:el.winner||'крутим' }[el.phase])+' · 👥 '+el.n;
   if(el.type==='web'){ try{ return new URL(el.url).hostname+new URL(el.url).pathname; }catch{ return el.url; } }
@@ -1028,6 +1033,7 @@ function normRot(r){ return ((r+180)%360+360)%360-180; }
 function toLocalInput(ms){ if(!ms) return ''; const d=new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function showFor(attr, value){ document.querySelectorAll(`#insp [data-${attr}]`).forEach(n=>n.hidden=!n.dataset[attr].split(' ').includes(value)); }
 function renderInspector(){
+  window.Draw?.sync();
   const el=byId(selectedId);
   $('insp').hidden=!el; $('insp-empty').hidden=!!el;
   if(!el) return;
@@ -2945,6 +2951,7 @@ $('libList').addEventListener('click', async e=>{
     hideUpload();
   }
   if(el.kf){ el.kf.start=Date.now(); if(el.kf.mode==='once') el.kf.playing=true; }
+  window.Draw?.fromLib(el);
   addEl(el);
 });
 // Достать файл из другой комнаты (для библиотеки): из памяти пульта или из этой же программы стримера

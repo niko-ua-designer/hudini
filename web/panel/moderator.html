@@ -12,13 +12,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="../shared/core.css?v=11">
+<link rel="stylesheet" href="../shared/core.css?v=12">
 <script src="../shared/vendor/mqtt.min.js"></script>
 <script src="../app/store.js"></script>
 <script src="../app/sessions.js"></script>
 <script src="../shared/i18n.js?v=3"></script>
 <script src="../shared/icons.js?v=1"></script>
-<script src="../shared/core.js?v=16"></script>
+<script src="../shared/core.js?v=17"></script>
 <script src="../shared/case3d.js?v=1"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
 <link rel="stylesheet" href="panel.css?v=1">
@@ -87,6 +87,7 @@
       <button data-add="cs2" class="wide u-grid-column-span-2">🎯 CS2</button>
       <button data-add="case" class="wide u-grid-column-span-2">📦 3D-кейс</button>
       <button id="addChatFeed" class="wide u-grid-column-span-2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
+      <button id="addDraw" class="wide u-grid-column-span-2" title="Рисовать прямо на холсте: кисти, фигуры, фото">🎨 Рисунок</button>
     </div>
 
     <h2>Эффекты на весь экран</h2>
@@ -258,6 +259,37 @@
     <span class="spacer"></span>
     <label class="chk" title="Показать сетку и примагничивать к ней"><input type="checkbox" id="gridOn"> Сетка</label>
     <select id="gridStep" title="Шаг сетки"><option value="2.5">2.5%</option><option value="5" selected>5%</option><option value="10">10%</option><option value="12.5">⅛</option><option value="25">¼</option></select>
+  </div>
+  <!-- рисование: полоса над холстом, видна, пока рисуешь -->
+  <div id="drawBar" hidden>
+    <span class="tgrp">
+      <button data-dt="pen" title="Ручка"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg></button><button data-dt="marker" title="Маркер: широкий и полупрозрачный"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button><button data-dt="neon" title="Неон: светящаяся линия"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 6-9 9-5s6 2 9-5"/><path d="M3 17c3-6 6-9 9-5s6 2 9-5" opacity=".35" stroke-width="5"/></svg></button>
+    </span>
+    <span class="tgrp">
+      <button data-dt="line" title="Прямая (Shift: ровно)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5"/></svg></button><button data-dt="arrow" title="Стрелка (Shift: ровно)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6"/><path d="M9 6h9v9"/></svg></button><button data-dt="circle" title="Круг (Shift: ровный)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/></svg></button><button data-dt="rect" title="Прямоугольник (Shift: квадрат)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/></svg></button>
+    </span>
+    <span class="tgrp">
+      <button data-dt="eraser" title="Ластик: стирает штрих целиком"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg></button><button id="dPick" title="Пипетка: взять цвет с холста"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg></button>
+    </span>
+    <span id="dSw" class="dsw"></span>
+    <input type="color" id="dColor" title="Свой цвет">
+    <span class="dsize" title="Толщина"><i id="dDot"></i><input type="range" id="dSize" min="2" max="40" step="1"></span>
+    <span class="tgrp">
+      <button id="dPhoto" title="Фото: палитра, пипетка и кисть из картинки">🖼</button><button data-dt="stamp" title="Кисть из фото: штамп (копии картинки вдоль линии)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 22h14"/><path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1.5c0-.66-.26-1.3-.73-1.77Z"/><path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-3-3c-1.69 0-3 1-3 3 0 2 1 2 1 3.5V13"/></svg></button><button data-dt="tex" title="Кисть из фото: текстура (фото внутри линии)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m14.6 10.4 6-6a2 2 0 0 0-2.8-2.8l-6 6"/><path d="M9.5 9.8c-1.9-.3-3.6.9-4 2.8-.3 1.5-1.4 2.6-3 3 2.4 2.6 6.3 3 9 1 1.5-1.2 2-3.1 1.1-4.8a2.9 2.9 0 0 0-2.1-2Z"/></svg></button>
+    </span>
+    <span class="dfade" title="Штрихи сами исчезают через заданное время"><label class="chk"><input type="checkbox" id="dFadeOn"> Тают</label><input type="range" id="dFade" min="1" max="60" step="1"><b id="vFade"></b><span>сек</span></span>
+    <span class="dseg"><button id="dLive" title="Штрих виден на стриме сразу, пока его рисуешь">Вживую</button><button id="dHold" title="Стрим увидит рисунок после кнопки «Показать»">По кнопке</button></span>
+    <button id="dShow" class="go" hidden>▶ Показать на стриме <b id="dHeld"></b></button>
+    <span class="spacer"></span>
+    <button id="dClear" title="Стереть весь рисунок">🗑</button>
+    <button id="dDone" class="primary" title="Закончить рисовать (Esc)">✓ Готово</button>
+    <div id="dPhotoPop" hidden>
+      <canvas id="dPhotoCv" width="240" height="150" title="Клик по фото: взять цвет"></canvas>
+      <div class="hint">Клик по фото: взять цвет. Палитра из фото:</div>
+      <div id="dPhotoPal" class="dsw"></div>
+      <div class="row"><button id="dPhotoNew" class="grow">📁 Другое фото</button><button id="dPhotoDel" title="Убрать фото">✕</button></div>
+    </div>
+    <input type="file" id="dFile" accept="image/*" hidden>
   </div>
   <div id="stageBox">
     <div id="fightBar" hidden title="Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт"><b>⚔ Файт</b> <span id="fightA" data-i18n-skip></span> <i>↔</i> <span id="fightB" data-i18n-skip></span></div>
@@ -473,6 +505,14 @@
       </details>
       <details><summary>📜 История открытий</summary><div id="kHist" class="hint u-x16"></div></details>
       <input type="file" id="kFile" accept="image/*" hidden>
+    </div>
+
+    <!-- рисунок -->
+    <div data-for="draw" class="box">
+      <div class="t">🎨 Рисунок</div>
+      <div class="hint" id="dInfo"></div>
+      <div class="row"><button id="dStart" class="go grow">✏ Рисовать на холсте</button><button id="dClear2" title="Стереть весь рисунок">🗑</button></div>
+      <div class="hint">Рисуют все модераторы сразу. Инструменты появляются над холстом.</div>
     </div>
 
     <!-- розыгрыш -->
