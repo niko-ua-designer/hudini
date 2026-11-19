@@ -19,6 +19,9 @@ for f in moderator.html index.html; do
 <meta charset="utf-8">
 <meta http-equiv="refresh" content="0; url=../moderator.html">
 <title>Hudini</title>
+<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" sizes="any">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <a href="../moderator.html">Hudini</a>
 <script>location.replace('../moderator.html' + location.search);</script>
 HTML
