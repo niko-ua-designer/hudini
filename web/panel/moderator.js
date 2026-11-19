@@ -59,7 +59,8 @@ function saveRooms(){
 function cleanChannel(ch){ return String(ch||'').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,40); }
 function cleanRoom(r){
   return r && validCode(r.code) && typeof r.k==='string' && typeof r.p==='string' && r.s && typeof r.s==='object'
-    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined, chat:cleanChannel(r.chat) || undefined } : null;
+    ? { code:r.code, name:String(r.name||'Комната').slice(0,40), k:r.k, p:r.p, s:r.s, slang:STREAM_LANGS.includes(r.slang) ? r.slang : undefined, chat:cleanChannel(r.chat) || undefined,
+        emx:r.emx && typeof r.emx==='object' ? cleanEmx(r.emx) : undefined } : null;
 }
 async function makeRoom(name){ return { code:rid(16), name:String(name||'Комната').slice(0,40), ...(await newRoomKeys()) }; }
 // Ключи проверяем импортом: испорченная комната не становится текущей
@@ -324,14 +325,14 @@ async function onMessage(topic, payload, packet){
       const mine=byId(id), r=s.els.find(e=>e.id===id);
       if(mine && r && mine.type===r.type) for(const k of GEOM_KEYS) if(k in mine) r[k]=mine[k];
     }
-    acceptState(s); scheduleSend(); return;
+    acceptState(s, t); scheduleSend(); return;
   }
-  acceptState(s);
+  acceptState(s, t);
 }
 const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
 function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
-function acceptState(s){
-  if(mergeChat(s)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
+function acceptState(s, t){
+  if(mergeChat(s, t)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
   if(selectedId && !byId(selectedId)) selectedId=null;
@@ -385,7 +386,7 @@ function publishNow(qos=0){
   STREAM_LANG=streamLang();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[] };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:state.visible, vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[], emx:emxNow() };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -715,7 +716,7 @@ function addHandles(node){
   }
 }
 function renderAll(){
-  syncSel();
+  syncSel(); syncEmx();
   stage.classList.toggle('all-hidden', !state.visible);
   const seen=new Set(), now=nowMs();
   drawList(state).forEach((el,i)=>{
@@ -1489,13 +1490,14 @@ function chatConnect(ch){
   { const r=curRoom(); if(r && r.chat!==ch){ r.chat=ch; saveRooms(); window.__webChatRefresh?.(); } } $('chatChan').value=ch;
   const ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443'); chatWs=ws;
   setPill($('chatStatus'), 'warn', 'подключение…'); $('chatBtn').textContent='Отключить';
-  ws.onopen=()=>{ ws.send('CAP REQ :twitch.tv/tags'); ws.send('PASS SCHMOOPIIE'); ws.send('NICK justinfan'+(10000+Math.random()*80000|0)); ws.send('JOIN #'+ch); };
+  ws.onopen=()=>{ ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands'); ws.send('PASS SCHMOOPIIE'); ws.send('NICK justinfan'+(10000+Math.random()*80000|0)); ws.send('JOIN #'+ch); };
   ws.onmessage=ev=>{
     for(const line of String(ev.data).split('\r\n')){
       if(!line) continue;
       if(line.startsWith('PING')){ ws.send('PONG'+line.slice(4)); continue; }
       if(/ 366 /.test(line)) setPill($('chatStatus'), 'ok', '#'+ch);
       const r=ircMessage(line);
+      if(r?.type==='room') ThirdEmotes.room(r.id);
       if(r?.type!=='msg') continue;
       const msg=r.msg;
       onChat(msg.login, msg.text, msg);
@@ -1511,7 +1513,7 @@ function chatRowNode(m){
   row.appendChild(tm);
   if(m.badge){ const b=document.createElement('span'); b.className='b'; b.textContent=BADGE[m.badge]; row.appendChild(b); }
   const u=document.createElement('span'); u.className='u'; u.style.color=m.color; u.textContent=m.user; row.append(u, document.createTextNode(': '));
-  const tmp=document.createElement('div'); paintMsg(tmp, { user:'', ucolor:'#000000', text:m.text, emotes:m.emotes, badge:'' });
+  const tmp=document.createElement('div'); paintMsg(tmp, { user:'', ucolor:'#000000', text:m.text, emotes:m.emotes, xe:ThirdEmotes.find(m.text, m.emotes, m.rid), badge:'' });
   const txt=document.createElement('span'); txt.setAttribute('data-i18n-skip',''); txt.append(...tmp.querySelector('.m-text').childNodes);
   u.setAttribute('data-i18n-skip',''); row.append(txt);
   return row;
@@ -1542,7 +1544,7 @@ $('msgReplace').checked=lsGet('overlay.msgReplace', true)!==false; $('msgReplace
 // Показать сообщение на стриме. Вид и место берутся у прошлого сообщения: настроил один раз — дальше просто кликай.
 function showChatMsg(m){
   const secs=num($('msgSecs').value,8,0,600);
-  const data={ user:m.user, ucolor:m.color, text:m.text, emotes:m.emotes, badge:m.badge };
+  const data={ user:m.user, ucolor:m.color, text:m.text, emotes:m.emotes, xe:ThirdEmotes.find(m.text, m.emotes, m.rid), badge:m.badge };
   const prev=[...state.els].reverse().find(e=>e.type==='msg');
   if(!(prev && $('msgReplace').checked) && state.els.length>=MAX_ELS) return toast('Слишком много элементов: на экране максимум '+MAX_ELS);
   beginChange();
@@ -1559,6 +1561,17 @@ function showChatMsg(m){
   commit();
   toast(`💬 ${m.user}: ${m.text.slice(0,40)}`);
 }
+// Смайлы 7TV/BTTV/FFZ: настройка комнаты. Едет в экране (state.emx), чтобы виджет и другие пульты знали.
+function emxNow(){ return state.emx || curRoom()?.emx || cleanEmx(null); }
+function syncEmx(){
+  const x=emxNow(), r=curRoom();
+  if(state.emx && r && JSON.stringify(r.emx)!==JSON.stringify(state.emx)){ r.emx={ ...state.emx }; saveRooms(); }   // другой пульт поменял
+  for(const p of EMX_PROV){ const f=$('emx_'+p); if(f) f.checked=x[p]; }
+  if(JSON.stringify(ThirdEmotes.on)!==JSON.stringify(x)){ ThirdEmotes.setOn(x); if(chatLog.length) rebuildFeed(); }
+}
+for(const p of EMX_PROV) $('emx_'+p)?.addEventListener('change', e=>{ beginChange(); state.emx={ ...emxNow(), [p]:e.target.checked }; commit(); });
+let emxT=0;
+ThirdEmotes.onReady=()=>{ clearTimeout(emxT); emxT=setTimeout(()=>{ if(chatLog.length) rebuildFeed(); }, 300); };   // набор смайлов загрузился: перерисовать ленту
 function chatDisconnect(){ const ws=chatWs; chatWs=null; ws?.close(); setPill($('chatStatus'), '', 'выкл'); $('chatBtn').textContent='Подключить'; }
 $('chatBtn').onclick=()=>{ if(chatWs){ chatDisconnect(); const r=curRoom(); if(r){ delete r.chat; saveRooms(); window.__webChatRefresh?.(); } } else chatConnect($('chatChan').value); };
 $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').click(); });
@@ -1568,8 +1581,9 @@ $('chatChan').addEventListener('keydown', e=>{ if(e.key==='Enter') $('chatBtn').
 const chatPend=new Map(), PEND_MS=20000;
 function pendMark(id, key){ let m=chatPend.get(id); if(!m){ m=new Map(); chatPend.set(id, m); } m.set(key, Date.now()); }
 function pollNewRound(el){ el.vround=rid(8); el.vk=Object.create(null); el.votes=el.opts.map(()=>0); chatPend.delete(el.id); }
-// чужой экран s пришёл: объединить с ним голоса и сообщения этого пульта. true = в s что-то добавилось.
-function mergeChat(s){
+// чужой экран s (собран в момент t) пришёл: объединить с ним голоса и сообщения этого пульта. true = в s что-то добавилось.
+// Зритель передумал: побеждает выбор, засчитанный позже, чем собран чужой экран (иначе тот экран его уже видел).
+function mergeChat(s, t=Infinity){
   const now=Date.now(); let added=false;
   for(const r of s.els){
     const l=byId(r.id); if(!l || l.type!==r.type) continue;
@@ -1579,9 +1593,9 @@ function mergeChat(s){
       let n=Object.keys(r.vk).length;
       for(const k of Object.keys(l.vk)){
         const i=l.vk[k]; if(!(i>=0 && i<r.opts.length)) continue;
-        const has=Object.hasOwn(r.vk, k), fresh=(pend?.get(k)||0)>now-PEND_MS;
+        const pt=pend?.get(k)||0, has=Object.hasOwn(r.vk, k), fresh=pt>now-PEND_MS && pt>t;
         if(has && r.vk[k]===i){ pend?.delete(k); continue; }
-        if(has ? fresh : n<VK_MAX){ if(!has) n++; r.vk[k]=i; added=true; }   // зритель передумал недавно у нас: наш выбор новее
+        if(has ? fresh : n<VK_MAX){ if(!has) n++; r.vk[k]=i; added=true; }
       }
       if(added) r.votes=pollTally(r.vk, r.opts.length);
     } else if(r.type==='counter' && r.cmode==='chat' && pend){

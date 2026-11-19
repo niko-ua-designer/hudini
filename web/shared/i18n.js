@@ -1344,6 +1344,8 @@ const HUDINI_DICT = {
     "на экране максимум": "the screen holds at most",
     "Не удалось сохранить: в браузере кончилось место": "Could not save: the browser is out of storage space",
     "Не удалось сохранить данные пульта на диск": "Could not save the panel data to disk",
+    "Смайлы 7TV, BTTV, FFZ": "7TV, BTTV, FFZ emotes",
+    "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes are loaded from the external servers of 7TV, BetterTTV and FrankerFaceZ. Turned on for this room: in the panel feed, in the chat and messages on stream.",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2687,6 +2689,8 @@ const HUDINI_DICT = {
     "на экране максимум": "на екрані максимум",
     "Не удалось сохранить: в браузере кончилось место": "Не вдалося зберегти: у браузері скінчилося місце",
     "Не удалось сохранить данные пульта на диск": "Не вдалося зберегти дані пульта на диск",
+    "Смайлы 7TV, BTTV, FFZ": "Смайли 7TV, BTTV, FFZ",
+    "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Смайли завантажуються із зовнішніх серверів 7TV, BetterTTV і FrankerFaceZ. Вмикається для цієї кімнати: у стрічці пульта, у чаті та повідомленнях на стрімі.",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4030,6 +4034,8 @@ const HUDINI_DICT = {
     "на экране максимум": "auf dem Bildschirm höchstens",
     "Не удалось сохранить: в браузере кончилось место": "Speichern fehlgeschlagen: Der Browser hat keinen Speicherplatz mehr",
     "Не удалось сохранить данные пульта на диск": "Die Panel-Daten konnten nicht auf die Festplatte gespeichert werden",
+    "Смайлы 7TV, BTTV, FFZ": "7TV-, BTTV-, FFZ-Emotes",
+    "Смайлы грузятся с внешних серверов 7TV, BetterTTV и FrankerFaceZ. Включается для этой комнаты: в ленте пульта, в чате и сообщениях на стриме.": "Emotes werden von den externen Servern von 7TV, BetterTTV und FrankerFaceZ geladen. Gilt für diesen Raum: im Panel-Feed, im Chat und in Nachrichten im Stream.",
   },
 };
 

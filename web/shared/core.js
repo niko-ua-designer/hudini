@@ -198,6 +198,9 @@ function sanitizeEl(e){
   } else if(type==='msg'){
     o.user=str(e.user,40); o.ucolor=hex(e.ucolor,'#a78bfa'); o.text=str(e.text,500);
     o.emotes=(Array.isArray(e.emotes)?e.emotes:[]).slice(0,80).map(x=>[str(x?.[0],40).replace(/[^A-Za-z0-9_]/g,''), Math.round(num(x?.[1],0,0,600)), Math.round(num(x?.[2],0,0,600))]).filter(x=>x[0] && x[2]>=x[1]);
+    // смайлы 7TV/BTTV/FFZ: [провайдер, id, с, по]; адрес картинки строится по шаблону провайдера
+    o.xe=(Array.isArray(e.xe)?e.xe:[]).slice(0,80).map(x=>[x?.[0], str(x?.[1],40), Math.round(num(x?.[2],0,0,600)), Math.round(num(x?.[3],0,0,600))])
+      .filter(x=>EMX_PROV.includes(x[0]) && EMX_ID[x[0]].test(x[1]) && x[3]>=x[2]);
     o.badge=['mod','vip','sub','broadcaster',''].includes(e.badge)?e.badge:'';
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#15171d'); o.accent=hex(e.accent,'#a78bfa');
@@ -363,7 +366,10 @@ function sanitizeState(m){
   if(raffle && ids.has(raffle.id)){ let n = 1; while(ids.has('raffle'+n)) n++; raffle.id = 'raffle'+n; }
   const fonts = (Array.isArray(m?.fonts) ? m.fonts : []).slice(0, 40)
     .filter(f => typeof f?.id==='string' && /^[a-z0-9]{6,24}$/.test(f.id)).map(f => ({ id:f.id, name:str(f.name, 60) || 'Шрифт' }));
-  return { visible: m?.visible !== false, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle };
+  // смайлы 7TV/BTTV/FFZ включаются на комнату; выключенный провайдер пропадает и из показанных сообщений
+  const emx = m?.emx && typeof m.emx==='object' ? cleanEmx(m.emx) : null;
+  for(const e of els) if(e.type==='msg') e.xe = e.xe.filter(x => emx?.[x[0]]);
+  return { visible: m?.visible !== false, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle, emx };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
 function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }
@@ -753,7 +759,7 @@ function paintNode(node, el, z){
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--card', el.card); c.style.setProperty('--c', el.accent);
     c.style.maxWidth=`calc(var(--u) * ${(el.maxw*16/9).toFixed(2)})`;
-    const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.badge]);
+    const sig=JSON.stringify([el.user, el.ucolor, el.text, el.emotes, el.xe, el.badge]);
     if(c._sig!==sig){ const had=!!c._sig; c._sig=sig; paintMsg(c, el); if(had){ c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); } }
   } else if(el.type==='chat'){
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
@@ -1491,16 +1497,17 @@ function cs2Popup(c, ev){
 }
 // ---------- сообщение из чата ----------
 const BADGE = { mod:'🛡', vip:'💎', sub:'⭐', broadcaster:'🎥' };
-// тело сообщения: текст и эмоуты Twitch картинками
-function msgBody(text, emotes){
+// тело сообщения: текст, эмоуты Twitch ([id,с,по]) и смайлы 7TV/BTTV/FFZ ([провайдер,id,с,по]) картинками
+function msgBody(text, emotes, xe){
   const body=h('div','m-text');
   const cp=Array.from(text);                       // Twitch считает позиции эмоутов по символам
-  const em=[...emotes].sort((a,b)=>a[1]-b[1]); let i=0;
-  for(const [id,a,b] of em){
-    if(a<i || a>=cp.length) continue;
+  const em=[...(emotes||[]).map(([id,a,b])=>['tw',id,a,b]), ...(xe||[])].sort((x,y)=>x[2]-y[2]); let i=0;
+  for(const [p,id,a,b] of em){
+    const url=emoteUrl(p, String(id));
+    if(!url || a<i || a>=cp.length || b<a) continue;
     if(a>i) body.append(document.createTextNode(cp.slice(i,a).join('')));
     const img=document.createElement('img'); img.className='m-emote'; img.alt=cp.slice(a,b+1).join(''); img.draggable=false;
-    img.src=`https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0`;
+    img.referrerPolicy='no-referrer'; img.src=url;
     body.append(img); i=b+1;
   }
   if(i<cp.length) body.append(document.createTextNode(cp.slice(i).join('')));
@@ -1510,12 +1517,90 @@ function paintMsg(c, el){
   const head=h('div','m-head');
   if(el.badge) head.append(h('span','m-badge', BADGE[el.badge]));
   const nm=h('span','m-user', el.user||st('Зритель')); nm.style.color=el.ucolor; head.append(nm);
-  c.replaceChildren(head, msgBody(el.text, el.emotes));
+  c.replaceChildren(head, msgBody(el.text, el.emotes, el.xe));
 }
+
+// ---------- смайлы 7TV, BetterTTV, FrankerFaceZ ----------
+// Наборы грузятся с серверов провайдеров (глобальные и канала), только если провайдер включён в комнате.
+// Кэш 30 минут, ошибки молча: без набора слово остаётся текстом.
+const EMX_PROV = ['stv','bttv','ffz'];
+const EMX_ID = { tw:/^[A-Za-z0-9_]{1,60}$/, stv:/^[0-9A-Za-z]{10,40}$/, bttv:/^[0-9a-f]{24}$/, ffz:/^[0-9]{1,10}$/ };
+const RID_RE = /^[0-9]{1,20}$/;
+function emoteUrl(p, id){
+  if(!Object.hasOwn(EMX_ID, p) || !EMX_ID[p].test(id)) return '';
+  return p==='stv' ? `https://cdn.7tv.app/emote/${id}/2x.webp` : p==='bttv' ? `https://cdn.betterttv.net/emote/${id}/2x`
+    : p==='ffz' ? `https://cdn.frankerfacez.com/emote/${id}/2` : `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0`;
+}
+function cleanEmx(x){ return { stv:x?.stv===true, bttv:x?.bttv===true, ffz:x?.ffz===true }; }
+const ThirdEmotes = {
+  on:{ stv:false, bttv:false, ffz:false },
+  sets:new Map(),       // 'stv:g' (глобальный) или 'stv:<id канала>' → { at, busy, map: Map(имя → id) | null }
+  rids:new Set(),       // каналы, которые читаем
+  TTL:30*60*1000, RETRY:5*60*1000, MAX:5000, BYTES:8e6,
+  onReady:()=>{},       // набор загрузился: страница может перерисовать ленту
+  API:{
+    stv:{ g:'https://7tv.io/v3/emote-sets/global', c:id=>`https://7tv.io/v3/users/twitch/${id}`,
+      list:(j, g)=>(g ? j?.emotes : j?.emote_set?.emotes) || [], name:'name' },
+    bttv:{ g:'https://api.betterttv.net/3/cached/emotes/global', c:id=>`https://api.betterttv.net/3/cached/users/twitch/${id}`,
+      list:(j, g)=>g ? j : [...(Array.isArray(j?.channelEmotes) ? j.channelEmotes : []), ...(Array.isArray(j?.sharedEmotes) ? j.sharedEmotes : [])], name:'code' },
+    ffz:{ g:'https://api.frankerfacez.com/v1/set/global', c:id=>`https://api.frankerfacez.com/v1/room/id/${id}`,
+      list:(j, g)=>{ const ids = g ? j?.default_sets : [j?.room?.set]; return (Array.isArray(ids) ? ids : []).flatMap(n => { const e = j?.sets?.[String(n)]?.emoticons; return Array.isArray(e) ? e : []; }); }, name:'name' },
+  },
+  setOn(x){ this.on = cleanEmx(x); for(const r of this.rids) this.want(r); },
+  room(rid){
+    if(!RID_RE.test(String(rid||''))) return;
+    if(!this.rids.has(rid)){ if(this.rids.size >= 20) this.rids.delete(this.rids.values().next().value); this.rids.add(rid); }
+    this.want(rid);
+  },
+  want(rid){ for(const p of EMX_PROV) if(this.on[p]){ this._load(p, 'g'); if(rid) this._load(p, rid); } },
+  _load(p, key){
+    const k = p+':'+key, now = Date.now(); let s = this.sets.get(k);
+    if(s && (s.busy || now - s.at < (s.map ? this.TTL : this.RETRY))) return;
+    if(!s){ s = { at:0, busy:false, map:null }; this.sets.set(k, s); }
+    s.busy = true;
+    const api = this.API[p], g = key==='g';
+    const ctl = typeof AbortController==='function' ? new AbortController() : null, t = setTimeout(() => ctl?.abort(), 10000);
+    fetch(g ? api.g : api.c(key), { credentials:'omit', referrerPolicy:'no-referrer', signal:ctl?.signal })
+      .then(r => r.ok ? r.text() : null)
+      .then(txt => {
+        if(!txt || txt.length > this.BYTES) return null;
+        const list = api.list(JSON.parse(txt), g); if(!Array.isArray(list)) return null;
+        const map = new Map();
+        for(const e of list){
+          if(map.size >= this.MAX) break;
+          const name = e?.[api.name], id = e?.id==null ? '' : String(e.id);
+          if(typeof name==='string' && name.length <= 100 && /^\S+$/.test(name) && EMX_ID[p].test(id) && !map.has(name)) map.set(name, id);
+        }
+        return map;
+      })
+      .catch(() => null)
+      .then(map => { clearTimeout(t); s.busy = false; s.at = Date.now(); if(map){ s.map = map; try{ this.onReady(p, key); }catch{} } });
+  },
+  // смайлы в тексте: [[провайдер, id, с, по]] по символам, слова внутри эмоутов Twitch не трогаем
+  find(text, emotes, rid){
+    if(!EMX_PROV.some(p => this.on[p]) || typeof text!=='string') return [];
+    rid = RID_RE.test(String(rid||'')) ? String(rid) : '';
+    if(rid) this.room(rid); else this.want('');
+    const order = [];
+    for(const key of [rid, 'g']) if(key) for(const p of EMX_PROV) if(this.on[p]){ const m = this.sets.get(p+':'+key)?.map; if(m?.size) order.push([p, m]); }   // свои смайлы канала важнее глобальных
+    if(!order.length) return [];
+    const cp = Array.from(text), taken = new Uint8Array(cp.length);
+    for(const x of emotes||[]) for(let i = Math.max(0, x[1]); i <= x[2] && i < cp.length; i++) taken[i] = 1;
+    const out = []; let i = 0;
+    while(i < cp.length && out.length < 80){
+      if(/\s/.test(cp[i])){ i++; continue; }
+      let j = i, free = true;
+      while(j < cp.length && !/\s/.test(cp[j])){ if(taken[j]) free = false; j++; }
+      if(free && j - i <= 100){ const w = cp.slice(i, j).join(''); for(const [p, m] of order){ const id = m.get(w); if(id){ out.push([p, id, i, j-1]); break; } } }
+      i = j;
+    }
+    return out;
+  },
+};
 
 // ---------- чат Twitch: анонимное чтение, одно соединение на канал ----------
 function cleanChan(ch){ return (typeof ch==='string' ? ch : '').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
-const TAG_KEYS=['badges','display-name','id','color','emotes','subscriber','target-msg-id'];   // the only tags the app reads
+const TAG_KEYS=['badges','display-name','id','color','emotes','subscriber','target-msg-id','room-id'];   // the only tags the app reads
 function parseTags(str){
   const raw=new Map();
   for(const kv of (str||'').split(';')){ const i=kv.indexOf('='); if(i<0) continue;
@@ -1533,15 +1618,17 @@ function parseEmotes(tag){   // "25:0-4,12-16/1902:6-10" → [[id,from,to],…]
 function badgeOf(b){ b=b||''; return /broadcaster\//.test(b)?'broadcaster':/moderator\//.test(b)?'mod':/vip\//.test(b)?'vip':/(subscriber|founder)\//.test(b)?'sub':''; }
 const NAME_COLORS=['#ff6b6b','#ffa94d','#ffd43b','#69db7c','#38d9a9','#4dabf7','#748ffc','#da77f2','#f783ac'];
 function nameColor(login){ let n=0; for(const ch of login) n=(n*31+ch.charCodeAt(0))>>>0; return NAME_COLORS[n%NAME_COLORS.length]; }
-// одна строка IRC → { type:'msg', msg } | { type:'del', id } | { type:'clear', login } | null
+// одна строка IRC → { type:'msg', msg } | { type:'del', id } | { type:'clear', login } | { type:'room', id } | null
 function ircMessage(line){
   let m=line.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\w+ :(.*)$/);
   if(m){
     const tags=parseTags(m[1]), text=m[3].replace(/^\x01ACTION |\x01$/g,''), badge=badgeOf(tags.badges);
     return { type:'msg', msg:{ id:tags.id||Math.random().toString(36).slice(2,10), login:m[2], user:tags['display-name']||m[2],
       color:/^#[0-9a-f]{6}$/i.test(tags.color||'')?tags.color:nameColor(m[2]), text, emotes:parseEmotes(tags.emotes), badge,
-      mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', t:Date.now() } };
+      mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', rid:RID_RE.test(tags['room-id']||'')?tags['room-id']:'', t:Date.now() } };
   }
+  m=line.match(/^(?:@(\S+) )?:\S+ ROOMSTATE #\w+/);
+  if(m){ const id=parseTags(m[1])['room-id']; return RID_RE.test(id||'') ? { type:'room', id } : null; }   // id канала: по нему грузятся смайлы 7TV/BTTV/FFZ
   m=line.match(/^(?:@(\S+) )?:\S+ CLEARMSG #\w+ :/);
   if(m){ const id=parseTags(m[1])['target-msg-id']; return id ? { type:'del', id } : null; }
   m=line.match(/^(?:@(\S+) )?:\S+ CLEARCHAT #\w+(?: :(\S+))?\s*$/);
@@ -1570,6 +1657,7 @@ const TwitchChat={
         if(!line) continue;
         if(line.startsWith('PING')){ ws.send('PONG'+line.slice(4)); continue; }
         const r=ircMessage(line); if(!r) continue;
+        if(r.type==='room') ThirdEmotes.room(r.id);
         for(const cb of [...c.subs]){ try{ cb(r); }catch(e){ console.error(e); } }
       }
     };
@@ -1608,7 +1696,7 @@ function paintChatLine(row, m){
   if(m.badge) name.append(h('span','m-badge', BADGE[m.badge]));
   const u=h('span','m-user', m.user); u.style.color=m.color; name.append(u);
   row.style.setProperty('--uc', m.color);
-  row.append(name, ...msgBody(m.text, m.emotes).childNodes);
+  row.append(name, ...msgBody(m.text, m.emotes, m.xe || ThirdEmotes.find(m.text, m.emotes, m.rid)).childNodes);
 }
 function chatAdd(c, el, m){
   const row=h('div','cl'); row.dataset.id=m.id; row.dataset.login=m.login.toLowerCase();

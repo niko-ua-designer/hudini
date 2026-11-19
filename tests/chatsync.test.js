@@ -7,6 +7,25 @@ const { step, check, eq, until, sleep } = T;
 (async () => {
   const S = await T.stack({ irc: true, hostEnv: { OVERLAY_SITE: 'off' } });
   const { panel: mod, widget: wid, host } = S;
+  // emote providers without the network: fixed sets, every request counted
+  const API = {
+    '7tv.io/v3/emote-sets/global': { emotes: [{ id: '01F6MQ33FG000FFJ97ZB8MWV52', name: 'catJAM' }, { id: 'bad id!', name: 'Broken' }, { id: '01F6MQ33FG000FFJ97ZB8MWV53', name: 'two words' }] },
+    '7tv.io/v3/users/twitch/12345': { emote_set: { emotes: [{ id: '60ae958e229664e8667aea38', name: 'peepoHey' }, { id: '60ae958e229664e8667aea39', name: 'x'.repeat(101) }] } },
+    'api.betterttv.net/3/cached/emotes/global': [{ id: '5590b223b344e2c42a9e28e3', code: 'monkaS' }],
+    'api.betterttv.net/3/cached/users/twitch/12345': { channelEmotes: [{ id: 'aaaaaaaaaaaaaaaaaaaaaaaa', code: 'chanBT' }], sharedEmotes: [{ id: 'bbbbbbbbbbbbbbbbbbbbbbbb', code: 'sharedBT' }] },
+    'api.frankerfacez.com/v1/set/global': { default_sets: [3], sets: { 3: { emoticons: [{ id: 28136, name: 'LilZ' }] }, 4: { emoticons: [{ id: 1, name: 'NotDefault' }] } } },
+    'api.frankerfacez.com/v1/room/id/12345': { room: { set: 999 }, sets: { 999: { emoticons: [{ id: 12345, name: 'ffzChan' }] } } },
+  };
+  const hits = [];
+  const IMG = require('fs').readFileSync(require('path').join(__dirname, 'fixtures/img.png'));
+  const mock = async p => {
+    await p.context().route(/^https:\/\/(7tv\.io|api\.betterttv\.net|api\.frankerfacez\.com)\//, r => {
+      const u = r.request().url().replace(/^https:\/\//, ''); hits.push(u);
+      return Object.hasOwn(API, u) ? r.fulfill({ body: JSON.stringify(API[u]), contentType: 'application/json', headers: { 'access-control-allow-origin': '*' } }) : r.fulfill({ status: 404, body: '{}', headers: { 'access-control-allow-origin': '*' } });
+    });
+    await p.context().route(/^https:\/\/cdn\.(7tv\.app|betterttv\.net|frankerfacez\.com)\//, r => r.fulfill({ body: IMG, contentType: 'image/png' }));
+  };
+  await mock(mod); await mock(wid);
   const inv = await mod.evaluate(() => inviteLink(curRoom()));
   const mod2 = await T.newPage('mod2', { irc: true });
   await mod2.goto(inv);
@@ -79,6 +98,55 @@ const { step, check, eq, until, sleep } = T;
     });
     eq(r, { proto: true, keys: ['anna', 'bob', 'constructor'], votes: [1, 2], round: 'abc', cids: [300, 'm100', false], max: 5000, legacy: [3, 4] },
       'only valid nicknames and options, votes come from the map, 5000 voters and 300 message ids at most, old screens keep their votes');
+  });
+
+  await step('7TV, BTTV and FFZ emotes: off by default, then in the panel feed, in messages and chat on stream', async () => {
+    const text = 'hi catJAM peepoHey monkaS chanBT sharedBT LilZ ffzChan Kappa NotDefault Broken';
+    const kappa = Array.from(text).length - 'Kappa NotDefault Broken'.length;
+    const msgLine = id => `@badges=;color=#1E90FF;display-name=Anna;emotes=25:${kappa}-${kappa + 4};id=${id};room-id=12345 :anna!anna@x.tmi.twitch.tv PRIVMSG #chan :${text}`;
+    const lastRow = p => p.evaluate(() => { const r = [...document.querySelectorAll('#chatFeed .cm')].pop(); return r && [...r.querySelectorAll('img.m-emote')].map(i => i.alt + '@' + new URL(i.src).host); });
+    eq(await mod.evaluate(() => [emx_stv.checked, emx_bttv.checked, emx_ffz.checked, JSON.stringify(emxNow())]), [false, false, false, '{"stv":false,"bttv":false,"ffz":false}'], 'all three are off in a new room');
+    await mod.evaluate(x => window.__irc(x), '@emote-only=0;room-id=12345 :tmi.twitch.tv ROOMSTATE #chan');
+    await mod.evaluate(x => window.__irc(x), msgLine('e0000001'));
+    await sleep(500);
+    eq(await lastRow(mod), ['Kappa@static-cdn.jtvnw.net'], 'off: only the Twitch emote is a picture');
+    eq(hits.length, 0, 'off: nothing is requested from the emote servers');
+    await mod.click('[data-tab=chat]');
+    for(const p of ['stv', 'bttv', 'ffz']) await mod.click(`label.chk:has(#emx_${p})`);
+    check(await until(async () => (await mod2.evaluate(() => JSON.stringify(emxNow()) + emx_bttv.checked)) === '{"stv":true,"bttv":true,"ffz":true}true'), 'the other panel of the room gets the setting');
+    check(await until(async () => (await wid.evaluate(() => JSON.stringify(lastState.emx))) === '{"stv":true,"bttv":true,"ffz":true}'), 'the widget gets it with the screen');
+    check(await until(async () => (await lastRow(mod))?.length === 8), 'the feed is repainted once the sets have loaded');
+    await mod.evaluate(x => window.__irc(x), msgLine('e0000002'));
+    eq(await lastRow(mod), ['catJAM@cdn.7tv.app', 'peepoHey@cdn.7tv.app', 'monkaS@cdn.betterttv.net', 'chanBT@cdn.betterttv.net', 'sharedBT@cdn.betterttv.net', 'LilZ@cdn.frankerfacez.com', 'ffzChan@cdn.frankerfacez.com', 'Kappa@static-cdn.jtvnw.net'],
+      'global and channel emotes of all three, junk names and ids are skipped');
+    check(await mod.evaluate(() => [...document.querySelectorAll('#chatFeed .cm')].pop().textContent.includes('hi ') && [...document.querySelectorAll('#chatFeed .cm')].pop().textContent.includes('NotDefault Broken')), 'other words stay text');
+    eq([...new Set(hits)].sort(), Object.keys(API).sort(), 'the global and channel sets were requested');
+    const before = hits.length;
+    await mod.evaluate(x => window.__irc(x), msgLine('e0000003')); await sleep(300);
+    eq(hits.length, before, 'sets are cached, a new message requests nothing');
+    // a message on stream
+    await mod.evaluate(() => [...document.querySelectorAll('#chatFeed .cm')].pop().click());
+    const streamMsg = () => wid.evaluate(() => [...document.querySelectorAll('.msg .m-emote')].map(i => new URL(i.src).host));
+    check(await until(async () => (await streamMsg()).length === 8), 'the message on stream shows the emotes');
+    // the chat element on stream reads the chat itself
+    await mod.click('[data-tab=add]'); await mod.click('#addChatFeed');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'chat'); beginChange(); e.chan = 'chan'; commit(); });
+    check(await until(() => wid.evaluate(() => !!window.__irc && !!document.querySelector('.chat'))), 'the stream has its chat');
+    await sleep(500);
+    await wid.evaluate(x => window.__irc(x), '@emote-only=0;room-id=12345 :tmi.twitch.tv ROOMSTATE #chan');
+    check(await until(() => wid.evaluate(() => ['stv', 'bttv', 'ffz'].every(p => ThirdEmotes.sets.get(p + ':12345')?.map))), 'the widget loaded the channel sets (its CSP lets the three APIs through)');
+    await wid.evaluate(x => window.__irc(x), msgLine('e0000004'));
+    const chatRow = () => wid.evaluate(() => [...document.querySelectorAll('.chat .cl')].pop()?.querySelectorAll('.m-emote').length);
+    check(await until(async () => (await chatRow()) === 8), 'chat on stream shows the emotes');
+    // switching one provider off
+    await mod.click('[data-tab=chat]'); await mod.click('label.chk:has(#emx_stv)');
+    check(await until(async () => (await streamMsg()).length === 6 && !(await streamMsg()).includes('cdn.7tv.app')), '7TV off: its emotes leave the message on stream');
+    check(await until(async () => (await lastRow(mod))?.length === 6), 'and the panel feed');
+    await wid.evaluate(x => window.__irc(x), msgLine('e0000005'));
+    check(await until(async () => (await chatRow()) === 6), 'and new chat lines on stream');
+    eq(await mod.evaluate(() => { const e = sanitizeEl({ id: 'm', type: 'msg', text: 'a b', xe: [['stv', '01F6MQ33FG000FFJ97ZB8MWV52', 0, 0], ['evil', 'x', 0, 0], ['bttv', '../../x', 2, 2], ['ffz', '12', 2, 2], ['tw', '25', 0, 0]] }); return e.xe; }),
+      [['stv', '01F6MQ33FG000FFJ97ZB8MWV52', 0, 0], ['ffz', '12', 2, 2]], 'sanitizeEl keeps only known providers and valid ids');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'chat' && e.type !== 'msg'); state.emx = { stv: false, bttv: false, ffz: false }; commit(); });
   });
 
   await mod2.context().close();
