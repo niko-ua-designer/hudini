@@ -84,7 +84,7 @@ function cancelOfflineWait(){
   clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=15, widgets=new Map();
+const WIDGET_VER=16, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
