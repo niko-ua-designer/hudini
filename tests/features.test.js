@@ -524,15 +524,15 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { state.els[1].x = 12; state.els[1].y = 75; state.els[1].fs = 4; changed(); renderAll(); });
     await sleep(300);
     await mod.evaluate(() => { selectedId = state.els[1].id; msel.clear(); renderAll(); });
-    const B4 = await box(1), cxB = (B4.l + B4.r) / 2, hwB = (B4.r - B4.l) / 2;
-    const hb = await mod.locator('.el.sel .h-size').boundingBox();
+    const B4 = await box(1), wB = (B4.r - B4.l) / 100 * stageRect.w, hB = (B4.b - B4.t) / 100 * stageRect.h;
+    const hb = await mod.locator('.el.sel .rz-se').boundingBox();
     const hc = { x: hb.x + hb.width / 2, y: hb.y + hb.height / 2 };
-    const cB = await centerOf(1);
-    const kWant = (A.l - cxB) / hwB * 0.996;    // a bit short of the line
+    const kWant = (A.l * 0.996 - B4.l) / (B4.r - B4.l);    // the corner drags the right edge a bit short of the line; the left edge stays (anchor)
     await mod.mouse.move(hc.x, hc.y); await mod.mouse.down();
-    await mod.mouse.move(cB.x + (hc.x - cB.x) * kWant, cB.y + (hc.y - cB.y) * kWant, { steps: 6 });
+    await mod.mouse.move(hc.x + wB * (kWant - 1), hc.y + hB * (kWant - 1), { steps: 6 });
     await mod.mouse.up();
     const B5 = await box(1);
+    check(Math.abs(B5.l - B4.l) < 0.15, `the opposite (left) edge stays put while scaling: ${B4.l.toFixed(2)} → ${B5.l.toFixed(2)}`);
     check(Math.abs(B5.r - A.l) < 0.2, `scaling snapped the right edge of Beta to the left edge of Alpha: ${B5.r.toFixed(2)} vs ${A.l.toFixed(2)}`);
   });
 
@@ -588,7 +588,7 @@ const { step, check, eq, until, sleep } = T;
     check(await mod.$$eval('.lvl', n => n.length) >= 8, 'β/α marks present on beta features');
     // своя рамка: тянем ручку ширины, размер больше не зависит от содержимого
     await mod.evaluate(() => { selectedId = state.els[0].id; msel.clear(); renderAll(); });
-    const hb = await mod.locator('.el.sel .h-sw').boundingBox();
+    const hb = await mod.locator('.el.sel .rz-e').boundingBox();
     await mod.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await mod.mouse.down();
     await mod.mouse.move(hb.x + 120, hb.y + hb.height / 2, { steps: 5 }); await mod.mouse.up();
     const bw = await mod.evaluate(() => state.els[0].bw);
@@ -601,7 +601,7 @@ const { step, check, eq, until, sleep } = T;
     await until(async () => (await wid.$eval(`.el[data-id="${id0}"]`, n => n.textContent).catch(() => '')).includes('Очень'));
     const after = await wid.$eval(`.el[data-id="${id0}"]`, n => n.getBoundingClientRect().width);
     check(Math.abs(after - before) < 2 && Math.abs(after - bw / 100 * 1920) < 4, `frame keeps its width on stream (${Math.round(before)} → ${Math.round(after)} px)`);
-    await mod.dblclick('.el.sel .h-sw');
+    await mod.dblclick('.el.sel .rz-e');
     eq(await mod.evaluate(() => state.els[0].bw), 0, 'double-click: size by content again');
     await mod.evaluate(() => { state.els[0].text = 'А'; changed(); });
     await mod.context().grantPermissions(['clipboard-read', 'clipboard-write']);
