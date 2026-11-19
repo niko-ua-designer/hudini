@@ -127,7 +127,7 @@ function renderFight(){
 }
 
 // ---- Статус ----
-const TOGS=[['chat','Чат на стриме'],['cs2','CS2-HUD'],['sound','Звуки'],['draw','Рисунки'],['fx','Эффекты']];
+const TOGS=[['chat','Чат на стриме'],['cs2','CS2-HUD'],['sound','Звуки'],['draw','Рисунки'],['fx','Эффекты'],['tab','Авто-таб CS2']];
 // Перерисовываем раздел, только если его данные поменялись: кнопка под мышью не пропадает каждую секунду
 function same(box, data){ const sig=JSON.stringify(data); if(box.dataset.sig===sig) return true; box.dataset.sig=sig; return false; }
 function renderStat(){

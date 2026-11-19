@@ -124,7 +124,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -317,6 +317,7 @@ async function onMessage(topic, payload, packet){
   }
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic===T.base+'/ink'){ if(!packet.retain) window.Draw?.ink(await unsealJSON(keys, payload, true)); return; }   // живой штрих рисунка
@@ -401,7 +402,7 @@ function publishNow(qos=0){
   window.Draw?.beforeSend();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[], emx:emxNow() };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[], emx:emxNow(), cs2auto:taCfg() };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -426,7 +427,7 @@ async function switchRoom(code){
   if(homeClient) dropHome();
   rafFlush(); rafPool.clear(); rafSkip.clear(); chatPend.clear();   // участники и голоса у каждой комнаты свои
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
-  widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
+  widgets.clear(); renderObs(); CS2=null; CS2_SERIES=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
   state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; redoStack.length=0; changeOpen=false; openChange=null; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
@@ -875,7 +876,7 @@ function elName(el){
   if(el.type==='counter') return (el.label||'Счётчик')+' · '+counterValue(el, nowMs());
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
-  if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый' }[el.view];
+  if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый', radar:'радар' }[el.view];
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='draw') return 'Рисунок · '+el.strokes.length;
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
@@ -2348,6 +2349,7 @@ bindInput('iEvery',  (el,f)=>{ if(el.running){ el.value=counterValue(el, Date.no
 bindInput('iCsView',   (el,f)=>{ el.view=f.value;
   if(el.view==='teams' && el.fs>2.6) el.fs=2.4;            // панели команд крупные — сразу поменьше
   if(el.view==='scorebar'){ el.x=50; el.y=7; }
+  if(el.view==='radar'){ el.x=13; el.y=30; el.fs=2.6; el.rot=0; }
   if(el.view==='streak'){ el.x=50; el.y=32; if(el.fs<5) el.fs=5; }
   if(CS2_FULL.has(el.view)){ el.x=50; el.y=50; el.rot=0; el.fs=4; } });
 // ---- HUD CS2: цвета, эффекты, команды, аватарки, выбор игроков ----
@@ -3583,5 +3585,73 @@ function markLevels(){
   // режим наблюдателя CS2: метка прямо в списке видов
   for(const v of ['teams','scorebar','observed','hud_tour','table','duel','compare']){ const o=document.querySelector(`#iCsView option[value="${v}"]`); if(o) o.textContent='α '+o.textContent; }
 }
+// ================== ВКЛАДКА CS2: авто-таб и серия карт ==================
+// Настройки авто-таба едут в экране (state.cs2auto), виджет решает сам, когда таб выезжает.
+// Серию ведёт программа стримера (тема cs2series), пульт шлёт ей подписанные команды в cs2cmd: формат, сброс, правка.
+const taMem={};
+let taPrevUntil=0, taPrevM=null, serDirty=false, serDraft=null;
+function taCfg(){ return cleanCs2Auto(state.cs2auto); }
+function taSet(k, v){ state.cs2auto={ ...taCfg(), [k]:v }; renderTa(); publishNow(1); }
+for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']])
+  $(id).addEventListener('change', e=>taSet(k, e.target.checked));
+$('taStyle').addEventListener('change', e=>{ taSet('theme', e.target.value); taPlay($('taMoment').value); });
+function renderTa(){
+  const a=taCfg();
+  for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']]) setField($(id), a[k], 'checked');
+  setField($('taStyle'), a.theme);
+  $('taOffNote').hidden=!hostCtl?.tabOff;
+}
+// превью во вкладке: «▶ Превью» на 6 с, а в игре — то же, что сейчас на стриме
+function taPlay(m){ taPrevM=m; taPrevUntil=Date.now()+6000; const b=$('taBox'); cs2TabRender(b, null); b._on=false; taTick(); }
+function taTick(){
+  const box=$('taBox'); if(!box) return;
+  const a=taCfg(), d=cs2Fresh() ? CS2 : null, now=Date.now();
+  let m=null, data=d;
+  if(now<taPrevUntil){ m=taPrevM; if(!d?.players?.length) data=cs2DemoFor(m); }
+  else if(!hostCtl?.tabOff) m=cs2TabMoment(d, a, taMem, now);
+  if($('taPrev').offsetParent===null && m && !box._on) return;   // вкладка закрыта: не рисуем зря
+  cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(state.els) } : null);
+}
+setInterval(()=>{ taTick(); if(!$('taOn').matches(':focus')) renderTa(); }, 250);
+$('taPreview').onclick=()=>taPlay($('taMoment').value);
+$('taShow').onclick=()=>{ const m=$('taMoment').value; if(sendFx({ type:'cs2tab', m, ms:8000 })){ taPlay(m); toast('📺 Таб на стриме на 8 секунд'); } };
+
+function serCmd(cmd){
+  if(!client?.connected){ toast('Нет связи с Hudini Host'); return false; }
+  sealedPublish(topics(room).base+'/cs2cmd', { ...cmd, from:clientId, t:Date.now() }, { qos:1 }).catch(()=>toast('Не отправилось'));
+  return true;
+}
+function serMapsNow(){ return serDirty && serDraft ? serDraft : (CS2_SERIES?.maps || []).map(m=>({ map:m.map, a:m.a.score, b:m.b.score })); }
+function renderSeries(){
+  const s=CS2_SERIES;
+  setField($('serBo'), String(s?.bo || 3));
+  if(!serDirty){ setField($('serNa'), s?.a.name || ''); setField($('serNb'), s?.b.name || ''); }
+  $('serScore').textContent=`${s?.a.w ?? 0} : ${s?.b.w ?? 0}`;
+  $('serNote').textContent = !s ? 'Серия появится, когда программа стримера подключена.' : serDirty ? 'Есть несохранённые правки.' : '';
+  const box=$('serMaps');
+  if(box.contains(document.activeElement)) return;
+  box.replaceChildren(...serMapsNow().map((m, i)=>{
+    const r=document.createElement('div'); r.className='ser-map';
+    const nm=document.createElement('input'); nm.type='text'; nm.value=m.map; nm.placeholder='de_mirage';
+    const a=document.createElement('input'); a.type='number'; a.min=0; a.max=99; a.value=m.a;
+    const b=document.createElement('input'); b.type='number'; b.min=0; b.max=99; b.value=m.b;
+    const del=document.createElement('button'); del.textContent='🗑'; del.title='Убрать карту';
+    const edit=()=>{ serDraft=serMapsNow().map(x=>({ ...x })); serDirty=true; return serDraft; };
+    nm.oninput=()=>{ edit()[i].map=nm.value.trim(); renderSeries(); };
+    a.oninput=()=>{ edit()[i].a=Number(a.value)||0; renderSeries(); };
+    b.oninput=()=>{ edit()[i].b=Number(b.value)||0; renderSeries(); };
+    del.onclick=()=>{ edit().splice(i, 1); renderSeries(); };
+    r.append(nm, a, b, del); return r;
+  }));
+}
+$('serAdd').onclick=()=>{ serDraft=[...serMapsNow().map(x=>({ ...x })), { map:CS2?.map||'', a:0, b:0 }].slice(0, 7); serDirty=true; renderSeries(); };
+for(const id of ['serNa','serNb']) $(id).addEventListener('input', ()=>{ if(!serDirty){ serDraft=serMapsNow().map(x=>({ ...x })); serDirty=true; } renderSeries(); });
+$('serSave').onclick=()=>{
+  const maps=serMapsNow().map(m=>({ map:m.map, a:{ score:m.a }, b:{ score:m.b } }));
+  if(serCmd({ op:'edit', bo:Number($('serBo').value), names:{ a:$('serNa').value.trim(), b:$('serNb').value.trim() }, maps })){ serDirty=false; serDraft=null; toast('🏆 Серия сохранена'); }
+};
+$('serReset').onclick=()=>{ if(confirm('Начать серию заново? Записанные карты пропадут.') && serCmd({ op:'reset' })){ serDirty=false; serDraft=null; toast('↺ Серия сброшена'); } };
+$('serBo').addEventListener('change', e=>{ serCmd({ op:'bo', bo:Number(e.target.value) }); });
+renderTa(); renderSeries();
 markLevels();
 boot().catch(e=>{ console.error('boot', e); try{ sessionProblem('Пульт не запустился: '+(e?.message||e)); }catch{} });

@@ -549,3 +549,139 @@
 /* ---------- рисунок на весь экран ---------- */
 .draw{position:relative;width:100%;aspect-ratio:16/9;pointer-events:none}
 .draw canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* ---------- CS2 авто-таб: поверх экрана, единицы cqw = 1% ширины сцены 16:9. Стили A–D, тема по CS2-элементу ---------- */
+.ctab{position:absolute;inset:0;z-index:90000;pointer-events:none;container-type:inline-size;overflow:hidden;color:#eef0f6;line-height:1.25;
+  font-family:Onest,Inter,system-ui,"Segoe UI",sans-serif;--ct:#5d9cec;--t:#e0a030;--acc:#7c5cff;--pink:#ff5c9a;--muted:#a3a9ba;
+  --pan:linear-gradient(180deg,#141826f2,#0b0d14f2);--edge:.12cqw solid #ffffff22;--rad:1cqw;--shadow:0 .6cqw 2cqw #000a;--hl:#7c5cffcc}
+.ctab[hidden]{display:none}
+.ctab *{box-sizing:border-box}
+.ctab .pl{display:grid;grid-template-columns:1.6cqw minmax(0,1fr) 5.4cqw 2.8cqw 2.8cqw 4.6cqw 4.6cqw;gap:.6cqw;align-items:center;font-size:1.12cqw;white-space:nowrap}
+.ctab .pl .nm{overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.ctab .pl .num{text-align:right;font-variant-numeric:tabular-nums;justify-content:flex-end}
+.ctab .pl .sl{color:var(--muted);text-align:center;font-weight:700}
+.ctab .pl .wpn{color:var(--muted);overflow:hidden;text-overflow:ellipsis;font-size:.92em}
+.ctab .pl .money{color:#7ee787}
+.ctab .pl.ph{font-size:.85cqw;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding-top:0!important;border-top:0!important}
+.ctab .kd{display:inline-flex;align-items:center;gap:.15em}
+.ctab .hi{display:inline-block;width:.95em;height:.95em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;overflow:visible;opacity:.75}
+.ctab .kd-sep{opacity:.45}
+.ctab .dead{opacity:.45}
+.ctab .mvp .nm,.ctab .mvp{color:#ffd166}.ctab .star{font-style:normal;font-weight:900}
+.ctab .tt{font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.ctab .sub{color:#cdd3e6}
+.ctab .ctime{font-variant-numeric:tabular-nums;font-weight:800}
+.ctab .ser{font-weight:900}
+/* A · турнирный: колонки команд с боков, строки каскадом, плашка серии снизу */
+.ctab[data-st=A] .tt{position:absolute;top:3cqw;left:0;right:0;text-align:center;font-size:2.6cqw;text-shadow:0 .3cqw .8cqw #000a;opacity:0;transform:translateY(-3cqw)}
+.ctab[data-st=A] .sub{position:absolute;top:6.3cqw;left:0;right:0;text-align:center;font-size:1.3cqw;opacity:0;text-shadow:0 .2cqw .6cqw #000a}
+.ctab[data-st=A] .col{position:absolute;top:9.2cqw;width:44cqw;padding:1.2cqw 1.4cqw;background:var(--pan);border:var(--edge);border-radius:var(--rad);box-shadow:var(--shadow)}
+.ctab[data-st=A] .col.l{left:2.6cqw;transform:translateX(-52cqw)}.ctab[data-st=A] .col.r{right:2.6cqw;transform:translateX(52cqw)}
+.ctab[data-st=A] .col h4{margin:0 0 .5cqw;display:flex;justify-content:space-between;align-items:baseline;font-size:1.7cqw}
+.ctab[data-st=A] .col.l h4{color:var(--ct)}.ctab[data-st=A] .col.r h4{color:var(--t)}
+.ctab[data-st=A] .col h4 b{font-size:1.25em}
+.ctab[data-st=A] .pl{padding:.55cqw 0;border-top:.08cqw solid #ffffff14;opacity:0;transform:translateY(-1.5cqw)}
+.ctab[data-st=A] .ser{position:absolute;bottom:3cqw;left:50%;transform:translate(-50%,3cqw);opacity:0;padding:.6cqw 2cqw;border-radius:99px;background:var(--hl);font-size:1.6cqw;box-shadow:var(--shadow)}
+.ctab[data-st=A].show .tt,.ctab[data-st=A].show .sub{opacity:1;transform:none;transition:.5s .1s}
+.ctab[data-st=A].show .col{transform:none;transition:transform .7s cubic-bezier(.2,.9,.2,1)}
+.ctab[data-st=A].show .col.r{transition-delay:.08s}
+.ctab[data-st=A].show .pl{opacity:1;transform:none;transition:.4s}
+.ctab[data-st=A].show .pl:nth-of-type(2){transition-delay:.5s}.ctab[data-st=A].show .pl:nth-of-type(3){transition-delay:.58s}.ctab[data-st=A].show .pl:nth-of-type(4){transition-delay:.66s}.ctab[data-st=A].show .pl:nth-of-type(5){transition-delay:.74s}.ctab[data-st=A].show .pl:nth-of-type(6){transition-delay:.82s}
+.ctab[data-st=A].show .ser{opacity:1;transform:translate(-50%,0);transition:.5s .9s}
+.ctab[data-st=A] .col,.ctab[data-st=A] .tt,.ctab[data-st=A] .sub,.ctab[data-st=A] .ser{transition:.45s ease-in}
+/* B · стекло: карточка по центру, счёт перелистывается */
+.ctab[data-st=B] .card{position:absolute;left:50%;top:50%;width:76cqw;transform:translate(-50%,-46%) scale(.92);opacity:0;padding:2cqw 2.4cqw;border-radius:calc(var(--rad)*2);
+  background:linear-gradient(160deg,#ffffff24,#ffffff0a),linear-gradient(180deg,#1c2030b0,#0a0c16a0);border:.12cqw solid #ffffff33;box-shadow:0 2cqw 6cqw #000a;transition:.4s ease-in}
+.ctab[data-st=B].show .card{opacity:1;transform:translate(-50%,-50%);transition:.55s cubic-bezier(.2,.9,.2,1)}
+.ctab[data-st=B] .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2cqw}
+.ctab[data-st=B] .head .tt{font-size:1.9cqw}
+.ctab[data-st=B] .big{display:flex;align-items:baseline;gap:1.2cqw;font-size:4.6cqw;font-weight:900;font-variant-numeric:tabular-nums}
+.ctab[data-st=B] .big b{display:inline-block;min-width:3cqw;text-align:center;perspective:30cqw}
+.ctab[data-st=B] .big b:first-child{color:var(--ct)}.ctab[data-st=B] .big b:last-child{color:var(--t)}
+.ctab[data-st=B] .big b i{display:inline-block;font-style:normal;transform-origin:50% 100%}
+.ctab[data-st=B].show:not(.still) .big b i{animation:ctab-flip .7s .35s both}
+@keyframes ctab-flip{from{transform:rotateX(-90deg);opacity:0}to{transform:none;opacity:1}}
+.ctab[data-st=B] .two{display:grid;grid-template-columns:1fr 1fr;gap:2cqw}
+.ctab[data-st=B] .two h4{margin:0 0 .4cqw;font-size:1.5cqw}
+.ctab[data-st=B] .two .l h4{color:var(--ct)}.ctab[data-st=B] .two .r h4{color:var(--t)}
+.ctab[data-st=B] .pl{padding:.45cqw 0;border-top:.08cqw solid #ffffff1a;font-size:1.02cqw;grid-template-columns:1.4cqw minmax(0,1fr) 4.9cqw 2.5cqw 2.5cqw 4cqw 4.3cqw}
+.ctab[data-st=B] .mvpbox{margin-top:1.2cqw;text-align:center;font-size:1.45cqw;font-weight:800}
+.ctab[data-st=B][data-m=end] .mvpbox{color:#ffd166}
+.ctab[data-st=B] .ser{margin-top:.6cqw;text-align:center;font-size:1.2cqw;color:#cdd3e6}
+/* C · неон-лента: полосы игроков выезжают с краёв, сверху светящаяся полоса с итогом */
+.ctab[data-st=C] .topbar{position:absolute;top:0;left:0;right:0;height:5.6cqw;display:flex;align-items:center;justify-content:center;gap:2cqw;background:linear-gradient(90deg,#7c5cffcc,#ff5c9acc);
+  transform:translateY(-110%);font-size:2cqw;font-weight:900;box-shadow:0 0 3cqw #ff5c9a88;transition:.45s ease-in}
+.ctab[data-st=C] .topbar .tsc{font-size:1.15em}.ctab[data-st=C] .topbar .tser{font-weight:600;font-size:1.4cqw}
+.ctab[data-st=C].show .topbar{transform:none;transition:.5s cubic-bezier(.2,.9,.2,1)}
+.ctab[data-st=C] .sub{position:absolute;top:6.6cqw;left:0;right:0;text-align:center;font-size:1.3cqw;opacity:0;text-shadow:0 .2cqw .6cqw #000c;transition:.3s}
+.ctab[data-st=C].show .sub{opacity:1;transition:.4s .4s}
+.ctab[data-st=C] .stripe{position:absolute;left:0;height:6cqw;width:48.5cqw;display:flex;align-items:center;padding:0 2cqw 0 1.6cqw;transform:translateX(-110%);
+  background:linear-gradient(90deg,#0b0d14f2,#0b0d14c8);border-left:.7cqw solid var(--ct);border-radius:0 3cqw 3cqw 0;box-shadow:0 0 2cqw color-mix(in srgb,var(--ct) 40%,transparent);transition:transform .4s ease-in}
+.ctab[data-st=C] .stripe.t{left:auto;right:0;transform:translateX(110%);border-left:0;border-right:.7cqw solid var(--t);border-radius:3cqw 0 0 3cqw;padding:0 1.6cqw 0 2cqw;box-shadow:0 0 2cqw color-mix(in srgb,var(--t) 40%,transparent)}
+.ctab[data-st=C] .stripe .pl{width:100%;font-size:1.3cqw;grid-template-columns:1.6cqw minmax(0,1fr) 6cqw 3cqw 3cqw 5cqw 5.2cqw}
+.ctab[data-st=C].show .stripe{transform:none;transition:transform .6s cubic-bezier(.2,.9,.2,1) calc(.1s + var(--i)*.08s)}
+/* D · карточки: ряд CT падает сверху, ряд T поднимается снизу, посередине полоса с заголовком и счётом */
+.ctab[data-st=D] .mid{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%) scaleY(0);text-align:center;padding:1cqw 0;background:linear-gradient(90deg,#0000,#7c5cffdd 20%,#ff5c9add 80%,#0000);transition:.3s ease-in}
+.ctab[data-st=D] .mid .tt{font-size:2.3cqw}.ctab[data-st=D] .mid .sub{font-size:1.25cqw;color:#f1edff}
+.ctab[data-st=D].show .mid{transform:translateY(-50%) scaleY(1);transition:.5s .5s}
+.ctab[data-st=D] .rowc{position:absolute;left:3.5cqw;right:3.5cqw;display:grid;grid-template-columns:repeat(5,1fr);gap:1.2cqw;transition:transform .45s ease-in}
+.ctab[data-st=D] .rowc.ct{top:4cqw;transform:translateY(-32cqw)}.ctab[data-st=D] .rowc.tr{bottom:4cqw;transform:translateY(32cqw)}
+.ctab[data-st=D].show .rowc{transform:none;transition:transform .7s cubic-bezier(.2,.9,.2,1)}
+.ctab[data-st=D] .pc{padding:1.1cqw;border-radius:calc(var(--rad)*1.2);background:var(--pan);border:var(--edge);box-shadow:var(--shadow);text-align:center;min-width:0}
+.ctab[data-st=D] .ct .pc{border-top:.5cqw solid var(--ct)}.ctab[data-st=D] .tr .pc{border-bottom:.5cqw solid var(--t)}
+.ctab[data-st=D] .pc .nm{font-size:1.45cqw;font-weight:800;margin-bottom:.5cqw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctab[data-st=D] .pc .st{display:flex;justify-content:center;gap:1cqw;font-size:1.2cqw;white-space:nowrap}
+.ctab[data-st=D] .pc .mo{margin-top:.5cqw;font-size:1.05cqw;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* обновление данных уже показанного таба: без повторной анимации */
+.ctab.still *{transition:none!important;animation:none!important}
+/* темы худа: таб выглядит как остальной CS2-HUD (core.css выше: classic / glass / ko) */
+.ctab[data-th=classic]{--pan:linear-gradient(180deg,#232429f7,#16171cf7);--edge:.1cqw solid #ffffff1c;--rad:.4cqw;--shadow:inset 0 .08cqw 0 #ffffff1c,0 .5cqw 1.6cqw #000b;--hl:#2a2c34}
+.ctab[data-th=classic] :is([data-st] .col,.card,.stripe,.pc){background:var(--pan);border:var(--edge);box-shadow:var(--shadow);backdrop-filter:none}
+.ctab[data-th=classic][data-st=B] .card,.ctab[data-th=classic][data-st=C] .stripe{border-radius:var(--rad)}
+.ctab[data-th=classic][data-st=C] .stripe{border-left:.5cqw solid var(--ct)}.ctab[data-th=classic][data-st=C] .stripe.t{border-left:var(--edge);border-right:.5cqw solid var(--t)}
+.ctab[data-th=classic] :is(.topbar,.mid){background:linear-gradient(180deg,#2c2e36,#1b1c22);box-shadow:inset 0 .08cqw 0 #ffffff22,0 .5cqw 1.6cqw #000b}
+.ctab[data-th=classic][data-st=D] .mid{background:linear-gradient(90deg,#0000,#26272ef5 18%,#26272ef5 82%,#0000)}
+.ctab[data-th=classic][data-st=A] .col.l{border-top:.3cqw solid var(--ct)}.ctab[data-th=classic][data-st=A] .col.r{border-top:.3cqw solid var(--t)}
+.ctab[data-th=glass]{--pan:linear-gradient(160deg,#ffffff2e 0,#ffffff0d 38%,#0000 60%),linear-gradient(180deg,rgba(28,32,48,.72),rgba(10,12,22,.6));--edge:.1cqw solid #ffffff38;--rad:1cqw;--shadow:inset 0 .08cqw 0 #ffffff40,0 .8cqw 2.4cqw #0009}
+.ctab[data-th=glass] :is([data-st] .col,.pc){backdrop-filter:blur(1.2cqw) saturate(1.4);border-top-color:#ffffff5c}
+.ctab[data-th=glass] :is(.tt,.sub,.pl,.pc){text-shadow:0 .08cqw .3cqw #000c}
+.ctab[data-th=ko]{--pan:linear-gradient(160deg,#ffffff1f 0,#0000 40%),linear-gradient(120deg,color-mix(in srgb,#2f45ff 55%,#0b0b24eb),color-mix(in srgb,#7a3cff 45%,#0b0b24eb) 70%,color-mix(in srgb,#c63fe6 40%,#0b0b24eb));
+  --edge:.1cqw solid #e9e1ff38;--rad:.8cqw;--shadow:inset 0 .08cqw 0 #ffffff30,0 .6cqw 2cqw #000a,0 0 1.6cqw color-mix(in srgb,#7a3cff 30%,transparent);--hl:linear-gradient(90deg,#7c5cff,#ff5c9a)}
+.ctab[data-th=ko] :is([data-st=B] .card,[data-st=C] .stripe){background:var(--pan);border:var(--edge);box-shadow:var(--shadow)}
+.ctab[data-th=ko][data-st=C] .stripe{border-left:.6cqw solid var(--ct)}.ctab[data-th=ko][data-st=C] .stripe.t{border-left:var(--edge);border-right:.6cqw solid var(--t)}
+.ctab[data-th=ko] :is(.topbar){background:linear-gradient(90deg,#2f45ff,#7a3cff 55%,#c63fe6)}
+.ctab[data-th=ko][data-st=D] .mid{background:linear-gradient(90deg,#0000,#3b3dffdd 20%,#b23fe6dd 80%,#0000)}
+.ctab[data-th=ko] :is(.tt,.sub,.pl,.pc){text-shadow:0 .08cqw .3cqw #000b}
+/* пока таб на экране, нижние карточки игроков уезжают вниз за край, верхний индикатор — вверх */
+.cs2.full .hd-bottom{transition:transform .6s cubic-bezier(.2,.9,.2,1),opacity .4s}
+.cs2.full .hd-top,.cs2.full .hd-feed{transition:transform .6s cubic-bezier(.2,.9,.2,1),opacity .4s}
+.cs2[data-view="scorebar"]{transition:transform .6s cubic-bezier(.2,.9,.2,1),opacity .4s}
+.ctab-hb .cs2.full .hd-bottom{transform:translateY(160%);opacity:0}
+.ctab-ht .cs2.full .hd-top{transform:translate(-50%,-180%);opacity:0}
+.ctab-ht .cs2.full .hd-feed{opacity:0}
+.ctab-ht .cs2[data-view="scorebar"]{transform:translateY(calc(var(--u,10px) * -60));opacity:0}
+
+/* ---------- CS2 радар: квадрат, подложка Hudini в теме элемента, точки игроков ---------- */
+.cs2[data-view="radar"]{padding:.35em!important}
+.cs2 .rd{position:relative;width:14em;height:14em;border-radius:.45em;overflow:hidden;background:#0b0d14b0}
+.cs2 .rd-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff14 1px,transparent 1px),linear-gradient(90deg,#ffffff14 1px,transparent 1px);background-size:10% 10%;opacity:1;transition:opacity .3s}
+.cs2 .rd.has-img .rd-grid{opacity:0}
+.cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.cs2 .rd-dots{position:absolute;inset:0}
+.cs2 .rd-cap{position:absolute;left:.5em;bottom:.35em;font-size:.55em;opacity:.75;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 .3em #000;max-width:90%}
+.cs2 .rd-dot{position:absolute;width:1.15em;height:1.15em;margin:-.575em 0 0 -.575em;border-radius:50%;background:var(--tc,#5d9cec);display:grid;place-items:center;
+  box-shadow:0 0 0 .1em #000a,0 0 .5em color-mix(in srgb,var(--tc,#5d9cec) 70%,transparent);transition:left .25s linear,top .25s linear,opacity .3s;z-index:2}
+.cs2 .rd-dot.tm-ct{--tc:var(--ct,#5d9cec)}.cs2 .rd-dot.tm-t{--tc:var(--tt,#e0a030)}
+.cs2 .rd-dot b{font-size:.62em;font-weight:900;color:#0b0d14;line-height:1}
+.cs2 .rd-dir{position:absolute;inset:-.45em;transform:rotate(var(--a,0deg));transition:transform .25s linear;pointer-events:none}
+.cs2 .rd-dir::after{content:"";position:absolute;right:0;top:50%;margin-top:-.22em;border:.22em solid transparent;border-left:.32em solid var(--tc);border-right:0}
+.cs2 .rd-dot.obs{box-shadow:0 0 0 .12em #fff,0 0 .7em var(--tc);z-index:3}
+.cs2 .rd-dot.c4::before{content:"";position:absolute;right:-.25em;top:-.25em;width:.45em;height:.45em;border-radius:.1em;background:#ff4d5e;box-shadow:0 0 .3em #ff4d5e}
+.cs2 .rd-dot.dead{background:none;box-shadow:none;opacity:.7;z-index:1}
+.cs2 .rd-dot.dead b{color:var(--tc);font-size:.8em}
+.cs2 .rd-dot.other{opacity:.35}
+.cs2 .rd-bomb{position:absolute;width:1em;height:1em;margin:-.5em 0 0 -.5em;color:#ff4d5e;filter:drop-shadow(0 0 .25em #ff4d5e);transition:left .25s linear,top .25s linear;z-index:2}
+.cs2 .rd-bomb .hi{width:100%;height:100%}
+.cs2 .rd-bomb.planted{animation:rd-blink 1s infinite}
+@keyframes rd-blink{50%{opacity:.35}}
+.cs2[data-theme="classic"] .rd{border-radius:.25em;background:#15171cf0}
+.cs2[data-theme="ko"] .rd{background:#0b0b24c0}

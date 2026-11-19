@@ -342,3 +342,9 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 #stage.drawing,#stage.drawing .el{cursor:crosshair}
 #stage.drawing.erasing,#stage.drawing.erasing .el{cursor:cell}
 #stage.drawing.picking,#stage.drawing.picking .el{cursor:copy}
+/* вкладка CS2: превью авто-таба 16:9 и строки серии карт */
+.ta-prev{position:relative;width:100%;aspect-ratio:16/9;margin:8px 0 4px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:radial-gradient(120% 90% at 30% 20%,#2a3350,#0c0e14 70%)}
+.ta-prev .ctab{z-index:1}
+.ser-score{font-size:15px;white-space:nowrap;padding:0 4px}
+.ser-map{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px auto;gap:4px;align-items:center;margin-top:4px}
+.ser-map input{min-width:0}

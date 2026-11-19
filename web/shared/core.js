@@ -51,21 +51,24 @@ const STREAM_TXT = {
     'появится само при мульти-килле':'shows up by itself on a multikill', '🎯 CS2: ждём данные из игры':'🎯 CS2: waiting for game data', 'Игрок':'Player',
     'смотрит':'watching', 'мёртв':'dead', 'раунд':'round', 'Раунд':'Round', '👁 Наблюдатель: выбери игрока':'👁 Spectator: pick a player',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team panels work when the streamer watches a match as a spectator (GOTV / observer)',
-    'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d' },
+    'Спецназ':'Counter-Terrorists', 'Террористы':'Terrorists', 'в голову':'headshot', 'Зритель':'Viewer', 'д':'d',
+    'Серия':'Series', 'ТАЙМАУТ':'TIMEOUT', 'ПАУЗА':'PAUSE', 'Тактический перерыв':'Tactical timeout', 'осталось':'left', 'СМЕНА СТОРОН':'SIDE SWITCH', 'ИТОГ КАРТЫ':'MAP RESULT', 'Победа':'Win:', 'Ничья':'Draw', 'убийств':'kills', '👁 Радар работает, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 The radar works when the streamer watches a match as a spectator (GOTV / observer)' },
   uk:{ "открывает":"відкриває", "выбил":"вибив", "Ширпотреб":"Ширвжиток", "Промышленное":"Промислове", "Армейское":"Армійське", "Запрещённое":"Заборонене", "Засекреченное":"Засекречене", "Тайное":"Таємне", "Редкое":"Рідкісне", "Розыгрыш":"Розіграш", "только подписчики":"тільки підписники", "Пиши в чат":"Пиши в чат", "Пиши в чат что угодно, чтобы участвовать":"Пиши в чат що завгодно, щоб узяти участь", "Сбор закрыт, сейчас крутим!":"Збір закрито, зараз крутимо!", "Розыгрыш скоро начнётся":"Розіграш скоро почнеться", "У подписчиков шанс x2":"У підписників шанс x2", "выигрывает":"виграє", "Победители":"Переможці", "на связи":"на зв'язку", "Напиши в чат за":"Напиши в чат за", "Не ответил, перекручиваем…":"Не відповів, перекручуємо…", 'урон за раунд':"урон за раунд", 'Выбери двух игроков в пульте':"Вибери двох гравців у пульті", 'Дуэль появится сама после килла (режим наблюдателя)':"Дуель з'явиться сама після кіла (режим спостерігача)", 'Пиши в чат цифру':'Пиши в чат цифру', 'голосов':'голосів', 'Голосование закрыто':'Голосування закрите', 'Голосование скоро начнётся':'Голосування скоро почнеться', 'Да':'Так', 'Нет':'Ні', 'Окно источника':'Вікно джерела', 'Розовая рамка должна идти ровно по краям экрана стрима.':'Рожева рамка має йти рівно по краях екрана стріму.', 'Если она меньше экрана: в OBS выдели источник →':'Якщо вона менша за екран: в OBS виділи джерело →', 'Растянуть на экран':'Розтягнути на екран',
     'Нож':'Ніж', 'Флешка':'Флешка', 'Дым':'Дим', 'Молотов':'Молотов', 'Зажигалка':'Запальничка', 'Ложная':'Хибна',
     'заложена':'закладена', 'разминируют':'розміновують', 'разминирована':'розмінована', 'взорвалась':'вибухнула',
     'появится само при мульти-килле':"з'явиться само при мульти-кілі", '🎯 CS2: ждём данные из игры':'🎯 CS2: чекаємо дані з гри', 'Игрок':'Гравець',
     'смотрит':'дивиться', 'мёртв':'мертвий', 'раунд':'раунд', 'Раунд':'Раунд', '👁 Наблюдатель: выбери игрока':'👁 Спостерігач: вибери гравця',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Панелі команд працюють, коли стример дивиться матч глядачем (GOTV / спостерігач)',
-    'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д' },
+    'Спецназ':'Спецпризначенці', 'Террористы':'Терористи', 'в голову':'у голову', 'Зритель':'Глядач', 'д':'д',
+    'Серия':'Серія', 'ТАЙМАУТ':'ТАЙМАУТ', 'ПАУЗА':'ПАУЗА', 'Тактический перерыв':'Тактична перерва', 'осталось':'лишилось', 'СМЕНА СТОРОН':'ЗМІНА СТОРІН', 'ИТОГ КАРТЫ':'ПІДСУМОК КАРТИ', 'Победа':'Перемога', 'Ничья':'Нічия', 'убийств':'вбивств', '👁 Радар работает, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Радар працює, коли стример дивиться матч глядачем (GOTV / спостерігач)' },
   de:{ "открывает":"öffnet", "выбил":"hat gezogen", "Ширпотреб":"Verbraucherklasse", "Промышленное":"Industriequalität", "Армейское":"Militärstandard", "Запрещённое":"Limitiert", "Засекреченное":"Geheim", "Тайное":"Verdeckt", "Редкое":"Selten", "Розыгрыш":"Gewinnspiel", "только подписчики":"nur Abonnenten", "Пиши в чат":"Schreib in den Chat", "Пиши в чат что угодно, чтобы участвовать":"Schreib irgendwas in den Chat, um mitzumachen", "Сбор закрыт, сейчас крутим!":"Teilnahme geschlossen, gleich wird gedreht!", "Розыгрыш скоро начнётся":"Gewinnspiel startet gleich", "У подписчиков шанс x2":"Abonnenten haben x2 Chance", "выигрывает":"gewinnt", "Победители":"Gewinner", "на связи":"ist da", "Напиши в чат за":"Antworte im Chat innerhalb", "Не ответил, перекручиваем…":"Keine Antwort, neu drehen…", 'урон за раунд':"Schaden diese Runde", 'Выбери двух игроков в пульте':"Wähle zwei Spieler im Pult", 'Дуэль появится сама после килла (режим наблюдателя)':"Das Duell erscheint nach einem Kill von selbst (Zuschauermodus)", 'Пиши в чат цифру':'Schreib eine Zahl in den Chat', 'голосов':'Stimmen', 'Голосование закрыто':'Umfrage beendet', 'Голосование скоро начнётся':'Umfrage startet gleich', 'Да':'Ja', 'Нет':'Nein', 'Окно источника':'Quellenfenster', 'Розовая рамка должна идти ровно по краям экрана стрима.':'Der pinke Rahmen muss genau am Rand des Stream-Bildschirms verlaufen.', 'Если она меньше экрана: в OBS выдели источник →':'Ist er kleiner als der Bildschirm: in OBS die Quelle wählen →', 'Растянуть на экран':'An Bildschirm anpassen',
     'Нож':'Messer', 'Флешка':'Blendgranate', 'Дым':'Rauch', 'Молотов':'Molotow', 'Зажигалка':'Brandgranate', 'Ложная':'Köder',
     'заложена':'gelegt', 'разминируют':'wird entschärft', 'разминирована':'entschärft', 'взорвалась':'explodiert',
     'появится само при мульти-килле':'erscheint bei einem Multikill von selbst', '🎯 CS2: ждём данные из игры':'🎯 CS2: warte auf Spieldaten', 'Игрок':'Spieler',
     'смотрит':'schaut', 'мёртв':'tot', 'раунд':'Runde', 'Раунд':'Runde', '👁 Наблюдатель: выбери игрока':'👁 Zuschauer: Spieler wählen',
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team-Panels funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt (GOTV / Observer)',
-    'Спецназ':'Antiterroreinheit', 'Террористы':'Terroristen', 'в голову':'Kopfschuss', 'Зритель':'Zuschauer', 'д':'T' },
+    'Спецназ':'Antiterroreinheit', 'Террористы':'Terroristen', 'в голову':'Kopfschuss', 'Зритель':'Zuschauer', 'д':'T',
+    'Серия':'Serie', 'ТАЙМАУТ':'TIMEOUT', 'ПАУЗА':'PAUSE', 'Тактический перерыв':'Taktische Auszeit', 'осталось':'noch', 'СМЕНА СТОРОН':'SEITENWECHSEL', 'ИТОГ КАРТЫ':'KARTENERGEBNIS', 'Победа':'Sieg:', 'Ничья':'Unentschieden', 'убийств':'Kills', '👁 Радар работает, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Das Radar funktioniert, wenn der Streamer ein Match als Zuschauer verfolgt (GOTV / Observer)' },
 };
 const st = s => STREAM_TXT[STREAM_LANG]?.[s] ?? s;
 const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
@@ -79,7 +82,7 @@ let MASTER_VOL = 1, FX_VOL = 1;
 function setVolumes(s){ MASTER_VOL = num(s?.vol, 1, 0, 1); FX_VOL = num(s?.fxVol, 1, 0, 1); }
 function masterVol(){ return MASTER_VOL; }
 function fxVol(){ return FX_VOL; }
-const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare'];
+const CS2_VIEWS = ['card','kda','hp','score','money','weapon','streak','teams','scorebar','observed','hud_solo','hud_tour','table','duel','compare','radar'];
 // Виды на весь экран: своя сетка на 16:9, двигать их нельзя, чтобы ничего не съезжало
 const CS2_FULL = new Set(['hud_solo','hud_tour','table','duel','compare']);
 // Живые данные из CS2 (приходят от программы стримера Hudini Host)
@@ -379,7 +382,7 @@ function sanitizeState(m){
     hidAll = [];
     for(const e of drawList({ els, raffle })) if(!e.hidden){ e.hidden = true; delete e.ttl; hidAll.push(e.id); }
   }
-  return { visible: true, hidAll, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle, emx };
+  return { visible: true, hidAll, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle, emx, cs2auto: cleanCs2Auto(m?.cs2auto) };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
 function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }
@@ -1498,6 +1501,7 @@ function paintCs2(c, el){
     return;
   }
   if(CS2_FULL.has(el.view)){ paintHud(c, el, d); return; }
+  if(el.view==='radar'){ paintRadar(c, el, d); return; }
   c.classList.toggle('nodata', !d);
   if(!d){ c.replaceChildren(h('div','c-none',st('🎯 CS2: ждём данные из игры'))); return; }
   // выбранный игрок по нику (в режиме наблюдателя есть все игроки)
@@ -1574,7 +1578,7 @@ function paintCs2(c, el){
       const rnd=h('div','sb-round', `${st('Раунд')} ${(d.round??0)+1}`), bn=bombNode(d); if(bn) rnd.append(' · ', bn);
       const mid=h('div','sb-mid'); mid.append(timerNode('sb-time', false), rnd);
       r.append(mid, h('b','sb-s',String(d.tt??0)), h('span','sb-team sb-t', d.tName||'T'));
-      parts.push(r, h('div','c-map sb-map', mapName(d.map))); break;
+      parts.push(r, h('div','c-map sb-map', [mapName(d.map), seriesLabel()].filter(Boolean).join(' · '))); break;
     }
     case 'weapon': parts.push(h('div','c-big', d.weapon ? weaponName(d.weapon) : '—'), h('div','c-map', d.ammoMax>0 ? `${d.ammo} / ${d.reserve}` : '')); break;
   }
@@ -1672,7 +1676,8 @@ function scoreTop(el, d, withSeries){
   mid.append(h('div','hd-rnd', `${st('Раунд')} ${(d.round??0)+1}`), tm);
   top.append(team('ct'), fnum(scoreTop.c, el, 'sct', String(d.ct??0), 'hd-n tm-ct'), mid, fnum(scoreTop.c, el, 'stt', String(d.tt??0), 'hd-n tm-t'), team('t'));
   const wrap=h('div','hd-top'); wrap.appendChild(top);
-  if(withSeries && el.series) wrap.appendChild(h('div','hd-series', el.series));
+  const ser=withSeries ? [seriesLabel(), el.series].filter(Boolean).join(' · ') : '';
+  if(ser) wrap.appendChild(h('div','hd-series', ser));
   return wrap;
 }
 function killfeed(d, el){
@@ -1713,7 +1718,7 @@ function paintHud(c, el, d){
   scoreTop.c=c; statRows.c=c; statRows.el=el;
   // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
   const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
-  const sig=JSON.stringify([el, d && [d.players, d.observed, d.ct, d.tt, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
+  const sig=JSON.stringify([el, seriesLabel(), d && [d.players, d.observed, d.ct, d.tt, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
   if(c._sig===sig) return; c._sig=sig;
   if(!d){ c.replaceChildren(h('div','hd-wait', st('🎯 CS2: ждём данные из игры'))); return; }
   const players=d.players||[], byName=n=>players.find(x=>String(x.name||'').toLowerCase()===String(n||'').toLowerCase());
@@ -1771,6 +1776,211 @@ function cs2Popup(c, ev){
   const sub=[ev.me?null:ev.name, ev.hs?`${ev.hs} ${st('в голову')}`:null, ev.weapon?weaponName(ev.weapon):null].filter(Boolean).join(' · ');
   c.replaceChildren(h('div','c-streak', STREAK[Math.min(ev.n,5)] || (ev.n+' KILLS')), h('div','c-sub', sub));
   c._until=Date.now()+3800; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); c.classList.add('on');
+}
+// ---------- CS2: серия карт, авто-таб, радар ----------
+// Серия приходит от программы стримера отдельной темой cs2series: { bo, a:{name,w}, b:{name,w}, maps, ctIs:'a'|'b', map, go }
+let CS2_SERIES = null;
+function cleanSeriesView(v){
+  if(!v || typeof v!=='object') return null;
+  const tm = x => ({ name:str(x?.name, 40), w:Math.round(num(x?.w, 0, 0, 9)) });
+  const maps = (Array.isArray(v.maps) ? v.maps : []).slice(0, 7).map(m => ({ map:str(m?.map, 40).replace(/[^a-z0-9_]/gi, ''),
+    a:{ name:str(m?.a?.name, 40), score:Math.round(num(m?.a?.score, 0, 0, 99)) }, b:{ name:str(m?.b?.name, 40), score:Math.round(num(m?.b?.score, 0, 0, 99)) }, win:m?.win==='a' || m?.win==='b' ? m.win : '' }));
+  return { bo:[1,3,5].includes(v.bo) ? v.bo : 3, a:tm(v.a), b:tm(v.b), maps, ctIs:v.ctIs==='a' || v.ctIs==='b' ? v.ctIs : null, map:str(v.map, 40), go:num(v.go, 0, 0, 1e15) };
+}
+// победы по сторонам сейчас: слева CT, справа T, как в счёте
+function seriesSides(){
+  const s=CS2_SERIES; if(!s) return null;
+  const flip = s.ctIs==='b';
+  return { ct:(flip ? s.b : s.a).w, t:(flip ? s.a : s.b).w, bo:s.bo, n:s.maps.length };
+}
+function seriesLabel(){ const x=seriesSides(); if(!x || (x.bo===1 && !x.n)) return ''; return `${st('Серия')} ${x.ct} : ${x.t} · BO${x.bo}`; }
+
+// Авто-таб: таблица всех игроков сама выезжает на таймауте/паузе, смене сторон и в конце карты (15 с), потом уезжает.
+// state.cs2auto = { on, timeout, half, end, theme:'A'..'D', hideBottom, hideTop }. Красится под тему CS2-элемента экрана.
+const CS2TAB_STYLES = ['A','B','C','D'], CS2TAB_END_MS = 15000;
+function cleanCs2Auto(a){
+  a = a && typeof a==='object' ? a : {};
+  return { on:a.on===true, timeout:a.timeout!==false, half:a.half!==false, end:a.end!==false,
+    theme:CS2TAB_STYLES.includes(a.theme) ? a.theme : 'A', hideBottom:a.hideBottom!==false, hideTop:a.hideTop!==false };
+}
+// Какой момент сейчас: 'timeout' | 'half' | 'end' | null. mem помнит, когда этот пульт или виджет впервые увидел конец карты;
+// время конца от программы (серия, go) важнее: перезагруженный виджет не покажет итог второй раз.
+function cs2TabMoment(d, a, mem, now){
+  if(!a?.on || !d) return null;
+  if(d.phase==='gameover'){
+    if(!a.end) return null;
+    const key=(d.map||'')+'|'+d.ct+':'+d.tt;
+    if(mem.endKey!==key){ mem.endKey=key; mem.endAt=now; }
+    const go = CS2_SERIES?.go && CS2_SERIES.map===d.map ? CS2_SERIES.go + (d._skew||0) : mem.endAt;
+    return now - go < CS2TAB_END_MS ? 'end' : null;
+  }
+  if(d.phase==='intermission') return a.half ? 'half' : null;
+  if(['timeout_ct','timeout_t','paused'].includes(d.pphase)) return a.timeout ? 'timeout' : null;
+  return null;
+}
+// MVP карты: больше всех MVP раундов, потом киллы, потом ADR
+function cs2Mvp(players){
+  let best=null;
+  for(const p of players||[]){ const k=[p.mvps||0, p.k||0, p.adr||0]; if(!best || k[0]>best.k[0] || (k[0]===best.k[0] && (k[1]>best.k[1] || (k[1]===best.k[1] && k[2]>best.k[2])))) best={ p, k }; }
+  return best && (best.k[0] || best.k[1]) ? best.p : null;
+}
+// Тема и цвета берём у CS2-элемента экрана (сначала HUD на весь экран); без элемента — «стекло»
+function cs2TabLook(els){
+  const all=(els||[]).filter(e=>e.type==='cs2'), list=all.filter(e=>!e.hidden);
+  const el=list.find(e=>CS2_FULL.has(e.view)) || list[0] || all[0];
+  return { theme:el?.theme || 'glass', ctc:el?.ctc || '#5d9cec', tc:el?.tc || '#e0a030', font:el?.font || '', tnCT:el?.tnCT || '', tnT:el?.tnT || '' };
+}
+// Пример данных для превью в пульте и кнопки «Показать сейчас» без игры
+const CS2_DEMO = (() => {
+  const P=(slot, name, team, k, d, adr, hsp, money, w, mvps)=>({ id:'d'+slot, slot, name, team, k, d, a:3, adr, hsp, money, weapon:w, main:w, mvps, alive:true, hp:100 });
+  return { demo:true, map:'de_mirage', phase:'live', round:16, ct:9, tt:7, ctName:'', tName:'', pphase:'timeout_ct',
+    players:[P(1,'SaiYeah1','CT',17,9,92,64,4750,'weapon_ak47',4), P(2,'gospoja','CT',14,11,78,50,5200,'weapon_m4a1_silencer',2), P(3,'runorn','CT',11,12,71,41,3100,'weapon_awp',1),
+      P(4,'pelmech','CT',9,13,64,33,1800,'weapon_famas',0), P(5,'etsuitoku','CT',8,14,58,25,2450,'weapon_mp9',1), P(6,'kirpich','T',16,10,88,57,4100,'weapon_ak47',3),
+      P(7,'mamka','T',13,13,76,46,3900,'weapon_galilar',2), P(8,'lesnik','T',10,14,66,40,2200,'weapon_ak47',1), P(9,'zhuk','T',8,15,61,22,900,'weapon_mac10',0), P(0,'tapok','T',6,16,49,17,1500,'weapon_deagle',0)] };
+})();
+function cs2DemoFor(m){
+  const d={ ...CS2_DEMO, pend:Date.now()+24000, t:Date.now() };
+  if(m==='half'){ d.phase='intermission'; d.pphase='freezetime'; d.ct=8; d.tt=4; }
+  if(m==='end'){ d.phase='gameover'; d.pphase='over'; d.ct=13; d.tt=9; }
+  return d;
+}
+function cs2TabTitle(d, m, look){
+  const ctN=look.tnCT || d.ctName || st('Спецназ'), tN=look.tnT || d.tName || st('Террористы'), map=mapName(d.map);
+  if(m==='timeout'){
+    if(d.pphase==='paused') return [st('ПАУЗА'), [map, `${st('Раунд')} ${(d.round??0)+1}`].filter(Boolean).join(' · '), false];
+    return [st('ТАЙМАУТ'), `${st('Тактический перерыв')} · ${d.pphase==='timeout_t' ? tN : ctN} · ${st('осталось')} `, true];
+  }
+  if(m==='half') return [st('СМЕНА СТОРОН'), `${d.ct??0} : ${d.tt??0}${map?' · '+map:''}`, false];
+  const ct=d.ct??0, tt=d.tt??0;
+  const sub = ct===tt ? `${st('Ничья')} ${ct} : ${tt}` : `${st('Победа')} ${ct>tt?ctN:tN} ${Math.max(ct,tt)} : ${Math.min(ct,tt)}`;
+  return [`${st('ИТОГ КАРТЫ')}${map?' · '+map:''}`, sub, false];
+}
+function cs2TabRow(p, mvp){
+  const r=h('div','pl'+(p.alive===false?' dead':'')+(mvp?' mvp':''));
+  const nm=h('span','nm', p.name||'?'); if(mvp) nm.append(h('i','star',' ★ MVP'));
+  r.append(h('span','sl', p.slot!=null ? String(p.slot) : ''), nm, kdNode(null, null, '', p.k, p.d, 'num kdn'),
+    h('span','num', String(p.adr??0)), h('span','num', (p.hsp??0)+'%'), h('span','wpn', weaponShort(p.main||p.weapon)), h('span','num money', money(p.money)));
+  return r;
+}
+function cs2TabHead(){
+  const r=h('div','pl ph'); r.append(h('span','sl'), h('span','nm'), h('span','num','K · D'), h('span','num','ADR'), h('span','num','HS'), h('span','wpn'), h('span','num','$')); return r;
+}
+function cs2TabCard(p, mvp){
+  const c=h('div','pc'+(p.alive===false?' dead':'')+(mvp?' mvp':''));
+  c.append(h('div','nm', `${p.slot!=null?p.slot+' · ':''}${p.name||'?'}${mvp?' ★':''}`));
+  const s=h('div','st'); s.append(kdNode(null, null, '', p.k, p.d), h('span',null,'ADR '+(p.adr??0)), h('span',null,'HS '+(p.hsp??0)+'%')); c.appendChild(s);
+  c.appendChild(h('div','mo', `${weaponShort(p.main||p.weapon)} · ${money(p.money)}`));
+  return c;
+}
+// Собирает таб заново (имена и цифры игры — только через textContent)
+function cs2TabBuild(box, d, a, m, look){
+  const [title, sub, timer]=cs2TabTitle(d, m, look), end=m==='end';
+  const list=d.players?.length ? d.players : (d.name ? [{ ...d, id:d.id||'me', slot:null }] : []);
+  const key=p=>p.slot==null ? 99 : p.slot===0 ? 10 : p.slot;   // клавиша 0 — десятый игрок
+  const side=t=>list.filter(p=>p.team===t).sort((x,y)=>key(x)-key(y)).slice(0,5);
+  const CT=side('CT'), TT=side('T'), mvp=end ? cs2Mvp(list) : null;
+  const ctN=look.tnCT || d.ctName || st('Спецназ'), tN=look.tnT || d.tName || st('Террористы'), ser=seriesLabel();
+  const subNode=()=>{ const s=h('div','sub', sub); if(timer) s.appendChild(h('span','ctime', cs2Timer())); return s; };
+  const rows=ps=>ps.map(p=>cs2TabRow(p, mvp===p));
+  const parts=[];
+  if(a.theme==='A'){
+    const col=(cls, name, score, ps)=>{ const c=h('div','col '+cls), hd=h('h4'); hd.append(h('span',null,name), h('b',null,String(score??0))); c.append(hd, cs2TabHead(), ...rows(ps)); return c; };
+    parts.push(h('div','tt', title), subNode(), col('l', ctN, d.ct, CT), col('r', tN, d.tt, TT));
+    if(ser) parts.push(h('div','ser', ser));
+  } else if(a.theme==='B'){
+    const card=h('div','card'), head=h('div','head'), big=h('div','big');
+    const flip=v=>{ const b=h('b'); b.appendChild(h('i', null, String(v??0))); return b; };
+    big.append(flip(d.ct), h('span','colon',':'), flip(d.tt)); head.append(h('div','tt', title), big);
+    const two=h('div','two'), half=(cls, name, ps)=>{ const x=h('div', cls); x.append(h('h4',null,name), cs2TabHead(), ...rows(ps)); return x; };
+    two.append(half('l', ctN, CT), half('r', tN, TT));
+    const foot=mvp ? h('div','sub', `★ MVP: ${mvp.name} · ${mvp.k??0} ${st('убийств')} · ADR ${mvp.adr??0}`) : subNode(); foot.classList.add('mvpbox');
+    card.append(head, two, foot); if(ser) card.appendChild(h('div','ser', ser)); parts.push(card);
+  } else if(a.theme==='C'){
+    const bar=h('div','topbar'); bar.append(h('span',null,title), h('span','tsc', `${d.ct??0} : ${d.tt??0}`)); if(ser) bar.append(h('span','tser', ser)); parts.push(bar);
+    parts.push(subNode());
+    CT.forEach((p,i)=>{ const s=h('div','stripe'); s.style.top=(11.5+i*7)+'cqw'; s.style.setProperty('--i', i); s.appendChild(cs2TabRow(p, mvp===p)); parts.push(s); });
+    TT.forEach((p,i)=>{ const s=h('div','stripe t'); s.style.top=(11.5+i*7)+'cqw'; s.style.setProperty('--i', i); s.appendChild(cs2TabRow(p, mvp===p)); parts.push(s); });
+  } else {
+    const mid=h('div','mid'); mid.append(h('div','tt', `${title} · ${d.ct??0} : ${d.tt??0}`)); const sb=subNode(); if(ser) sb.append(' · '+ser); mid.appendChild(sb);
+    const r1=h('div','rowc ct'), r2=h('div','rowc tr');
+    r1.append(...CT.map(p=>cs2TabCard(p, mvp===p))); r2.append(...TT.map(p=>cs2TabCard(p, mvp===p)));
+    parts.push(r1, mid, r2);
+  }
+  box.replaceChildren(...parts);
+}
+// Показывает, обновляет и убирает таб. o = { d, a, m, look }; без m — уехать. → показан ли таб
+function cs2TabRender(box, o){
+  const m=o?.m || null;
+  if(!m){
+    if(box._on){ box._on=false; box._sig=null; box.classList.remove('still','show'); clearTimeout(box._hT);
+      box._hT=setTimeout(()=>{ if(!box._on){ box.replaceChildren(); box.hidden=true; } }, 1300); }
+    return false;
+  }
+  const { d, a, look }=o;
+  box.dataset.st=a.theme; box.dataset.th=look.theme; box.dataset.m=m;
+  box.style.setProperty('--ct', look.ctc); box.style.setProperty('--t', look.tc);
+  box.style.fontFamily = look.font ? fontCss(look.font) : '';
+  const list=d.players||[];
+  const sig=JSON.stringify([m, a.theme, look, seriesLabel(), d.ct, d.tt, d.map, d.pphase, d.ctName, d.tName,
+    list.map(p=>[p.id,p.name,p.slot,p.team,p.k,p.d,p.adr,p.hsp,p.money,p.main||p.weapon,p.alive,p.mvps]), list.length ? null : [d.name,d.k,d.d,d.money]]);
+  if(!box._on){
+    box._on=true; clearTimeout(box._hT); box.hidden=false; box.classList.remove('show','still');
+    cs2TabBuild(box, d, a, m, look); box._sig=sig; void box.offsetWidth;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(box._on) box.classList.add('show'); }));
+    clearTimeout(box._sT); box._sT=setTimeout(()=>{ if(box._on) box.classList.add('still'); }, 1700);
+  } else if(sig!==box._sig && box.classList.contains('still')){ box._sig=sig; cs2TabBuild(box, d, a, m, look); }
+  const t=box.querySelector('.ctime'); if(t){ const v=cs2Timer(); if(t.textContent!==v) t.textContent=v; }
+  return true;
+}
+
+// Радар: точки игроков на карте сверху. Подложка Hudini в теме элемента (shared/radar), без неё сетка.
+// Без калибровки карты границы подбираются по тому, где побывали игроки.
+function radarProject(r, map, pts){
+  const cal=typeof CS2_MAPS!=='undefined' && Object.hasOwn(CS2_MAPS, map) ? CS2_MAPS[map] : null;
+  if(cal) return p=>cs2MapUV(map, p);
+  if(r.bmap!==map){ r.bmap=map; r.b=null; }
+  for(const p of pts){ if(!p) continue; const b=r.b ||= { x0:p[0], x1:p[0], y0:p[1], y1:p[1] };
+    b.x0=Math.min(b.x0,p[0]); b.x1=Math.max(b.x1,p[0]); b.y0=Math.min(b.y0,p[1]); b.y1=Math.max(b.y1,p[1]); }
+  const b=r.b; if(!b) return ()=>null;
+  const span=Math.max(800, b.x1-b.x0, b.y1-b.y0)*1.2, cx=(b.x0+b.x1)/2, cy=(b.y0+b.y1)/2;
+  return p=>[(p[0]-cx)/span+0.5, (cy-p[1])/span+0.5];
+}
+function paintRadar(c, el, d){
+  let r=c._rd;
+  if(!r || r.box.parentNode!==c){
+    r=c._rd={ box:h('div','rd'), img:document.createElement('img'), dots:h('div','rd-dots'), cap:h('div','rd-cap'), map:new Map(), src:null };
+    r.img.className='rd-img'; r.img.alt=''; r.img.draggable=false; r.img.hidden=true;
+    r.img.onload=()=>{ r.img.hidden=false; r.box.classList.add('has-img'); }; r.img.onerror=()=>{ r.img.hidden=true; r.box.classList.remove('has-img'); };
+    r.box.append(h('div','rd-grid'), r.img, r.dots, r.cap); c.replaceChildren(r.box);
+  }
+  c.classList.toggle('nodata', !d);
+  if(!d){ r.cap.textContent=st('🎯 CS2: ждём данные из игры'); r.dots.replaceChildren(); r.map.clear(); return; }
+  const map=String(d.map||''), players=(d.players||[]).filter(p=>Array.isArray(p.pos));
+  const obs=players.find(p=>p.id===d.obs), lower=typeof cs2Lower==='function' && obs ? cs2Lower(map, obs.pos) : false;
+  const src=typeof cs2RadarImg==='function' ? cs2RadarImg(map, el.theme, lower) : '';
+  if(r.src!==src){ r.src=src; r.box.classList.remove('has-img'); r.img.hidden=true; if(src) r.img.src=src; else r.img.removeAttribute('src'); }
+  r.box.classList.toggle('lower', lower);
+  r.cap.textContent=players.length ? mapName(map) : st('👁 Радар работает, когда стример смотрит матч зрителем (GOTV / наблюдатель)');
+  const uv=radarProject(r, map, [...players.map(p=>p.pos), d.bpos]);
+  const seen=new Set(), place=(n, p)=>{ const q=uv(p); if(!q) return false; n.style.left=(Math.min(1,Math.max(0,q[0]))*100).toFixed(2)+'%'; n.style.top=(Math.min(1,Math.max(0,q[1]))*100).toFixed(2)+'%'; return true; };
+  for(const p of players){
+    const key='p'+p.id; seen.add(key);
+    let n=r.map.get(key);
+    if(!n){ n=h('div','rd-dot'); n.append(h('i','rd-dir'), h('b')); r.dots.appendChild(n); r.map.set(key, n); }
+    n.className='rd-dot tm-'+(p.team==='T'?'t':'ct')+(p.alive===false?' dead':'')+(p.id===d.obs?' obs':'')+(p.bomb?' c4':'')
+      +(typeof cs2Lower==='function' && cs2Lower(map, p.pos)!==lower ? ' other' : '');
+    n.lastChild.textContent=p.alive===false ? '✕' : p.slot!=null ? String(p.slot) : '';
+    if(p.fw!=null) n.style.setProperty('--a', (-p.fw)+'deg');
+    n.firstChild.hidden=p.fw==null || p.alive===false;
+    n.hidden=!place(n, p.pos);
+  }
+  // бомба: заложена или лежит на земле (у игрока её показывает значок на точке)
+  if(d.bpos && ['planted','dropped','defusing','defused','exploded'].includes(d.bomb)){
+    seen.add('bomb'); let n=r.map.get('bomb');
+    if(!n){ n=h('div','rd-bomb'); n.appendChild(hudIc('bomb')); r.dots.appendChild(n); r.map.set('bomb', n); }
+    n.classList.toggle('planted', d.bomb==='planted' || d.bomb==='defusing'); n.hidden=!place(n, d.bpos);
+  }
+  for(const [k,n] of r.map) if(!seen.has(k)){ n.remove(); r.map.delete(k); }
 }
 // ---------- сообщение из чата ----------
 const BADGE = { mod:'🛡', vip:'💎', sub:'⭐', broadcaster:'🎥' };

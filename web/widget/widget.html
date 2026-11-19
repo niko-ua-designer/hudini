@@ -11,6 +11,7 @@
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
 <script src="../shared/core.js?v=17"></script>
 <script src="../shared/case3d.js?v=1"></script>
+<script src="../shared/cs2-maps.js?v=1"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -54,6 +55,7 @@ body.host-hidden .vfx{display:none}
 <body>
 <div id="stage">
   <canvas id="confetti"></canvas>
+  <div id="ctab" class="ctab" hidden></div>
   <div id="calib"><i></i><i></i><i></i><i></i><div id="calibText"></div></div>
 </div>
 <div id="debug"></div>
@@ -345,7 +347,24 @@ function onFx(f){
   else if(f.type==='seek'){ const node=nodes.get(str(f.id,40)); if(node?._el) playerSeek(node, node._el, num(f.d,0,-3600,3600)); }
   else if(f.type==='cs2test'){ const ev={ n:Math.round(num(f.n,3,2,5)), name:str(f.name,40), weapon:str(f.weapon,40), hs:Math.round(num(f.hs,0,0,5)) };
     for(const n of nodes.values()) if(n._el?.type==='cs2' && n._el.view==='streak' && !n._el.hidden){ const c=n.querySelector('.cs2'); if(c) cs2Popup(c, ev); } }
+  else if(f.type==='cs2tab'){ const m=['timeout','half','end'].includes(f.m) ? f.m : 'timeout'; tabForce={ m, until:Date.now()+Math.round(num(f.ms,8000,1000,30000)) }; tabTick(); }
 }
+// ================== CS2 АВТО-ТАБ ==================
+// Сам выезжает на таймауте/паузе, смене сторон и в конце карты (state.cs2auto), стример может выключить его в доке (ctl.tabOff).
+// «Показать сейчас» из пульта (fx cs2tab) — на 8 с, без игры с примером данных.
+let tabForce=null, tabOff=false;
+const tabMem={};
+function tabTick(){
+  const box=document.getElementById('ctab'), a=lastState.cs2auto || cleanCs2Auto(null), now=Date.now();
+  if(tabForce && now>tabForce.until) tabForce=null;
+  const d=cs2Fresh() ? CS2 : null;
+  let m=null, data=d;
+  if(tabForce){ m=tabForce.m; if(!d?.players?.length) data=cs2DemoFor(m); }   // без игры (или не зрителем) — пример данных
+  else if(!tabOff) m=cs2TabMoment(d, a, tabMem, now);
+  const on=cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(lastState.els) } : null);
+  stage.classList.toggle('ctab-hb', on && a.hideBottom); stage.classList.toggle('ctab-ht', on && a.hideTop);
+}
+setInterval(tabTick, 250);
 
 // ================== СИНХРОНИЗАЦИЯ ЧАСОВ ==================
 // Пульт присылает своё время; берём самое «быстрое» из последних измерений (меньше всего задержки сети)
@@ -380,7 +399,7 @@ async function start(){
   // время последнего принятого экрана помним и после перезапуска OBS: старый сохранённый экран не вернётся
   const tKey='hudini.stateT.'+room;
   try{ lastStateT=Math.max(lastStateT, Number(localStorage.getItem(tKey))||0); }catch{}
-  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink', perms:base+'/perms' };
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink', perms:base+'/perms', cs2series:base+'/cs2series' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   // файлы берём из программы на этом же компьютере и проверяем подпись модератора
@@ -400,7 +419,7 @@ async function start(){
   setInterval(async()=>{ if(!client.connected) return;
     client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms, T.cs2series], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -412,18 +431,24 @@ async function start(){
       const c=await unsealJSON(KEYS, payload, false); if(!c) return;
       document.body.classList.toggle('host-hidden', !!c.hidden);
       const o=c.off && typeof c.off==='object' ? c.off : {};
-      OFF={ chat:o.chat===true, cs2:o.cs2===true, sound:o.sound===true, draw:o.draw===true, fx:o.fx===true };
+      OFF={ chat:o.chat===true, cs2:o.cs2===true, sound:o.sound===true, draw:o.draw===true, fx:o.fx===true, tab:o.tab===true };
       HIDE_IDS=new Set(Array.isArray(c.hideIds) ? c.hideIds.filter(x=>typeof x==='string').slice(0,200) : []);   // глазик стримера в доке
       if(c.hidden || !soundOk()){ stopSounds(); pendingSounds.clear(); }
       if(c.hidden || !fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
       applyState(lastState);   // спрятано: видео без звука, сайты и ролики выгружены; вернули: всё как в последнем экране
       if(lastStop!=null && c.stop>lastStop) stopSounds();
+      tabOff=!!c.tabOff || o.tab===true; tabTick();
       lastStop=Number(c.stop)||0; return;
     }
     if(topic===T.perms){ setPerms(await unsealJSON(KEYS, payload, false)); return; }   // права модераторов (публикует только программа)
     if(topic===T.cs2){                               // данные CS2 шлёт программа стримера: зашифрованы ключом комнаты
       const d=await unsealJSON(KEYS, payload, false);
-      if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=0; for(const n of nodes.values()) if(n._el?.type==='cs2' && !n._animOn) paintNode(n, n._el, n._z); }
+      if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=0; for(const n of nodes.values()) if(n._el?.type==='cs2' && !n._animOn) paintNode(n, n._el, n._z); tabTick(); }
+      return;
+    }
+    if(topic===T.cs2series){                         // серия карт BO1/3/5: тоже шлёт только программа стримера
+      const v=await unsealJSON(KEYS, payload, false);
+      if(v){ CS2_SERIES=cleanSeriesView(v); for(const n of nodes.values()) if(n._el?.type==='cs2' && !n._animOn){ const c=n.querySelector('.cs2'); if(c) c._sig=null; paintNode(n, n._el, n._z); } tabTick(); }
       return;
     }
     const plain=await unseal(KEYS, payload, true);
