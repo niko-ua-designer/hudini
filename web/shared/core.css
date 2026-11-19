@@ -529,3 +529,7 @@
 .cs-pic svg{width:5em;height:5em;color:var(--r);filter:drop-shadow(0 0 .6em color-mix(in srgb,var(--r) 70%,transparent))}
 .cs-bpic svg{width:9em;height:9em;color:var(--r);filter:drop-shadow(0 0 1.4em color-mix(in srgb,var(--r) 80%,transparent))}
 .cs-card .cs-respin{font-size:4.2em;line-height:1;font-weight:700;color:var(--r);text-shadow:0 0 .4em var(--r)}
+
+/* ---------- рисунок на весь экран ---------- */
+.draw{position:relative;width:100%;aspect-ratio:16/9;pointer-events:none}
+.draw canvas{position:absolute;inset:0;width:100%;height:100%;display:block}

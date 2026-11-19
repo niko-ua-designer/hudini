@@ -72,7 +72,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case','draw'];
 const CHAT_THEMES = ['glass','bubbles','minimal','neon','panel','accent'];
 // Общая громкость оверлея: звук на стриме = общая × громкость элемента. Виджет задаёт её из состояния.
 let MASTER_VOL = 1, FX_VOL = 1;
@@ -242,6 +242,10 @@ function sanitizeEl(e){
     o.confirm=Math.round(num(e.confirm,0,0,600)); o.cUntil=num(e.cUntil,0,0,1e15); o.ok=!!e.ok;
     o.snd=safeSrc(e.snd)||''; o.vfx=safeSrc(e.vfx)||''; o.key=e.key!==false; o.kc=hex(e.kc,'#00ff00'); o.ksim=num(e.ksim,0.4,0.05,0.9);
     o.fxc=e.fxc!==false; o.ticks=e.ticks!==false; o.vol=num(e.vol,1,0,1);
+  } else if(type==='draw'){
+    o.x=50; o.y=50; o.rot=0;   // рисунок на весь экран: точки штрихов в 0.1% ширины и высоты
+    o.del=(Array.isArray(e.del)?e.del:[]).filter(id=>typeof id==='string' && DRAW_ID_RE.test(id)).slice(-DRAW_MAX_DEL);
+    o.strokes=sanitizeStrokes(e.strokes, new Set(o.del));
   } else if(type==='poll'){
     o.fs=num(e.fs,3.2,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#1d1d24'); o.accent=hex(e.accent,'#7c5cff');
@@ -710,6 +714,7 @@ function buildNode(el){
   else if(el.type==='chat'){ c=document.createElement('div'); c.className='chat'; }
   else if(el.type==='raffle'){ c=document.createElement('div'); c.className='raf'; }
   else if(el.type==='case'){ c=document.createElement('div'); c.className='case'; }
+  else if(el.type==='draw'){ c=document.createElement('div'); c.className='draw'; c.appendChild(document.createElement('canvas')); }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -787,6 +792,9 @@ function paintNode(node, el, z){
     c.style.fontSize=`calc(var(--u) * ${(el.fs/4*1.7).toFixed(3)})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--cc', el.cc);
     paintCase(c, el);
+  } else if(el.type==='draw'){
+    node.style.width='100%'; node.classList.add('full');
+    drawPaint(c, el);
   } else if(el.type==='raffle'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
@@ -1072,6 +1080,7 @@ function assetsOfEl(e, used=new Set()){
   if(Array.isArray(e.items)) for(const it of e.items) add(it?.img);
   if(e.snd && typeof e.snd==='object') for(const v of Object.values(e.snd)) add(v); else add(e.snd);
   if(e.av && typeof e.av==='object') for(const v of Object.values(e.av)) add(v);
+  if(Array.isArray(e.strokes)) for(const k of e.strokes) add(k?.asset);   // кисть из фото
   return used;
 }
 function assetsOf(s, used=new Set()){
@@ -1080,6 +1089,256 @@ function assetsOf(s, used=new Set()){
   assetsOfEl(s.raffle, used);
   for(const f of Array.isArray(s.fonts) ? s.fonts : []) if(typeof f?.id==='string') used.add(f.id);
   return used;
+}
+
+// ---------- рисунок ----------
+// Элемент draw: штрихи на весь экран. Точки целыми числами в 0.1% ширины и высоты экрана ([x,y,x,y,…]),
+// толщина в пикселях экрана высотой 1080. Стёртые штрихи помнятся в del: так чужой пульт не вернёт их при слиянии.
+const DRAW_TOOLS = ['pen','marker','neon','line','arrow','circle','rect','stamp','tex'];
+const DRAW_SHAPES = new Set(['line','arrow','circle','rect']);
+const DRAW_ID_RE = /^[a-z0-9]{4,24}$/;
+const DRAW_MAX_STROKES = 400, DRAW_MAX_PTS = 2000, DRAW_MAX_TOTAL = 40000, DRAW_MAX_DEL = 1000;
+const DRAW_FADE_OUT = 900;   // мс: штрих тает, а не пропадает разом
+function sanitizeStroke(s){
+  if(!s || typeof s!=='object') return null;
+  const id = typeof s.id==='string' && DRAW_ID_RE.test(s.id) ? s.id : null;
+  const tool = DRAW_TOOLS.includes(s.tool) ? s.tool : null;
+  if(!id || !tool || !Array.isArray(s.pts)) return null;
+  const n = Math.min(DRAW_MAX_PTS, s.pts.length>>1), pts = [];
+  for(let i=0;i<n*2;i++) pts.push(Math.round(num(s.pts[i],0,-100,1100)));
+  if(DRAW_SHAPES.has(tool) && pts.length>4) pts.splice(2, pts.length-4);   // у фигуры только начало и конец
+  if(!pts.length) return null;
+  const o = { id, by:str(s.by,24), tool, color:hex(s.color,'#ffffff'), size:Math.round(num(s.size,6,1,80)*2)/2, pts, t:num(s.t,0,0,1e15) };
+  if(s.fade) o.fade = Math.round(num(s.fade,5,1,60));
+  if(tool==='stamp' || tool==='tex'){ const a = assetId(s.asset); if(!a) return null; o.asset = 'asset:'+a; }
+  if(s.hold) o.hold = 1;
+  return o;
+}
+// Новые штрихи важнее: при переполнении уходят самые старые
+function drawCap(list){
+  list = list.slice(-DRAW_MAX_STROKES);
+  let total = 0, i = list.length;
+  while(i>0 && total + list[i-1].pts.length/2 <= DRAW_MAX_TOTAL){ total += list[i-1].pts.length/2; i--; }
+  return list.slice(i);
+}
+function sanitizeStrokes(arr, del=new Set()){
+  const seen = new Set(), out = [];
+  for(const x of Array.isArray(arr) ? arr.slice(-DRAW_MAX_STROKES*2) : []){
+    const k = sanitizeStroke(x);
+    if(!k || del.has(k.id) || seen.has(k.id)) continue;
+    seen.add(k.id); out.push(k);
+  }
+  return drawCap(out);
+}
+// Растаял совсем? Штрих «по кнопке» не тает, пока его не показали.
+function drawGone(k, now){ return !!k.fade && !k.hold && now >= k.t + k.fade*1000 + DRAW_FADE_OUT; }
+function drawAlpha(k, now){
+  if(!k.fade || k.hold) return 1;
+  const over = now - (k.t + k.fade*1000);
+  if(over<=0) return 1;
+  const q = Math.min(1, over/DRAW_FADE_OUT); return (1-q)*(1-q);
+}
+// Слияние рисунка двух пультов: штрихи по id, стёртое (del) у обоих стёрто. added: у нас есть то, чего нет у них.
+function drawMerge(mine, theirs, now=nowMs()){
+  const del = new Set(theirs.del), map = new Map();
+  let added = false;
+  for(const id of mine.del) if(!del.has(id)){ del.add(id); added = true; }
+  for(const k of theirs.strokes) if(!del.has(k.id)) map.set(k.id, k);
+  for(const k of mine.strokes){
+    if(del.has(k.id) || drawGone(k, now)) continue;
+    const r = map.get(k.id);
+    if(!r || (r.hold && !k.hold)){ map.set(k.id, k); added = true; }   // показанный штрих важнее скрытого
+  }
+  const strokes = drawCap([...map.values()].sort((a,b)=>(a.hold?1e15:a.t)-(b.hold?1e15:b.t) || (a.id<b.id?-1:a.id>b.id?1:0)));
+  return { strokes, del:[...del].slice(-DRAW_MAX_DEL), added };
+}
+// Упрощение линии (Рамер — Дуглас — Пекер): точки, отклоняющиеся меньше eps (в 0.1% высоты), выкидываются
+function drawSimplify(pts, eps=1){
+  const n = pts.length>>1; if(n<3) return pts.slice();
+  const X = i => pts[2*i]*16/9, Y = i => pts[2*i+1];
+  const keep = new Uint8Array(n); keep[0] = keep[n-1] = 1;
+  const stack = [[0, n-1]];
+  while(stack.length){
+    const [a, b] = stack.pop(); let far = 0, at = -1;
+    const ax = X(a), ay = Y(a), dx = X(b)-ax, dy = Y(b)-ay, L = Math.hypot(dx, dy);
+    for(let i=a+1;i<b;i++){
+      const d = L ? Math.abs(dy*(X(i)-ax) - dx*(Y(i)-ay))/L : Math.hypot(X(i)-ax, Y(i)-ay);
+      if(d>far){ far = d; at = i; }
+    }
+    if(at>=0 && far>eps){ keep[at] = 1; stack.push([a, at], [at, b]); }
+  }
+  const out = []; for(let i=0;i<n;i++) if(keep[i]) out.push(pts[2*i], pts[2*i+1]);
+  return out;
+}
+// Рисует .draw: штрихи элемента и живые штрихи, которые модераторы ещё ведут (тема ink)
+const DrawFx = {
+  panel:false,            // пульт: штрихи «по кнопке» видны полупрозрачными
+  live:new Map(),         // id элемента → Map(id штриха → { k, at, done })
+  boxes:new Set(), imgs:new Map(), raf:0, ro:null,
+  // Кусок живого штриха: { el, id, i (с какой точки), pts, tool, color, size, asset, hold, done }
+  ink(m){
+    if(!m || typeof m!=='object') return false;
+    const el = str(m.el,40), id = typeof m.id==='string' && DRAW_ID_RE.test(m.id) ? m.id : '';
+    if(!el || !id) return false;
+    const part = sanitizeStroke({ ...m, t:0, fade:0 });
+    let map = this.live.get(el);
+    if(!map){ if(this.live.size>=40) return false; map = new Map(); this.live.set(el, map); }
+    let e = map.get(id);
+    if(!e){ if(!part || map.size>=24) return false; e = { k:part }; map.set(id, e); }
+    else if(part){
+      if(DRAW_SHAPES.has(part.tool)) e.k.pts = part.pts;
+      else { const p = e.k.pts, off = 2*Math.round(num(m.i,0,0,DRAW_MAX_PTS)); if(off<p.length) p.length = off; for(const v of part.pts) if(p.length<DRAW_MAX_PTS*2) p.push(v); }
+    }
+    e.at = Date.now(); e.done = !!m.done;
+    this.dirty(el); return true;
+  },
+  dirty(elId){ for(const c of this.boxes) if(!elId || c._el?.id===elId) c._dirty = true; this.loop(); },
+  loop(){ if(!this.raf && typeof requestAnimationFrame==='function') this.raf = requestAnimationFrame(()=>{ this.raf = 0; this.frame(); }); },
+  frame(){
+    const now = nowMs(); let more = false;
+    for(const c of this.boxes){
+      if(!c.isConnected){ this.boxes.delete(c); this.ro?.unobserve(c); continue; }
+      if(c._dirty || now>=c._wake) drawRender(c, now);
+      if(c._wake<Infinity) more = true;
+    }
+    if(more) this.loop();
+  },
+  // Картинка кисти из фото: файл приходит из программы стримера, как и все остальные
+  img(src){
+    const u = resolveSrc(src); if(!u) return null;
+    let im = this.imgs.get(u);
+    if(!im){
+      if(this.imgs.size>40) this.imgs.clear();
+      im = new Image(); im.onload = () => { for(const c of this.boxes) c._baseKey = null; this.dirty(); }; im.src = u; this.imgs.set(u, im);
+    }
+    return im.complete && im.naturalWidth ? im : null;
+  },
+};
+function drawPaint(c, el){
+  c._el = el;
+  if(!DrawFx.boxes.has(c)){
+    DrawFx.boxes.add(c);
+    if(typeof ResizeObserver==='function'){ DrawFx.ro ||= new ResizeObserver(es=>{ for(const e of es) e.target._dirty = true; DrawFx.loop(); }); DrawFx.ro.observe(c); }
+  }
+  let sig = ''; for(const k of el.strokes) sig += k.id+(k.hold?'+':':')+k.t+',';
+  if(c._sig!==sig){ c._sig = sig; c._dirty = true; }
+  if(c._dirty) DrawFx.loop();
+}
+// Готовые штрихи рисуются в запасной холст и перерисовываются, только когда они поменялись или тают;
+// живые штрихи (их ведут прямо сейчас) кладутся поверх каждый кадр
+function drawRender(c, now){
+  const el = c._el, cv = c.firstChild;
+  c._dirty = false; c._wake = Infinity;
+  if(!el || !cv?.getContext) return;
+  const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+  const W = Math.max(1, Math.round(c.clientWidth*dpr)), H = Math.max(1, Math.round(c.clientHeight*dpr));
+  if(cv.width!==W || cv.height!==H){ cv.width = W; cv.height = H; }
+  const base = c._base ||= document.createElement('canvas'), key = c._sig+'|'+W+'x'+H+'|'+DrawFx.panel;
+  if(c._baseKey!==key || now>=c._baseWake){
+    if(base.width!==W || base.height!==H){ base.width = W; base.height = H; }
+    const bx = base.getContext('2d'); bx.setTransform(1,0,0,1,0,0); bx.clearRect(0, 0, W, H);
+    let wake = Infinity;
+    for(const k of el.strokes){
+      if(k.hold && !DrawFx.panel) continue;
+      const a = drawAlpha(k, now); if(a<=0) continue;
+      if(k.fade && !k.hold){ const t0 = k.t + k.fade*1000; wake = Math.min(wake, now<t0 ? t0 : now); }
+      drawStroke(bx, k, W, H, k.hold ? a*0.45 : a);
+    }
+    c._baseKey = key; c._baseWake = wake;
+  }
+  c._wake = c._baseWake;
+  const ctx = cv.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(base, 0, 0);
+  const live = DrawFx.live.get(el.id);
+  if(live){
+    const ids = new Set(el.strokes.map(k=>k.id));
+    for(const [id, e] of live){
+      const age = Date.now()-e.at, ttl = e.done ? 8000 : 3000;
+      if(ids.has(id) || age>ttl){ live.delete(id); continue; }   // штрих уже в элементе, или пульт пропал
+      c._wake = Math.min(c._wake, now + ttl - age + 50);
+      if(e.k.hold && !DrawFx.panel) continue;
+      drawStroke(ctx, e.k, W, H, e.k.hold ? 0.45 : 1);
+    }
+    if(!live.size) DrawFx.live.delete(el.id);
+  }
+}
+// Плавная линия через середины отрезков
+function drawPath(ctx, P){
+  ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]);
+  if(P.length===1){ ctx.lineTo(P[0][0]+0.01, P[0][1]); return; }
+  for(let i=1;i<P.length-1;i++) ctx.quadraticCurveTo(P[i][0], P[i][1], (P[i][0]+P[i+1][0])/2, (P[i][1]+P[i+1][1])/2);
+  ctx.lineTo(P[P.length-1][0], P[P.length-1][1]);
+}
+function drawLight(h, t){ const n = parseInt(h.slice(1),16), m = v => Math.round(v+(255-v)*t); return `rgb(${m(n>>16&255)},${m(n>>8&255)},${m(n&255)})`; }
+function drawStroke(ctx, k, W, H, alpha){
+  const z = H/1080, w = Math.max(0.5, k.size*z), P = [];
+  for(let i=0;i+1<k.pts.length;i+=2) P.push([k.pts[i]*W/1000, k.pts[i+1]*H/1000]);
+  if(!P.length) return;
+  const A = P[0], B = P[P.length-1];
+  ctx.save();
+  ctx.globalAlpha = alpha; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = k.color; ctx.fillStyle = k.color; ctx.lineWidth = w;
+  // мягкая тень: линию видно и на светлой, и на тёмной картинке игры
+  const shade = (s=1) => { ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = Math.max(2*z, w*0.7)*s; ctx.shadowOffsetY = Math.max(z, w*0.12)*s; };
+  if(k.tool==='pen'){ shade(); drawPath(ctx, P); ctx.stroke(); }
+  else if(k.tool==='marker'){ ctx.globalAlpha = alpha*0.55; ctx.lineWidth = w*2.6; drawPath(ctx, P); ctx.stroke(); }
+  else if(k.tool==='neon'){
+    drawPath(ctx, P);
+    ctx.shadowColor = k.color; ctx.shadowBlur = w*4; ctx.stroke();
+    ctx.shadowBlur = w*1.6; ctx.stroke();
+    ctx.shadowBlur = w*0.5; ctx.strokeStyle = drawLight(k.color, 0.85); ctx.lineWidth = Math.max(z, w*0.45); ctx.stroke();
+  }
+  else if(k.tool==='line' || k.tool==='arrow'){
+    const dx = B[0]-A[0], dy = B[1]-A[1], L = Math.hypot(dx, dy);
+    shade();
+    if(k.tool==='line' || L<1){ ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0]+(L<1?0.01:0), B[1]); ctx.stroke(); }
+    else {
+      const ux = dx/L, uy = dy/L, hl = Math.min(L*0.8, Math.max(w*4.8, 26*z)), hw = hl*0.55;
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0]-ux*hl*0.8, B[1]-uy*hl*0.8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(B[0], B[1]);
+      ctx.lineTo(B[0]-ux*hl-uy*hw, B[1]-uy*hl+ux*hw);
+      ctx.lineTo(B[0]-ux*hl*0.82, B[1]-uy*hl*0.82);
+      ctx.lineTo(B[0]-ux*hl+uy*hw, B[1]-uy*hl-ux*hw);
+      ctx.closePath(); ctx.lineWidth = Math.max(z, w*0.6); ctx.fill(); ctx.stroke();
+    }
+  }
+  else if(k.tool==='circle'){
+    const rx = Math.abs(B[0]-A[0])/2, ry = Math.abs(B[1]-A[1])/2;
+    shade(); ctx.beginPath(); ctx.ellipse((A[0]+B[0])/2, (A[1]+B[1])/2, Math.max(rx, 0.5), Math.max(ry, 0.5), 0, 0, Math.PI*2); ctx.stroke();
+  }
+  else if(k.tool==='rect'){
+    const x = Math.min(A[0], B[0]), y = Math.min(A[1], B[1]), rw = Math.abs(B[0]-A[0]), rh = Math.abs(B[1]-A[1]);
+    shade(); ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x, y, rw, rh, Math.min(w*1.2, rw/4, rh/4)); else ctx.rect(x, y, rw, rh);
+    ctx.stroke();
+  }
+  else if(k.tool==='stamp'){
+    const im = DrawFx.img(k.asset);
+    if(im){
+      const h = k.size*4*z, wd = h*im.naturalWidth/im.naturalHeight, step = Math.max(2, Math.max(h, wd)*0.8);
+      shade(0.6);
+      const put = (x, y) => ctx.drawImage(im, x-wd/2, y-h/2, wd, h);
+      put(A[0], A[1]);
+      let left = step;
+      for(let i=1;i<P.length;i++){
+        const [x0, y0] = P[i-1], [x1, y1] = P[i], d = Math.hypot(x1-x0, y1-y0);
+        let s = left;
+        while(s<=d){ put(x0+(x1-x0)*s/d, y0+(y1-y0)*s/d); s += step; }
+        left = s-d;
+      }
+    }
+  }
+  else if(k.tool==='tex'){
+    const im = DrawFx.img(k.asset);
+    if(im){
+      const pat = ctx.createPattern(im, 'repeat'), sc = 240*z/im.naturalHeight;
+      if(pat){
+        if(pat.setTransform && typeof DOMMatrix==='function') pat.setTransform(new DOMMatrix([sc, 0, 0, sc, 0, 0]));
+        shade(0.6); ctx.strokeStyle = pat; ctx.lineWidth = w*2.4; drawPath(ctx, P); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 
 // ---------- защита: подпись + шифрование ----------
