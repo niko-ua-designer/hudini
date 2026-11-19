@@ -37,8 +37,8 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
   await step('hostile screen data: one bad element is dropped, ids are unique', async () => {
     const r = await widget.evaluate(() => {
       const vals = [null, undefined, 1e308, -1e308, 'x', '', [], {}, ['#ffffff'], ['asset:abcdef12'], { toString: 1 }, { valueOf: 1 }, '__proto__', true, 'javascript:alert(1)', 'https://a.b/x'];
-      const keys = ['id', 'x', 'y', 'text', 'src', 'url', 'fs', 'color', 'font', 'emotes', 'items', 'reel', 'av', 'snd', 'votes', 'opts', 'kf', 'g', 'gn', 'chan', 'win', 'kind', 'theme', 'max', 'mode', 'tz', 'value', 'endSound', 'logo', 'pimg', 'vfx', 'kc', 'card', 'bc', 'ttl'];
-      const TY = ['text', 'image', 'video', 'timer', 'counter', 'web', 'poll', 'cs2', 'msg', 'chat', 'raffle', 'case'];
+      const keys = ['prizes', 'people', 'segs', 'used', 'view', 'id', 'x', 'y', 'text', 'src', 'url', 'fs', 'color', 'font', 'emotes', 'items', 'reel', 'av', 'snd', 'votes', 'opts', 'kf', 'g', 'gn', 'chan', 'win', 'kind', 'theme', 'max', 'mode', 'tz', 'value', 'endSound', 'logo', 'pimg', 'vfx', 'kc', 'card', 'bc', 'ttl'];
+      const TY = ['text', 'image', 'video', 'timer', 'counter', 'web', 'poll', 'cs2', 'msg', 'chat', 'raffle', 'case', 'roulette'];
       let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
       let thrown = 0; const bad = new Set();
       for(let i = 0; i < 3000; i++){
