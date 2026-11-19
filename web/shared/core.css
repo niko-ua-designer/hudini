@@ -266,18 +266,25 @@
 .hd-card.hit,.hd-big.hit{animation:hd-hit .35s ease}
 .cs2.full[data-fx="none"] *{animation:none!important;transition:none!important}
 /* большая карточка (наблюдаемый / соло) */
-.hd-big{position:relative;display:flex;align-items:center;gap:.7em;background:var(--panel);border-radius:.4em;padding:.55em .8em;border-bottom:.24em solid var(--tc);min-width:0;width:100%}
+.hd-big{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:.7em;background:var(--panel);border-radius:.4em;padding:.55em .8em;border-bottom:.24em solid var(--tc);min-width:0;width:100%}
 .hd-big.dead{opacity:.6;filter:grayscale(.7)}
 .hd-bav{width:3.6em;height:3.6em;font-size:1em}
-.hd-bmid{flex:1;min-width:0}
+.hd-bmid{flex:1 1 7em;min-width:0}
 .hd-bname{font-weight:800;font-size:1.15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd-bbars{display:flex;align-items:center;gap:.5em}.hd-bbars .hd-bar{flex:1;height:.4em}.hd-bhp{font-size:1.4em}
 .hd-big.low:not(.dead) .hd-bhp{color:#ff4d5e;animation:hd-pulse 1.2s ease-in-out infinite}
 .hd-bar-ar{font-size:.75em;opacity:.9;display:inline-flex;align-items:center;gap:.25em;flex:none}
 .hd-bhp{display:inline-flex;align-items:center;flex:none}
-.hd-bstats{display:flex;align-items:baseline;gap:.25em;font-size:.8em}.hd-bstats i{font-style:normal;opacity:.72;font-size:.75em;margin-left:.5em}.hd-bstats i:first-child{margin-left:0}
-.hd-bright{display:flex;flex-direction:column;align-items:flex-end;gap:.15em;font-size:.8em;white-space:nowrap}
-.hd-bright .hd-ic{gap:.25em;font-size:1.05em}
+/* статы переносятся целыми парами «подпись число»; правая колонка не шире 38% карточки (если середине не хватает 7em, колонка уходит вниз), оружие обрезается, значки снаряжения
+   переносятся на новую строку: ничего не налезает на текст и друг на друга при любой ширине, теме и языке */
+.hd-bstats{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:.6em;row-gap:.1em;font-size:.8em;min-width:0}
+.hd-bst{display:inline-flex;align-items:baseline;gap:.25em;white-space:nowrap}
+.hd-bstats i{font-style:normal;opacity:.72;font-size:.75em}
+.hd-bbars{min-width:0;flex-wrap:wrap;row-gap:.1em}.hd-bbars .hd-bar{min-width:1.2em}
+.hd-bright{flex:0 1 auto;min-width:0;max-width:38%;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:.15em;font-size:.8em;white-space:nowrap}
+.hd-bright>*{max-width:100%}
+.hd-bright .hd-w{overflow:hidden;text-overflow:ellipsis}
+.hd-bright .hd-ic{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.15em .25em;font-size:1.05em}
 /* таблица */
 .hd-table{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:96%;background:var(--panel);border-radius:.5em;padding:.6em .9em 1em;display:flex;flex-direction:column;gap:.7em}
 .hd-table .hd-top{position:static;transform:none}

@@ -1345,7 +1345,8 @@ function bigCard(c, el, p){
   mid.appendChild(bars);
   const stats=h('div','hd-bstats');
   stats.append(kdNode(c, el, 'big', p.k, p.d));
-  for(const [l,v] of [['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]) stats.append(h('i',null,l), fnum(c, el, 'big'+l, String(v)));
+  // подпись и число — одним куском: в узкой карточке строка переносится целыми парами, а не налезает на правую колонку
+  for(const [l,v] of [['A',p.a??0],['ADR',p.adr??0],['HS',(p.hsp??0)+'%']]){ const g=h('span','hd-bst'); g.append(h('i',null,l), fnum(c, el, 'big'+l, String(v))); stats.append(g); }
   mid.appendChild(stats);
   const right=h('div','hd-bright');
   right.append(fnum(c, el, 'big$', money(p.money), 'hd-money'), h('div','hd-w', p.weapon ? `${weaponName(p.weapon)}${p.ammoMax>0?` ${p.ammo}/${p.reserve}`:''}` : ''), gearIcons(p, 'hd-ic'));
