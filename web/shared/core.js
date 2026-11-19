@@ -67,12 +67,19 @@ const STREAM_TXT = {
     '👁 Панели команд работают, когда стример смотрит матч зрителем (GOTV / наблюдатель)':'👁 Team-Panels funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt (GOTV / Observer)',
     'Спецназ':'Antiterroreinheit', 'Террористы':'Terroristen', 'в голову':'Kopfschuss', 'Зритель':'Zuschauer', 'д':'T' },
 };
+// Рулетка (автомат и колесо): тексты на стриме
+const ROU_TXT = {
+  en:{ 'РУЛЕТКА':'ROULETTE', 'ВСТАВЬТЕ БИЛЕТ':'INSERT TICKET', 'ПРИЁМ БИЛЕТА':'TAKING TICKET', 'ЗАГРУЗКА…':'LOADING…', 'РАЗДАЧА':'SHUFFLING', 'ПОЛУЧЕНО':'YOU WON', 'получает':'gets', 'шанс':'chance', 'Без названия':'Untitled', 'Добавь призы':'Add prizes' },
+  uk:{ 'РУЛЕТКА':'РУЛЕТКА', 'ВСТАВЬТЕ БИЛЕТ':'ВСТАВТЕ КВИТОК', 'ПРИЁМ БИЛЕТА':'ПРИЙОМ КВИТКА', 'ЗАГРУЗКА…':'ЗАВАНТАЖЕННЯ…', 'РАЗДАЧА':'РОЗДАЧА', 'ПОЛУЧЕНО':'ОТРИМАНО', 'получает':'отримує', 'шанс':'шанс', 'Без названия':'Без назви', 'Добавь призы':'Додай призи' },
+  de:{ 'РУЛЕТКА':'ROULETTE', 'ВСТАВЬТЕ БИЛЕТ':'TICKET EINWERFEN', 'ПРИЁМ БИЛЕТА':'TICKET WIRD GEPRÜFT', 'ЗАГРУЗКА…':'LÄDT…', 'РАЗДАЧА':'MISCHEN', 'ПОЛУЧЕНО':'GEWONNEN', 'получает':'bekommt', 'шанс':'Chance', 'Без названия':'Ohne Namen', 'Добавь призы':'Preise hinzufügen' },
+};
+for(const l of Object.keys(ROU_TXT)) Object.assign(STREAM_TXT[l], ROU_TXT[l]);
 const st = s => STREAM_TXT[STREAM_LANG]?.[s] ?? s;
 const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case','roulette'];
 const CHAT_THEMES = ['glass','bubbles','minimal','neon','panel','accent'];
 // Общая громкость оверлея: звук на стриме = общая × громкость элемента. Виджет задаёт её из состояния.
 let MASTER_VOL = 1, FX_VOL = 1;
@@ -156,6 +163,44 @@ const CASE_KINDS = ['normal','bait','random','second'];
 const CASE_2 = { gap:1900, dur:6400 };   // «перекрут»: пауза с надписью и вторая лента
 const RARITY7 = ['#b0c3d9','#5e98d9','#4b69ff','#8847ff','#d32ce6','#eb4b4b','#e4ae39'];
 const RARITY_NAME = ['Ширпотреб','Промышленное','Армейское','Запрещённое','Засекреченное','Тайное','Редкое'];
+// Рулетка: призы с весами, прокрутка считается от spinAt, одинаково у пульта и виджета
+const ROU_VIEWS = ['capsule','wheel'];
+const ROU_MAX = 30, ROU_PEOPLE = 200;
+const ROU_COLORS = ['#a970ff','#4cc9f0','#3ddc97','#ffd166','#ff6b9d','#ff8c42','#8ecae6','#c77dff'];
+const ROU_T = { capsule:7600, wheel:7000 };
+const rouDur = el => ROU_T[el.view] || ROU_T.capsule;
+// Крутится (плюс короткая пауза, пока показывается итог): пока так, новую прокрутку не начинаем
+const rouBusy = (el, now) => !!el.spinAt && now < el.spinAt + rouDur(el) + 800;
+const rouShown = (el, now) => !!el.spinAt && now < el.spinAt + rouDur(el) + el.hideAfter*1000;
+function rouPrizes(list){
+  return (Array.isArray(list)?list:[]).slice(0,ROU_MAX).map((x,i)=>({ n:str(x?.n,40), w:num(x?.w,1,0,1000), c:hex(x?.c, ROU_COLORS[i%ROU_COLORS.length]), note:str(x?.note,80) }));
+}
+// Взвешенный выбор: unit в [0,1). Возвращает индекс или -1, если выбирать не из чего
+function rouPickIdx(list, unit, wOf){
+  let total=0; for(const x of list) total+=wOf(x);
+  if(!(total>0)) return -1;
+  let r=Math.min(0.999999999, Math.max(0, unit))*total, last=-1;
+  for(let i=0;i<list.length;i++){ const w=wOf(list[i]); if(w<=0) continue; last=i; r-=w; if(r<0) return i; }
+  return last;
+}
+const roulettePrize = (el, unit) => rouPickIdx(el.prizes, unit, x=>x.w>0 ? x.w : 0);
+const roulettePerson = (el, unit) => rouPickIdx(el.people, unit, x=>x.w);
+// Сектора колеса по снимку призов и точка остановки: победитель посередине под стрелкой (со смещением jit внутри сектора)
+function rouSegs(list){
+  const pool=list.filter(x=>x.w>0), total=pool.reduce((a,x)=>a+x.w,0)||1, T=Math.PI*2;
+  let acc=0;
+  return pool.map(x=>{ const sp=x.w/total*T, g={ item:x, start:acc, span:sp, mid:acc+sp/2, chance:x.w/total }; acc+=sp; return g; });
+}
+function rouTarget(el){
+  const T=Math.PI*2, seg=rouSegs(el.segs).find(g=>g.item===el.segs[el.win]);
+  const aim=seg ? seg.mid+el.jit*seg.span*0.9 : 0, from=el.from||0, delta=(((-aim-from)%T)+T)%T;
+  return { from, to:from+5*T+delta, rest:((-aim%T)+T)%T };
+}
+// Шанс выпавшего приза в процентах (по снимку призов на момент прокрутки)
+function rouChance(el){
+  const t=el.segs.reduce((a,x)=>a+x.w,0), w=el.segs[el.win];
+  return w && t>0 ? w.w/t : 0;
+}
 const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
@@ -221,6 +266,17 @@ function sanitizeEl(e){
     o.uhhText=str(e.uhhText,24); o.upText=str(e.upText,24);   // свои надписи (по умолчанию без текста)
     o.hideAfter=num(e.hideAfter,12,3,120); o.vol=num(e.vol,0.8,0,1); o.q=e.q==='low'?'low':'high';
     o.snd={}; for(const k of ['in','tense','lock','open','tick','win']){ const v=safeSrc(e.snd?.[k]); if(v) o.snd[k]=v; }
+  } else if(type==='roulette'){
+    o.view=ROU_VIEWS.includes(e.view)?e.view:'capsule';
+    o.fs=num(e.fs,4,1,12); o.font=fontOf(e.font); o.color=hex(e.color,'#ffffff'); o.accent=hex(e.accent,'#a970ff');
+    o.title=str(e.title,30);
+    o.prizes=rouPrizes(e.prizes); o.segs=rouPrizes(e.segs);
+    o.people=(Array.isArray(e.people)?e.people:[]).slice(0,ROU_PEOPLE).map(x=>({ n:str(x?.n,40).trim(), w:Math.round(num(x?.w,1,1,100)) })).filter(x=>x.n);
+    o.used=(Array.isArray(e.used)?e.used:[]).slice(0,ROU_PEOPLE).map(x=>({ n:str(x?.n,40).trim(), w:Math.round(num(x?.w,1,1,100)) })).filter(x=>x.n);
+    o.once=e.once!==false; o.odds=e.odds!==false; o.who=e.who!==false;
+    o.hideAfter=num(e.hideAfter,10,3,120); o.vol=num(e.vol,0.8,0,1);
+    o.spinAt=num(e.spinAt,0,0,1e15); o.viewer=str(e.viewer,40); o.jit=num(e.jit,0,-0.45,0.45); o.from=num(e.from,0,0,7);
+    o.win=Math.round(num(e.win,-1,-1,ROU_MAX-1)); if(o.win>=o.segs.length) o.win=-1;
   } else if(type==='raffle'){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');
@@ -684,6 +740,7 @@ function buildNode(el){
   else if(el.type==='chat'){ c=document.createElement('div'); c.className='chat'; }
   else if(el.type==='raffle'){ c=document.createElement('div'); c.className='raf'; }
   else if(el.type==='case'){ c=document.createElement('div'); c.className='case'; }
+  else if(el.type==='roulette'){ c=document.createElement('div'); c.className='rou'; }
   else if(el.type==='poll'){
     c=document.createElement('div'); c.className='poll';
     for(const k of ['ptitle','prows','pfoot']){ const d=document.createElement('div'); d.className=k; c.appendChild(d); }
@@ -761,6 +818,11 @@ function paintNode(node, el, z){
     c.style.fontSize=`calc(var(--u) * ${(el.fs/4*1.7).toFixed(3)})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
     c.style.setProperty('--cc', el.cc);
     paintCase(c, el);
+  } else if(el.type==='roulette'){
+    node.style.width='';
+    c.style.fontSize=`calc(var(--u) * ${(el.fs*0.37).toFixed(3)})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
+    c.style.setProperty('--ra', el.accent); c.style.setProperty('--q', `calc(var(--u) * ${(el.fs*0.37/16).toFixed(4)})`);
+    window.Rou?.paint(c, el);
   } else if(el.type==='raffle'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;
@@ -833,6 +895,7 @@ function pollFoot(foot, el, now){
 function tickNode(node, el, now){
   if(el.type==='case'){ const c=node.querySelector('.case'); if(c) caseKick(c, el); return null; }
   if(el.type==='raffle'){ const c=node.querySelector('.raf'); if(c) raffleTick(c, el, now); return null; }
+  if(el.type==='roulette'){ const c=node.querySelector('.rou'); if(c) window.Rou?.kick(c, el); return null; }
   if(el.type==='poll'){ const f=node.querySelector('.poll')?.children[2]; if(f) pollFoot(f, el, now); return null; }
   if(el.type==='cs2'){
     const c=node.querySelector('.cs2'); if(!c) return null;
