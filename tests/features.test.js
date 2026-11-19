@@ -422,6 +422,45 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
   });
 
+  await step('CS2 team names and logos follow the team after a side swap', async () => {
+    const r = await mod.evaluate(() => {
+      const el = sanitizeEl({ id: 'x', type: 'cs2', tnCT: 'Alpha', tnT: 'Beta', lgCT: 'https://example.com/a.png', lgT: 'https://example.com/b.png' });
+      const a = cs2View(el, { ctName: 'x', tName: 'y', sw: 0 }), b = cs2View(el, { ctName: 'x', tName: 'y', sw: 1 });
+      const bare = cs2View(sanitizeEl({ id: 'y', type: 'cs2' }), { ctName: 'NAVI', tName: 'Vitality', sw: 1 });
+      return [a.ctName, a.tName, a.lgCT, b.ctName, b.tName, b.lgCT, b.lgT, bare.ctName, bare.tName];
+    });
+    eq(r, ['Alpha', 'Beta', 'https://example.com/a.png', 'Beta', 'Alpha', 'https://example.com/b.png', 'https://example.com/a.png', 'NAVI', 'Vitality'], 'manual names and logos swap, names from the game are used as sent by the Host');
+  });
+
+  await step('CS2 nicknames: a replaced nick shows on the cards, the big card and the kill feed; reset brings the game nick back', async () => {
+    const id = i => '7656119800000000' + i;
+    const names = ['LuIsetsiKk', 'p2', 'p3', 'p4', 'p5', 'q1', 'q2', 'q3', 'q4', 'q5'];
+    const players = {}; names.forEach((n, i) => players[id(i)] = { name: n, observer_slot: i, team: i < 5 ? 'CT' : 'T', state: { health: 100, armor: 0, money: 800, round_kills: 0 }, match_stats: { kills: 0, deaths: 0, assists: 0 } });
+    await gsi({ provider: { steamid: '999' }, map: { name: 'de_nuke', round: 3, phase: 'live', team_ct: { score: 1 }, team_t: { score: 2 } }, round: { phase: 'live' }, player: { steamid: id(0), name: names[0], team: 'CT', observer_slot: 0, state: { health: 100 } }, allplayers: players });
+    await mod.click('[data-tab=add]'); await mod.click('[data-add=cs2]'); await mod.selectOption('#iCsView', 'hud_tour');
+    check(await until(() => mod.$(`#csNickList .row[data-id="${id(0)}"] input`)), 'the nickname list shows the players the HUD sees');
+    eq(await mod.$$eval('#csNickList .row', n => n.length), 10, 'ten rows');
+    const text = sel => wid.$$eval(sel, n => n.map(x => x.textContent).join('|'));
+    check(await until(async () => (await text('.hd-name')).includes('LuIsetsiKk')), 'game nick before');
+    await mod.evaluate(() => { $('csNickBox').open = true; });
+    const inp = mod.locator(`#csNickList .row[data-id="${id(0)}"] input`);
+    await inp.fill('Luis'); await inp.press('Enter'); await inp.blur();
+    check(await until(async () => (await text('.hd-name')).includes('Luis') && !(await text('.hd-name')).includes('LuIsetsiKk')), 'card shows Luis');
+    check(await until(async () => (await text('.hd-bname')).includes('Luis')), 'big card shows Luis');
+    check(await until(async () => (await mod.evaluate(() => state.els.filter(e => e.type === 'cs2').every(e => e.nicks && e.nicks['7656119800000000' + 0] === 'Luis')))), 'saved on every CS2 element');
+    await mod.evaluate(() => undo());
+    check(await until(async () => (await text('.hd-name')).includes('LuIsetsiKk')), 'one undo step takes the nick back');
+    await mod.evaluate(i => setNick(i, 'Luis'), id(0));
+    await mod.click(`#csNickList .row[data-id="${id(0)}"] button`);
+    check(await until(async () => (await text('.hd-name')).includes('LuIsetsiKk') && !(await text('.hd-bname')).includes('Luis')), 'reset brings the game nick back');
+    eq(await mod.evaluate(() => Object.keys(byId(selectedId).nicks).length), 0, 'and removes the entry');
+    const junk = await mod.evaluate(() => { const o = { '123': 'x', '12345678901234567': '  Ok\u0007Nick  ', '12345678901234568': 5, '12345678901234569': 'a'.repeat(60), '1234567890123456a': 'no', '12345678901234560': '   ' };
+      for(let i = 0; i < 30; i++) o['9000000000000' + String(1000 + i)] = 'n' + i;
+      const n = sanitizeEl({ id: 'z', type: 'cs2', nicks: o }).nicks; return [Object.keys(n).length, n['12345678901234567'], n['12345678901234569'].length, '123' in n, '12345678901234568' in n, '12345678901234560' in n, sanitizeEl({ id: 'z', type: 'cs2', nicks: 'x' }).nicks && Object.keys(sanitizeEl({ id: 'z', type: 'cs2', nicks: 'x' }).nicks).length]; });
+    eq(junk, [20, 'OkNick', 24, false, false, false, 0], 'garbage in nicks is cleaned: keys, types, length, control characters, at most 20');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
+  });
+
   await step('snapping to other elements: move, resize, Ctrl and highlight of the target', async () => {
     await mod.click('[data-tab=add]');
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });

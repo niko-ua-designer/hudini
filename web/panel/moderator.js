@@ -617,7 +617,7 @@ function addCs2(){
 }
 function repaintCs2(){
   state.els.forEach((el,i)=>{ if(el.type!=='cs2') return; const n=nodes.get(el.id); if(n && !n._animOn) paintNode(n, el, i+1); });
-  const sel=byId(selectedId); if(sel?.type==='cs2') renderCsStatus();
+  const sel=byId(selectedId); if(sel?.type==='cs2'){ renderCsStatus(); renderNicks(sel); }
 }
 function renderCsStatus(){
   $('csStatus').textContent = cs2Fresh()
@@ -2375,6 +2375,7 @@ function renderCsHud(el){
   $('csRadarBox').hidden=el.view!=='radar'; I('iCsRbg').checked=el.rbg!==false; I('iCsRmap').checked=el.rmap!==false; setField(I('iCsRds'), String(el.rds??1)); $('vCsRds').textContent=Math.round((el.rds??1)*100)+'%';
   I('iCsKf').checked=!!el.kfeed; $('csKfRow').hidden=!['hud_solo','hud_tour'].includes(el.view);
   setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
+  renderNicks(el);
   const list=$('csAvList'); list.replaceChildren();
   // после отмены или копирования av — обычный объект: ищем только свои ключи (игрок мог назваться constructor)
   const own=el.av||{}, av=n=>Object.hasOwn(own, n) ? own[n] : '';
@@ -2385,6 +2386,42 @@ function renderCsHud(el){
     const b=document.createElement('button'); b.textContent=av(n)?'🗑':'📁'; b.title=av(n)?'Убрать аватарку':'Выбрать картинку';
     b.onclick=()=>{ if(av(n)) setAvatar(n, null); else { $('csAvName').value=n; $('csAvFile').click(); } };
     r.append(nm, b); list.appendChild(r);
+  }
+}
+// Ники игроков: steamid -> показываемый ник, ставится всем CS2-элементам. Список: все, кого сейчас видит HUD
+function csPlayers(){
+  const m=new Map();
+  for(const p of CS2?.players||[]) if(p?.id) m.set(p.id, p);
+  if(CS2?.observed?.id && !m.has(CS2.observed.id)) m.set(CS2.observed.id, CS2.observed);
+  if(!CS2?.players?.length && CS2?.id) m.set(CS2.id, { id:CS2.id, name:CS2.name, team:CS2.team });
+  return [...m.values()].sort((a,b)=>(a.team===b.team?0:a.team==='CT'?-1:1) || (a.slot??99)-(b.slot??99));
+}
+function setNick(id, val){
+  const v=cleanNicks({ [id]:val })[id];
+  beginChange();
+  for(const x of state.els) if(x.type==='cs2'){
+    const n={ ...(x.nicks||{}) };
+    if(v) n[id]=v; else delete n[id];
+    x.nicks=cleanNicks(n);
+  }
+  commit();
+}
+function renderNicks(el){
+  const box=$('csNickBox'), list=$('csNickList'); if(!box || list.contains(document.activeElement)) return;
+  const nk=el?.nicks||{}, ps=csPlayers(), seen=new Set(ps.map(p=>p.id));
+  // CS2 шлёт пакеты по 10 раз в секунду: список перерисовываем только когда в нём что-то поменялось, иначе поле ввода уходит из-под рук
+  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk]); if(list._sig===sig) return; list._sig=sig;
+  list.replaceChildren();
+  if(!ps.length && !Object.keys(nk).length){ const e=document.createElement('div'); e.className='hint'; e.textContent='Игроков пока нет: нужна запущенная CS2 и Hudini Host'; list.appendChild(e); return; }
+  for(const p of [...ps, ...Object.keys(nk).filter(id=>!seen.has(id)).map(id=>({ id, name:'', offline:true }))]){
+    const r=document.createElement('div'); r.className='row'; r.dataset.id=p.id;
+    const nm=document.createElement('span'); nm.className='hint'; nm.dataset.i18nSkip=''; nm.style.minWidth='7em';
+    nm.textContent=(p.slot!=null?p.slot+' · ':'')+(p.team||'')+(p.team?' · ':'')+(p.name||p.id);
+    const inp=document.createElement('input'); inp.type='text'; inp.className='grow'; inp.maxLength=24; inp.placeholder='Ник в HUD (пусто = игровой)'; inp.value=nk[p.id]||'';
+    inp.addEventListener('change', ()=>setNick(p.id, inp.value));
+    const b=document.createElement('button'); b.textContent='↺'; b.title='Сбросить ник'; b.disabled=!nk[p.id];
+    b.onclick=()=>setNick(p.id, '');
+    r.append(nm, inp, b); list.appendChild(r);
   }
 }
 function setAvatar(name, src){

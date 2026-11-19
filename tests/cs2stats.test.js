@@ -148,6 +148,47 @@ const { step, check, eq, until, sleep } = T;
     check(!/PUB_(MOD|LOCAL) = new Set\([^)]*cs2fight/.test(srv), 'clients cannot publish it');
   });
 
+  // Team names and score travel with the team when sides are swapped (halftime, overtime)
+  const side = ({ round, team, ct, t, map = 'de_nuke', phase = 'live' }) => ({
+    provider: { steamid: '111' },
+    map: { name: map, mode: 'competitive', round, phase: 'live', team_ct: { name: ct[0], score: ct[1] }, team_t: { name: t[0], score: t[1] } },
+    round: { phase },
+    player: { steamid: '111', name: 'me', team, state: { health: 100, armor: 0, money: 800, round_kills: 0, round_killhs: 0, round_totaldmg: 0 }, match_stats: { kills: 0, deaths: 0, assists: 0 } },
+  });
+  const teams = async () => { const c = (await host.api('/api/status')).cs2; return [c.ctName, c.ct, c.tName, c.tt, c.sw]; };
+
+  await step('side swap: CS2 left names and score on the old sides, Host moves them with the team', async () => {
+    await send(side({ round: 10, team: 'CT', ct: ['A', 5], t: ['B', 6] }));
+    eq(await teams(), ['A', 5, 'B', 6, 0], 'first half as is');
+    await send(side({ round: 12, team: 'CT', ct: ['A', 5], t: ['B', 7] }));
+    // halftime: our player is now T, the packet still carries the old names and scores
+    await send(side({ round: 12, team: 'T', ct: ['A', 5], t: ['B', 7] }));
+    eq(await teams(), ['B', 7, 'A', 5, 1], 'A moved to T with 5, B to CT with 7');
+    await send(side({ round: 13, team: 'T', ct: ['A', 5], t: ['B', 8] }));
+    eq(await teams(), ['B', 8, 'A', 5, 1], 'a later round keeps the sides');
+    // the rest of the regulation round by round, then the overtime swap
+    for(let a = 5, b = 8, r = 14; r < 27; r++){ if(r % 2) b++; else a++; await send(side({ round: r, team: 'T', ct: ['A', a], t: ['B', b] })); }
+    await send(side({ round: 27, team: 'CT', ct: ['A', 14], t: ['B', 13] }));
+    eq(await teams(), ['A', 14, 'B', 13, 0], 'second swap puts them back');
+  });
+
+  await step('side swap: CS2 swapped names and score itself, Host leaves them alone', async () => {
+    await send(side({ round: 0, team: 'CT', ct: ['A', 0], t: ['B', 0], map: 'de_ancient' }));
+    await send(side({ round: 11, team: 'CT', ct: ['A', 4], t: ['B', 7], map: 'de_ancient' }));
+    await send(side({ round: 12, team: 'T', ct: ['B', 7], t: ['A', 4], map: 'de_ancient' }));
+    eq(await teams(), ['B', 7, 'A', 4, 1], 'taken as CS2 sent it');
+    await send(side({ round: 24, team: 'CT', ct: ['A', 12], t: ['B', 12], map: 'de_ancient' }));
+    eq((await teams()).slice(0, 4), ['A', 12, 'B', 12], 'tie at the overtime swap, names follow');
+  });
+
+  await step('side swap: a spectator switching between players is not a swap', async () => {
+    const spec = (id, team) => ({ ...side({ round: 5, team: 'CT', ct: ['A', 2], t: ['B', 3], map: 'de_overpass' }), provider: { steamid: '999' }, player: { steamid: id, name: id, team, state: { health: 100 } } });
+    await send({ ...side({ round: 4, team: 'CT', ct: ['A', 2], t: ['B', 2], map: 'de_overpass' }), provider: { steamid: '999' } });
+    await send(spec('201', 'CT')); await send(spec('202', 'T')); await send(spec('201', 'CT'));
+    eq((await teams()).slice(0, 4), ['A', 2, 'B', 3], 'no change');
+    eq((await teams())[4], 0, 'no swap counted');
+  });
+
   await host.stop();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

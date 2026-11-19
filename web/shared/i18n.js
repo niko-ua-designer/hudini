@@ -1519,6 +1519,11 @@ const HUDINI_DICT = {
     "(рамка, плашка и сетка за картой)": "(frame, plate and grid behind the map)",
     "Подложка карты": "Map picture",
     "(выкл.: только точки)": "(off: dots only)",
+    "🏷 Ники игроков": "🏷 Player nicknames",
+    "Ник в HUD (пусто = игровой)": "HUD nickname (empty = in-game)",
+    "Сбросить ник": "Reset nickname",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "No players yet: CS2 and Hudini Host must be running",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Nicknames apply to all CS2 elements. Only the stream changes; the in-game name stays the same.",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -3037,6 +3042,11 @@ const HUDINI_DICT = {
     "(рамка, плашка и сетка за картой)": "(рамка, плашка й сітка за мапою)",
     "Подложка карты": "Підкладка мапи",
     "(выкл.: только точки)": "(вимк.: лише точки)",
+    "🏷 Ники игроков": "🏷 Ніки гравців",
+    "Ник в HUD (пусто = игровой)": "Нік у HUD (порожньо = ігровий)",
+    "Сбросить ник": "Скинути нік",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Гравців поки немає: потрібні запущені CS2 і Hudini Host",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Ніки ставляться всім CS2-елементам. Змінюється лише те, що видно на стрімі, в грі нік той самий.",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4555,6 +4565,11 @@ const HUDINI_DICT = {
     "(рамка, плашка и сетка за картой)": "(Rahmen, Platte und Raster hinter der Karte)",
     "Подложка карты": "Kartenbild",
     "(выкл.: только точки)": "(aus: nur Punkte)",
+    "🏷 Ники игроков": "🏷 Spielernamen",
+    "Ник в HUD (пусто = игровой)": "Name im HUD (leer = Spielname)",
+    "Сбросить ник": "Name zurücksetzen",
+    "Игроков пока нет: нужна запущенная CS2 и Hudini Host": "Noch keine Spieler: CS2 und Hudini Host müssen laufen",
+    "Ники ставятся всем CS2-элементам. Меняется только то, что видно на стриме, в игре ник прежний.": "Namen gelten für alle CS2-Elemente. Nur der Stream ändert sich, der Spielname bleibt gleich.",
   },
 };
 
