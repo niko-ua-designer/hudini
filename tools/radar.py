@@ -11,6 +11,7 @@ Usage:
   python3 tools/radar.py                        # every known map from cs2maps/ (or radar-src/) into web/shared/radar/
   python3 tools/radar.py de_mirage de_dust2     # only these maps
   python3 tools/radar.py --src DIR --out DIR    # other folders (e.g. --out server/data/radar for a local override)
+  python3 tools/radar.py --bbox                 # content box of every picture in web/shared/radar/ (b: [u0, v0, u1, v1] for cs2-maps.js)
   python3 tools/radar.py --calib de_x "x1,y1=px1,py1;x2,y2=px2,py2"
         # two world points and where they are on a 1024 x 1024 source: prints pos_x, pos_y, scale for web/shared/cs2-maps.js
 
@@ -131,6 +132,26 @@ def calib(spec):
     return {'x': round(w1[0] - p1[0] * s, 1), 'y': round(w1[1] + p1[1] * s, 1), 's': round(s, 4), 'skew': round(abs(sx - sy) / s, 4)}
 
 
+def bbox(out_dir, pad=0.012):
+    """Content box per map (fractions of the picture, upper and lower level together) read from the finished pictures:
+    the radar card is cut to it, so there are no empty margins around the map. pad leaves room for the glow and the outline."""
+    boxes = {}
+    for f in sorted(os.listdir(out_dir)):
+        if not f.endswith('.webp'): continue
+        name = f[:-5].rsplit('-', 1)[0]
+        m = name[:-6] if name.endswith('_lower') else name
+        a = np.asarray(Image.open(os.path.join(out_dir, f)).convert('RGBA'))[..., 3] > 60
+        if not a.any(): continue
+        h, w = a.shape
+        ys, xs = np.where(a)
+        b = (xs.min() / w, ys.min() / h, (xs.max() + 1) / w, (ys.max() + 1) / h)
+        o = boxes.get(m)
+        boxes[m] = b if not o else (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
+    for m, b in boxes.items():
+        print(f"{m}: b:[{max(0, b[0] - pad):.3f}, {max(0, b[1] - pad):.3f}, {min(1, b[2] + pad):.3f}, {min(1, b[3] + pad):.3f}]")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('maps', nargs='*')
@@ -140,7 +161,10 @@ def main():
     ap.add_argument('--size', type=int, default=768, help='output side in pixels (calibration is in fractions, any size works)')
     ap.add_argument('--themes', nargs='*', choices=list(THEMES), help='only these HUD themes (default: all three)')
     ap.add_argument('--calib', nargs=2, metavar=('MAP', 'POINTS'))
+    ap.add_argument('--bbox', action='store_true', help='print the content box of every picture in --out')
     a = ap.parse_args()
+    if a.bbox:
+        return bbox(a.out)
     if a.calib:
         print(a.calib[0], calib(a.calib[1])); return 0
     src_dir = a.src or next((d for d in (os.path.join(ROOT, 'cs2maps'), os.path.join(ROOT, 'radar-src')) if os.path.isdir(d)), None)

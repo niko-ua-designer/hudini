@@ -196,6 +196,8 @@ function sanitizeEl(e){
     o.av=Object.create(null); if(e.av && typeof e.av==='object') for(const [k,v] of Object.entries(e.av).slice(0,40)){ const src=safeSrc(v); if(src) o.av[str(k,40).toLowerCase()]=src; }
     o.tnCT=str(e.tnCT,30); o.tnT=str(e.tnT,30); o.lgCT=safeSrc(e.lgCT)||''; o.lgT=safeSrc(e.lgT)||'';
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
+    o.rbg=e.rbg!==false; o.rmap=e.rmap!==false;   // радар: рамка с плашкой и сеткой; сама картинка карты
+    o.rds=num(e.rds,1,0.5,2.5);   // размер значков радара: множитель от маленького по умолчанию
     o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip; o.kfeed=!!e.kfeed;   // свой киллфид в HUD (kf занят анимацией движения)
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
   } else if(type==='msg'){
@@ -1955,18 +1957,31 @@ function radarProject(r, map, pts){
   const span=Math.max(800, b.x1-b.x0, b.y1-b.y0)*1.2, cx=(b.x0+b.x1)/2, cy=(b.y0+b.y1)/2;
   return p=>[(p[0]-cx)/span+0.5, (cy-p[1])/span+0.5];
 }
+// размер карточки радара в em: длинная сторона RADAR_SIDE, пропорции — по рамке содержимого подложки карты
+const RADAR_SIDE = 10.5;
+function radarDims(map){
+  const b=typeof cs2MapBox==='function' ? cs2MapBox(map) : [0,0,1,1], bw=b[2]-b[0], bh=b[3]-b[1], k=RADAR_SIDE/Math.max(bw, bh);
+  return { w:bw*k, h:bh*k, b };
+}
 function paintRadar(c, el, d){
   let r=c._rd;
   if(!r || r.box.parentNode!==c){
     r=c._rd={ box:h('div','rd'), img:document.createElement('img'), dots:h('div','rd-dots'), cap:h('div','rd-cap'), map:new Map(), src:null };
     r.img.className='rd-img'; r.img.alt=''; r.img.draggable=false; r.img.hidden=true;
     r.img.onload=()=>{ r.img.hidden=false; r.box.classList.add('has-img'); }; r.img.onerror=()=>{ r.img.hidden=true; r.box.classList.remove('has-img'); };
-    r.box.append(h('div','rd-grid'), r.img, r.dots, r.cap); c.replaceChildren(r.box);
+    r.sq=h('div','rd-sq'); r.sq.append(r.img, r.dots);   // слой во всю подложку: рамка .rd лишь вырезает из него нужную часть
+    r.box.append(h('div','rd-grid'), r.sq, r.cap); c.replaceChildren(r.box);
   }
   c.classList.toggle('nodata', !d);
   if(!d){ r.cap.textContent=st('🎯 CS2: ждём данные из игры'); r.dots.replaceChildren(); r.map.clear(); return; }
   const map=String(d.map||''), players=(d.players||[]).filter(p=>Array.isArray(p.pos));
   const obs=players.find(p=>p.id===d.obs), lower=typeof cs2Lower==='function' && obs ? cs2Lower(map, obs.pos) : false;
+  c.dataset.rbg=el.rbg===false ? '0' : '1'; r.box.classList.toggle('nomap', el.rmap===false);
+  const dim=radarDims(map), bs=r.box.style;
+  bs.setProperty('--ds', (0.6*(el.rds||1)).toFixed(3)+'em');
+  bs.setProperty('--rw', dim.w.toFixed(3)); bs.setProperty('--rh', dim.h.toFixed(3));
+  bs.setProperty('--bw', (dim.b[2]-dim.b[0]).toFixed(4)); bs.setProperty('--bh', (dim.b[3]-dim.b[1]).toFixed(4));
+  bs.setProperty('--bu', dim.b[0].toFixed(4)); bs.setProperty('--bv', dim.b[1].toFixed(4));
   const src=typeof cs2RadarImg==='function' ? cs2RadarImg(map, el.theme, lower) : '';
   if(r.src!==src){ r.src=src; r.box.classList.remove('has-img'); r.img.hidden=true; if(src) r.img.src=src; else r.img.removeAttribute('src'); }
   r.box.classList.toggle('lower', lower);

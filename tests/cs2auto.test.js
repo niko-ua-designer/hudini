@@ -17,7 +17,7 @@ const noop = () => {};
 const box = { console, URL, Blob, TextEncoder, TextDecoder, crypto: require('crypto').webcrypto, atob, btoa, Intl, setTimeout, clearTimeout, setInterval: noop, addEventListener: noop, document: { addEventListener: noop, currentScript: null, baseURI: 'http://x/' }, location: { protocol: 'https:', origin: 'https://panel.test' } };
 box.window = box; vm.createContext(box);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'web/shared/core.js'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'web/shared/cs2-maps.js'), 'utf8')
-  + '\nthis.C = { cleanCs2Auto, cs2TabMoment, sanitizeState, cleanSeriesView, cs2MapUV, cs2RadarImg, cs2Lower, cs2Mvp, cs2TabLook, setSeries: v => { CS2_SERIES = v; }, seriesLabel };', box);
+  + '\nthis.C = { cleanCs2Auto, cs2TabMoment, sanitizeState, cleanSeriesView, cs2MapUV, cs2MapBox, radarDims, sanitizeEl, cs2RadarImg, cs2Lower, cs2Mvp, cs2TabLook, setSeries: v => { CS2_SERIES = v; }, seriesLabel };', box);
 const C = box.C;
 
 (async () => {
@@ -98,6 +98,13 @@ const C = box.C;
     const uv = C.cs2MapUV('de_dust2', [-2476 + 4.4 * 512, 3239 - 4.4 * 256, 0]);
     eq(uv.map(x => +x.toFixed(4)), [0.5, 0.25], '512 px right, 256 px down at scale 4.4');
     eq(C.cs2MapUV('de_unknown', [0, 0, 0]), null, 'unknown map: no calibration');
+    eq(C.cs2MapBox('de_unknown'), [0, 0, 1, 1], 'unknown map: the whole picture');
+    for(const m of ['de_nuke', 'de_mirage', 'de_train']){ const b = C.cs2MapBox(m); check(b[0] >= 0 && b[1] >= 0 && b[2] <= 1 && b[3] <= 1 && b[2] - b[0] > 0.3 && b[3] - b[1] > 0.3, m + ': content box inside the picture', b); }
+    const dn = C.radarDims('de_nuke'), dm = C.radarDims('de_mirage');
+    check(dn.w / dn.h > 1.5 && Math.abs(Math.max(dn.w, dn.h) - 10.5) < 1e-9, 'nuke card is wide and its long side is fixed', dn);
+    check(Math.abs(dm.w / dm.h - (0.939 - 0.088) / (0.867 - 0.135)) < 1e-9, 'card proportions follow the box', dm);
+    const re = C.sanitizeEl({ id: 'a', type: 'cs2', view: 'radar' }), rf = C.sanitizeEl({ id: 'a', type: 'cs2', view: 'radar', rbg: false, rmap: false, rds: 9 });
+    eq([re.rbg, re.rmap, re.rds, rf.rbg, rf.rmap, rf.rds], [true, true, 1, false, false, 2.5], 'radar switches on by default, icon size clamped');
     eq(C.cs2RadarImg('de_nuke', 'ko', true), '../shared/radar/de_nuke_lower-ko.webp', 'nuke lower level in the ko theme');
     eq(C.cs2RadarImg('de_mirage', 'weird', true), '../shared/radar/de_mirage-glass.webp', 'no lower level on mirage, unknown theme → glass');
     eq([C.cs2Lower('de_nuke', [0, 0, -600]), C.cs2Lower('de_nuke', [0, 0, -400]), C.cs2Lower('de_dust2', [0, 0, -9000])], [true, false, false], 'level by height');
@@ -240,6 +247,13 @@ const C = box.C;
     check(w && Math.abs(w.left - u) < 0.05 && Math.abs(w.top - v) < 0.05, `SaiYeah at ${u.toFixed(2)}% / ${v.toFixed(2)}%`, w);
     check(w && w.slot === '1' && w.dots === 10, 'slot number on the dot, ten players', w);
     eq(w && w.img, '../shared/radar/de_dust2-classic.webp', 'classic background served by the Host');
+    const sw = () => s.widget.evaluate(() => { const r = [...document.querySelectorAll('.rd')].pop(), c = r.parentNode; return { rbg: c.dataset.rbg, nomap: r.classList.contains('nomap'), img: getComputedStyle(r.querySelector('.rd-img')).display, plate: getComputedStyle(c).backgroundColor }; });
+    eq((await sw()).rbg, '1', 'card background on by default');
+    await s.panel.click('label:has(#iCsRbg)'); await s.panel.click('label:has(#iCsRmap)');
+    const off = await until(async () => { const x = await sw(); return x.rbg === '0' && x.nomap && x; }, 4000);
+    check(off && off.img === 'none' && off.plate === 'rgba(0, 0, 0, 0)', 'both switches off: no plate, no map picture on stream', off);
+    await s.panel.click('label:has(#iCsRbg)'); await s.panel.click('label:has(#iCsRmap)');
+    check(await until(async () => { const x = await sw(); return x.rbg === '1' && !x.nomap; }, 4000), 'switched back on');
     ROSTER[0][4] = [0, 1500, 0];
     await gsi(spec({ map: 'de_dust2', ct: 1, tt: 1, round: 2 }));
     check(await until(async () => { const x = await where(); return x && Math.abs(x.left - (2476 / 4.4 / 1024 * 100)) < 0.05; }, 4000), 'the dot moved with the next packet');

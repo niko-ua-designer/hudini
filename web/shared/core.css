@@ -660,28 +660,36 @@
 .ctab-ht .cs2.full .hd-feed{opacity:0}
 .ctab-ht .cs2[data-view="scorebar"]{transform:translateY(calc(var(--u,10px) * -60));opacity:0}
 
-/* ---------- CS2 радар: квадрат, подложка Hudini в теме элемента, точки игроков ---------- */
-.cs2[data-view="radar"]{padding:.35em!important}
-.cs2 .rd{position:relative;width:14em;height:14em;border-radius:.45em;overflow:hidden;background:#0b0d14b0}
+/* ---------- CS2 радар: карточка по размеру карты, подложка Hudini в теме элемента, точки игроков ---------- */
+.cs2[data-view="radar"]{padding:.2em!important}
+.cs2 .rd{position:relative;width:calc(var(--rw,10.5) * 1em);height:calc(var(--rh,10.5) * 1em);border-radius:.45em;overflow:hidden;background:#0b0d14b0}
 .cs2 .rd-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff14 1px,transparent 1px),linear-gradient(90deg,#ffffff14 1px,transparent 1px);background-size:10% 10%;opacity:1;transition:opacity .3s}
-.cs2 .rd.has-img .rd-grid{opacity:0}
-.cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.cs2 .rd.has-img:not(.nomap) .rd-grid{opacity:0}
+.cs2 .rd.nomap .rd-img{display:none}
+.cs2 .rd-sq{position:absolute;width:calc(100% / var(--bw,1));height:calc(100% / var(--bh,1));left:calc(var(--bu,0) / var(--bw,1) * -100%);top:calc(var(--bv,0) / var(--bh,1) * -100%)}
+.cs2 .rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
 .cs2 .rd-dots{position:absolute;inset:0}
 .cs2 .rd-cap{position:absolute;left:.5em;bottom:.35em;font-size:.55em;opacity:.75;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 .3em #000;max-width:90%}
-.cs2 .rd-dot{position:absolute;width:1.15em;height:1.15em;margin:-.575em 0 0 -.575em;border-radius:50%;background:var(--tc,#5d9cec);display:grid;place-items:center;
+.cs2 .rd-dot{position:absolute;font-size:var(--ds,.6em);width:1em;height:1em;margin:-.5em 0 0 -.5em;border-radius:50%;background:var(--tc,#5d9cec);display:grid;place-items:center;
   box-shadow:0 0 0 .1em #000a,0 0 .5em color-mix(in srgb,var(--tc,#5d9cec) 70%,transparent);transition:left .25s linear,top .25s linear,opacity .3s;z-index:2}
 .cs2 .rd-dot.tm-ct{--tc:var(--ct,#5d9cec)}.cs2 .rd-dot.tm-t{--tc:var(--tt,#e0a030)}
-.cs2 .rd-dot b{font-size:.62em;font-weight:900;color:#0b0d14;line-height:1}
-.cs2 .rd-dir{position:absolute;inset:-.45em;transform:rotate(var(--a,0deg));transition:transform .25s linear;pointer-events:none}
-.cs2 .rd-dir::after{content:"";position:absolute;right:0;top:50%;margin-top:-.22em;border:.22em solid transparent;border-left:.32em solid var(--tc);border-right:0}
-.cs2 .rd-dot.obs{box-shadow:0 0 0 .12em #fff,0 0 .7em var(--tc);z-index:3}
-.cs2 .rd-dot.c4::before{content:"";position:absolute;right:-.25em;top:-.25em;width:.45em;height:.45em;border-radius:.1em;background:#ff4d5e;box-shadow:0 0 .3em #ff4d5e}
+.cs2 .rd-dot b{font-size:.82em;font-weight:900;color:#0b0d14;line-height:1}
+.cs2 .rd-dir{position:absolute;inset:-.4em;transform:rotate(var(--a,0deg));transition:transform .25s linear;pointer-events:none}
+.cs2 .rd-dir::after{content:"";position:absolute;right:0;top:50%;margin-top:-.2em;border:.2em solid transparent;border-left:.3em solid var(--tc);border-right:0}
+.cs2 .rd-dot.obs{box-shadow:0 0 0 .14em #fff,0 0 .7em var(--tc);z-index:3}
+.cs2 .rd-dot.c4::before{content:"";position:absolute;right:-.22em;top:-.22em;width:.42em;height:.42em;border-radius:.1em;background:#ff4d5e;box-shadow:0 0 .3em #ff4d5e}
 .cs2 .rd-dot.dead{background:none;box-shadow:none;opacity:.7;z-index:1}
-.cs2 .rd-dot.dead b{color:var(--tc);font-size:.8em}
+.cs2 .rd-dot.dead b{color:var(--tc);font-size:1em}
 .cs2 .rd-dot.other{opacity:.35}
-.cs2 .rd-bomb{position:absolute;width:1em;height:1em;margin:-.5em 0 0 -.5em;color:#ff4d5e;filter:drop-shadow(0 0 .25em #ff4d5e);transition:left .25s linear,top .25s linear;z-index:2}
+.cs2 .rd-bomb{position:absolute;font-size:var(--ds,.6em);width:.95em;height:.95em;margin:-.475em 0 0 -.475em;color:#ff4d5e;filter:drop-shadow(0 0 .25em #ff4d5e);transition:left .25s linear,top .25s linear;z-index:2}
 .cs2 .rd-bomb .hi{width:100%;height:100%}
 .cs2 .rd-bomb.planted{animation:rd-blink 1s infinite}
+/* без фона карточки: ни рамки, ни плашки, ни сетки; остаётся карта (если включена) и точки */
+.cs2[data-view="radar"][data-rbg="0"]{background:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;padding:0!important}
+.cs2[data-view="radar"][data-rbg="0"]::before,.cs2[data-view="radar"][data-rbg="0"]::after{display:none!important}
+.cs2[data-view="radar"][data-rbg="0"] .rd{background:none!important;box-shadow:none!important;border-radius:0}
+.cs2[data-view="radar"][data-rbg="0"] .rd-grid{display:none}
+.cs2[data-view="radar"][data-rbg="0"]:not(.nodata) .rd-cap{display:none}
 @keyframes rd-blink{50%{opacity:.35}}
 .cs2[data-theme="classic"] .rd{border-radius:.25em;background:#15171cf0}
 .cs2[data-theme="ko"] .rd{background:#0b0b24c0}
