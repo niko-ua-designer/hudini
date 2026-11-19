@@ -357,3 +357,4 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 #curLayer .curBox{position:absolute;border:1.5px dashed var(--c);border-radius:3px;opacity:.75;transition:left .07s linear,top .07s linear,width .07s linear,height .07s linear}
 #curLayer .curBox.drag{border-style:solid;opacity:1}
 #curLayer .curBox span{position:absolute;left:-1.5px;top:-17px;margin:0}
+#curName{width:124px}
