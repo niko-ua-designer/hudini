@@ -24,6 +24,7 @@ import UI_HTML from './ui.html' with { type: 'text' };
 import DOCK_HTML from './dock.html' with { type: 'text' };
 import I18N_JS from '../web/shared/i18n.js' with { type: 'text' };
 import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
+import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
@@ -144,7 +145,7 @@ async function setRoom(link, full){
   else if(!(cfg.room && cfg.room.code===r.room && cfg.room.k===r.k)) delete cfg.room;
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
   log('Комната готова');
-  announce(); publishCtl();
+  announce(); publishCtl(); publishSeries(true);
 }
 async function createRoom(name){
   const full = await newRoom(name);
@@ -310,9 +311,9 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
-// Кто что пишет: модераторы — только экран (state) и эффекты (fx), виджет OBS — только пульс (hb).
+// Кто что пишет: модераторы — только экран (state), эффекты (fx) и команды серии CS2 (cs2cmd), виджет OBS — только пульс (hb).
 // srv, cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
-const PUB_MOD = new Set(['state', 'fx']), PUB_LOCAL = new Set(['hb']);
+const PUB_MOD = new Set(['state', 'fx', 'cs2cmd']), PUB_LOCAL = new Set(['hb']);
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
   if(!(client?.conn?._mod ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
@@ -632,6 +633,120 @@ async function pushCs2(data){
     aedes.publish({ cmd:'publish', topic:T('cs2'), payload:box, qos:0, retain:true, dup:false }, ()=>{});
   }, wait);
 }
+// ---- серия карт BO1/BO3/BO5: итог каждой карты пишем сами, пульт меняет формат, сбрасывает и правит ----
+// Команды «a» и «b» — по именам (team_ct.name / team_t.name), так смена сторон в половине не путает.
+// Без имён «Команда 1» (a) — кто начал карту за CT, стороны меняются на каждом перерыве (map.phase intermission).
+// Файл data/cs2-series.json переживает перезапуск программы. Чистые функции ниже (до «let series») проверяет tests/cs2auto.test.js.
+const SER_BO = [1, 3, 5], SER_MAX = 7;
+const serName = v => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+const serNum = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(99, Math.max(0, n)) : 0; };
+const serMapName = v => String(v ?? '').replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 40);
+function serMap(m){
+  if(!m || typeof m!=='object') return null;
+  const a = serNum(m.a?.score), b = serNum(m.b?.score);
+  const win = m.win==='a' || m.win==='b' ? m.win : m.win==='' && 'win' in m ? '' : a>b ? 'a' : b>a ? 'b' : '';
+  return { map:serMapName(m.map), a:{ name:serName(m.a?.name), score:a }, b:{ name:serName(m.b?.name), score:b }, win };
+}
+function cleanSeries(j){
+  const s = { v:1, bo:SER_BO.includes(Number(j?.bo)) ? Number(j.bo) : 3, names:{ a:serName(j?.names?.a), b:serName(j?.names?.b) },
+    maps:(Array.isArray(j?.maps) ? j.maps : []).slice(0, 50).map(serMap).filter(Boolean).slice(0, SER_MAX), cur:null };
+  const c = j?.cur;
+  if(c && typeof c==='object' && serMapName(c.map)) s.cur = { map:serMapName(c.map), live:!!c.live, done:!!c.done, aSide:c.aSide==='T' ? 'T' : 'CT', sw:c.sw ? 1 : 0,
+    round:serNum(c.round), ct:serNum(c.ct), tt:serNum(c.tt), ph:String(c.ph ?? '').slice(0, 20), go:Number(c.go) || 0 };
+  return s;
+}
+// сторона команды a сейчас: по имени, если оно есть в пакете, иначе по стороне в начале карты и числу перерывов
+function serSide(s, c, p){
+  const A = s.names.a;
+  if(A && p?.ctName===A) return 'CT';
+  if(A && p?.tName===A) return 'T';
+  return c.sw ? (c.aSide==='CT' ? 'T' : 'CT') : c.aSide;
+}
+function serRecord(s, c, ct, tt, p){
+  const side = serSide(s, c, p), a = side==='CT' ? ct : tt, b = side==='CT' ? tt : ct;
+  s.maps.push(serMap({ map:c.map, a:{ name:s.names.a, score:a }, b:{ name:s.names.b, score:b } }));
+  if(s.maps.length > SER_MAX) s.maps.shift();
+}
+// Один пакет CS2 (сжатый, как в compactGsi) → меняет серию s. true, если что-то поменялось.
+function seriesStep(s, p, now){
+  const map = serMapName(p?.map);
+  if(!map || !p.phase) return false;
+  let c = s.cur, ch = false;
+  const round = Number.isInteger(p.round) ? p.round : null;
+  // новая карта; новый матч на той же карте после конца; рестарт посреди карты (раунд пошёл назад) — без записи
+  if(!c || c.map!==map || (c.done && p.phase!=='gameover') || (!c.done && round!==null && round < c.round)){
+    if(c && c.map!==map && c.live && !c.done && c.ct + c.tt > 0) serRecord(s, c, c.ct, c.tt);   // карту сменили после игры без конца: пишем последний счёт
+    c = s.cur = { map, live:false, done:false, aSide:'CT', sw:0, round:round ?? 0, ct:0, tt:0, ph:'', go:0 }; ch = true;
+  }
+  if(p.phase==='live' && !c.live){
+    c.live = true; c.sw = 0;
+    const A = s.names.a, B = s.names.b, ctN = serName(p.ctName), tN = serName(p.tName);
+    if(!A && !B && (ctN || tN)) s.names = { a:ctN, b:tN };
+    c.aSide = (s.names.a && tN===s.names.a) || (s.names.b && ctN===s.names.b) ? 'T' : 'CT';
+    ch = true;
+  }
+  if(p.phase==='intermission' && c.ph!=='intermission' && c.live){ c.sw ^= 1; ch = true; }
+  const ct = serNum(p.ct), tt = serNum(p.tt);
+  if(p.phase==='gameover' && c.live && !c.done){ c.done = true; c.go = now; serRecord(s, c, ct, tt, p); ch = true; }
+  if(c.ph!==p.phase){ c.ph = String(p.phase).slice(0, 20); ch = true; }
+  if(round!==null && round!==c.round){ c.round = round; ch = true; }
+  if(ct!==c.ct || tt!==c.tt){ c.ct = ct; c.tt = tt; ch = true; }
+  return ch;
+}
+// Что видят пульт и виджет: формат, команды с победами, карты, кто сейчас за CT (a/b), время конца карты
+function seriesView(s, p){
+  let wa = 0, wb = 0;
+  for(const m of s.maps){ if(m.win==='a') wa++; else if(m.win==='b') wb++; }
+  const c = s.cur, side = c ? serSide(s, c, p) : null;
+  return { bo:s.bo, a:{ name:s.names.a, w:wa }, b:{ name:s.names.b, w:wb }, maps:s.maps, ctIs:side ? (side==='CT' ? 'a' : 'b') : null, map:c?.map || '', go:c?.done ? c.go : 0 };
+}
+// Команда пульта (тема cs2cmd): формат, сброс, ручная правка карт и имён
+function seriesCmd(s, m){
+  if(!m || typeof m!=='object') return false;
+  if(m.op==='bo' && SER_BO.includes(Number(m.bo))){ s.bo = Number(m.bo); return true; }
+  if(m.op==='reset'){ s.maps = []; s.names = { a:'', b:'' }; return true; }
+  if(m.op==='edit'){
+    const t = cleanSeries({ bo:s.bo, names:m.names, maps:m.maps });
+    s.maps = t.maps; s.names = t.names; if(SER_BO.includes(Number(m.bo))) s.bo = Number(m.bo);
+    return true;
+  }
+  return false;
+}
+const SERIES_FILE = path.join(BASE, 'cs2-series.json');
+let series = cleanSeries(null), serPub = '', serLast = null;
+try{ series = cleanSeries(JSON.parse(fs.readFileSync(SERIES_FILE, 'utf8'))); }catch{}
+function saveSeries(){ try{ fs.writeFileSync(SERIES_FILE, JSON.stringify(series), { mode:0o600 }); }catch{} }
+function trackSeries(out){
+  serLast = out;
+  if(seriesStep(series, out, Date.now())) saveSeries();
+  publishSeries();
+}
+// Ретейн-тема cs2series: публикует только программа (в PUB_MOD/PUB_LOCAL её нет), шлём только когда поменялось
+async function publishSeries(force){
+  if(!AES || !ROOM) return;
+  const v = seriesView(series, serLast), key = JSON.stringify(v);
+  if(key===serPub && !force) return;
+  serPub = key;
+  aedes.publish({ cmd:'publish', topic:T('cs2series'), payload:await sealAES({ ...v, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
+}
+// Пульт подписывает команду ключом модератора: проверяем подпись открытым ключом комнаты и расшифровываем
+let cmdKey = null, cmdKeyOf = '';
+async function openSigned(buf){
+  const b = new Uint8Array(buf);
+  if(!AES || !ROOM?.p || b.length < 94 || b.length > 16384 || b[0]!==1 || b[1]!==1) return null;
+  try{
+    if(cmdKeyOf!==ROOM.p){ cmdKey = await subtle.importKey('raw', Buffer.from(ROOM.p, 'base64url'), { name:'ECDSA', namedCurve:'P-256' }, false, ['verify']); cmdKeyOf = ROOM.p; }
+    const iv = b.subarray(2, 14), ct = b.subarray(78), msg = new Uint8Array(12 + ct.length); msg.set(iv); msg.set(ct, 12);
+    if(!await subtle.verify({ name:'ECDSA', hash:'SHA-256' }, cmdKey, b.subarray(14, 78), msg)) return null;
+    return JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name:'AES-GCM', iv }, AES, ct)));
+  }catch{ return null; }
+}
+aedes.on('publish', async (packet, client) => {
+  if(!client?.conn?._mod || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
+  const m = await openSigned(packet.payload);
+  if(!m || !(Math.abs(Date.now() - Number(m.t)) < 120000)) return;   // старую команду повторно не принимаем
+  if(seriesCmd(series, m)){ saveSeries(); log('🏆 Серия CS2:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'сброс' : 'правка вручную'); publishSeries(true); }
+});
 function gsiCfgText(){
   return `"Stream Overlay"
 {
@@ -703,7 +818,7 @@ async function installGsi(){
 // ---------- файлы виджета: свежие с сайта, запасные встроены в программу ----------
 const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
 // Ключ = путь файла на сайте и на этом сервере; в кэше имя без «/»
-const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS };
+const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS, 'shared/cs2-maps.js':CS2_MAPS_JS };
 const cacheName = f => f.replace(/\//g, '_');
 const files = { ...EMBED };
 for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, cacheName(f)), 'utf8'); }catch{}
@@ -724,6 +839,21 @@ refreshSite(); setInterval(refreshSite, 10*60*1000);
 // виджет перезагружается за обновлением: сначала сами берём свежие файлы с сайта
 let refreshing=null, lastRefresh=0;
 function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
+// Подложки радара не встроены в программу: берём с сайта один раз и держим в кэше. Своя картинка в data/radar важнее.
+const RADAR_CACHE = path.join(CACHE, 'radar');
+async function radarImg(name){
+  const dirs = [path.join(BASE, 'radar'), ...(compiled ? [] : [path.join(import.meta.dir, '..', 'web', 'shared', 'radar')]), RADAR_CACHE];
+  for(const d of dirs){ try{ return fs.readFileSync(path.join(d, name)); }catch{} }
+  if(process.env.OVERLAY_SITE==='off') return null;
+  try{
+    const r = await fetch(SITE+'shared/radar/'+name, { signal:AbortSignal.timeout(6000) });
+    if(!r.ok) return null;
+    const b = Buffer.from(await r.arrayBuffer());
+    if(b.length > 2*1048576 || b.subarray(8, 12).toString()!=='WEBP') return null;
+    fs.mkdirSync(RADAR_CACHE, { recursive:true }); fs.writeFileSync(path.join(RADAR_CACHE, name), b);
+    return b;
+  }catch{ return null; }
+}
 function widgetHtml(){
   // mqtt.min.js отдаём свой (та же версия, тот же хеш)
   return files['widget/widget.html'].replace(/src="https:\/\/unpkg\.com\/mqtt@[^"]+"/, 'src="../mqtt.min.js"');
@@ -1169,7 +1299,7 @@ const local = http.createServer(async (req, res) => {
       const g = JSON.parse(await readBody(req, 512*1024));
       const tok = Buffer.from(String(g?.auth?.token||'')), want = Buffer.from(cfg.gsiToken);
       if(tok.length!==want.length || !nodeCrypto.timingSafeEqual(tok, want)) return send(res, 403, 'bad token');
-      const out = compactGsi(g); trackFight(out); pushCs2(out);
+      const out = compactGsi(g); trackFight(out); trackSeries(out); pushCs2(out);
       return send(res, 200, 'ok');
     }
     if(p==='/auth' && isLocalAdminHost(req)){
@@ -1219,6 +1349,7 @@ const local = http.createServer(async (req, res) => {
         if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
         else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('пауза модераторов'); log(ctl.paused ? '⏸ Модераторы на паузе' : '▶ Модераторы снова могут менять экран'); await announce(); }
+        else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 Авто-таб CS2 выключен на стриме' : '🎯 Авто-таб CS2 снова включён'); }   // быстрый выключатель авто-таба (док)
         else throw new HttpErr(400, 'неизвестное действие');
         await publishCtl();
         return send(res, 200, JSON.stringify({ ok:true, ctl }), 'application/json');
@@ -1253,6 +1384,12 @@ const local = http.createServer(async (req, res) => {
     if(p==='/shared/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
     if(p==='/shared/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
     if(p==='/shared/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
+    if(p==='/shared/cs2-maps.js') return send(res, 200, files['shared/cs2-maps.js'], 'application/javascript; charset=utf-8');
+    // подложка радара CS2 (shared/radar/<карта>-<тема>.webp): своя из data/radar, иначе из исходников, иначе с сайта (кэш в data/cache/radar)
+    if(/^\/shared\/radar\/[a-z0-9_]{2,40}-(classic|glass|ko)\.webp$/.test(p)){
+      const img = await radarImg(p.slice(14));
+      return img ? send(res, 200, img, 'image/webp', { 'cache-control':'max-age=3600' }) : send(res, 404, 'no radar image');
+    }
     if(p==='/mqtt.min.js') return send(res, 200, MQTT_JS, 'application/javascript; charset=utf-8');
     send(res, 404, 'not found');
   }catch(e){ errOut(res, e); }
@@ -1343,4 +1480,4 @@ local.on('error', e => {
   log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
 
-export { detectFight, slotKey };   // для тестов (tests/cs2stats.test.js берёт их из исходника)
+export { detectFight, slotKey, seriesStep, seriesView, seriesCmd, cleanSeries };   // для тестов (tests/cs2stats.test.js берёт их из исходника)

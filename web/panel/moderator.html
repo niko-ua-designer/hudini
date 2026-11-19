@@ -20,6 +20,7 @@
 <script src="../shared/icons.js?v=1"></script>
 <script src="../shared/core.js?v=16"></script>
 <script src="../shared/case3d.js?v=1"></script>
+<script src="../shared/cs2-maps.js?v=1"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
 <link rel="stylesheet" href="panel.css?v=1">
 <link rel="stylesheet" href="ui.css?v=1">
@@ -58,6 +59,7 @@
     <button data-tab="chat" title="Чат Twitch">💬<span>Чат</span></button>
     <button data-tab="auto" title="Сценарии: если… то…">⚡<span>Сценарии</span></button>
     <button data-tab="raffle" title="Розыгрыш с рулеткой">🎁<span>Розыгрыши</span></button>
+    <button data-tab="cs2" title="CS2: авто-таб и серия карт">🎯<span>CS2</span></button>
     <button data-tab="sound" title="Громкость оверлея и каждого звука">🔊<span>Звук</span></button>
     <button data-tab="room" title="Комната, ключи, настройки">⚙<span>Комната</span></button>
   </nav>
@@ -140,6 +142,31 @@
     <div id="scnList"></div>
     <div class="row"><button id="scnNew" class="primary grow">＋ Новый сценарий</button></div>
     <div id="scnEdit" hidden></div>
+  </section>
+
+  <section data-pane="cs2" hidden>
+    <h2>🎯 Авто-таб CS2</h2>
+    <div class="hint">Таблица всех игроков сама выезжает поверх стрима и сама уезжает. Элемент добавлять не нужно. Красится под стиль CS2-элемента (без него «стекло»).</div>
+    <label class="tgl u-margin-top-6px"><input type="checkbox" id="taOn"><span class="tgl-k"></span><span>Авто-таб включён</span></label>
+    <div class="hint">Когда показывать:</div>
+    <label class="chk"><input type="checkbox" id="taTimeout"> Таймаут и пауза</label>
+    <label class="chk"><input type="checkbox" id="taHalf"> Смена сторон</label>
+    <label class="chk"><input type="checkbox" id="taEnd"> Конец карты: итог и MVP (15 с)</label>
+    <div class="row"><span class="hint">Вид</span><select id="taStyle" class="grow"><option value="A">A · турнирный</option><option value="B">B · стекло</option><option value="C">C · неон-лента</option><option value="D">D · карточки</option></select></div>
+    <label class="chk"><input type="checkbox" id="taHideBottom"> Карточки игроков внизу уезжают</label>
+    <label class="chk"><input type="checkbox" id="taHideTop"> Счёт сверху уезжает</label>
+    <div id="taPrev" class="ta-prev" data-i18n-skip><div id="taBox" class="ctab" hidden></div></div>
+    <div class="row"><select id="taMoment" class="grow"><option value="timeout">Таймаут</option><option value="half">Смена сторон</option><option value="end">Конец карты</option></select><button id="taPreview" title="Проиграть появление в превью">▶ Превью</button></div>
+    <div class="row"><button id="taShow" class="primary grow" title="Показать на стриме на 8 секунд: с данными игры или с примером">📺 Показать сейчас</button></div>
+    <div class="hint" id="taOffNote" hidden>Стример выключил авто-таб в доке OBS.</div>
+
+    <h2>🏆 Серия карт</h2>
+    <div class="hint">Программа стримера сама записывает итог каждой карты. Команды узнаются по именам, без имён: «Команда 1» начала карту за CT.</div>
+    <div class="row"><span class="hint">Формат</span><select id="serBo" class="grow"><option value="1">BO1</option><option value="3">BO3</option><option value="5">BO5</option></select></div>
+    <div class="row"><input type="text" id="serNa" class="grow" placeholder="Команда 1"><b id="serScore" class="ser-score">0 : 0</b><input type="text" id="serNb" class="grow" placeholder="Команда 2"></div>
+    <div id="serMaps"></div>
+    <div class="row"><button id="serAdd" class="grow">＋ Карта</button><button id="serSave" class="primary grow">✓ Сохранить</button><button id="serReset" class="danger" title="Начать серию заново">↺ Сброс</button></div>
+    <div class="hint" id="serNote"></div>
   </section>
 
   <section data-pane="sound" hidden>
@@ -412,6 +439,7 @@
         <option value="table">📋 Таблица всех игроков (весь экран)</option>
         <option value="duel">⚔ Дуэль после килла (весь экран)</option>
         <option value="compare">⚖ Сравнение двух игроков (весь экран)</option>
+        <option value="radar">👁 Наблюдатель: радар с игроками</option>
       </select>
       <div class="row" id="csStreakRow"><span class="hint">Показывать</span><select id="iCsMinK" class="grow"><option value="2">от DOUBLE</option><option value="3">от TRIPLE</option><option value="4">от QUAD</option><option value="5">только ACE</option></select><button id="csTest" title="Показать пример на стриме, чтобы поставить на место">▶ Пример</button></div>
       <div class="row" id="csSideRow"><span class="hint">Команды</span><select id="iCsSide" class="grow"><option value="both">Обе</option><option value="ct">Только CT</option><option value="t">Только T</option></select></div>
