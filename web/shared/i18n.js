@@ -1355,6 +1355,8 @@ const HUDINI_DICT = {
     "(свой список киллов поверх игры)": "(its own kill list over the game)",
     "⚔ Файт": "⚔ Fight",
     "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2 fight: the number is the observer key. Not shown on stream",
+    "Нечего повторять": "Nothing to redo",
+    "Часть правок пропущена: их уже поменял другой модератор": "Some changes were skipped: another moderator has already changed them",
   },
   uk: {
     "📁 Журналы": "📁 Журнали",
@@ -2709,6 +2711,8 @@ const HUDINI_DICT = {
     "(свой список киллов поверх игры)": "(власний список кілів поверх гри)",
     "⚔ Файт": "⚔ Файт",
     "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "Бій у CS2: номер — клавіша спостерігача. На стрим не йде",
+    "Нечего повторять": "Нічого повторювати",
+    "Часть правок пропущена: их уже поменял другой модератор": "Частину правок пропущено: їх уже змінив інший модератор",
   },
   de: {
     "📁 Журналы": "📁 Protokolle",
@@ -4063,6 +4067,8 @@ const HUDINI_DICT = {
     "(свой список киллов поверх игры)": "(eigene Kill-Liste über dem Spiel)",
     "⚔ Файт": "⚔ Fight",
     "Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт": "CS2-Kampf: Die Nummer ist die Beobachter-Taste. Nicht im Stream sichtbar",
+    "Нечего повторять": "Nichts zu wiederholen",
+    "Часть правок пропущена: их уже поменял другой модератор": "Einige Änderungen wurden übersprungen: ein anderer Mod hat sie schon geändert",
   },
 };
 

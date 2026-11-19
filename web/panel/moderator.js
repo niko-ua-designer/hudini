@@ -77,7 +77,7 @@ async function useRoom(code){ const k=await roomKeys(code); room=code; KEYS=k; }
 
 let state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
-const undoStack=[]; let changeOpen=false;
+const undoStack=[], redoStack=[]; let changeOpen=false, openChange=null;
 function byId(id){ return state.els.find(e=>e.id===id); }
 
 // ================== СВЯЗЬ ==================
@@ -341,6 +341,7 @@ const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh'];
 function dragIds(){ return drag.mode==='move' ? drag.items.map(i=>i.id) : [drag.id]; }
 function acceptState(s, t){
   if(mergeChat(s, t)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
+  if(changeOpen) rebaseChange(s);
   state=s; if(state.lang) STREAM_LANG=state.lang;
   syncedIds=new Set(drawList(state).map(e=>e.id));
   if(selectedId && !byId(selectedId)) selectedId=null;
@@ -421,7 +422,7 @@ async function switchRoom(code){
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms();
-  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; changeOpen=false; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
+  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; redoStack.length=0; changeOpen=false; openChange=null; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
@@ -432,18 +433,111 @@ async function switchRoom(code){
 }
 
 // ================== ИЗМЕНЕНИЯ / ОТМЕНА ==================
+// Шаг отмены хранит не снимок экрана, а только свои правки: элементы по id (было/стало), порядок слоёв и общие поля.
+// Отмена возвращает «было» только тем элементам, которые с тех пор никто не трогал; чужие правки остаются.
+// openChange: { before:JSON экрана в начале правки, acc:уже собранная часть шага }
+const UNDO_TOP=['hidAll','vol','fxVol','fonts','emx','raffle'];
+function canonJSON(v){
+  if(Array.isArray(v)) return '['+v.map(canonJSON).join(',')+']';
+  if(v && typeof v==='object') return '{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+canonJSON(v[k])).join(',')+'}';
+  return v===undefined ? 'null' : JSON.stringify(v);
+}
+// поля, которые меняет чат или время сами по себе: при сравнении не считаются чужой правкой
+function undoVolatile(e){ return e.type==='poll' ? ['vk','votes'] : e.type==='counter' ? (e.cmode==='chat' ? ['cids','value'] : ['cids']) : e.type==='raffle' ? ['n'] : []; }
+function elCanon(e){
+  if(!e) return 'null';
+  const o={ ...(sanitizeElSafe(e)||e) };
+  if(o.ttl && o.ttl<=Date.now()){ o.hidden=true; delete o.ttl; }   // показ на время уже кончился
+  for(const k of undoVolatile(o)) delete o[k];
+  return canonJSON(o);
+}
+const topCanon=(k, v)=>k==='raffle' ? elCanon(v) : canonJSON(v ?? null);
+const cloneJ=v=>v==null ? null : JSON.parse(JSON.stringify(v));
+function undoDiff(before, now){
+  const d={ els:{}, top:{} }, bm=new Map(before.els.map(e=>[e.id, e])), am=new Map(now.els.map(e=>[e.id, e]));
+  for(const id of new Set([...bm.keys(), ...am.keys()])){
+    const b=bm.get(id)||null, a=am.get(id)||null;
+    if(elCanon(b)!==elCanon(a)) d.els[id]={ b:cloneJ(b), a:cloneJ(a) };
+  }
+  const ob=before.els.map(e=>e.id), oa=now.els.map(e=>e.id);
+  if(ob.join()!==oa.join()){ d.ob=ob; d.oa=oa; }
+  for(const k of UNDO_TOP) if(topCanon(k, before[k])!==topCanon(k, now[k])) d.top[k]={ b:cloneJ(before[k]), a:cloneJ(now[k]) };
+  return d;
+}
+// сложить часть шага в уже собранное: «было» берётся из первой части, «стало» из последней
+function undoFold(acc, d){
+  if(!acc) return d;
+  for(const [id, x] of Object.entries(d.els)){ const y=acc.els[id]; if(y){ y.a=x.a; if(elCanon(y.b)===elCanon(y.a)) delete acc.els[id]; } else acc.els[id]=x; }
+  for(const [k, x] of Object.entries(d.top)){ const y=acc.top[k]; if(y){ y.a=x.a; if(topCanon(k, y.b)===topCanon(k, y.a)) delete acc.top[k]; } else acc.top[k]=x; }
+  if(d.ob){ if(!acc.ob) acc.ob=d.ob; acc.oa=d.oa; }
+  return acc;
+}
+function foldOpen(){ return openChange=openChange && { before:JSON.stringify(state), acc:undoFold(openChange.acc, undoDiff(JSON.parse(openChange.before), state)) }; }
+// пришёл чужой экран посреди правки: сохраняем свою часть, дальше считаем от чужого экрана
+function rebaseChange(next){ if(foldOpen()) openChange.before=JSON.stringify(next); }
+function closeChange(){
+  if(!changeOpen) return;
+  changeOpen=false;
+  const e=foldOpen()?.acc; openChange=null;
+  if(!e || !Object.keys(e.els).length && !Object.keys(e.top).length && !(e.ob && e.ob.join()!==e.oa.join())) return;
+  undoStack.push(e); if(undoStack.length>80) undoStack.shift();
+  redoStack.length=0;
+}
 function beginChange(){
   if(changeOpen) return;
-  changeOpen=true;
-  undoStack.push(JSON.stringify(state)); if(undoStack.length>80) undoStack.shift();
+  changeOpen=true; openChange={ before:JSON.stringify(state), acc:null };
 }
 function changed(){ renderAll(); scheduleSend(); }
-function commit(){ changeOpen=false; renderAll(); publishNow(1); }
-function undo(){
-  if(!undoStack.length) return toast('Нечего отменять');
-  state=JSON.parse(undoStack.pop()); changeOpen=false;
+function commit(){ closeChange(); renderAll(); publishNow(1); }
+// копия want, но голоса и счёт из чата остаются текущими, если сама правка их не меняла
+function keepVolatile(want, expect, cur){
+  const v=cloneJ(want);
+  if(v && cur && expect) for(const k of undoVolatile(v)) if(canonJSON(want[k])===canonJSON(expect[k])){ if(k in cur) v[k]=cloneJ(cur[k]); else delete v[k]; }
+  return v;
+}
+// Применить шаг в сторону to ('b' = отмена, 'a' = повтор). Возвращает, сколько частей пропущено из-за чужих правок.
+function applyStep(e, to){
+  const from=to==='b'?'a':'b', ordTo=to==='b'?e.ob:e.oa, ordFrom=to==='b'?e.oa:e.ob;
+  let skip=0;
+  for(const [id, x] of Object.entries(e.els)){
+    const want=x[to], expect=x[from], i=state.els.findIndex(el=>el.id===id), cur=i>=0 ? state.els[i] : null;
+    if(expect ? !cur || elCanon(cur)!==elCanon(expect) : cur){ skip++; continue; }   // элемент с тех пор поменял кто-то другой
+    if(!want){ state.els.splice(i, 1); msel.delete(id); continue; }
+    const v=keepVolatile(want, expect, cur);
+    if(cur){ state.els[i]=v; continue; }
+    if(state.els.length>=MAX_ELS){ skip++; continue; }
+    // удалённый возвращается на место: над ближайшим соседом снизу, который ещё есть
+    const ord=ordTo||[], at=ord.indexOf(id); let pos=0;
+    for(let j=at-1; j>=0; j--){ const p=state.els.findIndex(el=>el.id===ord[j]); if(p>=0){ pos=p+1; break; } }
+    state.els.splice(pos, 0, v);
+  }
+  if(ordTo && ordFrom){   // порядок слоёв: только если с тех пор его никто не менял
+    const now=new Set(state.els.map(el=>el.id)), both=new Set(ordFrom.filter(id=>now.has(id)));
+    const want=ordTo.filter(id=>both.has(id)), had=ordFrom.filter(id=>both.has(id)), cur=state.els.filter(el=>both.has(el.id)).map(el=>el.id);
+    if(want.join()!==cur.join()){
+      if(had.join()!==cur.join()) skip++;
+      else { const m=new Map(state.els.map(el=>[el.id, el])); let n=0; state.els=state.els.map(el=>both.has(el.id) ? m.get(want[n++]) : el); }
+    }
+  }
+  for(const [k, x] of Object.entries(e.top)){
+    if(topCanon(k, state[k])!==topCanon(k, x[from])){ skip++; continue; }
+    if(x[to]==null && k!=='raffle') delete state[k]; else state[k]=k==='raffle' ? keepVolatile(x[to], x[from], state.raffle) : cloneJ(x[to]);
+  }
   if(selectedId && !byId(selectedId)) selectedId=null;
+  for(const id of [...msel]) if(!byId(id)) msel.delete(id);
   renderAll(); publishNow(1);
+  if(skip) toast('Часть правок пропущена: их уже поменял другой модератор', 3500);
+  return skip;
+}
+function undo(){
+  closeChange();
+  if(!undoStack.length) return toast('Нечего отменять');
+  const e=undoStack.pop(); redoStack.push(e); applyStep(e, 'b');
+}
+function redo(){
+  closeChange();
+  if(!redoStack.length) return toast('Нечего повторять');
+  const e=redoStack.pop(); undoStack.push(e); applyStep(e, 'a');
 }
 
 // ================== СОЗДАНИЕ ==================
@@ -1231,7 +1325,7 @@ function endDrag(){
   if(!drag) return;
   const d=drag; drag=null; $('gv').classList.remove('show'); $('gh').classList.remove('show'); showSnap();
   if(d.mode==='rect'){ $('selRect').style.display='none'; if(!d.moved && !d.add) select(null); else renderAll(); return; }
-  if(!d.moved){ if(d.opened){ undoStack.pop(); changeOpen=false; } renderAll(); return; }   // просто клик: ничего не менялось
+  if(!d.moved){ if(d.opened){ changeOpen=false; openChange=null; } renderAll(); return; }   // просто клик: ничего не менялось
   commit();
 }
 stage.addEventListener('pointerup', endDrag);
@@ -2572,6 +2666,7 @@ function typing(t){ return t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.
 document.addEventListener('keydown', e=>{
   const ctrl=e.ctrlKey||e.metaKey;
   if(typing(e.target)) return;
+  if(ctrl && (e.code==='KeyY' || e.code==='KeyZ' && e.shiftKey)){ e.preventDefault(); redo(); return; }
   if(ctrl && e.code==='KeyZ'){ e.preventDefault(); undo(); return; }
   if(e.key==='Escape'){ setBgInteract(false); select(null); return; }
   if(/^Digit[1-9]$/.test(e.code) && !ctrl && !e.altKey){
