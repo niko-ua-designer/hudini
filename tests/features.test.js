@@ -189,7 +189,7 @@ const { step, check, eq, until, sleep } = T;
   });
 
   await step('case: items with chances, 3D opening, honest reel, reveal by rarity', async () => {
-    await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
+    await mod.click('[data-tab=raffle]'); await mod.click('[data-rtool=case]'); await mod.click('#caseCreate');
     const el0 = await mod.evaluate(() => state.els.at(-1));
     eq([el0.type, el0.items.length, el0.items.reduce((a, it) => a + it.p, 0)], ['case', 5, 100], 'case with 5 default items, chances add up to 100%');
     await mod.evaluate(() => { const el = state.els.at(-1); el.hideAfter = 60; el.items[0].p = 30; changed(); renderInspector(); });
@@ -216,7 +216,7 @@ const { step, check, eq, until, sleep } = T;
   });
 
   await step('case kinds: normal, bait (both ways), random hides its kind, second chance; panel and stream agree', async () => {
-    await mod.click('[data-tab=add]'); await mod.click('[data-add=case]');
+    await mod.click('[data-tab=raffle]'); await mod.click('[data-rtool=case]'); await mod.click('#caseCreate');
     const id = await mod.evaluate(() => state.els.at(-1).id);
     await mod.evaluate(i => { selectedId = i; msel.clear(); renderAll(); }, id);
     eq(await mod.$$eval('#kKinds input', n => n.map(x => x.value)), ['normal', 'bait', 'random', 'second'], 'four kinds in the list');
@@ -580,7 +580,7 @@ const { step, check, eq, until, sleep } = T;
     check(await mod.isVisible('#mixerEmpty'), 'hint about the empty list');
     await mod.click('[data-tab=add]');
     await mod.evaluate(() => { addEl({ type: 'video', src: 'https://example.com/a.mp4', x: 30, y: 30, w: 30, sound: true }); });
-    await mod.click('[data-add=case]'); await mod.evaluate(() => addRaffle()); await mod.click('[data-add=countdown]');
+    await mod.evaluate(() => addCase()); await mod.evaluate(() => addRaffle()); await mod.click('[data-add=countdown]');
     await mod.evaluate(() => { const t = state.els.find(e => e.type === 'timer'); t.endSound = 'https://example.com/end.mp3'; changed(); });
     await mod.click('[data-tab=sound]');
     eq(await mod.$$eval('#mixer .mx', n => n.length), 6, 'video, case, giveaway and a timer with an end sound are listed');

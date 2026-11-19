@@ -388,18 +388,11 @@
       const nb = x.createBuffer(1, x.sampleRate * 2, x.sampleRate), nd = nb.getChannelData(0); for(let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; A.noise = nb;
   }
   // Прослушка без стрима: вся звуковая дорожка открытия в WAV (для проверки и для пульта)
-  async function renderWav(el){
-    const ct = T(el), sr = 44100, dur = (ct.reveal + 5000) / 1000, x = new OfflineAudioContext(2, sr * dur | 0, sr), keep = A.ctx;
-    A.ctx = x; chain(x); A.out.gain.value = (el.vol ?? 0.8) * 0.62;
-    const r = winOf(el)?.r ?? 2, bait = isBait(el);
-    SFX.in(0); SFX.tense((ct.land + 150) / 1000, (ct.open - ct.land - 150) / 1000); SFX.lock(ct.lock1 / 1000, 1); SFX.lock(ct.lock2 / 1000, 1.12); SFX.open(ct.open / 1000);
-    let last = -1; for(let ms = 0; ms < ct.reelDur; ms += 4){ const xx = caseReelX(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== last){ if(last >= 0) SFX.tick((ct.reel + ms) / 1000, ms / ct.reelDur); last = idx; } }
-    if(bait){ SFX.tense((ct.reel + ct.reelDur * 0.66) / 1000, ct.reelDur * 0.2 / 1000); SFX.creep((ct.reel + ct.reelDur * 0.78) / 1000); }
-    if(ct.up != null){
-      SFX.up(ct.up / 1000);
-      let l2 = -1; for(let ms = 0; ms < CASE_2.dur; ms += 4){ const xx = caseReelX2(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== l2){ if(l2 >= 0) SFX.tick((ct.reel2 + ms) / 1000, ms / CASE_2.dur); l2 = idx; } }
-    }
-    SFX.win(ct.reveal / 1000, r);
+  // Выход офлайн-движка: schedule() расставляет звуки по времени, на выходе WAV
+  async function offlineWav(dur, vol, schedule){
+    const sr = 44100, x = new OfflineAudioContext(2, sr * dur | 0, sr), keep = A.ctx;
+    A.ctx = x; chain(x); A.out.gain.value = vol * 0.62;
+    schedule();
     const buf = await x.startRendering(); A.ctx = keep; if(keep) chain(keep); else { A.out = null; }
     const n = buf.length, out = new DataView(new ArrayBuffer(44 + n * 4)), L = buf.getChannelData(0), R = buf.getChannelData(1);
     const w = (o, str) => { for(let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
@@ -407,6 +400,19 @@
     out.setUint32(24, sr, true); out.setUint32(28, sr * 4, true); out.setUint16(32, 4, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * 4, true);
     for(let i = 0; i < n; i++){ out.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); out.setInt16(46 + i * 4, clamp(R[i], -1, 1) * 32767, true); }
     return new Blob([out.buffer], { type:'audio/wav' });
+  }
+  async function renderWav(el){
+    const ct = T(el), r = winOf(el)?.r ?? 2, bait = isBait(el);
+    return offlineWav((ct.reveal + 5000) / 1000, el.vol ?? 0.8, () => {
+      SFX.in(0); SFX.tense((ct.land + 150) / 1000, (ct.open - ct.land - 150) / 1000); SFX.lock(ct.lock1 / 1000, 1); SFX.lock(ct.lock2 / 1000, 1.12); SFX.open(ct.open / 1000);
+      let last = -1; for(let ms = 0; ms < ct.reelDur; ms += 4){ const xx = caseReelX(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== last){ if(last >= 0) SFX.tick((ct.reel + ms) / 1000, ms / ct.reelDur); last = idx; } }
+      if(bait){ SFX.tense((ct.reel + ct.reelDur * 0.66) / 1000, ct.reelDur * 0.2 / 1000); SFX.creep((ct.reel + ct.reelDur * 0.78) / 1000); }
+      if(ct.up != null){
+        SFX.up(ct.up / 1000);
+        let l2 = -1; for(let ms = 0; ms < CASE_2.dur; ms += 4){ const xx = caseReelX2(el, ms), idx = Math.floor((xx + 0.4) / CASE_STEP); if(idx !== l2){ if(l2 >= 0) SFX.tick((ct.reel2 + ms) / 1000, ms / CASE_2.dur); l2 = idx; } }
+      }
+      SFX.win(ct.reveal / 1000, r);
+    });
   }
   function voice(dest, send){ const x = A.ctx, g = x.createGain(); g.connect(dest || A.out); if(send){ const s = x.createGain(); s.gain.value = send; g.connect(s).connect(A.revIn); } return g; }
   function env(g, t0, a, peak, d, curve){ const p = g.gain; p.cancelScheduledValues(t0); p.setValueAtTime(0.0001, t0); p.linearRampToValueAtTime(peak, t0 + a); p.exponentialRampToValueAtTime(0.0001, t0 + a + d); }
@@ -518,6 +524,397 @@
       } }
     }
   }
+
+  // ================== РУЛЕТКА: капсульный автомат и колесо ==================
+  // Данные и время (spinAt, призы, победитель) приходят из core.js; тут разметка, физика капсул, колесо и звуки.
+  // Кадр считается от spinAt, поэтому пульт и виджет показывают одно и то же, а открытый посреди прокрутки виджет подхватывает её с нужного места.
+  // window.__rouFreeze = мс от начала прокрутки: стоп-кадр для скриншотов.
+  const TAU = Math.PI * 2;
+  const CAP_PH = { ticket:[0, 0.105], lock:[0.105, 0.15], shake:[0.15, 0.735], drop:[0.735, 0.815], burst:[0.815, 0.885], reveal:[0.885, 1] };
+  const BALLS = 17, MAX_SPEED = 1500;
+  const rNow = () => typeof nowMs === 'function' ? nowMs() : Date.now();
+  const rTx = s => typeof st === 'function' ? st(s) : s;
+  const rSpan = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
+  const outQuad = x => 1 - (1 - x) * (1 - x);
+  const outQuart = x => 1 - Math.pow(1 - clamp(x, 0, 1), 4);
+  const mk = (tag, cls, text) => { const n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; };
+  const rShade = (hexs, a) => { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(String(hexs || '')); if(!m) return a > 0 ? '#333' : '#000';
+    const f = v => { const n = parseInt(v, 16); return Math.round(a > 0 ? n + (255 - n) * a : n * (1 + a)); }; return `rgb(${f(m[1])},${f(m[2])},${f(m[3])})`; };
+  const rRgba = (hexs, a) => { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(String(hexs || '')); return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})` : `rgba(255,255,255,${a})`; };
+
+  // Что показывать сейчас: spinAt в будущем или давно прошёл = покой
+  function rState(el){
+    let now = rNow();
+    if(window.__rouFreeze != null && el.spinAt) now = el.spinAt + window.__rouFreeze;
+    const dur = rouDur(el), t = el.spinAt ? now - el.spinAt : -1;
+    const live = el.spinAt > 0 && t >= 0 && now < el.spinAt + dur + el.hideAfter * 1000;
+    const spinning = live && t < dur;
+    return { now, dur, t, live, spinning, done: live && !spinning, p: live ? clamp(t / dur, 0, 1) : 0 };
+  }
+  // Цвет победителя и текст итога (по снимку призов на момент прокрутки)
+  function rResult(el){
+    const w = el.segs[el.win]; if(!w) return null;
+    return { n: w.n, c: w.c, note: w.note, chance: rouChance(el), viewer: el.viewer };
+  }
+
+  // ---- колесо: геометрия ----
+  const wheelSegs = rouSegs, wheelTarget = rouTarget;   // геометрия лежит в core.js: пульт считает по ней же, где колесо остановится
+  function wheelAngle(el, p, spun){
+    if(!el.spinAt || el.win < 0) return el.from || 0;
+    const w = wheelTarget(el);
+    if(!spun) return w.from;
+    return w.from + (w.to - w.from) * outQuart(p);
+  }
+
+  function drawWheel(c, el, S, rot, litFn){
+    const cv = c._cv; if(!cv) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(120, cv.offsetWidth || 560);
+    if(cv.width !== Math.round(W * dpr)){ cv.width = cv.height = Math.round(W * dpr); }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, W);
+    const list = S.live ? el.segs : el.prizes, segs = wheelSegs(list), accent = el.accent, font = typeof fontCss === 'function' ? fontCss(el.font) : 'sans-serif';
+    const cx = W / 2, base = W / 2, rim = Math.max(6, base * 0.055), R = base - rim;
+    const glow = ctx.createRadialGradient(cx, cx, R * 0.86, cx, cx, base); glow.addColorStop(0, rRgba(accent, 0)); glow.addColorStop(1, rRgba(accent, 0.35));
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cx, base, 0, TAU); ctx.fill();
+    ctx.save(); ctx.translate(cx, cx);
+    ctx.beginPath(); ctx.arc(0, 0, base - rim * 0.35, 0, TAU); ctx.fillStyle = '#14121d'; ctx.fill();
+    if(!segs.length){
+      ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.font = `700 ${Math.round(base * 0.09)}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(rTx('Добавь призы'), 0, 0); ctx.restore(); return;
+    }
+    ctx.rotate(rot);
+    const win = S.done ? el.segs[el.win] : null;
+    for(const seg of segs){
+      const from = seg.start - Math.PI / 2, to = from + seg.span, isWin = win && seg.item === win;
+      const grad = ctx.createRadialGradient(0, 0, R * 0.18, 0, 0, R);
+      grad.addColorStop(0, rShade(seg.item.c, isWin ? 0.06 : -0.42)); grad.addColorStop(1, rShade(seg.item.c, isWin ? 0 : -0.12));
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, from, to); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+      ctx.lineWidth = Math.max(1, R * 0.006); ctx.strokeStyle = isWin ? 'rgba(255,255,255,.95)' : 'rgba(0,0,0,.35)'; ctx.stroke();
+      if(isWin){ ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rRgba(seg.item.c, 0.35); ctx.fill(); ctx.restore(); }
+    }
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.clip();
+    const ls = Math.max(10, Math.round(R * 0.07)), cs = Math.max(9, Math.round(R * 0.05));
+    for(const seg of segs){
+      if(seg.span < 0.05) continue;
+      ctx.save(); ctx.rotate(seg.mid - Math.PI / 2); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,.65)'; ctx.shadowBlur = Math.max(2, R * 0.02); ctx.font = `800 ${ls}px ${font}`;
+      let name = String(seg.item.n || '').trim() || rTx('Без названия'), maxW = R * 0.62;
+      if(ctx.measureText(name).width > maxW){ while(name.length > 1 && ctx.measureText(name + '…').width > maxW) name = name.slice(0, -1); name = name.trimEnd() + '…'; }
+      const odds = el.odds && seg.span > 0.3;
+      ctx.fillText(name, R * 0.93, odds ? -ls * 0.55 : 0);
+      if(odds){ ctx.font = `700 ${cs}px ${font}`; ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillText(`${(seg.chance * 100).toFixed(seg.chance < 0.1 ? 1 : 0)}%`, R * 0.93, cs * 1.1); }
+      ctx.restore();
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.lineWidth = Math.max(2, R * 0.018); ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.stroke();
+    ctx.restore();
+    // лампочки на ободе
+    const bulbs = 18;
+    for(let i = 0; i < bulbs; i++){
+      const a = i / bulbs * TAU - Math.PI / 2, lit = litFn(i, bulbs);
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * (base - rim * 0.45), cx + Math.sin(a) * (base - rim * 0.45), rim * 0.22, 0, TAU);
+      ctx.fillStyle = lit ? '#fff3c4' : 'rgba(255,255,255,.25)'; ctx.fill();
+    }
+    // ступица и название
+    const hub = R * 0.26, hg = ctx.createRadialGradient(cx, cx - hub * 0.3, hub * 0.2, cx, cx, hub); hg.addColorStop(0, '#2b2740'); hg.addColorStop(1, '#100e18');
+    ctx.beginPath(); ctx.arc(cx, cx, hub, 0, TAU); ctx.fillStyle = hg; ctx.fill(); ctx.lineWidth = Math.max(2, R * 0.012); ctx.strokeStyle = rRgba(accent, 0.8); ctx.stroke();
+    const title = el.title || rTx('РУЛЕТКА');
+    let size = Math.max(10, Math.round(hub * 0.34)), lines = [];
+    for(let k = 0; k < 14; k++){
+      ctx.font = `800 ${size}px ${font}`; lines = []; let line = '';
+      for(const word of title.split(/\s+/)){ const probe = line ? line + ' ' + word : word; if(ctx.measureText(probe).width > hub * 1.6 && line){ lines.push(line); line = word; } else line = probe; }
+      if(line) lines.push(line);
+      if(lines.length <= 2 && lines.every(l => ctx.measureText(l).width <= hub * 1.6)) break;
+      size--; if(size <= 8) break;
+    }
+    ctx.font = `800 ${size}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    lines.slice(0, 3).forEach((tx, i, arr) => ctx.fillText(tx, cx, cx + (i - (arr.length - 1) / 2) * size * 1.1));
+    // стрелка
+    const tip = cx - R + R * 0.02, half = Math.max(6, R * 0.055), depth = Math.max(16, R * 0.17);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = R * 0.06;
+    ctx.beginPath(); ctx.moveTo(cx, tip + depth); ctx.lineTo(cx - half, tip - depth * 0.35); ctx.lineTo(cx + half, tip - depth * 0.35); ctx.closePath();
+    const pg = ctx.createLinearGradient(cx - half, tip - depth, cx + half, tip + depth); pg.addColorStop(0, '#fff'); pg.addColorStop(1, rShade(accent, 0.15)); ctx.fillStyle = pg; ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, tip - depth * 0.35, half * 0.42, 0, TAU); ctx.fillStyle = rShade(accent, -0.3); ctx.fill();
+  }
+
+  // ---- разметка ----
+  function capMarkup(c){
+    const bulbs = []; for(let i = 0; i < 9; i++){ const q = (i + 0.5) / 9 * 100; bulbs.push(`<i class="rm-bulb rm-bulb--t" style="left:${q}%"></i><i class="rm-bulb rm-bulb--b" style="left:${q}%"></i>`); }
+    c.innerHTML = `<div class="rm-machine" data-ref="machine">
+  <div class="rm-machine__marquee"><div class="rm-marquee__bulbs">${bulbs.join('')}</div><div class="rm-marquee__title" data-ref="title"></div></div>
+  <div class="rm-machine__screen"><span data-ref="screen"></span></div>
+  <div class="rm-machine__glass" data-ref="glass"><div class="rm-capsules" data-ref="capsules">${Array.from({ length:BALLS }, () => '<i class="rm-cap"></i>').join('')}</div><div class="rm-glass__tint"></div><div class="rm-glass__shine"></div><div class="rm-glass__rim"></div></div>
+  <div class="rm-machine__tray" data-ref="tray"><div class="rm-tray__mouth"></div><div class="rm-tray__light" data-ref="trayLight"></div><i class="rm-spare rm-spare--1"></i><i class="rm-spare rm-spare--3"></i>
+    <div class="rm-ticket" data-ref="ticket"><span class="rm-ticket__sheen"></span><span class="rm-ticket__perf"></span><b data-ref="ticketName"></b></div>
+    <div class="rm-capsule" data-ref="capsule" hidden><span class="rm-capsule__shell"></span><span class="rm-capsule__lid" data-ref="capTop"></span></div><span class="rm-capsule__flash" data-ref="flash"></span></div>
+  <div class="rm-machine__feet"><i></i><i></i></div>
+  ${paperMarkup()}</div>`;
+  }
+  function paperMarkup(){ return '<div class="rm-paper" data-ref="paper" hidden><div class="rm-paper__inner"><div class="rm-paper__who" data-ref="pWho"></div><div class="rm-paper__what" data-ref="pWhat"></div><div class="rm-paper__note" data-ref="pNote"></div><div class="rm-paper__chance" data-ref="pChance"></div></div></div>'; }
+  function wheelMarkup(c){
+    c.innerHTML = `<div class="rm-wheel" data-ref="machine"><canvas data-ref="cv"></canvas><div class="rm-badge" data-ref="badge" hidden></div>${paperMarkup()}</div>`;
+  }
+  function refs(c){ c._r = {}; for(const n of c.querySelectorAll('[data-ref]')) c._r[n.dataset.ref] = n; c._cv = c._r.cv || null; }
+
+  // ---- капсулы в стекле: свои цвета на каждый цвет приза (методом Д'Онта: у более вероятного цвета шариков больше) ----
+  function paintCaps(c, list){
+    const pool = list.filter(x => x.w > 0); if(!pool.length){ c._capKey = ''; return; }
+    const by = new Map(); for(const x of pool){ const g = by.get(x.c); if(g) g.w += x.w; else by.set(x.c, { c:x.c, w:x.w }); }
+    const groups = [...by.values()].sort((a, b) => b.w - a.w).slice(0, BALLS), count = new Array(groups.length).fill(1);
+    for(let left = BALLS - groups.length; left > 0; left--){ let best = 0; for(let j = 1; j < groups.length; j++) if(groups[j].w / (count[j] + 1) > groups[best].w / (count[best] + 1)) best = j; count[best]++; }
+    const cols = []; groups.forEach((g, i) => { for(let n = 0; n < count[i]; n++) cols.push(g.c); });
+    const key = cols.join('|'); if(key === c._capKey) return; c._capKey = key;
+    // перемешивание детерминированное: пульт и виджет рисуют одни и те же капсулы
+    let seed = 7; for(let i = cols.length - 1; i > 0; i--){ seed = (seed * 1103515245 + 12345) & 0x7fffffff; const j = seed % (i + 1); [cols[i], cols[j]] = [cols[j], cols[i]]; }
+    c._caps.forEach((n, i) => n.style.setProperty('--c', cols[i % cols.length]));
+  }
+  function initBalls(c){
+    const w = c._r.glass.offsetWidth, h = c._r.glass.offsetHeight; if(!w || !h) return false;
+    const k = w / 520, old = c._balls, ow = c._gw || w;
+    c._gw = w; c._gh = h; c._k = k;
+    c._balls = Array.from({ length:BALLS }, (_, i) => {
+      const r = (15 + ((i * 7) % 13)) * k, o = old && old[i];
+      return o ? { ...o, x:o.x * w / ow, y:o.y * w / ow, r } : { x:r + Math.random() * Math.max(1, w - r * 2), y:h * 0.35 + Math.random() * h * 0.6, vx:(Math.random() - 0.5) * 60 * k, vy:0, rot:Math.random() * 360, vr:(Math.random() - 0.5) * 4, r };
+    });
+    return true;
+  }
+  function stepBalls(c, dt, shake, swirl, ix, iy){
+    const w = c._gw, h = c._gh, k = c._k, g = (shake > 0 ? 2100 : 1150) * k, list = c._balls;
+    for(const b of list){
+      b.vy += g * dt; b.vx += ix * dt; b.vy += iy * dt;
+      if(shake > 0){
+        const dx = b.x - w / 2, dy = b.y - h / 2; b.vx += -dy * swirl * dt; b.vy += dx * swirl * dt;
+        b.vy += (Math.random() - 0.5) * 7 * shake * k; b.vr += (Math.random() - 0.5) * 18 * shake;
+      }
+      b.vx *= shake > 0 ? 0.994 : 0.985; b.vy *= 0.998; b.x += b.vx * dt; b.y += b.vy * dt; b.rot += b.vr * dt; b.vr *= 0.96;
+      const sp = Math.hypot(b.vx, b.vy), mx = MAX_SPEED * k; if(sp > mx){ b.vx = b.vx / sp * mx; b.vy = b.vy / sp * mx; }
+    }
+    for(const b of list){
+      if(b.y + b.r > h){
+        b.y = h - b.r;
+        if(shake > 0){ b.vy = -Math.min(380 * k, Math.abs(b.vy) * 0.4 + (60 + 190 * shake) * k); b.vx += (Math.random() - 0.5) * 240 * shake * k; b.vr += (Math.random() - 0.5) * 10 * shake; }
+        else { b.vy *= -0.26; b.vx *= 0.82; if(Math.abs(b.vy) < 14 * k) b.vy = 0; }
+      }
+      if(b.y - b.r < 0){ b.y = b.r; b.vy = Math.abs(b.vy) * 0.3; }
+      if(b.x - b.r < 0){ b.x = b.r; b.vx = Math.abs(b.vx) * 0.7; }
+      if(b.x + b.r > w){ b.x = w - b.r; b.vx = -Math.abs(b.vx) * 0.7; }
+    }
+    for(let i = 0; i < list.length; i++) for(let j = i + 1; j < list.length; j++){
+      const a = list[i], b = list[j], dx = b.x - a.x, dy = b.y - a.y, min = a.r + b.r, d2 = dx * dx + dy * dy;
+      if(d2 >= min * min || d2 < 0.001) continue;
+      const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, ov = (min - d) * 0.5;
+      a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov;
+      const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if(vn < 0){ const imp = -vn * 1.4; a.vx -= imp * nx; a.vy -= imp * ny; b.vx += imp * nx; b.vy += imp * ny; const spn = (b.vx - a.vx) * 0.05; a.vr -= spn; b.vr += spn; }
+    }
+  }
+  const settled = c => c._balls.every(b => Math.abs(b.vx) <= 2 * c._k && Math.abs(b.vy) <= 2 * c._k);
+
+  function fillPaper(c, el, res){
+    const r = c._r, key = [res.n, res.c, res.note, res.viewer, res.chance, el.who, el.odds, STREAM_LANG].join('|');
+    r.paper.style.setProperty('--re', res.c);
+    if(c._paperKey === key) return; c._paperKey = key;
+    r.pWhat.textContent = String(res.n || '').trim() || rTx('Без названия');
+    r.pNote.textContent = res.note || ''; r.pNote.hidden = !res.note;
+    r.pWho.textContent = el.who && res.viewer ? `${res.viewer} ${rTx('получает')}` : ''; r.pWho.hidden = !(el.who && res.viewer);
+    r.pChance.textContent = el.odds ? `${rTx('шанс')} ${(res.chance * 100).toFixed(res.chance < 0.1 ? 1 : 0)}%` : ''; r.pChance.hidden = !el.odds;
+  }
+
+  // ---- кадр ----
+  function capFrame(c, el, S, dt){
+    const r = c._r, t = S.now / 1000, res = rResult(el), p = S.p;
+    let phase = 'idle', lp = 0;
+    if(S.spinning){ for(const k of Object.keys(CAP_PH)){ if(p < CAP_PH[k][1] || k === 'reveal'){ phase = k; lp = rSpan(p, CAP_PH[k][0], CAP_PH[k][1]); break; } } }
+    else if(S.done) phase = 'result';
+    if(c.dataset.ph !== phase) c.dataset.ph = phase;
+    if(res) r.machine.style.setProperty('--re', res.c);
+    r.title.textContent = el.title || rTx('РУЛЕТКА');
+    if(!c._balls || Math.abs(c._gw - r.glass.offsetWidth) > 1) if(!initBalls(c)) return;
+    // корпус
+    let mx = 0, my = 0, mr = 0, inten = 0;
+    if(phase === 'shake'){ inten = Math.sqrt(lp); const f = 13 + lp * 17, amp = (4 + inten * 9) * c._k; mx = Math.sin(t * f * TAU) * amp; my = Math.cos(t * f * TAU * 1.31) * amp * 0.55; mr = Math.sin(t * f * TAU * 0.57) * inten * 1.2; }
+    else if(phase === 'ticket') my = -Math.sin(lp * Math.PI) * 8 * c._k;
+    else if(phase === 'drop' || phase === 'burst' || phase === 'reveal') my = Math.sin(t * 24) * 0.6 * (1 - lp) * c._k;
+    else { my = Math.sin(t * 1.1) * 2.2 * c._k; mx = Math.sin(t * 0.81) * 1.4 * c._k; }
+    r.machine.style.transform = `translate3d(${mx}px,${my}px,0) rotate(${mr}deg)`;
+    // физика: капсулы отстают от корпуса и вьются вихрем
+    const vmx = dt > 0 ? (mx - (c._pmx || 0)) / dt : 0, vmy = dt > 0 ? (my - (c._pmy || 0)) / dt : 0; c._pmx = mx; c._pmy = my;
+    const ix = clamp(-vmx * 0.3, -700 * c._k, 700 * c._k), iy = clamp(-vmy * 0.3, -500 * c._k, 500 * c._k), swirl = (lp < 0.5 ? 1 : -1) * (1.6 + inten * 4);
+    if(inten > 0 || !c._calm || !settled(c)){
+      c._acc = (c._acc || 0) + Math.min(0.05, dt || 0); let guard = 0;
+      while(c._acc >= 1 / 240 && guard < 20){ stepBalls(c, 1 / 240, inten, swirl, ix, iy); c._acc -= 1 / 240; guard++; }
+      c._calm = inten === 0 && settled(c);
+    }
+    c._balls.forEach((b, i) => { const n = c._caps[i]; n.style.transform = `translate3d(${(b.x - b.r).toFixed(1)}px,${(b.y - b.r).toFixed(1)}px,0) rotate(${b.rot.toFixed(1)}deg)`; n.style.width = n.style.height = `${(b.r * 2).toFixed(1)}px`; });
+    // билет: снизу вверх в приёмник
+    const tk = r.ticket;
+    if(phase === 'ticket' || phase === 'lock'){
+      if(c._tkName !== el.viewer){ c._tkName = el.viewer; r.ticketName.textContent = el.viewer || rTx('Зритель'); }
+      if(phase === 'ticket'){
+        const k = 1 - Math.pow(1 - lp, 3), travel = 700 * c._k;
+        tk.style.visibility = 'visible'; tk.style.opacity = String(clamp(lp * 5, 0, 1)); tk.style.setProperty('--sheen', String(k));
+        tk.style.transform = `translate3d(0,${(1 - k) * travel}px,${(1 - k) * 80}px) rotateX(${(1 - k) * -70}deg) rotateY(${(1 - k) * -22}deg) rotateZ(${(1 - k) * 9}deg) scale(${0.74 + k * 0.26})`;
+      } else {
+        const k = clamp(lp * 1.5, 0, 1), sq = Math.max(0.04, 1 - Math.pow(1 - k, 3));
+        tk.style.visibility = k < 0.96 ? 'visible' : 'hidden'; tk.style.opacity = String(clamp((0.96 - k) * 6, 0, 1));
+        tk.style.transform = `translate3d(0,${-k * 8 * c._k}px,0) scale(${0.74 + 0.26 * sq}) scaleY(${sq})`;
+      }
+    } else tk.style.visibility = 'hidden';
+    // лампочки и экранчик
+    const chase = phase === 'shake' ? Math.floor(t * (5 + lp * 22)) : Math.floor(t * 1.6), idle = phase === 'idle' || phase === 'reveal' || phase === 'result';
+    c._bulbs.forEach((b, i) => b.classList.toggle('is-lit', (chase + i) % 4 < 2 || (idle && i % 7 === 0)));
+    const dots = '.'.repeat(1 + (Math.floor(t * 7) % 3));
+    const scr = phase === 'shake' ? [rTx('РАЗДАЧА') + dots, 'busy'] : phase === 'drop' || phase === 'burst' || phase === 'reveal' || phase === 'result' ? [rTx('ПОЛУЧЕНО'), 'win']
+      : S.spinning ? [rTx(phase === 'ticket' ? 'ПРИЁМ БИЛЕТА' : 'ЗАГРУЗКА…'), 'busy'] : [rTx('ВСТАВЬТЕ БИЛЕТ'), 'idle'];
+    if(r.screen.textContent !== scr[0]) r.screen.textContent = scr[0]; if(r.screen.dataset.mode !== scr[1]) r.screen.dataset.mode = scr[1];
+    // капсула в лотке
+    const cp = r.capsule, lid = r.capTop;
+    if(phase === 'drop' || phase === 'burst' || phase === 'reveal' || phase === 'result'){
+      cp.hidden = false;
+      if(phase === 'drop'){
+        const fall = clamp(lp / 0.62, 0, 1), y = -152 + 152 * fall * fall, bounce = fall < 1 ? 0 : Math.sin((lp - 0.62) / 0.38 * Math.PI * 2) * (1 - lp) * 14;
+        cp.style.transform = `translate3d(0,${(y + bounce) * c._k}px,0) scale(${0.45 + (1 - Math.pow(1 - fall, 3)) * 0.55})`; cp.style.opacity = String(clamp(lp * 6, 0, 1)); lid.style.transform = 'none';
+      } else if(phase === 'burst'){
+        const up = outQuad(lp); cp.style.transform = 'none'; cp.style.opacity = '1'; lid.style.transform = `translate3d(${up * 20 * c._k}px,${-up * 74 * c._k}px,0) rotate(${up * -30}deg)`;
+      } else if(phase === 'reveal'){
+        const k = 1 - Math.pow(1 - clamp(lp * 1.5, 0, 1), 3), rest = 1 - k; cp.style.transform = 'none'; cp.style.opacity = '1';
+        lid.style.transform = `translate3d(${(20 * rest + 100 * k) * c._k}px,${(-70 * rest + 48 * k) * c._k}px,0) rotate(${-28 * rest + 6 * k}deg)`;
+      } else { cp.style.transform = 'none'; cp.style.opacity = '1'; lid.style.transform = `translate3d(${100 * c._k}px,${48 * c._k}px,0) rotate(6deg)`; }
+      r.flash.style.opacity = phase === 'burst' ? String(Math.sin(lp * Math.PI) * 0.9) : '0'; r.flash.style.transform = `scale(${1 + lp * 1.8})`;
+      r.trayLight.classList.add('is-on');
+    } else { cp.hidden = true; r.trayLight.classList.remove('is-on'); r.flash.style.opacity = '0'; }
+    // бумажка с призом
+    const showPaper = res && (phase === 'reveal' || phase === 'result');
+    if(showPaper){
+      fillPaper(c, el, res);
+      const un = phase === 'reveal' ? clamp(1 + 2.9 * Math.pow(lp - 1, 3) + 1.9 * Math.pow(lp - 1, 2), 0, 1) : 1;
+      r.paper.hidden = false; r.paper.style.opacity = String(phase === 'reveal' ? clamp(lp * 5, 0, 1) : 1);
+      r.paper.style.transform = `translate3d(-50%,${(phase === 'reveal' ? (1 - un) * -44 : 0) * c._k}px,0) scaleY(${0.05 + un * 0.95})`;
+      r.paper.style.setProperty('--text-on', String(phase === 'reveal' ? clamp((lp - 0.3) * 3, 0, 1) : 1));
+    } else r.paper.hidden = true;
+  }
+  function wheelFrame(c, el, S){
+    const r = c._r, res = rResult(el);
+    const rot = wheelAngle(el, S.p, S.live || (el.spinAt > 0 && S.now >= el.spinAt));
+    const lit = (i, n) => S.spinning ? Math.floor(rot / TAU * n + i) % 2 === 0 : (S.done ? i % 2 === 0 && Math.floor(S.now / 400) % 2 === 0 : false);
+    const sig = [rot.toFixed(3), S.live, S.done, el.accent, el.title, el.odds, el.font, JSON.stringify(S.live ? el.segs : el.prizes), r.cv.offsetWidth, STREAM_LANG, S.done ? Math.floor(S.now / 400) : 0].join('|');
+    if(c._wsig !== sig){ c._wsig = sig; drawWheel(c, el, S, rot, lit); }
+    if(S.live && res){ const bt = el.viewer ? `${el.viewer}` : ''; r.badge.hidden = !(el.who && bt); if(c._bt !== bt){ c._bt = bt; r.badge.textContent = bt; } } else r.badge.hidden = true;
+    const showPaper = res && S.done; const phase = S.spinning ? 'spin' : S.done ? 'result' : 'idle'; if(c.dataset.ph !== phase) c.dataset.ph = phase;
+    if(showPaper){
+      fillPaper(c, el, res); const age = S.t - S.dur, un = clamp(age / 500, 0, 1), e = 1 + 2.9 * Math.pow(un - 1, 3) + 1.9 * Math.pow(un - 1, 2);
+      r.paper.hidden = false; r.paper.style.opacity = String(clamp(age / 120, 0, 1)); r.paper.style.transform = `translate3d(-50%,${(1 - clamp(e, 0, 1)) * -44}px,0) scaleY(${0.05 + clamp(e, 0, 1) * 0.95})`; r.paper.style.setProperty('--text-on', String(clamp((un - 0.3) * 3, 0, 1)));
+      if(res) r.paper.style.setProperty('--re', res.c);
+    } else r.paper.hidden = true;
+    // щелчок на каждом секторе под стрелкой
+    if(S.spinning){
+      const segs = wheelSegs(el.segs), th = ((-rot % TAU) + TAU) % TAU, idx = segs.findIndex(s => th >= s.start && th < s.start + s.span);
+      if(c._idx !== undefined && idx !== c._idx && idx >= 0) api.tick(el, S.p, true);
+      c._idx = idx;
+    } else c._idx = undefined;
+  }
+
+  // ---- звук ----
+  const RS = {
+    ticket(t0){   // билет снизу вверх и щелчок приёмника
+      const g = voice(null, 0.3), pn = pan(0); pn.connect(g); const f = bp(300, 1.2);
+      f.frequency.setValueAtTime(260, t0); f.frequency.exponentialRampToValueAtTime(2800, t0 + 0.7);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.85);
+      noise(t0, 0.9, f, pn); SFX.lock(t0 + 0.8, 1.15);
+    },
+    shake(t0, dur){   // гул, который растёт, и частые стуки капсул друг о друга
+      const end = t0 + dur, g = voice(null, 0.2); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.32, end - 0.2); g.gain.linearRampToValueAtTime(0.0001, end);
+      const f = lp(120, 1.5); f.frequency.setValueAtTime(120, t0); f.frequency.exponentialRampToValueAtTime(900, end); noise(t0, dur, f, g);
+      let tt = t0 + 0.1, gap = 0.16;
+      while(tt < end - 0.05){
+        const k = (tt - t0) / dur, gg = voice(null, 0.35); env(gg, tt, 0.0008, 0.1 + k * 0.12, 0.05);
+        const o = osc('triangle', 900 + Math.random() * 1300, tt, 0.07, gg); o.frequency.exponentialRampToValueAtTime(500 + Math.random() * 300, tt + 0.05);
+        const gn = voice(null, 0.2); env(gn, tt, 0.0005, 0.12, 0.03); noise(tt, 0.04, bp(2500 + Math.random() * 2000, 8), gn);
+        gap = Math.max(0.03, gap * (0.965 + Math.random() * 0.02)); tt += gap * (0.6 + Math.random() * 0.8);
+      }
+    },
+    drop(t0){   // капсула падает в лоток и пару раз подпрыгивает
+      SFX.thud(t0);
+      [[0.16, 0.45], [0.27, 0.25], [0.34, 0.12]].forEach(([d, a]) => { const gg = voice(null, 0.15); env(gg, t0 + d, 0.002, a, 0.12); osc('sine', 150, t0 + d, 0.15, gg).frequency.exponentialRampToValueAtTime(55, t0 + d + 0.1); });
+    },
+    pop(t0){   // капсула раскрывается: треск, хлопок воздуха и звон
+      const g = voice(null, 0.3); env(g, t0, 0.002, 0.7, 0.3); const f = bp(2600, 1.3); f.frequency.setValueAtTime(2600, t0); f.frequency.exponentialRampToValueAtTime(280, t0 + 0.22); noise(t0, 0.34, f, g);
+      const g2 = voice(null, 0.2); env(g2, t0, 0.003, 0.8, 0.3); osc('sine', 320, t0, 0.35, g2).frequency.exponentialRampToValueAtTime(90, t0 + 0.25);
+      SFX.bell(t0 + 0.05, 1318.51, 0.1, 1.2); SFX.bell(t0 + 0.12, 1760, 0.08, 1.2);
+    },
+    paper(t0){   // бумажка выезжает
+      const g = voice(null, 0.2); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+      const f = hp(400, 0.7); f.frequency.setValueAtTime(400, t0); f.frequency.linearRampToValueAtTime(2600, t0 + 0.35); noise(t0, 0.55, f, g);
+    },
+    spin(t0, dur){   // колесо: свист, который затухает вместе с вращением
+      const g = voice(null, 0.3); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      const f = bp(500, 1.4); f.frequency.setValueAtTime(700, t0); f.frequency.exponentialRampToValueAtTime(260, t0 + dur); noise(t0, dur, f, g);
+      SFX.thud(t0);
+    },
+    win(t0, r){ SFX.win(t0, r); },
+  };
+  // Редкость итога по шансу приза: чем реже, тем торжественнее выпадение
+  const rRank = ch => ch >= 0.3 ? 2 : ch >= 0.15 ? 3 : ch >= 0.06 ? 4 : ch >= 0.02 ? 5 : 6;
+  // Расписание звуков: [имя, мс от начала, параметр]
+  function rEvents(el){
+    const D = rouDur(el), rank = rRank(rouChance(el));
+    if(el.view === 'wheel') return [['spin', 0, D * 0.85 / 1000], ['win', D, rank]];
+    return [['ticket', 0], ['shake', CAP_PH.shake[0] * D, (CAP_PH.shake[1] - CAP_PH.shake[0]) * D / 1000], ['drop', CAP_PH.drop[0] * D], ['pop', CAP_PH.burst[0] * D],
+      ['win', CAP_PH.burst[0] * D + 120, rank], ['paper', CAP_PH.reveal[0] * D]];
+  }
+  function rAudio(c, el, S){
+    if(!FX().audio || el.hidden || !S.spinning) return;
+    if(!(c._snd && c._snd.key === el.spinAt)) A.muted = false;
+    const x = ac(el.vol); if(!x) return;
+    const sn = c._snd && c._snd.key === el.spinAt ? c._snd : (c._snd = { key:el.spinAt, done:new Set() });
+    for(const [k, at, extra] of rEvents(el)){
+      if(S.t >= at - 30 && !sn.done.has(k)){ sn.done.add(k); if(S.t - at < 350) RS[k](x.currentTime + Math.max(0, (at - S.t) / 1000), extra); }
+    }
+  }
+  async function rouWav(el){
+    const D = rouDur(el);
+    return offlineWav((D + 4000) / 1000, el.vol ?? 0.8, () => {
+      for(const [k, at, extra] of rEvents(el)) RS[k](at / 1000, extra);
+      if(el.view === 'wheel'){   // щелчки по тем же секторам, что и на экране
+        const segs = wheelSegs(el.segs); let last = -1;
+        for(let ms = 0; ms < D; ms += 4){ const rot = wheelAngle(el, ms / D, true), th = ((-rot % TAU) + TAU) % TAU, idx = segs.findIndex(s => th >= s.start && th < s.start + s.span); if(last >= 0 && idx !== last && idx >= 0) SFX.tick(ms / 1000, ms / D); last = idx; }
+      }
+    });
+  }
+
+  // ---- сборка и цикл ----
+  function rPaint(c, el){
+    if(c._view !== el.view){
+      c._view = el.view; c._balls = null; c._wsig = null; c._capKey = null; c._paperKey = null; c._tkName = null; c._snd = null;
+      if(el.view === 'wheel') wheelMarkup(c); else capMarkup(c);
+      c.dataset.view = el.view; refs(c);
+      if(el.view !== 'wheel'){ c._caps = [...c.querySelectorAll('.rm-cap')]; c._bulbs = [...c.querySelectorAll('.rm-bulb')]; }
+    }
+    c.style.setProperty('--ra', el.accent);
+    if(el.view !== 'wheel') paintCaps(c, el.prizes);
+    c._wsig = null;
+    api.kick(c, el);
+  }
+  function rKick(c, el){
+    c._el = el;
+    if(c._loop) return; c._loop = true; c._last = 0;
+    const loop = ts => {
+      if(!c.isConnected){ c._loop = false; return; }
+      const e = c._el, dt = c._last ? Math.min(0.05, (ts - c._last) / 1000) : 0.016; c._last = ts;
+      try{
+        const S = rState(e);
+        rAudio(c, e, S);
+        if(e.view === 'wheel') wheelFrame(c, e, S); else capFrame(c, e, S, dt);
+      }catch(err){ console.warn('рулетка', err); }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+  const api = {
+    paint: rPaint, kick: rKick,
+    tick(el, p, wheel){ if(!FX().audio || el.hidden) return; const x = ac(el.vol); if(!x) return; SFX.tick(x.currentTime, p); },
+    renderWav: rouWav,
+  };
+  window.Rou = api;
 
   window.Case3D = {
     frame(c, el, t){

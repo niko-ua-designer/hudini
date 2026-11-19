@@ -74,12 +74,20 @@ ru: {
 <p>«Если… → то…»: например, кто-то написал <code>!кринж</code> → показать картинку на 5 секунд и запустить конфетти. Условия: команда в чате, событие CS2, конец таймера, цель счётчика или кнопка.</p>
 <p>Сценарии выполняет открытый пульт. Если пульт открыт у двух модераторов, включи «Выполнять сценарии» только у одного.</p>`],
 ['case', 'Кейс', `
-<p>Добавить → <b>3D-кейс</b>. Модератор открывает кейс кнопкой: он падает на экран, открывается, лента крутится и показывает выигрыш.</p>
+<p>Вкладка <b>🎁 Розыгрыши → 📦 Кейс</b> → «Создать 3D-кейс». Модератор открывает кейс кнопкой: он падает на экран, открывается, лента крутится и показывает выигрыш.</p>
 <ul>
 <li><b>Вид кейса</b>: <b>Обычный</b> (честная лента), <b>Байтовый</b> (почти выпало, но нет), <b>Рандомный</b> (вид выбирается сам, зрители не знают), <b>Второй шанс</b> (выпала карточка «Перекрут», и лента крутится ещё раз).</li>
 <li><b>Предметы</b>: название, редкость, шанс в процентах и картинка. Кнопка «⚖ До 100%» подгоняет шансы пропорционально.</li>
 <li><b>Открыть</b>: впиши ник зрителя (сумму можно не писать) и нажми «Открыть кейс». Кнопка «Тест» открывает кейс для проверки. История открытий лежит под списком.</li>
 <li><b>Звуки и вид</b>: громкость, сколько показывать итог, свои звуки и «лёгкий режим для слабого ПК».</li>
+</ul>`],
+['roulette', 'Рулетка', `
+<p>Вкладка <b>🎁 Розыгрыши → 🎰 Рулетка</b> → «Создать рулетку». Два вида: <b>капсульный автомат</b> (билет с ником, тряска, капсула, бумажка с призом) и <b>колесо</b>.</p>
+<ul>
+<li><b>Призы</b>: название, цвет и вес. Чем больше вес, тем чаще приз выпадает; шанс в процентах считается сам. Вес 0 значит, что приз не выпадет.</li>
+<li><b>Крутить</b>: впиши ник зрителя или оставь поле пустым, тогда ник возьмётся из списка участников. Приз выбирается случайно здесь, в пульте, а стрим и другие модераторы показывают тот же результат. Пока рулетка крутится, кнопка заблокирована.</li>
+<li><b>Участники</b>: один ник в строке, «ник x3» даёт тройной шанс. Выпавший уходит из списка, если включена галочка; «Вернуть выбывших» кладёт всех обратно.</li>
+<li><b>Вид и звук</b>: ник и шанс на бумажке, громкость, сколько показывать итог. Звуки синтезируются сами, файлы не нужны.</li>
 </ul>`],
 ['giveaway', 'Розыгрыши', `
 <p>Вкладка <b>🎁 Розыгрыши</b>: розыгрыш с рулеткой. На экране один розыгрыш, он рисуется поверх всех слоёв, а положение и размер задаются ползунками.</p>`],
@@ -223,12 +231,20 @@ en: {
 <p>"If… → then…": for example, someone types <code>!cringe</code> → show a picture for 5 seconds and fire confetti. Triggers: a chat command, a CS2 event, a timer ending, a counter goal or a button.</p>
 <p>Scenarios run in an open panel. If two moderators have the panel open, turn on "Run scenarios" in only one of them.</p>`],
 ['case', 'Case', `
-<p>Add → <b>3D case</b>. The moderator opens the case with a button: it drops onto the screen, opens, the reel spins and shows the prize.</p>
+<p>Tab <b>🎁 Giveaways → 📦 Case</b> → “Create a 3D case”. The moderator opens the case with a button: it drops onto the screen, opens, the reel spins and shows the prize.</p>
 <ul>
 <li><b>Case kind</b>: <b>Normal</b> (an honest reel), <b>Bait</b> (almost dropped, but not), <b>Random</b> (the kind is picked for you, viewers do not know), <b>Second chance</b> (the "Respin" card drops and the reel spins once more).</li>
 <li><b>Items</b>: name, rarity, chance in percent and a picture. "⚖ To 100%" scales the chances proportionally.</li>
 <li><b>Open</b>: type the viewer's name (the amount is optional) and press "Open the case". "Test" opens a case for checking. The opening history is under the list.</li>
 <li><b>Sounds and look</b>: volume, how long to show the result, your own sounds and a "light mode for a weak PC".</li>
+</ul>`],
+['roulette', 'Roulette', `
+<p>Tab <b>🎁 Giveaways → 🎰 Roulette</b> → “Create a roulette”. Two looks: a <b>capsule machine</b> (a ticket with the nickname, shaking, a capsule, a paper with the prize) and a <b>wheel</b>.</p>
+<ul>
+<li><b>Prizes</b>: name, colour and weight. The bigger the weight, the more often it drops; the percent chance is worked out for you. Weight 0 means it never drops.</li>
+<li><b>Spin</b>: type a viewer nickname or leave it empty to take one from the participant list. The prize is picked at random here in the panel, and the stream and the other moderators show the same result. The button is locked while it spins.</li>
+<li><b>Participants</b>: one nickname per line, “nick x3” gives a triple chance. The one who is picked leaves the list when the switch is on; “Bring them back” puts everyone back.</li>
+<li><b>Look and sound</b>: nickname and chance on the paper, volume, how long the result stays. Sounds are synthesized, no files needed.</li>
 </ul>`],
 ['giveaway', 'Giveaways', `
 <p>The <b>🎁 Giveaways</b> tab: a giveaway with a roulette. There is one giveaway on the screen, it is drawn above all layers, and its position and size are set with sliders.</p>`],
@@ -372,12 +388,20 @@ uk: {
 <p>«Якщо… → то…»: наприклад, хтось написав <code>!крінж</code> → показати картинку на 5 секунд і запустити конфеті. Умови: команда в чаті, подія CS2, кінець таймера, мета лічильника або кнопка.</p>
 <p>Сценарії виконує відкритий пульт. Якщо пульт відкритий у двох модераторів, увімкни «Виконувати сценарії» лише в одного.</p>`],
 ['case', 'Кейс', `
-<p>Додати → <b>3D-кейс</b>. Модератор відкриває кейс кнопкою: він падає на екран, відкривається, стрічка крутиться й показує виграш.</p>
+<p>Вкладка <b>🎁 Розіграші → 📦 Кейс</b> → «Створити 3D-кейс». Модератор відкриває кейс кнопкою: він падає на екран, відкривається, стрічка крутиться й показує виграш.</p>
 <ul>
 <li><b>Вид кейса</b>: <b>Звичайний</b> (чесна стрічка), <b>Байтовий</b> (майже випало, але ні), <b>Рандомний</b> (вид обирається сам, глядачі не знають), <b>Другий шанс</b> (випала картка «Перекрут», і стрічка крутиться ще раз).</li>
 <li><b>Предмети</b>: назва, рідкість, шанс у відсотках і картинка. Кнопка «⚖ До 100%» підганяє шанси пропорційно.</li>
 <li><b>Відкрити</b>: впиши нік глядача (суму можна не писати) і натисни «Відкрити кейс». Кнопка «Тест» відкриває кейс для перевірки. Історія відкриттів під списком.</li>
 <li><b>Звуки й вигляд</b>: гучність, скільки показувати підсумок, власні звуки та «легкий режим для слабкого ПК».</li>
+</ul>`],
+['roulette', 'Рулетка', `
+<p>Вкладка <b>🎁 Розіграші → 🎰 Рулетка</b> → «Створити рулетку». Два вигляди: <b>капсульний автомат</b> (квиток з ніком, трясіння, капсула, папірець із призом) і <b>колесо</b>.</p>
+<ul>
+<li><b>Призи</b>: назва, колір і вага. Чим більша вага, тим частіше приз випадає; шанс у відсотках рахується сам. Вага 0 означає, що приз не випаде.</li>
+<li><b>Крутити</b>: впиши нік глядача або залиш поле порожнім, тоді нік візьметься зі списку учасників. Приз обирається випадково тут, у пульті, а стрім і інші модератори показують той самий результат. Поки рулетка крутиться, кнопка заблокована.</li>
+<li><b>Учасники</b>: один нік у рядку, «нік x3» дає потрійний шанс. Той, кому випало, виходить зі списку, якщо ввімкнено галочку; «Повернути вибулих» кладе всіх назад.</li>
+<li><b>Вигляд і звук</b>: нік і шанс на папірці, гучність, скільки показувати підсумок. Звуки синтезуються самі, файли не потрібні.</li>
 </ul>`],
 ['giveaway', 'Розіграші', `
 <p>Вкладка <b>🎁 Розіграші</b>: розіграш із рулеткою. На екрані один розіграш, він малюється поверх усіх шарів, а положення й розмір задаються повзунками.</p>`],
@@ -521,12 +545,20 @@ de: {
 <p>„Wenn… → dann…“: Zum Beispiel schreibt jemand <code>!cringe</code> → ein Bild 5 Sekunden zeigen und Konfetti starten. Auslöser: ein Chat-Befehl, ein CS2-Ereignis, ein abgelaufener Timer, ein Zählerziel oder ein Knopf.</p>
 <p>Szenarien laufen in einem offenen Pult. Haben zwei Mods das Pult offen, schalte „Szenarien ausführen“ nur bei einem ein.</p>`],
 ['case', 'Case', `
-<p>Hinzufügen → <b>3D-Case</b>. Der Mod öffnet das Case per Knopf: Es fällt auf den Bildschirm, öffnet sich, die Rolle dreht sich und zeigt den Gewinn.</p>
+<p>Tab <b>🎁 Gewinnspiele → 📦 Case</b> → „3D-Case erstellen“. Der Mod öffnet das Case per Knopf: Es fällt auf den Bildschirm, öffnet sich, die Rolle dreht sich und zeigt den Gewinn.</p>
 <ul>
 <li><b>Case-Art</b>: <b>Normal</b> (ehrliche Rolle), <b>Köder</b> (fast gefallen, aber nein), <b>Zufällig</b> (die Art wird selbst gewählt, Zuschauer wissen es nicht), <b>Zweite Chance</b> (die Karte „Respin“ fällt und die Rolle dreht sich noch einmal).</li>
 <li><b>Gegenstände</b>: Name, Seltenheit, Chance in Prozent und ein Bild. „⚖ Auf 100%“ skaliert die Chancen proportional.</li>
 <li><b>Öffnen</b>: Namen des Zuschauers eintragen (der Betrag ist optional), „Case öffnen“ drücken. „Test“ öffnet ein Case zur Probe. Der Verlauf steht unter der Liste.</li>
 <li><b>Töne und Aussehen</b>: Lautstärke, wie lange das Ergebnis bleibt, eigene Töne und ein „Lite-Modus für schwache PCs“.</li>
+</ul>`],
+['roulette', 'Roulette', `
+<p>Tab <b>🎁 Gewinnspiele → 🎰 Roulette</b> → „Roulette erstellen“. Zwei Looks: ein <b>Kapselautomat</b> (Ticket mit Namen, Rütteln, Kapsel, Zettel mit dem Preis) und ein <b>Glücksrad</b>.</p>
+<ul>
+<li><b>Preise</b>: Name, Farbe und Gewicht. Je größer das Gewicht, desto öfter fällt der Preis; die Chance in Prozent wird automatisch berechnet. Gewicht 0 heißt: fällt nie.</li>
+<li><b>Drehen</b>: Zuschauernamen eintippen oder leer lassen, dann kommt einer aus der Teilnehmerliste. Der Preis wird hier im Panel zufällig gewählt, Stream und andere Moderatoren zeigen dasselbe Ergebnis. Solange es sich dreht, ist der Knopf gesperrt.</li>
+<li><b>Teilnehmer</b>: ein Name pro Zeile, „Name x3“ gibt dreifache Chance. Wer gezogen wurde, verlässt die Liste, wenn der Schalter an ist; „Ausgeschiedene zurückholen“ legt alle zurück.</li>
+<li><b>Aussehen und Ton</b>: Name und Chance auf dem Zettel, Lautstärke, wie lange das Ergebnis bleibt. Die Töne werden selbst erzeugt, keine Dateien nötig.</li>
 </ul>`],
 ['giveaway', 'Verlosungen', `
 <p>Der Tab <b>🎁 Verlosungen</b>: eine Verlosung mit Roulette. Auf dem Bildschirm gibt es eine Verlosung, sie wird über allen Ebenen gezeichnet, Position und Größe stellst du mit Reglern ein.</p>`],

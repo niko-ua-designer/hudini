@@ -693,3 +693,414 @@
 @keyframes rd-blink{50%{opacity:.35}}
 .cs2[data-theme="classic"] .rd{border-radius:.25em;background:#15171cf0}
 .cs2[data-theme="ko"] .rd{background:#0b0b24c0}
+/* ---------- рулетка: капсульный автомат и колесо (размеры в --q = 1/16 em при ширине 35em) ---------- */
+.rou{position:relative;width:calc(var(--q) * 560);line-height:1.15;text-align:left;pointer-events:none;--q:calc(var(--u) * 0.0925);--ra:#a970ff;--re:#a970ff;
+  --metal:linear-gradient(165deg,#3b3358 0%,#241f38 38%,#191527 70%,#100d1c 100%)}
+.rou,.rou *{box-sizing:border-box}
+.rou .rm-wheel{position:relative;width:100%;aspect-ratio:1}
+.rou .rm-wheel canvas{display:block;width:100%;height:100%}
+.rou .rm-badge{position:absolute;left:50%;top:calc(var(--q) * -34);transform:translateX(-50%);max-width:100%;padding:calc(var(--q) * 4) calc(var(--q) * 18);border-radius:999px;font-weight:900;font-size:calc(var(--q) * 22);
+  background:color-mix(in srgb,var(--ra) 70%,#000);border:calc(var(--q) * 2) solid #ffffff55;box-shadow:0 calc(var(--q) * 6) calc(var(--q) * 20) #0009;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 calc(var(--q) * 2) 0 #0007}
+.rou[data-view=wheel] .rm-paper{margin-top:calc(var(--q) * 8)}
+.rou .rm-machine {
+  position: relative;
+  width: calc(var(--q) * 560);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--q) * 12);
+  padding: calc(var(--q) * 18) calc(var(--q) * 18) calc(var(--q) * 14);
+  border-radius: calc(var(--q) * 32);
+  background: var(--metal);
+  border: calc(var(--q) * 3) solid #0a0812;
+  box-shadow:
+    inset 0 calc(var(--q) * 2) 0 rgba(255, 255, 255, .14),
+    inset 0 calc(var(--q) * -22) calc(var(--q) * 40) rgba(0, 0, 0, .55),
+    0 calc(var(--q) * 44) calc(var(--q) * 90) rgba(0, 0, 0, .65),
+    0 0 calc(var(--q) * 60) color-mix(in srgb, var(--ra) 22%, transparent);
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+.rou .rm-machine__marquee {
+  position: relative;
+  height: calc(var(--q) * 86);
+  border-radius: calc(var(--q) * 18);
+  background:
+    radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--ra) 45%, transparent), transparent 70%),
+    linear-gradient(180deg, #221d38, #14111f);
+  border: calc(var(--q) * 2) solid #0a0812;
+  box-shadow: inset 0 0 calc(var(--q) * 30) rgba(0, 0, 0, .8), 0 calc(var(--q) * 2) 0 rgba(255, 255, 255, .06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.rou .rm-marquee__title {
+  position: relative;
+  font-size: calc(var(--q) * 34);
+  font-weight: 900;
+  letter-spacing: calc(var(--q) * 6);
+  color: #fff;
+  text-shadow: 0 0 calc(var(--q) * 18) color-mix(in srgb, var(--ra) 90%, transparent), 0 calc(var(--q) * 3) 0 rgba(0, 0, 0, .5);
+}
+.rou .rm-marquee__bulbs { position: absolute; inset: 0; }
+.rou .rm-bulb {
+  position: absolute;
+  width: calc(var(--q) * 12);
+  height: calc(var(--q) * 12);
+  margin-left: calc(var(--q) * -6);
+  border-radius: 50%;
+  background: #3a3550;
+  box-shadow: inset 0 calc(var(--q) * 1) calc(var(--q) * 2) rgba(0, 0, 0, .8);
+  transition: background .1s, box-shadow .1s;
+}
+.rou .rm-bulb--t { top: calc(var(--q) * 7); }
+.rou .rm-bulb--b { bottom: calc(var(--q) * 7); }
+.rou .rm-bulb.rm-is-lit {
+  background: #fff6c9;
+  box-shadow: 0 0 calc(var(--q) * 10) calc(var(--q) * 2) #ffd76a, 0 0 calc(var(--q) * 20) calc(var(--q) * 4) rgba(255, 215, 106, .45);
+}
+.rou .rm-machine__screen {
+  height: calc(var(--q) * 44);
+  border-radius: calc(var(--q) * 12);
+  background: linear-gradient(180deg, #0e1c14, #060d09);
+  border: calc(var(--q) * 2) solid #0a0812;
+  box-shadow: inset 0 calc(var(--q) * 3) calc(var(--q) * 10) rgba(0, 0, 0, .9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.rou .rm-machine__screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .05) 0 calc(var(--q) * 1), transparent calc(var(--q) * 1) calc(var(--q) * 3));
+  pointer-events: none;
+}
+.rou .rm-machine__screen span {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: calc(var(--q) * 20);
+  font-weight: 700;
+  letter-spacing: calc(var(--q) * 4);
+  color: #62e39a;
+  text-shadow: 0 0 calc(var(--q) * 12) rgba(98, 227, 154, .8);
+}
+.rou .rm-machine__screen span[data-mode="busy"] { color: #ffd76a; text-shadow: 0 0 calc(var(--q) * 12) rgba(255, 215, 106, .8); }
+.rou .rm-machine__screen span[data-mode="win"] { color: #fff; text-shadow: 0 0 calc(var(--q) * 18) var(--ra); }
+.rou .rm-machine__glass {
+  position: relative;
+  height: calc(var(--q) * 210);
+  border-radius: calc(var(--q) * 20);
+  background: linear-gradient(180deg, #171232, #0a0815);
+  border: calc(var(--q) * 3) solid #0a0812;
+  box-shadow: inset 0 calc(var(--q) * 8) calc(var(--q) * 26) rgba(0, 0, 0, .9), inset 0 calc(var(--q) * -6) calc(var(--q) * 18) rgba(0, 0, 0, .8);
+  overflow: hidden;
+}
+.rou .rm-capsules {
+  position: absolute;
+  inset: 0;
+  filter: saturate(.88) brightness(.82) contrast(1.05);
+}
+.rou .rm-cap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 26%,
+    color-mix(in srgb, var(--c) 70%, #fff), var(--c) 58%, color-mix(in srgb, var(--c) 55%, #000));
+  box-shadow: 0 calc(var(--q) * 3) calc(var(--q) * 8) rgba(0, 0, 0, .55), inset 0 calc(var(--q) * -3) calc(var(--q) * 7) rgba(0, 0, 0, .5), inset 0 calc(var(--q) * 3) calc(var(--q) * 5) rgba(255, 255, 255, .25);
+  will-change: transform;
+}
+.rou .rm-cap::after {
+  content: '';
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 50%;
+  height: calc(var(--q) * 2);
+  background: rgba(20, 10, 40, .45);
+  box-shadow: 0 calc(var(--q) * 1) 0 rgba(255, 255, 255, .2);
+}
+.rou .rm-glass__tint {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(8, 6, 18, .55), rgba(8, 6, 18, .28) 45%, rgba(8, 6, 18, .6)),
+    radial-gradient(70% 60% at 50% 30%, rgba(255, 255, 255, .06), transparent 70%);
+  pointer-events: none;
+}
+.rou .rm-glass__shine {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(108deg, rgba(255, 255, 255, .17) 0 16%, transparent 30% 62%, rgba(255, 255, 255, .09) 78% 100%),
+    radial-gradient(40% 70% at 78% 12%, rgba(255, 255, 255, .12), transparent 70%);
+  box-shadow: inset 0 0 calc(var(--q) * 40) rgba(0, 0, 0, .6);
+  pointer-events: none;
+}
+.rou .rm-glass__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--q) * 16);
+  box-shadow:
+    inset 0 calc(var(--q) * 2) 0 rgba(255, 255, 255, .12),
+    inset 0 calc(var(--q) * -2) 0 rgba(255, 255, 255, .07),
+    inset calc(var(--q) * 2) 0 calc(var(--q) * 6) rgba(255, 255, 255, .05),
+    inset calc(var(--q) * -2) 0 calc(var(--q) * 6) rgba(255, 255, 255, .05);
+  pointer-events: none;
+}
+.rou .rm-machine__tray {
+  position: relative;
+  z-index: 1;
+  height: calc(var(--q) * 170);
+  perspective: calc(var(--q) * 900);
+  border-radius: calc(var(--q) * 22) calc(var(--q) * 22) calc(var(--q) * 26) calc(var(--q) * 26);
+  background: radial-gradient(80% 120% at 50% -10%, #2a2440 0%, #120f1e 55%, #05040a 100%);
+  border: calc(var(--q) * 3) solid #0a0812;
+  box-shadow: inset 0 calc(var(--q) * 16) calc(var(--q) * 28) rgba(0, 0, 0, .95), inset 0 calc(var(--q) * 2) 0 rgba(255, 255, 255, .07);
+}
+.rou .rm-tray__mouth {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--q) * 8);
+  width: calc(var(--q) * 300);
+  height: calc(var(--q) * 20);
+  margin-left: calc(var(--q) * -150);
+  border-radius: calc(var(--q) * 10);
+  background: #04030a;
+  box-shadow: inset 0 calc(var(--q) * 3) calc(var(--q) * 9) rgba(0, 0, 0, 1), 0 calc(var(--q) * -1) 0 rgba(255, 255, 255, .06);
+  z-index: 1;
+}
+.rou .rm-tray__light {
+  position: absolute;
+  inset: calc(var(--q) * 18) calc(var(--q) * 20) calc(var(--q) * 8);
+  border-radius: calc(var(--q) * 18);
+  background: radial-gradient(60% 70% at 50% 0%, rgba(255, 215, 106, .5), transparent 70%);
+  opacity: 0;
+  transition: opacity .25s;
+}
+.rou .rm-tray__light.rm-is-on { opacity: 1; animation: rm-pulse .5s infinite alternate ease-in-out; }
+.rou .rm-spare {
+  position: absolute;
+  width: calc(var(--q) * 38);
+  height: calc(var(--q) * 38);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #e9e6f2, #b3adc9 70%, #7d7796);
+  box-shadow: 0 calc(var(--q) * 4) calc(var(--q) * 10) rgba(0, 0, 0, .7), inset 0 calc(var(--q) * -3) calc(var(--q) * 6) rgba(0, 0, 0, .4);
+  opacity: .5;
+}
+.rou .rm-spare::after {
+  content: '';
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 50%;
+  height: calc(var(--q) * 2);
+  background: rgba(40, 30, 70, .4);
+}
+.rou .rm-spare--1 { left: calc(var(--q) * 30); bottom: calc(var(--q) * 22); }
+.rou .rm-spare--3 { right: calc(var(--q) * 34); bottom: calc(var(--q) * 28); transform: scale(.94); }
+.rou .rm-capsule {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--q) * 54);
+  margin-left: calc(var(--q) * -48);
+  width: calc(var(--q) * 96);
+  height: calc(var(--q) * 96);
+  will-change: transform, opacity;
+}
+.rou .rm-capsule__shell {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  clip-path: inset(50% 0 0 0);
+  background: radial-gradient(circle at 40% 78%,
+    color-mix(in srgb, var(--re, #a970ff) 55%, #ffffff),
+    var(--re, #a970ff) 74%,
+    color-mix(in srgb, var(--re, #a970ff) 68%, #000000));
+  box-shadow: 0 calc(var(--q) * 10) calc(var(--q) * 22) rgba(0, 0, 0, .7);
+}
+.rou .rm-capsule::after {
+  content: '';
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  top: 50%;
+  height: calc(var(--q) * 2);
+  margin-top: calc(var(--q) * -1);
+  border-radius: calc(var(--q) * 1);
+  background: color-mix(in srgb, var(--re, #a970ff) 30%, #2a2038);
+  box-shadow: 0 calc(var(--q) * 1) 0 rgba(255, 255, 255, .55);
+}
+.rou .rm-capsule__lid {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  clip-path: inset(0 0 50% 0);
+  background: radial-gradient(circle at 40% 34%,
+    color-mix(in srgb, var(--re, #a970ff) 30%, #ffffff),
+    color-mix(in srgb, var(--re, #a970ff) 68%, #ffffff),
+    var(--re, #a970ff));
+  box-shadow: 0 calc(var(--q) * 8) calc(var(--q) * 18) rgba(0, 0, 0, .6);
+  will-change: transform;
+}
+.rou .rm-capsule__flash {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--q) * 62);
+  width: calc(var(--q) * 150);
+  height: calc(var(--q) * 150);
+  margin-left: calc(var(--q) * -75);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95), transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+}
+.rou .rm-ticket {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(var(--q) * 18);
+  margin-left: calc(var(--q) * -100);
+  margin-top: calc(var(--q) * -28);
+  width: calc(var(--q) * 200);
+  height: calc(var(--q) * 56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(var(--q) * 7);
+  transform-style: preserve-3d;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, .14) 0 calc(var(--q) * 2), transparent calc(var(--q) * 2) calc(var(--q) * 9)),
+    linear-gradient(168deg, #fffcf3 0%, #f7ecd6 42%, #e6d3a8 78%, #d8c391 100%);
+  color: #3a2c12;
+  box-shadow:
+    0 calc(var(--q) * 26) calc(var(--q) * 44) rgba(0, 0, 0, .7),
+    0 calc(var(--q) * 4) 0 rgba(150, 120, 60, .45),
+    inset 0 calc(var(--q) * 1) 0 rgba(255, 255, 255, .95),
+    inset 0 calc(var(--q) * -12) calc(var(--q) * 20) rgba(150, 118, 52, .3);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, calc(var(--q) * 16) 100%, 0 calc(100% - calc(var(--q) * 12)), 0 100%, calc(var(--q) * 16) 0);
+  will-change: transform, opacity;
+  --sheen: 0;
+}
+.rou .rm-ticket b {
+  font-size: calc(var(--q) * 21);
+  font-weight: 800;
+  letter-spacing: calc(var(--q) * .5);
+  max-width: calc(var(--q) * 168);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 calc(var(--q) * 1) 0 rgba(255, 255, 255, .8);
+  position: relative;
+  z-index: 2;
+}
+.rou .rm-ticket__sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    rgba(255, 255, 255, .85) 45%,
+    rgba(255, 255, 255, .25) 55%,
+    transparent 100%);
+  transform: translateX(calc(-120% + var(--sheen) * 260%));
+  opacity: .9;
+  pointer-events: none;
+}
+.rou .rm-ticket__perf {
+  position: absolute;
+  left: calc(var(--q) * 10);
+  top: calc(var(--q) * 10);
+  bottom: calc(var(--q) * 10);
+  width: calc(var(--q) * 6);
+  z-index: 2;
+  background-image: radial-gradient(circle at calc(var(--q) * 3) calc(var(--q) * 3), rgba(90, 70, 30, .45) calc(var(--q) * 1.6), transparent calc(var(--q) * 2));
+  background-size: calc(var(--q) * 6) calc(var(--q) * 12);
+}
+.rou .rm-paper {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: calc(var(--q) * 430);
+  min-height: calc(var(--q) * 218);
+  padding: calc(var(--q) * 22) calc(var(--q) * 30) calc(var(--q) * 28);
+  transform-origin: 50% 0;
+  transform: translate3d(-50%, 0, 0) scaleY(1);
+  background: linear-gradient(180deg, #fffdf6 0%, #f7f1e0 100%);
+  border-radius: calc(var(--q) * 10) calc(var(--q) * 10) calc(var(--q) * 4) calc(var(--q) * 4);
+  box-shadow:
+    0 calc(var(--q) * -4) 0 color-mix(in srgb, var(--re) 85%, transparent),
+    0 calc(var(--q) * 26) calc(var(--q) * 60) rgba(0, 0, 0, .65);
+  clip-path: polygon(
+    0 0, 100% 0, 100% calc(100% - calc(var(--q) * 14)), 96% 100%, 91% calc(100% - calc(var(--q) * 10)),
+    86% 100%, 81% calc(100% - calc(var(--q) * 12)), 76% 100%, 71% calc(100% - calc(var(--q) * 9)),
+    66% 100%, 61% calc(100% - calc(var(--q) * 13)), 56% 100%, 51% calc(100% - calc(var(--q) * 9)),
+    46% 100%, 41% calc(100% - calc(var(--q) * 12)), 36% 100%, 31% calc(100% - calc(var(--q) * 10)),
+    26% 100%, 21% calc(100% - calc(var(--q) * 14)), 16% 100%, 11% calc(100% - calc(var(--q) * 10)),
+    6% 100%, 0 calc(100% - calc(var(--q) * 14))
+  );
+  will-change: transform, opacity;
+  --text-on: 1;
+}
+.rou .rm-paper__who,
+.rm-paper__note,
+.rm-paper__chance {
+  opacity: var(--text-on, 1);
+  transform: translateY(calc((1 - var(--text-on, 1)) * calc(var(--q) * 12)));
+  transition: opacity .25s linear, transform .25s linear;
+}
+.rou .rm-paper__who {
+  font-size: calc(var(--q) * 19);
+  font-weight: 700;
+  letter-spacing: calc(var(--q) * 1);
+  color: color-mix(in srgb, var(--re) 80%, #333);
+  text-transform: uppercase;
+}
+.rou .rm-paper__what {
+  margin-top: calc(var(--q) * 12);
+  font-size: calc(var(--q) * 48);
+  font-weight: 900;
+  line-height: 1.08;
+  color: #16121f;
+  text-transform: uppercase;
+  letter-spacing: calc(var(--q) * 1);
+  text-shadow: 0 calc(var(--q) * 2) 0 rgba(0, 0, 0, .08);
+}
+.rou .rm-paper__note {
+  margin-top: calc(var(--q) * 14);
+  font-size: calc(var(--q) * 22);
+  line-height: 1.35;
+  color: #55505f;
+  max-width: 40ch;
+  
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.rou .rm-paper__chance {
+  margin-top: calc(var(--q) * 16);
+  display: inline-block;
+  font-size: calc(var(--q) * 17);
+  font-weight: 800;
+  letter-spacing: calc(var(--q) * 3);
+  padding: calc(var(--q) * 5) calc(var(--q) * 14);
+  border-radius: calc(var(--q) * 999);
+  background: color-mix(in srgb, var(--re) 18%, transparent);
+  color: color-mix(in srgb, var(--re) 65%, #222);
+  text-transform: uppercase;
+}
+.rou .rm-machine__feet { display: flex; justify-content: space-between; padding: 0 calc(var(--q) * 24); }
+.rou .rm-machine__feet i {
+  width: calc(var(--q) * 62);
+  height: calc(var(--q) * 12);
+  border-radius: 0 0 calc(var(--q) * 8) calc(var(--q) * 8);
+  background: linear-gradient(180deg, #2a2440, #0d0b16);
+}
+@keyframes rm-pulse {
+  from { opacity: .45; }
+  to { opacity: 1; }
+}
