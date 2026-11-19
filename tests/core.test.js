@@ -234,7 +234,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
   await step('OBS dock: hide overlay, stop sounds, pause moderators', async () => {
     const dock = await T.newPage('dock', { w: 320, h: 500 });
     await dock.goto(host.base + '/dock');
-    check(await until(async () => /виджет работает/.test(await dock.textContent('#rows'))), 'dock shows the OBS widget status');
+    check(await until(async () => /OBS видит оверлей/.test(await dock.textContent('#pills'))), 'dock shows the OBS widget status');
     await dock.click('#hide');
     check(await until(() => widget.evaluate(() => document.body.classList.contains('host-hidden'))), 'widget hides the overlay');
     check(await until(async () => /спрятано стримером/.test(await panel.textContent('#obsStatus'))), 'panel says the streamer hid it');
@@ -255,7 +255,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     const dock = await T.newPage('dock-127', { w: 320, h: 500 });
     await dock.goto(host.admin + '/dock');
     check(await until(() => new URL(dock.url()).hostname === 'localhost'), 'the dock moved to localhost: ' + dock.url());
-    check(await until(async () => /виджет работает/.test(await dock.textContent('#rows'))), 'the dock shows the OBS status, not "вставь ссылку": ' + await dock.textContent('#rows'));
+    check(await until(async () => /OBS видит оверлей/.test(await dock.textContent('#pills'))), 'the dock shows the OBS status, not "вставь ссылку": ' + await dock.textContent('#pills'));
     await dock.context().close();
   });
 

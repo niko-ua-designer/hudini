@@ -123,6 +123,21 @@ addEventListener('resize', fit); fit();
 const nodes=new Map();
 // Стример спрятал оверлей кнопкой в доке OBS: ничего не видно и не слышно, пока не вернёт
 const hostHidden=()=>document.body.classList.contains('host-hidden');
+// Права модераторов (тема perms) и выключатели стримера в доке (тема host): их публикует только Hudini Host.
+// Запрещённое на стрим не попадает, что бы ни прислал пульт: элемент считается скрытым, звук и эффекты не играют.
+let PERMS={ av:true, web:true, fx:true, games:true }, OFF={}, HIDE_IDS=new Set();
+const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
+const OFF_OF={ chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
+function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type]; return (!!p && PERMS[p]===false) || (!!o && !!OFF[o]) || HIDE_IDS.has(el.id); }
+const soundOk=()=>PERMS.av!==false && !OFF.sound;
+const fxOk=()=>PERMS.fx!==false && !OFF.fx;
+function setPerms(p){
+  if(!p || typeof p!=='object') return;
+  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false };
+  if(!soundOk()){ stopSounds(); pendingSounds.clear(); }
+  if(!fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
+  applyState(lastState);
+}
 let visible=true, lastState={ visible:true, els:[], raffle:null };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
@@ -130,7 +145,7 @@ function applyState(s){
   lastState=s; setVolumes(s); ThirdEmotes.setOn(s.emx); visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
-  drawList(s).forEach((el,i)=>{
+  drawList(s).map(el=>blockedEl(el) ? { ...el, hidden:true } : el).forEach((el,i)=>{
     seen.add(el.id);
     if(el.ttl && now>=el.ttl) el.hidden=true;   // «показать на N секунд»: время вышло, прячем и без пульта
     let node=nodes.get(el.id);
@@ -145,7 +160,7 @@ function applyState(s){
     node.style.opacity = show ? el.op : 0;
     if(el.type==='video'){
       const v=node.querySelector('video');
-      v.muted=!el.sound || hostHidden(); v.volume=num(el.vol*masterVol(),1,0,1);
+      v.muted=!el.sound || hostHidden() || !soundOk(); v.volume=num(el.vol*masterVol(),1,0,1);
       const restart = el.restart && el.restart!==node._restart;
       node._restart=el.restart;
       if(show){
@@ -155,7 +170,7 @@ function applyState(s){
     }
     if(el.type==='web'){
       // скрытый сайт/ролик выгружаем, чтобы не играл звук; при показе он начнётся заново
-      const src = show && !hostHidden() ? embedSrc(el, location.hostname, false) : null;
+      const src = show && !hostHidden() ? embedSrc(el, location.hostname, !soundOk()) : null;
       setFrameSrc(node, src ? restartUrl(src, el.restart) : null, parseEmbed(el.url).kind==='site');
       if(src) playerApply(node, el, false);
     }
@@ -208,7 +223,7 @@ setInterval(()=>{
     if(el.type==='timer' && s){
       if(node._ended===false && s.ended && !el.hidden && visible){
         if(el.endSound) playSound(el.endSound, el.vol);
-        if(el.endConfetti) confetti();
+        if(el.endConfetti && fxOk()) confetti();
       }
       node._ended=s.ended;
     }
@@ -220,7 +235,7 @@ const sounds=new Set();
 const pendingSounds=new Map();   // id файла → { vol, at }: звук ждёт, пока файл скачается
 const PENDING_MS=10000;            // дольше не ждём: звук через минуту после события только мешает
 function playSound(src, vol){
-  if(hostHidden()) return;
+  if(hostHidden() || !soundOk()) return;
   const id=assetId(src);
   if(id){ const u=Assets.resolve(src); if(!u){ pendingSounds.set(id, { vol, at:Date.now() }); return; } src=u; assetSeen.set(id, Date.now()); }
   const a=new Audio(src); a.volume=num(num(vol,0.7,0,1)*masterVol(),0.7,0,1);
@@ -262,7 +277,7 @@ function blip(freq, dur, vol, type){
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.02);
 }
-const quiet=()=>!visible || hostHidden();
+const quiet=()=>!visible || hostHidden() || !soundOk();
 Object.defineProperty(CaseFx, 'audio', { get:()=>!quiet() });
 RaffleFx.tick=el=>{ if(el.ticks && !quiet() && !el.hidden) blip(1900+Math.random()*200, 0.035, 0.08*el.vol, 'square'); };
 RaffleFx.open=el=>{ if(quiet() || el.hidden) return; for(let i=0;i<5;i++) setTimeout(()=>blip(140+i*30, 0.08, 0.12*el.vol, 'triangle'), i*170); setTimeout(()=>blip(880, 0.5, 0.12*el.vol, 'sine'), 1050); };
@@ -270,8 +285,8 @@ RaffleFx.win=el=>{
   if(quiet() || el.hidden) return;
   if(el.snd) playSound(el.snd, 0.85*el.vol);
   else [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f, 0.45, 0.14*el.vol, 'triangle'), i*120));
-  if(el.fxc) confetti();
-  if(el.vfx) playVfx(el);
+  if(el.fxc && fxOk()) confetti();
+  if(el.vfx && fxOk()) playVfx(el);
 };
 // Свой эффект поверх экрана. Гринскрин вырезается шейдером: зелёный (или свой цвет ключа) становится прозрачным.
 const KEY_FS=`precision mediump float;varying vec2 v;uniform sampler2D t;uniform vec3 k;uniform float s;
@@ -279,7 +294,7 @@ vec2 cb(vec3 c){return vec2(dot(c,vec3(-.169,-.331,.5)),dot(c,vec3(.5,-.419,-.08
 void main(){vec4 c=texture2D(t,v);float d=distance(cb(c.rgb),cb(k));float a=smoothstep(s*.5,s*.5+.08,d);
 float sp=max(0.,c.g-max(c.r,c.b));c.g-=sp*(1.-a*.5);gl_FragColor=vec4(c.rgb*a,a);}`;
 function playVfx(el){
-  if(hostHidden()) return;
+  if(hostHidden() || !fxOk()) return;
   const src = assetId(el.vfx) ? Assets.resolve(el.vfx) : el.vfx; if(!src) return;
   const v=document.createElement('video'); v.playsInline=true; v.muted=false; v.volume=num(el.vol*masterVol(),1,0,1); v.src=src;
   if(!assetId(el.vfx)) v.crossOrigin='anonymous';
@@ -324,12 +339,12 @@ function onFx(f){
   if(!f || typeof f!=='object') return;
   if(f.type==='sound'){ const src=safeSrc(f.src); if(src) playSound(src, num(f.vol,0.7,0,1)*fxVol()); }
   else if(f.type==='stopsounds') stopSounds();
-  else if(f.type==='confetti') confetti();
-  else if(f.type==='shake') shake();
+  else if(f.type==='confetti'){ if(fxOk()) confetti(); }
+  else if(f.type==='shake'){ if(fxOk()) shake(); }
   else if(f.type==='calib') calib();
   else if(f.type==='seek'){ const node=nodes.get(str(f.id,40)); if(node?._el) playerSeek(node, node._el, num(f.d,0,-3600,3600)); }
   else if(f.type==='cs2test'){ const ev={ n:Math.round(num(f.n,3,2,5)), name:str(f.name,40), weapon:str(f.weapon,40), hs:Math.round(num(f.hs,0,0,5)) };
-    for(const n of nodes.values()) if(n._el?.type==='cs2' && n._el.view==='streak'){ const c=n.querySelector('.cs2'); if(c) cs2Popup(c, ev); } }
+    for(const n of nodes.values()) if(n._el?.type==='cs2' && n._el.view==='streak' && !n._el.hidden){ const c=n.querySelector('.cs2'); if(c) cs2Popup(c, ev); } }
 }
 
 // ================== СИНХРОНИЗАЦИЯ ЧАСОВ ==================
@@ -365,7 +380,7 @@ async function start(){
   // время последнего принятого экрана помним и после перезапуска OBS: старый сохранённый экран не вернётся
   const tKey='hudini.stateT.'+room;
   try{ lastStateT=Math.max(lastStateT, Number(localStorage.getItem(tKey))||0); }catch{}
-  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink' };
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink', perms:base+'/perms' };
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   // файлы берём из программы на этом же компьютере и проверяем подпись модератора
@@ -385,7 +400,7 @@ async function start(){
   setInterval(async()=>{ if(!client.connected) return;
     client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -396,11 +411,16 @@ async function start(){
     if(topic===T.host){                              // кнопки стримера в доке OBS (публикует только программа)
       const c=await unsealJSON(KEYS, payload, false); if(!c) return;
       document.body.classList.toggle('host-hidden', !!c.hidden);
-      if(c.hidden){ stopSounds(); pendingSounds.clear(); document.querySelectorAll('.vfx').forEach(l=>l._done?.()); }
+      const o=c.off && typeof c.off==='object' ? c.off : {};
+      OFF={ chat:o.chat===true, cs2:o.cs2===true, sound:o.sound===true, draw:o.draw===true, fx:o.fx===true };
+      HIDE_IDS=new Set(Array.isArray(c.hideIds) ? c.hideIds.filter(x=>typeof x==='string').slice(0,200) : []);   // глазик стримера в доке
+      if(c.hidden || !soundOk()){ stopSounds(); pendingSounds.clear(); }
+      if(c.hidden || !fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
       applyState(lastState);   // спрятано: видео без звука, сайты и ролики выгружены; вернули: всё как в последнем экране
       if(lastStop!=null && c.stop>lastStop) stopSounds();
       lastStop=Number(c.stop)||0; return;
     }
+    if(topic===T.perms){ setPerms(await unsealJSON(KEYS, payload, false)); return; }   // права модераторов (публикует только программа)
     if(topic===T.cs2){                               // данные CS2 шлёт программа стримера: зашифрованы ключом комнаты
       const d=await unsealJSON(KEYS, payload, false);
       if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=0; for(const n of nodes.values()) if(n._el?.type==='cs2' && !n._animOn) paintNode(n, n._el, n._z); }

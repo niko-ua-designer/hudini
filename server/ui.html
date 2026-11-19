@@ -97,6 +97,7 @@ details[open] summary{margin-bottom:10px}
 .spark i{width:4px;border-radius:1px;display:block}
 .good{color:var(--ok)}.mid{color:var(--warn)}.slow{color:var(--bad)}
 .warnbox{background:#2b2210;border:1px solid #6b5420;border-radius:10px;padding:10px 14px;color:#f3d28a;font-size:13px;margin-top:10px}
+.perms{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 16px;margin-top:10px}
 .dot.on{background:var(--ok)}
 .dot.off{background:#4a5060}
 @media (max-width:700px){ .cols{grid-template-columns:1fr} }
@@ -162,6 +163,23 @@ details[open] summary{margin-bottom:10px}
     </div>
   </div>
 
+  <div class="card" id="panelCard" hidden>
+    <h2>🎛 Пульт на этом компьютере</h2>
+    <div class="hint">Полный пульт в отдельном окне, без кода и пароля. Модераторы могут работать одновременно с тобой.</div>
+    <div class="row"><button id="openPanel" class="primary">🎛 Открыть пульт</button><span class="hint" id="panelHint" style="margin:0"></span></div>
+  </div>
+
+  <div class="card" id="permCard">
+    <h2>🔒 Что можно модераторам</h2>
+    <div class="hint">Выключенное пропадает из пульта модераторов и не попадает на стрим, даже если его уже добавили.</div>
+    <div class="perms">
+      <label class="tgl"><input type="checkbox" id="perm_av" data-perm="av"><span class="sw"></span><span>Звуки и видео</span></label>
+      <label class="tgl"><input type="checkbox" id="perm_web" data-perm="web"><span class="sw"></span><span>Сайты и файлы</span></label>
+      <label class="tgl"><input type="checkbox" id="perm_fx" data-perm="fx"><span class="sw"></span><span>Чат, рисование, эффекты</span></label>
+      <label class="tgl"><input type="checkbox" id="perm_games" data-perm="games"><span class="sw"></span><span>Кейсы, розыгрыши, опросы, CS2</span></label>
+    </div>
+  </div>
+
   <div class="card">
     <h2>🌐 Адреса, по которым тебя можно найти</h2>
     <table class="tbl"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
@@ -180,7 +198,7 @@ details[open] summary{margin-bottom:10px}
 
   <div class="card" id="dockCard">
     <h2><span class="n">2</span> 🎛 Панель в OBS (по желанию)</h2>
-    <div class="hint">Маленькая панель прямо в OBS: статус, кнопка «Спрятать оверлей», стоп звуков и пауза модераторов.</div>
+    <div class="hint">Маленькая панель прямо в OBS: статус, быстрые выключатели, элементы на экране с глазиками, кто на связи и CS2 с подсказкой «файт».</div>
     <ol class="hint">
       <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
       <li>Имя: <code>Hudini</code>, адрес: <code id="dockCode">http://localhost:7777/dock</code> → <b>Применить</b></li>
@@ -348,6 +366,9 @@ function renderConnect(s){
   $('codeBox').textContent=lastCode||'—';
   $('fpTxt').textContent=s.fp ? s.fp.slice(0,8)+'…'+s.fp.slice(-6) : '—';
   $('modsOn').checked=!!s.modsOn;
+  $('panelCard').hidden=!s.panel; $('openPanel').disabled=!s.ownRoom;
+  $('panelHint').textContent=s.ownRoom ? '' : 'Работает с комнатой, которую создал Hudini Host, а не со ссылкой из пульта модератора.';
+  for(const c of document.querySelectorAll('[data-perm]')) if(document.activeElement!==c) c.checked=s.perms?.[c.dataset.perm]!==false;
   $('cfNotice').hidden=!s.cfNotice;
   // модераторы
   const list=s.modList||[]; $('modCnt').textContent=list.length; $('modCnt').className='tag'+(list.length?' ok':'');
@@ -358,10 +379,10 @@ function renderConnect(s){
     for(const m of list){
       const key=m.ip+'|'+m.since; live.add(key);
       const h=hist.get(key)||[]; if(m.rtt!=null){ h.push(m.rtt); if(h.length>10) h.shift(); } hist.set(key,h);
-      const tr=el('tr'), who=el('td',m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})));
+      const tr=el('tr'), who=el('td',m.me?'Пульт стримера (этот компьютер)':m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})));
       const lat=el('td', m.rtt==null?'…':m.rtt+' мс', rttCls(m.rtt)); const sp=el('div',null,'spark');
       for(const v of h){ const i=el('i'); i.style.height=Math.max(3,Math.min(18,Math.round(v/10)))+'px'; i.style.background='var(--'+(v<80?'ok':v<200?'warn':'bad')+')'; sp.append(i); } lat.append(sp);
-      tr.append(who, el('td', NET[m.net]||m.net), lat); t.append(tr);
+      tr.append(who, el('td', m.me?'':NET[m.net]||m.net), lat); t.append(tr);
     }
     for(const k of [...hist.keys()]) if(!live.has(k)) hist.delete(k);
     const kick=el('button','Отключить всех'); kick.onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toast(e.message); } };
@@ -384,6 +405,15 @@ function renderConnect(s){
   const ic=el('td'), sc=el('td'); ic.append(inp); sc.append(sv);
   tr.append(n, ic, el('td', NEED.ext, 'hint'), sc); body.append(tr);
 }
+for(const c of document.querySelectorAll('[data-perm]')) c.onchange=async()=>{ try{ await api('/api/perms', { perms:{ [c.dataset.perm]:c.checked } }); }catch(err){ toast(err.message); } c.blur(); refresh(); };
+// «Открыть пульт»: программа сама передаёт окну пульта одноразовый ключ. Без приложения (разработка) ключ идёт во фрагменте адреса.
+$('openPanel').onclick=async()=>{
+  try{
+    const r=await api('/api/streamer/open', {});
+    if(r.app){ toast('Открываю пульт…'); return; }
+    window.open(`${r.url}?streamer=1#hk=${encodeURIComponent(r.key)}&port=${r.port}`, '_blank', 'noopener,noreferrer');
+  }catch(e){ toast(e.message); }
+};
 $('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toast(err.message); } refresh(); };
 $('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ await api('/api/code/new', {}); toast('Новый код ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toast(e.message); } };

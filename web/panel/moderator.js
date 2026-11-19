@@ -43,7 +43,7 @@ addEventListener('hudini-store-error', e=>toast(e.detail?.app ? 'Не удало
 
 const qs=new URLSearchParams(location.search);
 // после перехода по ссылке оставляем в адресе только служебные параметры
-function keepQuery(){ const q=new URLSearchParams(); for(const k of ['variant']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
+function keepQuery(){ const q=new URLSearchParams(); for(const k of ['variant', 'streamer']) if(qs.has(k)) q.set(k, qs.get(k)); const t=q.toString(); return t ? '?'+t : ''; }
 const clientId='mod_'+rid(10);
 const topics = r => ({ base:`${TOPIC_PREFIX}/${r}`, state:`${TOPIC_PREFIX}/${r}/state`, fx:`${TOPIC_PREFIX}/${r}/fx` });
 const validCode = c => typeof c==='string' && /^[a-z0-9_-]{4,64}$/i.test(c) && !['__proto__','constructor','prototype'].includes(c.toLowerCase());
@@ -124,7 +124,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -252,7 +252,7 @@ function openHome(info){
   if(homeClient && homeInfo?.url===info.url && homeInfo?.pass===info.pass) return;
   if(homeClient) dropHome();
   homeInfo=info; hostNote='';
-  const c=mqttClient(info.url, 'h', { username:'mod', password:String(info.pass||''), reconnectPeriod:3000 });
+  const c=mqttClient(info.url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
   homeClient=c; wire(c); hostStatus();
   c.on('connect', ()=>{
     if(homeClient!==c) return;
@@ -262,6 +262,7 @@ function openHome(info){
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
     // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
     if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
+    else if(info.user==='streamer') hostNote='Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз';
     else if(!hostCtl?.paused) hostNote='Неверный пароль: попроси у стримера новый код';
     dropHome(); setTimeout(()=>{ if(!homeClient) reopenHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
   } });
@@ -269,6 +270,7 @@ function openHome(info){
 // Повторная попытка после паузы или отказа
 function reopenHome(){
   if(homeInfo) return;
+  if(window.hudiniStreamer?.home(room)) return;   // пульт стримера: прямо к Hudini Host на этом компьютере (streamer.js)
   session=sessionFor(room);
   if(session && TAURI?.core) openRelay();
   else { if(TAURI?.core) TAURI.core.invoke('relay_close').catch(()=>{}); relayInfo=null; relayPort=0; hostStatus(); }
@@ -313,7 +315,8 @@ async function onMessage(topic, payload, packet){
     const h=await unsealJSON(keys, payload, false); if(!h) return;
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
-  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
+  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic===T.base+'/ink'){ if(!packet.retain) window.Draw?.ink(await unsealJSON(keys, payload, true)); return; }   // живой штрих рисунка
@@ -849,6 +852,7 @@ function renderAll(){
   for(const [id,n] of nodes) if(!seen.has(id)){ window.chatUnbind?.(n); n.remove(); nodes.delete(id); }
   renderLayers(); renderMixer(); renderRaffleTab(); renderInspector(); renderToolbar();
   $('globalEye').textContent = hidAllActive() ? '👁 Показать всё' : '🙈 Скрыть всё';
+  window.hudiniMarks?.();   // что стример выключил у себя (streamer.js)
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
 const MODE_NAME={ countdown:'Таймер', stopwatch:'Секундомер', until:'Отсчёт до', clock:'Часы' };
@@ -3493,6 +3497,7 @@ async function boot(){
   sessSecrets={}; if(vaultPass && data?.sess && typeof data.sess==='object') for(const [id,sec] of Object.entries(data.sess)) { const c=window.HudiniSessions.cleanVault(sec); if(validCode(id) && c) sessSecrets[id]=c; }
   await syncSessions().catch(e=>console.warn('sessions vault', e));
   const inv=location.hash.startsWith('#invite=') ? location.hash.slice(1) : null;
+  const sk=qs.has('streamer') ? window.hudiniStreamer?.take() : null;   // «Открыть пульт» в Hudini Host: одноразовый ключ (streamer.js)
   history.replaceState(null, '', location.pathname+keepQuery());
   const sid=qs.get('session'), want=sid ? sessionFor(sid) : null;
   let cur=lsGet('overlay.current', null);
@@ -3503,6 +3508,12 @@ async function boot(){
     if(!r) return sessionProblem('В коде стримера нет ключей комнаты. Попроси стримера прислать код из программы Hudini Host ещё раз.');
     if(differs) alert('Эта комната уже есть в пульте, но с другими ключами.\nПульт открыт с твоими прежними ключами. Если стример их сменил, попроси новую ссылку-приглашение.');
     if(!rooms.some(x=>x.code===r.code)) rooms.push(r);
+    cur=r.code;
+  }
+  if(sk){   // ключ меняется на сессию и ключи комнаты Hudini Host; комната стримера главнее сохранённой копии
+    const { room:r, error }=await window.hudiniStreamer.login(sk);
+    if(!r) return sessionProblem(error);
+    const i=rooms.findIndex(x=>x.code===r.code); if(i>=0) rooms[i]={ ...rooms[i], ...r }; else rooms.push(r);
     cur=r.code;
   }
   if(!rooms.length && !inv && !TAURI) rooms.push(await makeRoom('Мой стример'));

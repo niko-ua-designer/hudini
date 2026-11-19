@@ -1,6 +1,7 @@
 // Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
-// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …»; программа пишет в его stdin «VISIBLE 0/1», «APPLY».
+// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>»;
+// программа пишет в его stdin «VISIBLE 0/1», «APPLY», «PANEL».
 // Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
 // окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
 // Программа закрылась или упала → stdin сервера закрывается → сервер выключается сам.
@@ -29,6 +30,8 @@ use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 const MAIN: &str = "main";
+// окно «пульт стримера» (кнопка «Открыть пульт»): тот же пульт из пакета приложения, вход по одноразовому ключу сервера
+const PANEL: &str = "panel";
 const MINIMIZED_ARG: &str = "--minimized";
 #[cfg(windows)]
 const SERVER_BIN: &str = "hudini-server.exe";
@@ -61,6 +64,9 @@ struct Texts {
     port_busy: &'static str,
     no_server: &'static str,
     saved: &'static str,
+    open_panel: &'static str,
+    panel_title: &'static str,
+    panel_no_room: &'static str,
 }
 
 static RU: Texts = Texts {
@@ -78,6 +84,9 @@ static RU: Texts = Texts {
     port_busy: "Порт {port} занят: наверное, запущена старая версия Hudini Host (чёрное окно). Закрой её, программа подключится сама.",
     no_server: "Не нашёл файл сервера рядом с программой:",
     saved: "Файл сохранён в «Загрузки»",
+    open_panel: "Открыть пульт",
+    panel_title: "Hudini · пульт стримера",
+    panel_no_room: "Пульт на этом компьютере работает с комнатой, которую создал Hudini Host.",
 };
 static UK: Texts = Texts {
     open: "Відкрити Hudini",
@@ -94,6 +103,9 @@ static UK: Texts = Texts {
     port_busy: "Порт {port} зайнятий: мабуть, запущена стара версія Hudini Host (чорне вікно). Закрий її, програма підключиться сама.",
     no_server: "Не знайшов файл сервера поруч із програмою:",
     saved: "Файл збережено в «Завантаження»",
+    open_panel: "Відкрити пульт",
+    panel_title: "Hudini · пульт стримера",
+    panel_no_room: "Пульт на цьому комп'ютері працює з кімнатою, яку створив Hudini Host.",
 };
 static DE: Texts = Texts {
     open: "Hudini öffnen",
@@ -110,6 +122,9 @@ static DE: Texts = Texts {
     port_busy: "Port {port} ist belegt: vermutlich läuft noch die alte Version von Hudini Host (schwarzes Fenster). Schließ sie, das Programm verbindet sich dann selbst.",
     no_server: "Server-Datei neben dem Programm nicht gefunden:",
     saved: "Datei in „Downloads“ gespeichert",
+    open_panel: "Panel öffnen",
+    panel_title: "Hudini · Streamer-Panel",
+    panel_no_room: "Das Panel auf diesem Computer arbeitet mit dem Raum, den Hudini Host erstellt hat.",
 };
 static EN: Texts = Texts {
     open: "Open Hudini",
@@ -126,6 +141,9 @@ static EN: Texts = Texts {
     port_busy: "Port {port} is busy: probably the old Hudini Host (black window) is still running. Close it and the app will connect by itself.",
     no_server: "Server file not found next to the app:",
     saved: "File saved to Downloads",
+    open_panel: "Open the panel",
+    panel_title: "Hudini · streamer panel",
+    panel_no_room: "The panel on this computer works with the room Hudini Host created.",
 };
 
 fn texts() -> &'static Texts {
@@ -480,6 +498,16 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
             let ver = it.next().filter(|v| *v != "-").unwrap_or("").to_string();
             *app.state::<Server>().update.lock().unwrap() = Some((state.clone(), ver.clone()));
             let _ = app.emit("hudini-update", serde_json::json!({ "state": state, "ver": ver }));
+        } else if let Some(p) = line.strip_prefix("PANEL ") {
+            // одноразовый ключ пульта стримера: только в память и в окно пульта, в журнал и краш-отчёт не попадает
+            let mut it = p.split_whitespace();
+            let key = it.next().unwrap_or("").to_string();
+            let port = it.next().and_then(|x| x.parse::<u16>().ok()).unwrap_or(0);
+            if key == "-" || port == 0 {
+                notify(&app, texts().panel_no_room);
+            } else {
+                open_streamer_panel(&app, key, port);
+            }
         } else if line == "RESTART" {
             restart = true;
         } else if let Some(f) = line.strip_prefix("FAIL ") {
@@ -616,6 +644,11 @@ fn to_start_page(app: &AppHandle) {
         stop_child(app);
         server.port.store(0, Ordering::SeqCst);
     }
+    // пульт стримера без сервера не нужен: закрываем его окно и забываем ключ
+    app.state::<PanelKey>().0.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(w) = app.get_webview_window(PANEL) {
+        let _ = w.close();
+    }
     if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(START_URL)) {
         let _ = w.navigate(url);
     }
@@ -628,6 +661,71 @@ fn quit(app: &AppHandle) {
         stop_server(&app);
         app.exit(0);
     });
+}
+
+// ---------- пульт стримера в своём окне («Открыть пульт») ----------
+// Сервер выдаёт одноразовый ключ (строка PANEL со своим префиксом), программа кладёт его в память и открывает окно пульта.
+// Окно забирает ключ командой panel_key один раз и меняет его у сервера на сессию. Локальный адрес сам доступа не даёт.
+#[derive(Default)]
+struct PanelKey(Mutex<Option<(String, u16)>>);
+
+fn open_streamer_panel(app: &AppHandle, key: String, port: u16) {
+    *app.state::<PanelKey>().0.lock().unwrap_or_else(|e| e.into_inner()) = Some((key, port));
+    if let Some(w) = app.get_webview_window(PANEL) {
+        // окно уже открыто: перезагружаем, оно возьмёт свежий ключ
+        let _ = w.eval("location.reload()");
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+        return;
+    }
+    let nav = app.clone();
+    let popup = app.clone();
+    let built = WebviewWindowBuilder::new(app, PANEL, WebviewUrl::App("panel/streamer.html".into()))
+        .use_https_scheme(true)
+        .disable_drag_drop_handler()
+        .title(texts().panel_title)
+        .inner_size(1440.0, 880.0)
+        .min_inner_size(900.0, 600.0)
+        .center()
+        .background_color(Color(0x0f, 0x11, 0x15, 0xff))
+        // в окне только страницы приложения; остальные ссылки — в обычном браузере
+        .on_navigation(move |url| {
+            if is_app_url(url) || url.as_str() == "about:blank" {
+                return true;
+            }
+            open_external(&nav, url);
+            false
+        })
+        .on_new_window(move |url, _features| {
+            open_external(&popup, &url);
+            NewWindowResponse::Deny
+        })
+        .build();
+    if let Err(e) = built {
+        applog(&format!("panel window: {e}"));
+    }
+}
+
+// Окно пульта стримера забирает ключ один раз; другим окнам и страницам он не отдаётся
+#[tauri::command]
+fn panel_key(webview: tauri::Webview, app: AppHandle) -> Result<serde_json::Value, String> {
+    let from_panel = webview.label() == PANEL && webview.url().map(|u| is_panel_page(&u)).unwrap_or(false);
+    if !from_panel {
+        return Err("not the streamer panel window".into());
+    }
+    let (key, port) = app.state::<PanelKey>().0.lock().unwrap_or_else(|e| e.into_inner()).take().ok_or("no key")?;
+    Ok(serde_json::json!({ "key": key, "port": port }))
+}
+
+// Меню трея и страница управления: попросить у сервера ключ (ответит строкой PANEL)
+fn ask_panel(app: &AppHandle) {
+    let server = app.state::<Server>();
+    let streamer = *server.role.lock().unwrap() == ROLE_STREAMER;
+    if !streamer || server.port.load(Ordering::SeqCst) == 0 {
+        return notify(app, texts().not_ready);
+    }
+    say(app, "PANEL");
 }
 
 // ---------- ссылка для OBS из /api/status ----------
@@ -1210,7 +1308,8 @@ fn main() {
         .manage(Server::default())
         .manage(RelayState::default())
         .manage(Browser::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav])
+        .manage(PanelKey::default())
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;
@@ -1333,13 +1432,14 @@ fn main() {
             // ---- трей ----
             let open = MenuItem::with_id(app, "open", t.open, true, None::<&str>)?;
             let copy = MenuItem::with_id(app, "copy_obs", t.copy_obs, true, None::<&str>)?;
+            let panel = MenuItem::with_id(app, "open_panel", t.open_panel, true, None::<&str>)?;
             let switch = MenuItem::with_id(app, "switch_role", t.switch_role, true, None::<&str>)?;
             let auto_on = handle.autolaunch().is_enabled().unwrap_or(false);
             let auto = CheckMenuItem::with_id(app, "autostart", t.autostart, true, auto_on, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", t.quit, true, None::<&str>)?;
             let sep1 = PredefinedMenuItem::separator(app)?;
             let sep2 = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&open, &copy, &switch, &sep1, &auto, &sep2, &quit_item])?;
+            let menu = Menu::with_items(app, &[&open, &panel, &copy, &switch, &sep1, &auto, &sep2, &quit_item])?;
             app.manage(TrayItems { autostart: auto });
 
             TrayIconBuilder::with_id("main")
@@ -1350,6 +1450,7 @@ fn main() {
                 .on_menu_event(|app, event| match event.id().0.as_str() {
                     "open" => show_main(app),
                     "copy_obs" => copy_obs_link(app),
+                    "open_panel" => ask_panel(app),
                     "switch_role" => {
                         let app = app.clone();
                         thread::spawn(move || to_start_page(&app));
