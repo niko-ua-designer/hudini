@@ -1867,7 +1867,7 @@ function cs2Mvp(players){
 function cs2TabLook(els){
   const all=(els||[]).filter(e=>e.type==='cs2'), list=all.filter(e=>!e.hidden);
   const el=list.find(e=>CS2_FULL.has(e.view)) || list[0] || all[0];
-  return { theme:el?.theme || 'glass', ctc:el?.ctc || '#5d9cec', tc:el?.tc || '#e0a030', font:el?.font || '', tnCT:el?.tnCT || '', tnT:el?.tnT || '' };
+  return { theme:el?.theme || 'glass', ctc:el?.ctc || '#5d9cec', tc:el?.tc || '#e0a030', font:el?.font || '', el:el||null };
 }
 // Пример данных для превью в пульте и кнопки «Показать сейчас» без игры
 const CS2_DEMO = (() => {
@@ -1884,7 +1884,7 @@ function cs2DemoFor(m){
   return d;
 }
 function cs2TabTitle(d, m, look){
-  const ctN=look.tnCT || d.ctName || st('Спецназ'), tN=look.tnT || d.tName || st('Террористы'), map=mapName(d.map);
+  const ctN=d.ctName || st('Спецназ'), tN=d.tName || st('Террористы'), map=mapName(d.map);   // d уже прошёл cs2View: названия по сторонам после смены
   if(m==='timeout'){
     if(d.pphase==='paused') return [st('ПАУЗА'), [map, `${st('Раунд')} ${(d.round??0)+1}`].filter(Boolean).join(' · '), false];
     return [st('ТАЙМАУТ'), `${st('Тактический перерыв')} · ${d.pphase==='timeout_t' ? tN : ctN} · ${st('осталось')} `, true];
@@ -1918,7 +1918,7 @@ function cs2TabBuild(box, d, a, m, look){
   const key=p=>p.slot==null ? 99 : p.slot===0 ? 10 : p.slot;   // клавиша 0 — десятый игрок
   const side=t=>list.filter(p=>p.team===t).sort((x,y)=>key(x)-key(y)).slice(0,5);
   const CT=side('CT'), TT=side('T'), mvp=end ? cs2Mvp(list) : null;
-  const ctN=look.tnCT || d.ctName || st('Спецназ'), tN=look.tnT || d.tName || st('Террористы'), ser=seriesLabel();
+  const ctN=d.ctName || st('Спецназ'), tN=d.tName || st('Террористы'), ser=seriesLabel();
   const subNode=()=>{ const s=h('div','sub', sub); if(timer) s.appendChild(h('span','ctime', cs2Timer())); return s; };
   const rows=ps=>ps.map(p=>cs2TabRow(p, mvp===p));
   const parts=[];
@@ -1955,12 +1955,12 @@ function cs2TabRender(box, o){
       box._hT=setTimeout(()=>{ if(!box._on){ box.replaceChildren(); box.hidden=true; } }, 1300); }
     return false;
   }
-  const { d, a, look }=o;
+  const { a, look }=o, d=cs2View(look.el || {}, o.d);   // названия команд после смены сторон и ники игроков, как на карточках
   box.dataset.st=a.theme; box.dataset.th=look.theme; box.dataset.m=m;
   box.style.setProperty('--ct', look.ctc); box.style.setProperty('--t', look.tc);
   box.style.fontFamily = look.font ? fontCss(look.font) : '';
   const list=d.players||[];
-  const sig=JSON.stringify([m, a.theme, look, seriesLabel(), d.ct, d.tt, d.map, d.pphase, d.ctName, d.tName,
+  const sig=JSON.stringify([m, a.theme, look.theme, look.ctc, look.tc, look.font, seriesLabel(), d.ct, d.tt, d.map, d.pphase, d.ctName, d.tName,
     list.map(p=>[p.id,p.name,p.slot,p.team,p.k,p.d,p.adr,p.hsp,p.money,p.main||p.weapon,p.alive,p.mvps]), list.length ? null : [d.name,d.k,d.d,d.money]]);
   if(!box._on){
     box._on=true; clearTimeout(box._hT); box.hidden=false; box.classList.remove('show','still');
@@ -2022,6 +2022,7 @@ function paintRadar(c, el, d){
     n.className='rd-dot tm-'+(p.team==='T'?'t':'ct')+(p.alive===false?' dead':'')+(p.id===d.obs?' obs':'')+(p.bomb?' c4':'')
       +(typeof cs2Lower==='function' && cs2Lower(map, p.pos)!==lower ? ' other' : '');
     n.lastChild.textContent=p.alive===false ? '✕' : p.slot!=null ? String(p.slot) : '';
+    n.title=(p.slot!=null ? p.slot+' · ' : '')+(p.name||'');   // ник из cs2View (с подменой)
     if(p.fw!=null) n.style.setProperty('--a', (-p.fw)+'deg');
     n.firstChild.hidden=p.fw==null || p.alive===false;
     n.hidden=!place(n, p.pos);

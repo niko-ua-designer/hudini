@@ -110,6 +110,8 @@ const { step, check, eq, until, sleep } = T;
     eq(r.fight, null, 'activity older than 2 s is forgotten');
     r = ctx.detectFight(prev, [P('a', 'CT', 100, 30, 1), P('b', 'T', 0, 30, 6)], [{ k: 'frag', t: 1000, kid: 'a', vid: 'b' }], 1200, null);
     eq(r.fight && r.fight.key, 'a|b', 'a frag counts too');
+    r = ctx.detectFight(prev, [P('x', 'CT', 100, 30, 1), P('y', 'T', 100, 30, 6)], [], 1500, { hurt: { gone: 1000 }, act: { y: 1000 } });
+    eq(r.fight, null, 'a player hurt in the previous packet who is gone now does not break the next packet');
   });
 
   await step('fight hint: damage between teams shows both slots and nicks in the dock status', async () => {

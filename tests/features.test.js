@@ -461,6 +461,35 @@ const { step, check, eq, until, sleep } = T;
     await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => !(e.type === 'cs2' && CS2_FULL.has(e.view))); commit(); });
   });
 
+  await step('CS2 side swap and nicks reach the auto tab, the radar, the fight plate and the series', async () => {
+    const r = await mod.evaluate(() => {
+      const A = '76561198000000001', B = '76561198000000002';
+      const el = sanitizeEl({ id: 'q', type: 'cs2', view: 'hud_tour', tnCT: 'Alpha', tnT: 'Beta', nicks: { [A]: 'Luis' } });
+      const base = sw => ({ map: 'de_nuke', phase: 'live', pphase: 'timeout_ct', round: 5, ct: 3, tt: 2, ctName: 'GameCT', tName: 'GameT', sw, obs: A,
+        players: [{ id: A, name: 'LuIsetsiKk', team: sw ? 'T' : 'CT', slot: 1, k: 1, d: 0, alive: true, hp: 100, pos: [0, 0, 0] }, { id: B, name: 'foe', team: sw ? 'CT' : 'T', slot: 6, k: 0, d: 1, alive: true, hp: 100, pos: [100, 100, 0] }] });
+      const tab = (sw, m) => { const box = document.createElement('div'); document.body.appendChild(box);
+        cs2TabRender(box, { d: base(sw), a: { ...cleanCs2Auto({ on: true }), theme: 'A' }, m, look: cs2TabLook([el]) });
+        const t = { heads: [...box.querySelectorAll('h4 span')].map(x => x.textContent), tt: box.querySelector('.tt').textContent, sub: box.querySelector('.sub').textContent, nms: [...box.querySelectorAll('.nm')].map(x => x.textContent) }; box.remove(); return t; };
+      const t0 = tab(0, 'timeout'), t1 = tab(1, 'timeout');
+      const rd = sw => { const c = document.createElement('div'); document.body.appendChild(c); paintRadar(c, el, cs2View(el, base(sw))); const o = [...c.querySelectorAll('.rd-dot')].map(x => x.title); c.remove(); return o; };
+      CS2_SERIES = cleanSeriesView({ bo: 3, a: { name: 'Alpha', w: 1 }, b: { name: 'Beta', w: 0 }, maps: [], ctIs: 'a', map: 'de_nuke' });
+      const s0 = seriesLabel(); CS2_SERIES.ctIs = 'b'; const s1 = seriesLabel(); CS2_SERIES = null;
+      const sc = sw => { const c = document.createElement('div'); document.body.appendChild(c); CS2 = { ...base(sw), at: Date.now() }; paintCs2(c, { ...el, view: 'scorebar' }); const o = c.textContent; c.remove(); return o; };
+      const sb0 = sc(0), sb1 = sc(1); CS2 = null;
+      return { t0, t1, rd0: rd(0), rd1: rd(1), s0, s1, sb0, sb1 };
+    });
+    eq(r.t0.heads, ['Alpha', 'Beta'], 'auto tab: names on their sides before the swap');
+    eq(r.t1.heads, ['Beta', 'Alpha'], 'auto tab: after the swap Beta stands on CT, Alpha on T');
+    check(r.t0.sub.includes('Alpha') && r.t1.sub.includes('Beta'), 'timeout title names the team that called it: ' + r.t0.sub + ' / ' + r.t1.sub);
+    check(r.t0.nms.includes('Luis') && !r.t0.nms.includes('LuIsetsiKk'), 'auto tab shows the replaced nick');
+    check(r.rd0.some(x => x.includes('Luis')) && r.rd0.some(x => x.includes('foe')) && !r.rd0.some(x => x.includes('LuIsetsiKk')), 'radar dots carry the nick in the hint: ' + r.rd0.join('|'));
+    check(r.s0.includes('1 : 0') && r.s1.includes('0 : 1'), 'series shows the wins by sides, ' + r.s0 + ' / ' + r.s1);
+    check(r.sb0.indexOf('Alpha') < r.sb0.indexOf('Beta') && r.sb1.indexOf('Beta') < r.sb1.indexOf('Alpha'), 'score bar: names swap with the sides');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'cs2'); commit(); beginChange(); const x = sanitizeEl({ id: 'f1', type: 'cs2', view: 'card', nicks: { '76561198000000001': 'Luis' } }); state.els.push(x); commit(); showFight({ a: { id: '76561198000000001', name: 'LuIsetsiKk', team: 'CT', slot: 1 }, b: { id: '5', name: 'foe', team: 'T', slot: 6 }, ttl: 3000 }); });
+    eq(await mod.$eval('#fightBar', b => [b.querySelector('#fightA').textContent, b.querySelector('#fightB').textContent]), ['1Luis', '6foe'], 'fight plate uses the replaced nick, the other keeps the game one');
+    await mod.evaluate(() => { beginChange(); state.els = state.els.filter(e => e.type !== 'cs2'); commit(); });
+  });
+
   await step('snapping to other elements: move, resize, Ctrl and highlight of the target', async () => {
     await mod.click('[data-tab=add]');
     await mod.evaluate(() => { beginChange(); state.els = []; commit(); });
