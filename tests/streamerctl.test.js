@@ -24,7 +24,7 @@ const { step, check, eq, until, sleep } = T;
     const r = await perms({ games: false });
     eq(r.perms.games, false, 'saved');
     check(await until(async () => { const s = await shown(); return !s.po1 && s.tx1 && s.im1; }), 'poll is hidden on stream, the rest stays: ' + JSON.stringify(await shown()));
-    check(await until(() => panel.evaluate(() => document.querySelector('[data-add="poll"]').classList.contains('perm-off') && document.querySelector('[data-add="case"]').classList.contains('perm-off'))), 'poll and case tiles are hidden in the panel');
+    check(await until(() => panel.evaluate(() => document.querySelector('[data-add="poll"]').classList.contains('perm-off') && document.querySelector('[data-tab="raffle"]').classList.contains('perm-off'))), 'poll tile and the giveaways tab are hidden in the panel');
     check(/кейсы, розыгрыши, опросы, CS2/.test(await panel.textContent('#permNote')), 'the panel says what the streamer turned off: ' + await panel.textContent('#permNote'));
     check(await panel.evaluate(() => nodes.get('po1').classList.contains('host-off') && !nodes.get('tx1').classList.contains('host-off')), 'the poll on the panel canvas is marked');
     const cfgFile = JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8'));
