@@ -411,7 +411,10 @@ async function start(){
     if(topic===T.host){                              // кнопки стримера в доке OBS (публикует только программа)
       const c=await unsealJSON(KEYS, payload, false); if(!c) return;
       document.body.classList.toggle('host-hidden', !!c.hidden);
-      if(c.hidden){ stopSounds(); pendingSounds.clear(); document.querySelectorAll('.vfx').forEach(l=>l._done?.()); }
+      const o=c.off && typeof c.off==='object' ? c.off : {};
+      OFF={ chat:o.chat===true, cs2:o.cs2===true, sound:o.sound===true, draw:o.draw===true, fx:o.fx===true };
+      if(c.hidden || !soundOk()){ stopSounds(); pendingSounds.clear(); }
+      if(c.hidden || !fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
       applyState(lastState);   // спрятано: видео без звука, сайты и ролики выгружены; вернули: всё как в последнем экране
       if(lastStop!=null && c.stop>lastStop) stopSounds();
       lastStop=Number(c.stop)||0; return;

@@ -307,7 +307,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
-  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic!==T.state) return;
   const msg=await unsealJSON(keys, payload, true);

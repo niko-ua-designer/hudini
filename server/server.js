@@ -264,7 +264,11 @@ setInterval(() => {
 }, 5000);
 const modList = new Map();   // id клиента → { ip, net, since, rtt } для страницы управления
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
-const ctl = { hidden:false, paused:false, stop:0 };
+// и быстрые выключатели «на стриме сейчас» (off: чат, CS2-HUD, звуки, рисунки, эффекты; применяет виджет, переживают перезапуск)
+const OFF_KEYS = ['chat', 'cs2', 'sound', 'draw', 'fx'];
+const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты' };
+const cleanOff = o => Object.fromEntries(OFF_KEYS.map(k => [k, o?.[k]===true]));
+const ctl = { hidden:false, paused:false, stop:0, off:cleanOff(cfg.ctlOff) };
 async function publishCtl(){
   if(!ROOM || !AES) return;
   aedes.publish({ cmd:'publish', topic:T('host'), payload:await sealAES({ ...ctl, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
@@ -1177,8 +1181,13 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
-        const { action } = JSON.parse(await readBody(req, 1024));
-        if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
+        const { action, key, on } = JSON.parse(await readBody(req, 1024));
+        if(action==='off'){   // быстрый выключатель: on=true — выключить на стриме
+          if(!OFF_KEYS.includes(key)) throw new HttpErr(400, 'неизвестный выключатель');
+          if(ctl.off[key]!==!!on){ log(on ? '🚫 Стример выключил на стриме: '+OFF_NAMES[key] : '✅ Стример вернул на стрим: '+OFF_NAMES[key]); }
+          ctl.off = { ...ctl.off, [key]:!!on }; cfg.ctlOff = ctl.off; saveCfg();
+        }
+        else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
         else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('пауза модераторов'); log(ctl.paused ? '⏸ Модераторы на паузе' : '▶ Модераторы снова могут менять экран'); await announce(); }
         else throw new HttpErr(400, 'неизвестное действие');

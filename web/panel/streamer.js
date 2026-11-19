@@ -15,6 +15,10 @@
     fx:['#confetti', '#shake', '#addChatFeed', '[data-add="draw"]'],
     games:['[data-add="poll"]', '[data-add="cs2"]', '[data-add="case"]', '[data-tab="raffle"]'],
   };
+  // Быстрые выключатели стримера в доке OBS (hostCtl.off): как OFF_OF в widget.html
+  const OFF_NAME = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты' };
+  const OFF_OF = { chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
+  const offNow = () => typeof hostCtl !== 'undefined' && hostCtl?.off && typeof hostCtl.off === 'object' ? hostCtl.off : {};
   let perms = null, permsRoom = null;
   const cur = () => permsRoom === room && perms ? perms : { av:true, web:true, fx:true, games:true };
   const permOff = el => { const p = PERM_OF[el?.type]; return !!p && cur()[p] === false; };
@@ -34,14 +38,19 @@
       row.classList.toggle('perm-off', p[k] === false);
     }
     for(const n of document.querySelectorAll('[data-perm]')) n.classList.toggle('perm-off', p[n.dataset.perm] === false);
+    const sw = Object.keys(OFF_NAME).filter(k => offNow()[k] === true);
     let note = document.getElementById('permNote');
-    if(!off.length){ note?.remove(); return; }
+    if(!off.length && !sw.length){ note?.remove(); return; }
     if(!note){ note = document.createElement('div'); note.id = 'permNote'; document.querySelector('[data-pane="add"]')?.prepend(note); }
-    note.textContent = tr('🔒 Стример выключил для модераторов:') + ' ' + off.map(k => tr(PERM_NAME[k])).join(', ') + '. ' + tr('На стрим это не попадёт.');
+    const lines = [];
+    if(off.length) lines.push(tr('🔒 Стример выключил для модераторов:') + ' ' + off.map(k => tr(PERM_NAME[k])).join(', ') + '. ' + tr('На стрим это не попадёт.'));
+    if(sw.length) lines.push(tr('⏸ Стример выключил на стриме:') + ' ' + sw.map(k => tr(OFF_NAME[k])).join(', ') + '.');
+    note.textContent = lines.join('\n'); note.style.whiteSpace = 'pre-line';
   }
   // Почему элемент не виден на стриме, хотя в пульте он есть (пусто — виден как обычно)
   function whyOff(el){
     if(permOff(el)) return tr('выключено стримером');
+    if(OFF_OF[el?.type] && offNow()[OFF_OF[el.type]] === true) return tr('выключено на стриме');
     return '';
   }
   function marks(){

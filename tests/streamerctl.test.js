@@ -73,6 +73,39 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => panel.evaluate(() => !document.getElementById('permNote') && !document.querySelector('.perm-off'))), 'the panel shows every button again');
   });
 
+  // the dock in OBS calls this from http://localhost:<port> without the management cookie
+  const control = async body => { const r = await fetch(host.base + '/api/control', { method: 'POST', headers: { origin: host.base, 'content-type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, ...(await r.json().catch(() => ({}))) }; };
+
+  await step('quick switches in the dock: chat and CS2-HUD off on stream right now', async () => {
+    await put([{ id: 'ms1', type: 'msg', user: 'viewer', text: 'привет' }, { id: 'cs1', type: 'cs2', view: 'card' }]);
+    check(await until(async () => { const s = await shown(); return s.ms1 && s.cs1; }), 'message and CS2 are on stream');
+    const r = await control({ action: 'off', key: 'chat', on: true });
+    eq([r.status, r.ctl?.off?.chat], [200, true], 'chat is switched off');
+    await control({ action: 'off', key: 'cs2', on: true });
+    check(await until(async () => { const s = await shown(); return !s.ms1 && !s.cs1 && s.tx1; }), 'message and CS2 leave the stream, text stays: ' + JSON.stringify(await shown()));
+    check(await until(() => panel.evaluate(() => nodes.get('ms1').classList.contains('host-off') && /выключено на стриме/.test(nodes.get('cs1').textContent))), 'the panel marks them as off on stream');
+    check(/Стример выключил на стриме: чат, CS2-HUD/.test(await panel.textContent('#permNote')), 'the panel says which switches are off: ' + await panel.textContent('#permNote'));
+    eq(JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8')).ctlOff.chat, true, 'switches survive a restart (kept in the settings)');
+    check(/Стример выключил на стриме: чат/.test(host.log()), 'logged');
+    eq((await control({ action: 'off', key: 'evil', on: true })).status, 400, 'unknown switch → 400');
+    const foreign = await fetch(host.base + '/api/control', { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'off', key: 'fx', on: true }) });
+    eq(foreign.status, 403, 'another site cannot flip a switch');
+  });
+
+  await step('quick switches: sounds and effects off', async () => {
+    await control({ action: 'off', key: 'sound', on: true }); await control({ action: 'off', key: 'fx', on: true });
+    await until(() => widget.evaluate(() => OFF.sound && OFF.fx));
+    await until(() => widget.evaluate(() => parts.length === 0), 12000);   // confetti of the step above has fallen
+    const before = await widget.evaluate(() => window.__snd);
+    await panel.evaluate(() => { sendFx({ type: 'sound', src: 'https://example.com/b.mp3', vol: 0.5 }); sendFx({ type: 'confetti' }); });
+    await sleep(1000);
+    eq(await widget.evaluate(() => [window.__snd, parts.length]), [before, 0], 'no sound and no confetti');
+    for(const key of ['chat', 'cs2', 'sound', 'fx']) await control({ action: 'off', key, on: false });
+    check(await until(async () => { const s = await shown(); return s.ms1 && s.cs1; }), 'message and CS2 are back');
+    check(await until(async () => { await panel.evaluate(() => sendFx({ type: 'sound', src: 'https://example.com/b.mp3', vol: 0.5 })); return widget.evaluate(b => window.__snd > b, before); }, 8000, 600), 'sounds play again');
+    check(await until(() => panel.evaluate(() => !document.getElementById('permNote'))), 'the panel note is gone');
+  });
+
   await S.close(); await T.closeBrowser();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });
