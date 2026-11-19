@@ -754,7 +754,7 @@ function detectFight(prevPlayers, players, evs, now, recent){
   const who = id => { const p = byId.get(String(id)); return { id:p.id, slot:slotKey(p.slot), name:String(p.name||'?').slice(0, 40), team:p.team }; };
   let fight = null;
   for(const [hid, ht] of Object.entries(hurt).sort((a, b) => b[1]-a[1])){
-    const hp = byId.get(String(hid)); if(hp.team!=='CT' && hp.team!=='T') continue;
+    const hp = byId.get(String(hid)); if(!hp || (hp.team!=='CT' && hp.team!=='T')) continue;   // кого ранили, но в новом пакете его уже нет (другой матч, ушёл)
     const d2 = id => { const a = hp.pos, b = byId.get(String(id))?.pos; return a && b ? (a[0]-b[0])**2 + (a[1]-b[1])**2 : null; };
     const foe = Object.entries(act).filter(([id]) => { const t = byId.get(String(id))?.team; return (t==='CT' || t==='T') && t!==hp.team; })
       .sort((a, b) => { const da = d2(a[0]), db = d2(b[0]); return da!=null && db!=null && da!==db ? da-db : b[1]-a[1]; })[0];
