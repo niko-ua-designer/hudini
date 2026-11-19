@@ -26,6 +26,7 @@ import I18N_JS from '../web/shared/i18n.js' with { type: 'text' };
 import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
 import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
+import RADAR_EMBED from './radar-embed.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
 const VERSION = '1.1.0';
@@ -990,11 +991,13 @@ refreshSite(); setInterval(refreshSite, 10*60*1000);
 // виджет перезагружается за обновлением: сначала сами берём свежие файлы с сайта
 let refreshing=null, lastRefresh=0;
 function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
-// Подложки радара не встроены в программу: берём с сайта один раз и держим в кэше. Своя картинка в data/radar важнее.
+// Подложки радара вшиты в программу; недостающие берём с сайта и держим в кэше. Своя картинка в data/radar важнее.
 const RADAR_CACHE = path.join(CACHE, 'radar');
 async function radarImg(name){
   const dirs = [path.join(BASE, 'radar'), ...(compiled ? [] : [path.join(import.meta.dir, '..', 'web', 'shared', 'radar')]), RADAR_CACHE];
   for(const d of dirs){ try{ return fs.readFileSync(path.join(d, name)); }catch{} }
+  // подложки вшиты в саму программу (tools/radar-embed.sh): работает без интернета и до выхода сайта
+  if(Object.hasOwn(RADAR_EMBED, name)){ try{ return Buffer.from(await Bun.file(RADAR_EMBED[name]).arrayBuffer()); }catch{} }
   if(process.env.OVERLAY_SITE==='off') return null;
   try{
     const r = await fetch(SITE+'shared/radar/'+name, { signal:AbortSignal.timeout(6000) });
