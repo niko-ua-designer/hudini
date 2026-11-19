@@ -144,7 +144,7 @@ async function setRoom(link, full){
   else if(!(cfg.room && cfg.room.code===r.room && cfg.room.k===r.k)) delete cfg.room;
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
   log('Комната готова');
-  announce(); publishCtl();
+  announce(); publishCtl(); publishPerms();
 }
 async function createRoom(name){
   const full = await newRoom(name);
@@ -268,6 +268,16 @@ const ctl = { hidden:false, paused:false, stop:0 };
 async function publishCtl(){
   if(!ROOM || !AES) return;
   aedes.publish({ cmd:'publish', topic:T('host'), payload:await sealAES({ ...ctl, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
+}
+// Права модераторов: четыре галочки стримера. Выключенное виджет не показывает (главная защита, на ПК стримера),
+// пульт прячет кнопки. Тему perms публикует только программа: ни модератор, ни виджет её не подделают.
+const PERM_KEYS = ['av', 'web', 'fx', 'games'];
+const PERM_NAMES = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2' };
+const cleanPerms = p => Object.fromEntries(PERM_KEYS.map(k => [k, p?.[k] !== false]));
+cfg.perms = cleanPerms(cfg.perms);
+async function publishPerms(){
+  if(!ROOM || !AES) return;
+  aedes.publish({ cmd:'publish', topic:T('perms'), payload:await sealAES({ ...cfg.perms, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
 }
 // Защита пароля от перебора: 5 ошибок подряд с одного адреса → пауза 1 мин, потом 2, 4… до 30 мин
 const fails = new Map();
@@ -1094,6 +1104,10 @@ const errOut = (res, e, extra={}) => {
     send(res, code, JSON.stringify({ ok:false, error:e instanceof HttpErr ? e.message : code===500 ? 'ошибка на ПК стримера' : 'некорректный запрос', ...(e?.extra||{}) }), 'application/json', extra);
   }catch{ try{ res.destroy(); }catch{} }
 };
+// Док в OBS (localhost, без входа): права модераторов
+function dockInfo(){
+  return { perms:cfg.perms };
+}
 function obsLink(){
   if(!ROOM) return '';
   return `http://localhost:${PORT}/widget/widget.html?room=${ROOM.room}&broker=${encodeURIComponent(`ws://localhost:${PORT}/mqtt`)}&v=9#k=${ROOM.k}&p=${ROOM.p}`;
@@ -1126,7 +1140,8 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='GET' && p==='/api/status'){
         if(isLocalAdminHost(req)) return send(res, 200, JSON.stringify({ alive:true, version:VERSION }), 'application/json');
         return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods,
-          obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)) }), 'application/json');
+          obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)),
+          ...dockInfo() }), 'application/json');
       }
       if(!(req.method==='POST' && p==='/api/control' && req.headers.origin===`http://localhost:${PORT}`)) return send(res, 403, 'open the management page from the Hudini app');
     }
@@ -1150,6 +1165,15 @@ const local = http.createServer(async (req, res) => {
         if(!cfg.modsOn) kickMods('стример закрыл вход');
         return send(res, 200, JSON.stringify({ ok:true, modsOn:cfg.modsOn }), 'application/json');
       }
+      if(req.method==='POST' && p==='/api/perms'){   // права модераторов
+        const { perms } = JSON.parse(await readBody(req, 1024));
+        const next = cleanPerms({ ...cfg.perms, ...(perms && typeof perms==='object' ? perms : {}) });
+        const ch = PERM_KEYS.filter(k => next[k]!==cfg.perms[k]);
+        cfg.perms = next; saveCfg();
+        if(ch.length) log('🔒 Права модераторов:', ch.map(k => PERM_NAMES[k]+(next[k] ? ' — можно' : ' — нельзя')).join('; '));
+        await publishPerms();
+        return send(res, 200, JSON.stringify({ ok:true, perms:cfg.perms }), 'application/json');
+      }
       if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
@@ -1169,7 +1193,7 @@ const local = http.createServer(async (req, res) => {
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
-        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
+        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
         modList:[...modList.values()].map(({ ip, net, since, rtt }) => ({ ip, net, since, rtt })), role:ROLE_MOD ? 'mod' : 'streamer',
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
