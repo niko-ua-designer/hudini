@@ -320,7 +320,7 @@ async function onMessage(topic, payload, packet){
   }
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
-  if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
+  if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); window.renderFlights?.(); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
   if(topic===T.base+'/cur'){ if(!packet.retain && window.Cursors?.on) window.Cursors.msg(await unsealJSON(keys, payload, true)); return; }   // курсор другого модератора (только пульты)
@@ -3911,17 +3911,19 @@ function markLevels(){
 // Серию ведёт программа стримера (тема cs2series), пульт шлёт ей подписанные команды в cs2cmd: формат, сброс, правка.
 const taMem={};
 let taPrevUntil=0, taPrevM=null, serDirty=false, serDraft=null;
-function taCfg(){ return cleanCs2Auto(state.cs2auto); }
+function taCfg(){ const a=cleanCs2Auto(state.cs2auto); setCs2Num(a); return a; }
 // стример выключил авто-таб в доке: кнопкой (ctl.tabOff) или быстрым выключателем (ctl.off.tab), как в widget.html
 const taOffNow=()=>!!hostCtl?.tabOff || hostCtl?.off?.tab===true;
 function taSet(k, v){ state.cs2auto={ ...taCfg(), [k]:v }; renderTa(); publishNow(1); }
 for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']])
   $(id).addEventListener('change', e=>taSet(k, e.target.checked));
+$('taNum').addEventListener('change', e=>taSet('num', e.target.value));
+$('flPlate').addEventListener('change', e=>taSet('plate', e.target.checked));
 $('taStyle').addEventListener('change', e=>{ taSet('theme', e.target.value); taPlay($('taMoment').value); });
 function renderTa(){
   const a=taCfg();
   for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']]) setField($(id), a[k], 'checked');
-  setField($('taStyle'), a.theme);
+  setField($('taStyle'), a.theme); setField($('taNum'), a.num); setField($('flPlate'), a.plate, 'checked');
   $('taOffNote').hidden=!taOffNow();
 }
 // превью во вкладке: «▶ Превью» на 6 с, а в игре — то же, что сейчас на стриме

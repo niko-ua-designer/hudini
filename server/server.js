@@ -27,6 +27,7 @@ import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
 import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
+import { createFlight } from './netcon.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
 const VERSION = '1.1.0';
@@ -499,7 +500,7 @@ aedes.on('publish', (packet, client) => {
 // ---------- экран для дока в OBS ----------
 // Программа видит зашифрованный экран (тема state) и ключ комнаты у неё есть: расшифровывает сама, проверяет подпись
 // модератора и отдаёт доку только список {id, type, name, hidden}. Сам экран и файлы дальше не уходят.
-let screen = null, screenBuf = null, screenBusy = false;
+let screen = null, screenBuf = null, screenBusy = false, screenNum = 'game';
 // Экран (тема state) и команды серии CS2 (cs2cmd) разбирает одна функция; max — предел размера сообщения
 async function openSigned(buf, max=Infinity){
   try{
@@ -527,6 +528,7 @@ function noteScreen(buf){
     const b = screenBuf; screenBuf = null;
     const m = await openSigned(b);
     if(m && Array.isArray(m.els) && (!screen || (Number(m.t)||0) >= screen.t)){
+      screenNum = m.cs2auto?.num==='hud' ? 'hud' : 'game';
       const list = [...m.els.slice(0, 200), ...(m.raffle && typeof m.raffle==='object' ? [m.raffle] : [])];
       screen = { t:Number(m.t)||0, els:list.filter(e => e && typeof e==='object' && typeof e.id==='string' && typeof e.type==='string')
         .map(e => ({ id:e.id.slice(0, 40), type:e.type.slice(0, 12), name:elLabel(e), hidden:e.hidden===true })) };
@@ -736,6 +738,15 @@ function compactGsi(g){
 // Та же формула в core.js (slotLabel). -1 и пустое значение — «нет номера».
 const FIGHT_WIN = 2000, FIGHT_TTL = 4000;
 function slotKey(s){ const n = Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=9 ? (n+1)%10 : null; }
+// Режим «по порядку в худе»: внутри команды по слоту, слева (CT) 1–5, справа (T) 6–0. Та же формула в core.js (cs2HudSlots).
+function hudSlots(players){
+  const out = {};
+  for(const side of ['CT', 'T']){
+    (players||[]).filter(p => p.team===side).sort((a, b) => (slotKey(a.slot)==null ? 99 : Number(a.slot)) - (slotKey(b.slot)==null ? 99 : Number(b.slot)))
+      .slice(0, 5).forEach((p, i) => { out[p.id] = (side==='CT' ? 0 : 5) + i; });
+  }
+  return out;
+}
 // Чистая функция: по прошлому и новому пакету allplayers (и событиям frag) решает, есть ли бой. Кандидаты по силе:
 //  3. урон: игрок одной команды получил урон или погиб, а игрок другой команды за окно 2 с действовал (recent = { hurt, act });
 //  2. выстрел: у игрока в этом пакете упали патроны (то же оружие). Враг — ближайший в поле зрения (угол ≤ 25°, до 2500 юнитов),
@@ -751,7 +762,7 @@ function aimOff(p, q){
   const d = Math.atan2(q.pos[1]-p.pos[1], q.pos[0]-p.pos[0]) * 180 / Math.PI - p.fw;
   return Math.abs(((d % 360) + 540) % 360 - 180);
 }
-function detectFight(prevPlayers, players, evs, now, recent, cur){
+function detectFight(prevPlayers, players, evs, now, recent, cur, hud){
   const keep = m => { const o = {}; for(const [id, t] of Object.entries(m||{})) if(now-t < FIGHT_WIN) o[id] = t; return o; };
   const hurt = keep(recent?.hurt), act = keep(recent?.act);
   const byId = new Map((players||[]).map(p => [String(p.id), p]));
@@ -764,7 +775,8 @@ function detectFight(prevPlayers, players, evs, now, recent, cur){
     if(p.weapon && p.weapon===pv.weapon && p.ammo!=null && pv.ammo!=null && p.ammo < pv.ammo && p.alive!==false){ mark(act, p.id, now); shots.push(p); }
   }
   for(const e of evs||[]) if(e?.k==='frag' && now-(e.t||0) < FIGHT_WIN){ if(e.kid!=null) mark(act, e.kid, e.t); if(e.vid!=null){ mark(hurt, e.vid, e.t); mark(act, e.vid, e.t); } }
-  const who = id => { const p = byId.get(String(id)); return { id:p.id, slot:slotKey(p.slot), name:String(p.name||'?').slice(0, 40), team:p.team }; };
+  const hs = hud ? hudSlots(players) : null;
+  const who = id => { const p = byId.get(String(id)); return { id:p.id, slot:slotKey(hs && p.id in hs ? hs[p.id] : p.slot), name:String(p.name||'?').slice(0, 40), team:p.team }; };
   const cands = [];
   const add = (id1, id2, pri, t, dist) => {
     const x = who(id1), y = who(id2), [a, b] = x.team==='CT' ? [x, y] : [y, x];
@@ -807,7 +819,7 @@ let fightPrev = {}, fightRecent = null, fight = null, fightPubAt = 0;
 function fightNow(){ const left = fight ? fight.until - Date.now() : 0; return left > 0 ? { a:fight.a, b:fight.b, ttl:left } : null; }
 function trackFight(out){
   if(!out.players){ fightPrev = {}; fightRecent = null; return; }
-  const now = Date.now(), live = fightNow(), r = detectFight(fightPrev, out.players, out.evs, now, fightRecent, live && fight.key);
+  const now = Date.now(), live = fightNow(), r = detectFight(fightPrev, out.players, out.evs, now, fightRecent, live && fight.key, screenNum==='hud');
   fightRecent = r.recent; fightPrev = Object.fromEntries(out.players.map(p => [p.id, p]));
   if(!r.fight) return;
   const same = live && fight.key===r.fight.key;
@@ -913,18 +925,22 @@ function seriesCmd(s, m){
   return false;
 }
 const SERIES_FILE = path.join(BASE, 'cs2-series.json');
+// Пролёты камеры (netcon.js): маршруты и настройки лежат только в данных программы, в папку игры Host не пишет
+const FLIGHTS_FILE = path.join(BASE, 'cs2-flights.json');
+const flight = createFlight({ load:() => JSON.parse(fs.readFileSync(FLIGHTS_FILE, 'utf8')), save:d => fs.writeFileSync(FLIGHTS_FILE, JSON.stringify(d), { mode:0o600 }),
+  onChange:() => publishSeries(true), log:(...a) => log(...a) });
 let series = cleanSeries(null), serPub = '', serLast = null;
 try{ series = cleanSeries(JSON.parse(fs.readFileSync(SERIES_FILE, 'utf8'))); }catch{}
 function saveSeries(){ try{ fs.writeFileSync(SERIES_FILE, JSON.stringify(series), { mode:0o600 }); }catch{} }
 function trackSeries(out){
-  serLast = out;
+  serLast = out; flight.onGsi(out);
   if(seriesStep(series, out, Date.now())) saveSeries();
   publishSeries();
 }
 // Ретейн-тема cs2series: публикует только программа (в PUB_MOD/PUB_LOCAL её нет), шлём только когда поменялось
 async function publishSeries(force){
   if(!AES || !ROOM) return;
-  const v = seriesView(series, serLast), key = JSON.stringify(v);
+  const v = { ...seriesView(series, serLast), fl:flight.view() }, key = JSON.stringify(v);
   if(key===serPub && !force) return;
   serPub = key;
   aedes.publish({ cmd:'publish', topic:T('cs2series'), payload:await sealAES({ ...v, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
@@ -935,6 +951,7 @@ aedes.on('publish', async (packet, client) => {
   if(!(client?.conn?._mod || client?.conn?._streamer) || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
   const m = await openSigned(packet.payload, 16384);
   if(!m || !(Math.abs(Date.now() - Number(m.t)) < 120000)) return;   // старую команду повторно не принимаем
+  if(m.op==='fl'){ flight.cmd(m); return; }
   if(seriesCmd(series, m)){ saveSeries(); log('🏆 Серия CS2:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'сброс' : 'правка вручную'); publishSeries(true); }
 });
 function gsiCfgText(){
@@ -1740,4 +1757,4 @@ local.on('error', e => {
   log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
 
-export { detectFight, slotKey, seriesStep, seriesView, seriesCmd, cleanSeries };   // для тестов (tests/cs2stats.test.js берёт их из исходника)
+export { detectFight, slotKey, hudSlots, seriesStep, seriesView, seriesCmd, cleanSeries };   // для тестов (tests/cs2stats.test.js берёт их из исходника)

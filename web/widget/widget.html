@@ -144,7 +144,7 @@ let visible=true, lastState={ visible:true, els:[], raffle:null };
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
-  lastState=s; setVolumes(s); ThirdEmotes.setOn(s.emx); visible=s.visible; if(!visible) window.Case3D?.silence?.();
+  lastState=s; setCs2Num(s.cs2auto); setVolumes(s); ThirdEmotes.setOn(s.emx); visible=s.visible; if(!visible) window.Case3D?.silence?.();
   stage.classList.toggle('all-hidden', !s.visible);
   const seen=new Set(), now=nowMs();
   drawList(s).map(el=>blockedEl(el) ? { ...el, hidden:true } : el).forEach((el,i)=>{
@@ -362,7 +362,7 @@ function tabTick(){
   if(tabForce){ m=tabForce.m; if(!d?.players?.length) data=cs2DemoFor(m); }   // без игры (или не зрителем) — пример данных
   else if(!tabOff) m=cs2TabMoment(d, a, tabMem, now);
   const on=cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(lastState.els) } : null);
-  stage.classList.toggle('ctab-hb', on && a.hideBottom); stage.classList.toggle('ctab-ht', on && a.hideTop);
+  stage.classList.toggle('ctab-hb', on && m!=='flight' && a.hideBottom); stage.classList.toggle('ctab-ht', on && m!=='flight' && a.hideTop);
 }
 setInterval(tabTick, 250);
 

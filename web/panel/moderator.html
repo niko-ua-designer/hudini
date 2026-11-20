@@ -155,6 +155,7 @@
     <div class="row"><span class="hint">Вид</span><select id="taStyle" class="grow"><option value="A">A · турнирный</option><option value="B">B · стекло</option><option value="C">C · неон-лента</option><option value="D">D · карточки</option></select></div>
     <label class="chk"><input type="checkbox" id="taHideBottom"> Карточки игроков внизу уезжают</label>
     <label class="chk"><input type="checkbox" id="taHideTop"> Счёт сверху уезжает</label>
+    <div class="row"><span class="hint">Номера игроков</span><select id="taNum" class="grow"><option value="game">как в игре</option><option value="hud">по порядку в худе (слева 1–5, справа 6–0)</option></select></div>
     <div id="taPrev" class="ta-prev" data-i18n-skip><div id="taBox" class="ctab" hidden></div></div>
     <div class="row"><select id="taMoment" class="grow"><option value="timeout">Таймаут</option><option value="half">Смена сторон</option><option value="end">Конец карты</option></select><button id="taPreview" title="Проиграть появление в превью">▶ Превью</button></div>
     <div class="row"><button id="taShow" class="primary grow" title="Показать на стриме на 8 секунд: с данными игры или с примером">📺 Показать сейчас</button></div>
@@ -167,6 +168,34 @@
     <div id="serMaps"></div>
     <div class="row"><button id="serAdd" class="grow">＋ Карта</button><button id="serSave" class="primary grow">✓ Сохранить</button><button id="serReset" class="danger" title="Начать серию заново">↺ Сброс</button></div>
     <div class="hint" id="serNote"></div>
+
+    <h2>🎥 Пролёты камеры</h2>
+    <div class="hint">Камера сама облетает карту, пока идут закупка, пауза, таймаут или разминка. Только когда ты смотришь игру зрителем или демку; когда играешь сам, Hudini молчит. Нужен параметр запуска CS2 -netconport, инструкция в справке.</div>
+    <label class="tgl u-margin-top-6px"><input type="checkbox" id="flOn"><span class="tgl-k"></span><span>Пролёты включены</span></label>
+    <div class="row"><span class="hint">Порт консоли</span><input type="number" id="flPort" min="1024" max="65535" class="grow"><span id="flLink" class="hint"></span></div>
+    <div class="row"><span class="hint">В конце</span><select id="flRet" class="grow"><option value="4">вернуться к игроку (от первого лица)</option><option value="5">вернуться к игроку (от третьего лица)</option></select></div>
+    <div class="row"><span class="hint">Несколько путей</span><select id="flPick" class="grow"><option value="rr">по кругу</option><option value="random">случайный</option></select></div>
+    <label class="chk"><input type="checkbox" id="flPlate"> Плашка «карта · счёт · раунд» на стриме во время пролёта</label>
+    <div class="hint" id="flNote"></div>
+
+    <h3 class="fl-h">Пути</h3>
+    <div class="row"><span class="hint">Карта</span><select id="flMap" class="grow"></select></div>
+    <div class="row"><select id="flRoute" class="grow"></select><button id="flNew" title="Новый путь">＋</button><button id="flDup" title="Дублировать путь">⧉</button><button id="flDel" class="danger" title="Удалить путь">🗑</button></div>
+    <div id="flBody" hidden>
+      <div class="row"><input type="text" id="flName" class="grow" maxlength="40" placeholder="Название пути"><span class="hint">Секунд</span><input type="number" id="flDur" min="0" max="300" step="0.5" style="width:64px" title="0 — подогнать под остаток фазы"></div>
+      <div class="hint">Для каких моментов этот путь:</div>
+      <div class="row fl-trg"><label class="chk"><input type="checkbox" id="flTfreeze"> Закупка</label><label class="chk"><input type="checkbox" id="flTtech"> Тех. пауза</label><label class="chk"><input type="checkbox" id="flTtimeout"> Таймаут</label><label class="chk"><input type="checkbox" id="flTwarmup"> Разминка</label></div>
+      <div id="flRadar" class="fl-radar" data-i18n-skip></div>
+      <div class="hint">Сплошная линия: плавный отрезок. Пунктир: обрыв, камера прыгает в точку. Точки можно двигать мышью, высота z правится числом.</div>
+      <div id="flPts" class="fl-pts"></div>
+      <div class="row"><button id="flAddGame" class="grow" title="Спросить у игры, где сейчас камера (getpos)">📍 Точка из игры</button><button id="flAddMan" title="Добавить точку вручную">＋ Вручную</button></div>
+      <div class="row"><button id="flPrev" class="primary grow" title="Облететь этот путь в игре">▶ Прогнать пролёт</button><button id="flStop">■ Остановить</button></div>
+      <div class="row"><button id="flExp" class="grow">⬇ Экспорт в файл</button><button id="flImp" class="grow">⬆ Импорт из файла</button><input type="file" id="flImpFile" accept=".json,application/json" hidden></div>
+    </div>
+
+    <h3 class="fl-h">Что и когда проигрывать</h3>
+    <div class="hint">Если для момента собрать цепочку, пути пойдут подряд. Иначе берётся один путь с галочкой момента.</div>
+    <div id="flChains"></div>
   </section>
 
   <section data-pane="sound" hidden>
