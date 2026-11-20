@@ -29,12 +29,6 @@ function cs2MapUV(map, pos){
   if(!m || !Array.isArray(pos)) return null;
   return [(pos[0] - m.x) / m.s / 1024, (m.y - pos[1]) / m.s / 1024];
 }
-// обратное: [u, v] на подложке → [x, y] мира (для редактора пролётов); null, если карты нет в списке
-function cs2MapXY(map, uv){
-  const m = typeof map==='string' && Object.hasOwn(CS2_MAPS, map) ? CS2_MAPS[map] : null;
-  if(!m || !Array.isArray(uv)) return null;
-  return [m.x + uv[0] * m.s * 1024, m.y - uv[1] * m.s * 1024];
-}
 // рамка содержимого подложки; без записи — вся подложка
 function cs2MapBox(map){
   const m = typeof map==='string' && Object.hasOwn(CS2_MAPS, map) ? CS2_MAPS[map] : null;

@@ -28,7 +28,6 @@ import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
-import { createFlight } from './netcon.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
 const VERSION = '1.1.0';
@@ -286,11 +285,11 @@ async function publishCtl(){
 // Права модераторов: четыре галочки стримера. Выключенное виджет не показывает (главная защита, на ПК стримера),
 // пульт прячет кнопки. Тему perms публикует только программа: ни модератор, ни виджет её не подделают.
 // cam, screen, mic (камера, экран, микрофон модератора) по умолчанию ВЫКЛЮЧЕНЫ: включается только явным true
-const PERM_KEYS = ['av', 'web', 'fx', 'games', 'cam', 'screen', 'mic', 'flights'];
-const DEFAULT_OFF = ['cam', 'screen', 'mic', 'flights'];   // flights: пролёты камеры CS2 и порт консоли (проверяется здесь, в обработчике cs2cmd)
+const PERM_KEYS = ['av', 'web', 'fx', 'games', 'cam', 'screen', 'mic'];
+const DEFAULT_OFF = ['cam', 'screen', 'mic'];
 const MEDIA_KINDS = ['cam', 'screen', 'mic'];
 const PERM_NAMES = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2',
-  cam:'камера модератора', screen:'экран модератора', mic:'микрофон модератора', flights:'камера и консоль CS2 (пролёты, автодиректор, интерфейс)' };
+  cam:'камера модератора', screen:'экран модератора', mic:'микрофон модератора' };
 const cleanPerms = p => Object.fromEntries(PERM_KEYS.map(k => [k, DEFAULT_OFF.includes(k) ? p?.[k] === true : p?.[k] !== false]));
 cfg.perms = cleanPerms(cfg.perms);
 // Общий выключатель «все трансляции модераторов» (док): пока он стоит, камера, экран и микрофон модераторов выключены независимо от ползунков
@@ -1167,22 +1166,18 @@ function seriesCmd(s, m){
   return false;
 }
 const SERIES_FILE = path.join(BASE, 'cs2-series.json');
-// Пролёты камеры (netcon.js): маршруты и настройки лежат только в данных программы, в папку игры Host не пишет
-const FLIGHTS_FILE = path.join(BASE, 'cs2-flights.json');
-const flight = createFlight({ load:() => JSON.parse(fs.readFileSync(FLIGHTS_FILE, 'utf8')), save:d => fs.writeFileSync(FLIGHTS_FILE, JSON.stringify(d), { mode:0o600 }),
-  onChange:() => publishSeries(true), log:(...a) => log(...a) });
 let series = cleanSeries(null), serPub = '', serLast = null;
 try{ series = cleanSeries(JSON.parse(fs.readFileSync(SERIES_FILE, 'utf8'))); }catch{}
 function saveSeries(){ try{ fs.writeFileSync(SERIES_FILE, JSON.stringify(series), { mode:0o600 }); }catch{} }
 function trackSeries(out){
-  serLast = out; flight.onGsi(out);
+  serLast = out;
   if(seriesStep(series, out, Date.now())) saveSeries();
   publishSeries();
 }
 // Ретейн-тема cs2series: публикует только программа (в PUB_MOD/PUB_LOCAL её нет), шлём только когда поменялось
 async function publishSeries(force){
   if(!AES || !ROOM) return;
-  const v = { ...seriesView(series, serLast), fl:flight.view() }, key = JSON.stringify(v);
+  const v = seriesView(series, serLast), key = JSON.stringify(v);
   if(key===serPub && !force) return;
   serPub = key;
   aedes.publish({ cmd:'publish', topic:T('cs2series'), payload:await sealAES({ ...v, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
@@ -1193,11 +1188,6 @@ aedes.on('publish', async (packet, client) => {
   if(!(client?.conn?._mod || client?.conn?._streamer) || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
   const m = await openSigned(packet.payload, 16384);
   if(!m || !(Math.abs(Date.now() - Number(m.t)) < 120000)) return;   // старую команду повторно не принимаем
-  if(m.op==='fl'){
-    // Пролёты (редактор, включатель, порт, запуск, остановка) модератору можно только с правом flights (по умолчанию выключено); пульт стримера можно всегда
-    if(!client.conn._streamer && cfg.perms.flights!==true){ log('🔒 Модератор', who(client.conn._ip), 'хотел править пролёты камеры, но стример этого не разрешил'); return; }
-    flight.cmd(m); return;
-  }
   if(seriesCmd(series, m)){ saveSeries(); log('🏆 Серия CS2:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'сброс' : 'правка вручную'); publishSeries(true); }
 });
 function gsiCfgText(){
@@ -1746,14 +1736,10 @@ const errOut = (res, e, extra={}) => {
   }catch{ try{ res.destroy(); }catch{} }
 };
 // Док в OBS (localhost, без входа): права, элементы экрана, кто на связи (адрес в маске), CS2
-function dockFlights(){   // для кнопок дока: можно ли сейчас, что отправляли последним и пути текущей карты
-  const v = flight.view();
-  return { on:v.on, spec:v.spec, link:v.link, flying:v.flying, quick:v.quick, map:v.map, note:v.note, routes:flight.routesOf(v.map).map(r => ({ id:r.id, name:r.name, n:r.pts.length })) };
-}
 function dockCs2(){
   const c = status.cs2; if(!c || Date.now()-status.cs2Seen > 15000) return null;
   const o = c.observed || (!c.spectating && c.name ? c : null);
-  return { map:c.map, round:c.round, phase:c.phase, ct:c.ct, tt:c.tt, ctName:c.ctName, tName:c.tName, fl:dockFlights(),
+  return { map:c.map, round:c.round, phase:c.phase, ct:c.ct, tt:c.tt, ctName:c.ctName, tName:c.tName,
     obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
 }
 function dockInfo(){
@@ -1876,14 +1862,6 @@ const local = http.createServer(async (req, res) => {
         else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
         else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('пауза модераторов'); log(ctl.paused ? '⏸ Модераторы на паузе' : '▶ Модераторы снова могут менять экран'); await announce(); }
-        else if(action==='cs2quick'){   // док: быстрые кнопки CS2 (интерфейс «только килл-фид», автодиректор), белый список в netcon.js
-          if(!flight.cmd({ op:'fl', a:'quick', k:key, v:on ? 1 : 0 })) throw new HttpErr(409, flight.view().note || 'ждёт наблюдателя');
-          return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
-        }
-        else if(action==='cs2fly' || action==='cs2flystop'){   // док: запустить пролёт по номеру пути или остановить
-          if(!flight.cmd(action==='cs2fly' ? { op:'fl', a:'preview', id:key } : { op:'fl', a:'stop' })) throw new HttpErr(409, flight.view().note || 'ждёт наблюдателя');
-          return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
-        }
         else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 Авто-таб CS2 выключен на стриме' : '🎯 Авто-таб CS2 снова включён'); }   // быстрый выключатель авто-таба (док)
         else throw new HttpErr(400, 'неизвестное действие');
         await publishCtl();

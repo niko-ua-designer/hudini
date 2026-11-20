@@ -12,18 +12,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="../shared/core.css?v=16">
+<link rel="stylesheet" href="../shared/core.css?v=17">
 <script src="../shared/vendor/mqtt.min.js"></script>
 <script src="../app/store.js"></script>
 <script src="../app/sessions.js"></script>
-<script src="../shared/i18n.js?v=4"></script>
+<script src="../shared/i18n.js?v=5"></script>
 <script src="../shared/icons.js?v=1"></script>
-<script src="../shared/core.js?v=21"></script>
+<script src="../shared/core.js?v=22"></script>
 <script src="../shared/media.js?v=2"></script>
 <script src="../shared/case3d.js?v=1"></script>
-<script src="../shared/cs2-maps.js?v=4"></script>
+<script src="../shared/cs2-maps.js?v=5"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
-<link rel="stylesheet" href="panel.css?v=2">
+<link rel="stylesheet" href="panel.css?v=3">
 <link rel="stylesheet" href="ui.css?v=2">
 </head>
 <body>
@@ -157,18 +157,6 @@
   </section>
 
   <section data-pane="cs2" hidden>
-    <div id="flQuick" class="fl-quick">
-    <h2>⚡ Быстрое управление</h2>
-    <div class="hint" id="qHint"></div>
-    <div class="fl-qlbl"><span>Интерфейс игры: только килл-фид</span><b id="qDnSt" class="hint"></b></div>
-    <div class="fl-qgrid"><button id="qDn1">Вкл</button><button id="qDn0">Выкл</button></div>
-    <div class="fl-qlbl"><span>Автодиректор</span><b id="qAdSt" class="hint"></b></div>
-    <div class="fl-qgrid"><button id="qAd1">Вкл</button><button id="qAd0">Выкл</button></div>
-    <div class="fl-qlbl"><span>Пролёт камеры</span></div>
-    <select id="qRoute" class="fl-qsel"></select>
-    <div class="fl-qgrid"><button id="qRun" class="primary">Запустить пролёт</button><button id="qStop">Остановить</button></div>
-    <div class="hint">Вкл и выкл показывают последнюю отправленную команду, а не то, что сейчас в игре.</div>
-    </div>
     <h2>🎯 Авто-таб CS2</h2>
     <div class="hint">Таблица всех игроков сама выезжает поверх стрима и сама уезжает. Элемент добавлять не нужно. Красится под стиль CS2-элемента (без него «стекло»).</div>
     <label class="tgl u-margin-top-6px"><input type="checkbox" id="taOn"><span class="tgl-k"></span><span>Авто-таб включён</span></label>
@@ -192,37 +180,6 @@
     <div id="serMaps"></div>
     <div class="row"><button id="serAdd" class="grow">＋ Карта</button><button id="serSave" class="primary grow">✓ Сохранить</button><button id="serReset" class="danger" title="Начать серию заново">↺ Сброс</button></div>
     <div class="hint" id="serNote"></div>
-
-    <div id="flSec">
-    <h2>🎥 Пролёты камеры</h2>
-    <div class="hint">Камера сама облетает карту, пока идут закупка, пауза, таймаут или разминка. Только когда ты смотришь игру зрителем или демку; когда играешь сам, Hudini молчит. Нужен параметр запуска CS2 -netconport, инструкция в справке.</div>
-    <label class="tgl u-margin-top-6px"><input type="checkbox" id="flOn"><span class="tgl-k"></span><span>Пролёты включены</span></label>
-    <div class="row"><span class="hint">Порт консоли</span><input type="number" id="flPort" min="1024" max="65535" class="grow"><span id="flLink" class="hint"></span></div>
-    <div class="row"><span class="hint">В конце</span><select id="flRet" class="grow"><option value="4">вернуться к игроку (от первого лица)</option><option value="5">вернуться к игроку (от третьего лица)</option></select></div>
-    <div class="row"><span class="hint">Несколько путей</span><select id="flPick" class="grow"><option value="rr">по кругу</option><option value="random">случайный</option></select></div>
-    <label class="chk"><input type="checkbox" id="flAuto" checked> Выключать автодиректор на время пролёта</label>
-    <label class="chk"><input type="checkbox" id="flPlate"> Плашка «карта · счёт · раунд» на стриме во время пролёта</label>
-    <div class="hint" id="flNote"></div>
-
-    <h3 class="fl-h">Пути</h3>
-    <div class="row"><span class="hint">Карта</span><select id="flMap" class="grow"></select></div>
-    <div class="row"><select id="flRoute" class="grow"></select><button id="flNew" title="Новый путь">＋</button><button id="flDup" title="Дублировать путь">⧉</button><button id="flDel" class="danger" title="Удалить путь">🗑</button></div>
-    <div id="flBody" hidden>
-      <div class="row"><input type="text" id="flName" class="grow" maxlength="40" placeholder="Название пути"><span class="hint">Секунд</span><input type="number" id="flDur" min="0" max="300" step="0.5" class="u-width-64px" title="0 — подогнать под остаток фазы"></div>
-      <div class="hint">Для каких моментов этот путь:</div>
-      <div class="row fl-trg"><label class="chk"><input type="checkbox" id="flTfreeze"> Закупка</label><label class="chk"><input type="checkbox" id="flTtech"> Тех. пауза</label><label class="chk"><input type="checkbox" id="flTtimeout"> Таймаут</label><label class="chk"><input type="checkbox" id="flTwarmup"> Разминка</label></div>
-      <div id="flRadar" class="fl-radar" data-i18n-skip></div>
-      <div class="hint">Сплошная линия: плавный отрезок. Пунктир: обрыв, камера прыгает в точку. Точки можно двигать мышью, высота z правится числом.</div>
-      <div id="flPts" class="fl-pts"></div>
-      <div class="row"><button id="flAddGame" class="grow" title="Спросить у игры, где сейчас камера (getpos)">📍 Точка из игры</button><button id="flAddMan" title="Добавить точку вручную">＋ Вручную</button></div>
-      <div class="row"><button id="flPrev" class="primary grow" title="Облететь этот путь в игре">▶ Прогнать пролёт</button><button id="flStop">■ Остановить</button></div>
-      <div class="row"><button id="flExp" class="grow">⬇ Экспорт в файл</button><button id="flImp" class="grow">⬆ Импорт из файла</button><input type="file" id="flImpFile" accept=".json,application/json" hidden></div>
-    </div>
-
-    <h3 class="fl-h">Что и когда проигрывать</h3>
-    <div class="hint">Если для момента собрать цепочку, пути пойдут подряд. Иначе берётся один путь с галочкой момента.</div>
-    <div id="flChains"></div>
-    </div>
   </section>
 
   <section data-pane="sound" hidden>
@@ -883,6 +840,6 @@
 <div id="toast"></div>
 <div id="fatal"></div>
 
-<script src="boot.js?v=2"></script>
+<script src="boot.js?v=3"></script>
 </body>
 </html>

@@ -7,12 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="../shared/core.css?v=16">
+<link rel="stylesheet" href="../shared/core.css?v=17">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="../shared/core.js?v=21"></script>
+<script src="../shared/core.js?v=22"></script>
 <script src="../shared/media.js?v=2"></script>
 <script src="../shared/case3d.js?v=1"></script>
-<script src="../shared/cs2-maps.js?v=4"></script>
+<script src="../shared/cs2-maps.js?v=5"></script>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 body{display:flex;align-items:center;justify-content:center}
@@ -71,7 +71,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // ===============================================
 
-const WIDGET_VER=20;
+const WIDGET_VER=21;
 // Подсказки на самом виджете: на языке системы (OBS не знает язык пульта)
 const MSG={
   ru:{ size:(w,h)=>`⚠ Источник «Браузер» ${w}×${h}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`,
@@ -130,7 +130,7 @@ const hostHidden=()=>document.body.classList.contains('host-hidden');
 // Права модераторов (тема perms) и выключатели стримера в доке (тема host): их публикует только Hudini Host.
 // Запрещённое на стрим не попадает, что бы ни прислал пульт: элемент считается скрытым, звук и эффекты не играют.
 // Камера, экран и микрофон (cam/screen/mic): выключены, пока программа явно не включила (PERMS[k]===true). Свой поток стримера (владелец «streamer») права не спрашивает: запрос модератора Host пропускает или режет сам.
-let PERMS={ av:true, web:true, fx:true, games:true, flights:false, cam:false, screen:false, mic:false }, OFF={}, HIDE_IDS=new Set();
+let PERMS={ av:true, web:true, fx:true, games:true, cam:false, screen:false, mic:false }, OFF={}, HIDE_IDS=new Set();
 const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
 const OFF_OF={ chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
 function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type];
@@ -140,7 +140,7 @@ const soundOk=()=>PERMS.av!==false && !OFF.sound;
 const fxOk=()=>PERMS.fx!==false && !OFF.fx;
 function setPerms(p){
   if(!p || typeof p!=='object') return;
-  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false, flights:p.flights===true, cam:p.cam===true, screen:p.screen===true, mic:p.mic===true };
+  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false, cam:p.cam===true, screen:p.screen===true, mic:p.mic===true };
   if(!soundOk()){ stopSounds(); pendingSounds.clear(); }
   if(!fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
   applyState(lastState);
@@ -385,7 +385,7 @@ function tabTick(){
   if(tabForce){ m=tabForce.m; if(!d?.players?.length) data=cs2DemoFor(m); }   // без игры (или не зрителем) — пример данных
   else if(!tabOff) m=cs2TabMoment(d, a, tabMem, now);
   const on=cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(lastState.els) } : null);
-  stage.classList.toggle('ctab-hb', on && m!=='flight' && a.hideBottom); stage.classList.toggle('ctab-ht', on && m!=='flight' && a.hideTop);
+  stage.classList.toggle('ctab-hb', on && a.hideBottom); stage.classList.toggle('ctab-ht', on && a.hideTop);
 }
 setInterval(tabTick, 250);
 

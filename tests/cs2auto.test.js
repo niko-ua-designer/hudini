@@ -73,8 +73,8 @@ const C = box.C;
   });
 
   await step('auto tab: sanitize and moments', async () => {
-    eq(C.cleanCs2Auto(null), { on: false, timeout: true, half: true, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game', plate: false }, 'defaults: off, all moments, style A, both hide');
-    eq(C.cleanCs2Auto({ on: 'yes', theme: 'E', hideTop: 0, half: false, x: 1 }), { on: false, timeout: true, half: false, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game', plate: false }, 'garbage: on only with true, no style E');
+    eq(C.cleanCs2Auto(null), { on: false, timeout: true, half: true, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game' }, 'defaults: off, all moments, style A, both hide');
+    eq(C.cleanCs2Auto({ on: 'yes', theme: 'E', hideTop: 0, half: false, x: 1 }), { on: false, timeout: true, half: false, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game' }, 'garbage: on only with true, no style E');
     eq(C.sanitizeState({ els: [], cs2auto: { on: true, theme: 'D', hideBottom: false } }).cs2auto.theme, 'D', 'sanitizeState keeps cs2auto');
     eq(C.sanitizeState({ els: [] }).cs2auto.on, false, 'old screen: auto tab off');
     const a = C.cleanCs2Auto({ on: true }), mem = {};

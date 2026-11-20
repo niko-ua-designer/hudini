@@ -282,7 +282,7 @@ const { step, check, eq, until, sleep } = T;
     eq(R.slotLabel(R.cs2View({}, d).observed.slot), '1', 'the observed player is renumbered too');
     const ten = [...'abcde'].map((c, i) => P('c' + c, 'CT', 5 + i)).concat([...'abcde'].map((c, i) => P('t' + c, 'T', i)));
     eq(R.cs2View({}, { players: ten }).players.map(p => R.slotLabel(p.slot)).join(''), '1234567890', 'ten players: left 1-5, right 6-9 and 0');
-    eq([R.cleanCs2Auto(null).num, R.cleanCs2Auto({ num: 'hud' }).num, R.cleanCs2Auto({ num: 'zzz' }).num, R.cleanCs2Auto(null).plate], ['game', 'hud', 'game', false], 'cleanCs2Auto: numbering defaults to the game, plate is off');
+    eq([R.cleanCs2Auto(null).num, R.cleanCs2Auto({ num: 'hud' }).num, R.cleanCs2Auto({ num: 'zzz' }).num], ['game', 'hud', 'game'], 'cleanCs2Auto: numbering defaults to the game, plate is off');
   });
 
   await host.stop();

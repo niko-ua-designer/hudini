@@ -250,20 +250,6 @@ function renderCs2(){
     row.append(n, el('span','m','HP '+(c.obs.hp??'—'))); kids.push(row);
   }
   if(!fightText(s.fight)) kids.push(el('div','empty',tr('Файт: тихо')));
-  const f=c.fl, ok=!!f && f.on && f.spec, st=v=>v===1 ? tr('вкл') : v===0 ? tr('выкл') : '—';
-  const q=el('div','quick');
-  q.append(el('div','m', !f ? '' : !f.on ? tr('Включи пролёты во вкладке CS2 пульта') : !f.spec ? tr('Ждёт наблюдателя') : (f.note||'')));
-  const btn=(txt,body,dis)=>{ const b=el('button',null,txt); b.disabled=!ok||!!dis; b.onclick=act(()=>body); return b; };
-  const rowOf=(label,state,...bs)=>{ const r=el('div','row'), n=el('span','n',label); r.append(n, el('span','m',state), ...bs); return r; };
-  q.append(rowOf(tr('Интерфейс игры: только килл-фид'), st(f?.quick?.dn), btn(tr('Вкл'),{ action:'cs2quick', key:'dn', on:true }), btn(tr('Выкл'),{ action:'cs2quick', key:'dn', on:false })));
-  q.append(rowOf(tr('Автодиректор'), st(f?.quick?.ad), btn(tr('Автодиректор: включить'),{ action:'cs2quick', key:'ad', on:true }), btn(tr('Автодиректор: выключить'),{ action:'cs2quick', key:'ad', on:false })));
-  const sel=document.createElement('select'); sel.id='dockRoute';
-  for(const r of (f?.routes||[])){ const o=el('option',null,`${r.name} · ${r.n}`); o.value=r.id; o.setAttribute('data-i18n-skip',''); sel.append(o); }
-  if(!f?.routes?.length) sel.append(el('option',null,tr('Путей на этой карте нет')));
-  const run=el('button',null,tr('Запустить пролёт')); run.id='dockRun'; run.disabled=!ok||!f.routes.length||!!f.flying; run.onclick=act(()=>({ action:'cs2fly', key:sel.value }));
-  const stop=el('button',null,tr('Остановить')); stop.id='dockStop'; stop.disabled=!f?.flying; stop.onclick=act(()=>({ action:'cs2flystop' }));
-  const rr=el('div','row'); rr.append(sel, run, stop); q.append(rr, el('div','m',tr('Вкл и выкл показывают последнюю отправленную команду, а не то, что сейчас в игре.')));
-  kids.push(q);
   box.replaceChildren(...kids);
 }
 

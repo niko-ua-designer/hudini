@@ -23,7 +23,7 @@
   // cam, screen, mic: выключены, пока стример явно не включил (в отличие от остальных, у которых «выключено» = false)
   const MEDIA_KEYS = ['cam', 'screen', 'mic'];
   const isStreamer = () => document.body.classList.contains('streamer-panel');
-  const cur = () => perms && permsRoom === room ? perms : { av:true, web:true, fx:true, games:true, flights:false, cam:false, screen:false, mic:false };
+  const cur = () => perms && permsRoom === room ? perms : { av:true, web:true, fx:true, games:true, cam:false, screen:false, mic:false };
   // слой камеры, экрана или микрофона модератору нельзя, пока стример не разрешил; своё стримеру можно всегда
   const mediaOk = kind => isStreamer() || cur()[kind] === true;
   const permOff = el => { /* свой поток стримера права не спрашивает */ if(el?.type === 'stream') return el.owner !== 'streamer' && !mediaOk(el.kind); const p = PERM_OF[el?.type]; return !!p && cur()[p] === false; };
@@ -75,14 +75,12 @@
   // Права пришли из программы стримера (тема perms)
   window.hudiniPanelPerms = p => {
     if(!p || typeof p !== 'object') return;
-    perms = { av:p.av !== false, web:p.web !== false, fx:p.fx !== false, games:p.games !== false, flights:p.flights === true, cam:p.cam === true, screen:p.screen === true, mic:p.mic === true }; permsRoom = room;
-    applyUi(); marks(); window.renderFlights?.(); window.hudiniBroadcast?.perms();
+    perms = { av:p.av !== false, web:p.web !== false, fx:p.fx !== false, games:p.games !== false, cam:p.cam === true, screen:p.screen === true, mic:p.mic === true }; permsRoom = room;
+    applyUi(); marks(); window.hudiniBroadcast?.perms();
   };
   // После каждой перерисовки пульта (renderAll)
   window.hudiniMarks = () => { applyUi(); marks(); };
   window.hudiniPermOff = permOff;
-  // Пролёты камеры: пульт стримера видит всегда, модератор только с правом flights (Host всё равно проверяет сам)
-  window.hudiniFlightsAllowed = () => document.body.classList.contains('streamer-panel') || cur().flights === true;
   window.hudiniMediaOk = mediaOk;
   applyUi();
 
