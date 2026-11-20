@@ -162,6 +162,138 @@ const { step, check, eq, until, sleep } = T;
     await mod2.context().close();
   });
 
+  await step('viewers: new fields are sanitized, the reward tag is read from the chat line', async () => {
+    const r = await mod.evaluate(() => {
+      const d = sanitizeEl({ id: 'q', type: 'roulette' }), h = sanitizeEl({ id: 'q', type: 'roulette', cOn: 1, cWord: ' a  b '.repeat(20), cWho: 'x', cMode: {}, cCd: 1e9, cLim: -4, rId: '<img src=x>', rOne: 0, rWord: 'a b', rMode: 'spin', rCd: NaN, vcnt: { '__proto__': 5, 'Bad Name': 1, ok_1: 9999, ok_2: 'x' } });
+      const m = ircMessage('@custom-reward-id=0f0e4c1a-aaaa-bbbb-cccc-1234567890ab;display-name=Amy;id=m1 :amy!amy@amy.tmi.twitch.tv PRIVMSG #chan :hello').msg;
+      const bad = ircMessage('@custom-reward-id=<script>;id=m2 :amy!amy@amy.tmi.twitch.tv PRIVMSG #chan :hello').msg;
+      return { d: [d.cOn, d.cWord, d.cWho, d.cMode, d.cCd, d.cLim, d.rOn, d.rId, d.rOne, d.rWord, d.rMode, d.rCd, d.rLim, Object.keys(d.vcnt).length],
+        h: [h.cOn, h.cWord.length <= 24 && !/\s/.test(h.cWord), h.cWho, h.cMode, h.cCd, h.cLim, h.rId, h.rOne, h.rWord, h.rMode, h.rCd, JSON.stringify(h.vcnt), Object.getPrototypeOf(h.vcnt) === null], rw: [m.reward, bad.reward] };
+    });
+    eq(r.d, [false, '!крутить', 'mods', 'add', 10, 1, false, '', true, '', 'add', 5, 0, 0], 'defaults: off, !крутить, streamer and mods, add to participants, one-word filter on');
+    eq(r.h, [false, true, 'mods', 'add', 3600, 0, '', true, 'ab', 'spin', 5, '{"ok_1":999,"ok_2":0}', true], 'hostile values land inside the limits');
+    eq(r.rw, ['0f0e4c1a-aaaa-bbbb-cccc-1234567890ab', ''], 'custom-reward-id is read and checked');
+    const cl = await mod.evaluate(() => sanitizeState({ els: [], claims: [{ m: 'abc-1', o: 'mod_x1' }, { m: '<b>', o: 'mod_y' }, { m: 'abc-2', o: '<i>' }, null, 5] }).claims);
+    eq(cl, [{ m: 'abc-1', o: 'mod_x1' }], 'message claims: only well-formed ones survive');
+  });
+
+  await step('chat command: who may, add mode, per-viewer limit, pause, no HTML from nicknames', async () => {
+    await sleep(8500);
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); rouReset(e); e.people = []; e.used = []; e.vcnt = Object.create(null); e.cOn = true; e.cWho = 'mods'; e.cMode = 'add'; e.cCd = 0; e.cLim = 1; commit(); });
+    const say = (login, text, o = {}) => mod.evaluate(([login, text, o]) => { onChat(login, text, { id: o.id || ('m' + Math.random().toString(36).slice(2, 9)), login, user: o.user || login, mod: !!o.mod, sub: !!o.sub, badge: o.mod ? 'mod' : '' }); }, [login, text, o]);
+    const people = () => mod.evaluate(() => state.els.find(x => x.type === 'roulette').people.map(p => p.n));
+    await say('viewer1', '!крутить'); await sleep(900);
+    eq(await people(), [], 'a plain viewer is refused when only mods may');
+    check(await mod.evaluate(() => rouSkipped.some(x => x.u === 'viewer1' && x.why === 'нет прав')), 'and the refusal is in the skipped log');
+    await say('modguy', '!крутить', { mod: true }); await sleep(900);
+    eq(await people(), ['modguy'], 'a moderator is added to the participants');
+    await say('modguy', '!крутить', { mod: true }); await sleep(900);
+    eq(await people(), ['modguy'], 'the same person is not added twice (limit 1)');
+    await say('modguy', 'hello', { mod: true }); await say('modguy', '!крутитьё', { mod: true }); await sleep(600);
+    eq(await people(), ['modguy'], 'other words and look-alikes do nothing');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cWho = 'all'; e.cLim = 0; e.cCd = 3; commit(); rouLastRun.c = 0; });
+    await say('evil', '!крутить', { user: '<img src=x onerror=alert(1)>' + 'Z'.repeat(80) }); await sleep(900);
+    const n = (await people()).find(x => x.includes('img') || x.includes('Z'));
+    check(n && !/[<>]/.test(n) && n.length <= 40, 'a hostile nickname is stripped of angle brackets and cut to 40 characters');
+    await say('flood1', '!крутить'); await sleep(900);
+    check(!(await people()).includes('flood1'), 'a second command inside the pause is skipped');
+    check(await mod.evaluate(() => rouSkipped.some(x => x.why === 'пауза')), 'the pause is in the skipped log');
+    check(await until(() => wid.evaluate(() => lastState.els.find(x => x.type === 'roulette').people.length >= 2)), 'the list reaches the stream');
+    // flood: the per-minute cap stops a burst
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.people = []; e.cCd = 0; e.cLim = 0; commit(); rouRate.c.length = 0; });
+    for (let i = 0; i < 40; i++) await say('bot' + i, '!крутить');
+    await sleep(1500);
+    const cnt = (await people()).length;
+    check(cnt <= 20 && cnt >= 15, `a burst of 40 commands adds at most 20 per minute (${cnt})`);
+  });
+
+  await step('chat command: spin right away', async () => {
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cMode = 'spin'; e.cWho = 'all'; e.cLim = 0; e.cCd = 0; e.people = []; commit(); rouLastRun.c = 0; rouRate.c.length = 0; });
+    const say = (login, text, o = {}) => mod.evaluate(([login, text, o]) => { onChat(login, text, { id: 'sp' + Math.random().toString(36).slice(2, 9), login, user: o.user || login, mod: false, sub: false, badge: '' }); }, [login, text, o]);
+    await say('lucky', '!крутить', { user: 'Lucky' }); await sleep(900);
+    const e = await mod.evaluate(() => { const x = state.els.find(y => y.type === 'roulette'); return [x.viewer, x.win >= 0, x.spinAt > 0]; });
+    eq(e, ['Lucky', true, true], 'the roulette spins with the viewer nickname');
+    check(await until(() => wid.evaluate(() => lastState.els.find(x => x.type === 'roulette').viewer === 'Lucky')), 'the stream got it');
+    const at = await mod.evaluate(() => state.els.find(x => x.type === 'roulette').spinAt);
+    await say('late', '!крутить'); await sleep(900);
+    eq(await mod.evaluate(() => state.els.find(x => x.type === 'roulette').spinAt), at, 'a command during a spin does not restart it');
+    check(await mod.evaluate(() => rouSkipped.some(x => x.why === 'рулетка занята')), 'logged as "roulette is busy"');
+  });
+
+  await step('reward: bound by id, one-word filter, optional word, other rewards ignored', async () => {
+    await sleep(8000);
+    const RW = '0f0e4c1a-aaaa-bbbb-cccc-1234567890ab';
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); rouReset(e); e.people = []; e.used = []; e.vcnt = Object.create(null); e.cOn = false; e.rOn = false; e.rId = ''; e.rMode = 'add'; e.rCd = 0; e.rLim = 0; e.rOne = true; e.rWord = ''; commit(); rouLastRun.r = 0; rouRate.r.length = 0; });
+    const say = (login, text, reward) => mod.evaluate(([login, text, reward]) => { onChat(login, text, { id: 'rw' + Math.random().toString(36).slice(2, 9), login, user: login, mod: false, sub: false, badge: '', reward }); }, [login, text, reward || '']);
+    const people = () => mod.evaluate(() => state.els.find(x => x.type === 'roulette').people.map(p => p.n));
+    await say('amy', 'go', RW); await sleep(600);
+    eq(await mod.evaluate(() => [...rouSeenRw.keys()]), [RW], 'the panel noticed the reward id (the "Find the reward" list)');
+    await mod.click('[data-tab=raffle]'); await mod.click('[data-rtool=roulette]');
+    await mod.evaluate(() => { $('rouViewers').open = true; });
+    await mod.click('#rouRDetect');
+    check(await mod.isVisible('#rouRSeen button'), 'the seen reward is shown as a button');
+    await mod.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/roulette-viewers.png' : '/tmp/roulette-viewers.png' }).catch(() => {});
+    await mod.click('#rouRSeen button');
+    eq(await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); return [e.rId, e.rOn]; }), [RW, true], 'picking it binds the reward and switches it on');
+    eq(await people(), [], 'the discovery message itself added nobody');
+    await say('amy', 'go', RW); await sleep(900);
+    eq(await people(), ['amy'], 'a one-word reward text adds the viewer');
+    await say('bob', 'two words', RW); await sleep(900);
+    eq(await people(), ['amy'], 'a long text is dropped by the one-word filter');
+    await say('cat', 'go', '11111111-2222-3333-4444-555555555555'); await sleep(900);
+    eq(await people(), ['amy'], 'a different reward is ignored');
+    await say('dan', 'go'); await sleep(600);
+    eq(await people(), ['amy'], 'the same text without the reward tag is ignored');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.rWord = 'ticket'; commit(); });
+    await say('eve', 'nope', RW); await say('fay', 'Ticket', RW); await sleep(1200);
+    eq(await people(), ['amy', 'fay'], 'with a command word only that word passes');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.rOne = false; e.rWord = ''; commit(); });
+    await say('gus', 'many words here', RW); await sleep(900);
+    eq(await people(), ['amy', 'fay', 'gus'], 'with the filter off a longer text is accepted');
+    const why = await mod.evaluate(() => rouSkipped.map(x => x.why));
+    check(why.includes('в тексте не одно слово') && why.includes('не то слово'), 'both refusals are in the skipped log');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.rMode = 'spin'; e.rOne = true; e.rCd = 60; commit(); rouLastRun.r = 0; });
+    await say('hal', 'go', RW); await sleep(900);
+    eq(await mod.evaluate(() => state.els.find(x => x.type === 'roulette').viewer), 'hal', 'reward in spin mode spins with the redeemer name');
+    await sleep(8500);
+    await say('ivy', 'go', RW); await sleep(900);
+    eq(await mod.evaluate(() => state.els.find(x => x.type === 'roulette').viewer), 'hal', 'the 60 s pause blocks the next reward');
+  });
+
+  await step('two panels read the same chat line: one participant, one spin, one scenario run', async () => {
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); rouReset(e); e.people = []; e.used = []; e.vcnt = Object.create(null); e.cOn = true; e.cWho = 'all'; e.cMode = 'add'; e.cCd = 0; e.cLim = 0; e.rOn = false;
+      state.els.push(sanitizeEl({ id: 'cnt1', type: 'counter', x: 20, y: 20 })); commit(); });
+    const inv = await mod.evaluate(() => inviteLink(curRoom()));
+    const mod2 = await T.newPage('mod2b');
+    await mod2.goto(inv); await mod2.waitForFunction(() => typeof curRoom === 'function' && curRoom());
+    await T.attach(mod2, host);
+    check(await until(async () => (await mod2.getAttribute('#status', 'class')).includes('ok'), 12000), 'mod2 online');
+    check(await until(() => mod2.evaluate(() => !!state.els.find(e => e.type === 'counter' && e.id === 'cnt1'))), 'mod2 sees the roulette and the counter');
+    const scn = { id: 's1', name: 'hi', on: true, trig: { type: 'chat', cmd: '!hi', who: 'all', cd: 0 }, acts: [{ t: 'counter', el: 'cnt1', num: 1 }] };
+    for (const p of [mod, mod2]) await p.evaluate(sc => { scnList().push(sc); $('scnRun').checked = true; }, scn);
+    await sleep(1200);
+    const line = (login, text, id, user) => ({ id, login, user: user || login, mod: false, sub: false, badge: '', text });
+    const both = (m) => Promise.all([mod, mod2].map(p => p.evaluate(m => onChat(m.login, m.text, m), m)));
+    await both(line('twin', '!крутить', 'dup-1'));
+    await sleep(1800);
+    const ppl = p => p.evaluate(() => state.els.find(x => x.type === 'roulette').people.map(q => q.n));
+    eq([await ppl(mod), await ppl(mod2)], [['twin'], ['twin']], 'both panels hold the participant once');
+    await both(line('twin2', '!hi', 'dup-2'));
+    await sleep(2200);
+    const v = p => p.evaluate(() => state.els.find(x => x.id === 'cnt1').value);
+    eq([await v(mod), await v(mod2), await wid.evaluate(() => lastState.els.find(x => x.id === 'cnt1').value)], [1, 1, 1], 'the scenario ran once, not twice');
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cMode = 'spin'; commit(); });
+    await sleep(900);
+    await both(line('spinner', '!крутить', 'dup-3', 'Spinner'));
+    await sleep(2000);
+    const sp = p => p.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); return [e.viewer, e.spinAt, e.win]; });
+    const [a, b] = [await sp(mod), await sp(mod2)];
+    eq(a, b, 'both panels show the same single spin');
+    eq(a[0], 'Spinner', 'with the viewer name');
+    await mod2.context().close();
+    await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cOn = false; state.els = state.els.filter(x => x.id !== 'cnt1'); commit(); scnList().length = 0; });
+  });
+
   await step('reset hides the result; deleting removes the element', async () => {
     await sleep(8500);
     await mod.click('[data-tab=raffle]'); await mod.click('[data-rtool=roulette]');

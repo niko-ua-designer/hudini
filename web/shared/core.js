@@ -213,8 +213,8 @@ function rouChance(el){
   return w && t>0 ? w.w/t : 0;
 }
 const RAFFLE_REEL = 72, RAFFLE_WIN = 62, RAFFLE_OPEN = 1900, RAFFLE_SPIN = 7200, RAFFLE_STEP = 5.6;   // карточка 5.2em + зазор .4em
-const VK_MAX = 5000, CIDS_MAX = 300;
-const VOTER_RE = /^[a-z0-9][a-z0-9_]{0,24}$/, MSGID_RE = /^[A-Za-z0-9-]{1,64}$/;
+const VK_MAX = 5000, CIDS_MAX = 300, CLAIMS_MAX = 200;
+const VOTER_RE = /^[a-z0-9][a-z0-9_]{0,24}$/, MSGID_RE = /^[A-Za-z0-9-]{1,64}$/, REWARD_RE = /^[A-Za-z0-9-]{8,64}$/;
 function pollTally(vk, n){ const v=new Array(n).fill(0); for(const k of Object.keys(vk)){ const i=vk[k]; if(i>=0 && i<n) v[i]++; } return v; }
 function sanitizeEl(e){
   if(!e || typeof e!=='object') return null;
@@ -297,6 +297,14 @@ function sanitizeEl(e){
     o.hideAfter=num(e.hideAfter,10,3,120); o.vol=num(e.vol,0.8,0,1);
     o.spinAt=num(e.spinAt,0,0,1e15); o.viewer=str(e.viewer,40); o.jit=num(e.jit,0,-0.45,0.45); o.from=num(e.from,0,0,7);
     o.win=Math.round(num(e.win,-1,-1,ROU_MAX-1)); if(o.win>=o.segs.length) o.win=-1;
+    // Запуск зрителями без входа в Twitch: чат-команда (c*) и награда за баллы с вводом текста (r*). Ник в списке всегда обычный текст.
+    const oneOf=(v, list, d)=>list.includes(v) ? v : d, intIn=(v, d, lo, hi)=>Math.round(num(v, d, lo, hi));
+    o.cOn=e.cOn===true; o.cWord=str(e.cWord,24).replace(/\s+/g,'') || '!крутить'; o.cWho=oneOf(e.cWho, ['all','subs','mods'], 'mods');
+    o.cMode=oneOf(e.cMode, ['add','spin'], 'add'); o.cCd=intIn(e.cCd, 10, 0, 3600); o.cLim=intIn(e.cLim, 1, 0, 99);
+    o.rOn=e.rOn===true; o.rId=typeof e.rId==='string' && REWARD_RE.test(e.rId) ? e.rId : ''; o.rOne=e.rOne!==false; o.rWord=str(e.rWord,24).replace(/\s+/g,'');
+    o.rMode=oneOf(e.rMode, ['add','spin'], 'add'); o.rCd=intIn(e.rCd, 5, 0, 3600); o.rLim=intIn(e.rLim, 0, 0, 99);
+    o.vcnt=Object.create(null);   // сколько раз каждый зритель уже запускал (логин → число), для лимита на зрителя
+    if(e.vcnt && typeof e.vcnt==='object') for(const k of Object.keys(e.vcnt).slice(0,ROU_PEOPLE*2)){ if(VOTER_RE.test(k)) o.vcnt[k]=intIn(e.vcnt[k], 0, 0, 999); }
   } else if(type==='raffle'){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');
@@ -469,7 +477,9 @@ function sanitizeState(m){
     hidAll = [];
     for(const e of drawList({ els, raffle })) if(!e.hidden){ e.hidden = true; delete e.ttl; hidAll.push(e.id); }
   }
-  return { visible: true, hidAll, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle, emx, cs2auto: cleanCs2Auto(m?.cs2auto) };
+  // claims: кто из пультов обрабатывает сообщение чата (по id сообщения); так одно сообщение не запускает действие дважды
+  const claims = (Array.isArray(m?.claims) ? m.claims : []).slice(-CLAIMS_MAX).filter(c => c && typeof c.m==='string' && MSGID_RE.test(c.m) && typeof c.o==='string' && /^[\w-]{1,32}$/.test(c.o)).map(c => ({ m:c.m, o:c.o }));
+  return { visible: true, hidAll, els, lang, fonts, vol: num(m?.vol, 1, 0, 1), fxVol: num(m?.fxVol, 1, 0, 1), raffle, emx, cs2auto: cleanCs2Auto(m?.cs2auto), claims };
 }
 // Всё, что рисуется на экране: слои, а розыгрыш отдельным узлом поверх них
 function drawList(s){ return s.raffle ? [...s.els, s.raffle] : s.els; }
@@ -2242,7 +2252,7 @@ const ThirdEmotes = {
 
 // ---------- чат Twitch: анонимное чтение, одно соединение на канал ----------
 function cleanChan(ch){ return (typeof ch==='string' ? ch : '').toLowerCase().replace(/^.*twitch\.tv\//,'').replace(/[^a-z0-9_]/g,'').slice(0,25); }
-const TAG_KEYS=['badges','display-name','id','color','emotes','subscriber','target-msg-id','room-id'];   // the only tags the app reads
+const TAG_KEYS=['badges','display-name','id','color','emotes','subscriber','target-msg-id','room-id','custom-reward-id'];   // the only tags the app reads
 function parseTags(str){
   const raw=new Map();
   for(const kv of (str||'').split(';')){ const i=kv.indexOf('='); if(i<0) continue;
@@ -2267,7 +2277,7 @@ function ircMessage(line){
     const tags=parseTags(m[1]), text=m[3].replace(/^\x01ACTION |\x01$/g,''), badge=badgeOf(tags.badges);
     return { type:'msg', msg:{ id:tags.id||Math.random().toString(36).slice(2,10), login:m[2], user:tags['display-name']||m[2],
       color:/^#[0-9a-f]{6}$/i.test(tags.color||'')?tags.color:nameColor(m[2]), text, emotes:parseEmotes(tags.emotes), badge,
-      mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', rid:RID_RE.test(tags['room-id']||'')?tags['room-id']:'', t:Date.now() } };
+      mod:badge==='mod'||badge==='broadcaster', sub:tags.subscriber==='1'||badge==='sub', rid:RID_RE.test(tags['room-id']||'')?tags['room-id']:'', reward:REWARD_RE.test(tags['custom-reward-id']||'')?tags['custom-reward-id']:'', t:Date.now() } };
   }
   m=line.match(/^(?:@(\S+) )?:\S+ ROOMSTATE #\w+/);
   if(m){ const id=parseTags(m[1])['room-id']; return RID_RE.test(id||'') ? { type:'room', id } : null; }   // id канала: по нему грузятся смайлы 7TV/BTTV/FFZ

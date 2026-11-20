@@ -287,6 +287,24 @@
         <textarea id="iRouPeople" rows="5" placeholder="Один ник в строке. Чтобы шанс был больше: ник x3"></textarea>
         <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouOnce"><span class="tgl-k"></span><span>Выбывает из списка после прокрутки</span></label>
         <div class="row"><button id="rouBack" class="grow" hidden>↩ Вернуть выбывших</button></div>
+        <details id="rouViewers"><summary>💬 Запуск зрителями</summary>
+          <div class="hint u-margin-top-6px">Без входа в Twitch: рулетку запускает команда в чате или награда за баллы. Чат читает пульт.</div>
+          <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouCOn"><span class="tgl-k"></span><span>Команда в чате</span></label>
+          <div class="row"><span class="hint u-width-54px">Слово</span><input type="text" id="iRouCWord" class="grow" maxlength="24" placeholder="!крутить"></div>
+          <div class="row"><span class="hint u-width-54px">Кто может</span><select id="iRouCWho" class="grow"><option value="mods">стример и модераторы</option><option value="subs">сабы и модераторы</option><option value="all">все зрители</option></select></div>
+          <div class="row"><span class="hint u-width-54px">Что делать</span><select id="iRouCMode" class="grow"><option value="add">добавить в участники</option><option value="spin">крутить сразу</option></select></div>
+          <div class="row"><span class="hint">Пауза</span><input class="u-width-64px" type="number" id="iRouCCd" min="0" max="3600"><span class="hint">сек</span><span class="hint">Лимит на зрителя</span><input class="u-width-64px" type="number" id="iRouCLim" min="0" max="99"></div>
+          <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouROn"><span class="tgl-k"></span><span>Награда за баллы с вводом текста</span></label>
+          <div class="row"><input type="text" id="iRouRId" class="grow" readonly placeholder="Награда не выбрана"><button id="rouRDetect" title="Покажет награды, которые только что получили зрители">🔍 Определить награду</button><button id="rouRClear" title="Отвязать награду" hidden>✕</button></div>
+          <div id="rouRSeen" class="hint" hidden></div>
+          <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouROne"><span class="tgl-k"></span><span>Только одно слово в тексте</span></label>
+          <div class="row"><span class="hint u-width-54px">Слово</span><input type="text" id="iRouRWord" class="grow" maxlength="24" placeholder="Необязательно: только это слово"></div>
+          <div class="row"><span class="hint u-width-54px">Что делать</span><select id="iRouRMode" class="grow"><option value="add">добавить в участники</option><option value="spin">крутить сразу</option></select></div>
+          <div class="row"><span class="hint">Пауза</span><input class="u-width-64px" type="number" id="iRouRCd" min="0" max="3600"><span class="hint">сек</span><span class="hint">Лимит на зрителя</span><input class="u-width-64px" type="number" id="iRouRLim" min="0" max="99"></div>
+          <div class="hint">Лимит 0 значит без ограничения. Как создать награду с вводом текста: справка, раздел «Рулетка».</div>
+          <div class="lbl">Пропущено</div>
+          <div id="rouSkipLog" class="hint u-x16"></div>
+        </details>
         <details><summary>🎛 Вид и звук</summary>
           <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouWhoOn"><span class="tgl-k"></span><span>Показывать ник зрителя</span></label>
           <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouOdds"><span class="tgl-k"></span><span>Показывать шанс приза</span></label>
