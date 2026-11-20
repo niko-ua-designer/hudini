@@ -1,5 +1,32 @@
 # Releasing Hudini
 
+## 1.1.0 (branch `v1`)
+
+Version `1.1.0` is in `server/server.js`, `server/package.json`, `app/src-tauri/Cargo.toml` and `tauri.conf.json`.
+The release has exactly three archives, plus the checksums:
+- `HudiniHost-windows-1.1.zip`, `HudiniHost-linux-1.1.zip` and one universal `HudiniHost-mac-1.1.zip` (Apple Silicon and Intel).
+  Each holds a `HudiniHost/` folder (macOS: `Hudini.app`), `hudini-server`, `data/` and README.txt.
+- `SHA256SUMS.txt` and `SHA256SUMS.txt.sig` cover these three zips (same signing key as before).
+- The single-file legacy zips (`HudiniHost-windows.exe.zip`, ...) and the `legacy` job are gone, so rc.3 and older installs no longer update themselves.
+- Windows and Linux keep the `HudiniHost-` names, so 1.0 installs still update themselves. 1.1 picks `HudiniHost-mac-<ver>.zip`
+  (or `Hudini-mac-<ver>.zip`) on both Mac architectures.
+  **1.0.0 on a Mac cannot self-update** (it looks for `mac-arm64` / `mac-intel`): the user downloads 1.1 by hand once and keeps `data/`. The changelog says so.
+
+How the macOS archive is built (one `build` matrix entry, `triple: universal-apple-darwin`): the Bun server is compiled for `bun-darwin-arm64`
+and `bun-darwin-x64` and combined with `lipo` into `binaries/hudini-server-universal-apple-darwin`. Tauri's universal build also needs the two
+per-arch sidecars (`-aarch64-apple-darwin`, `-x86_64-apple-darwin`), which the workflow leaves in place. Both Rust targets are installed;
+the app comes from `target/universal-apple-darwin/release/bundle/macos/Hudini.app`.
+
+Release notes: add a `## 1.1.0` section to `CHANGELOG.md` (EN, RU, UK, DE lines; the heading is exactly the version). The publish job takes the
+section for the tag version, puts it under "What's new" in the release body after the download instructions, and fails if the section is missing.
+
+1. All suites green: `cd tests && node run.js`.
+2. Dry run: Actions -> "Hudini Host release" -> Run workflow on `v1` with "dry_run" checked. Download the mac zip and check it is universal
+   (`lipo -archs` on the binaries in `Hudini.app/Contents/MacOS/` shows `x86_64 arm64`), and that the Windows/Linux layouts are unchanged.
+3. Merge `v1` into `main` (fast-forward) and raise `"panel"` in `web/site/version.json` as needed.
+4. Push the tag `v1.1.0` (strictly `vX.Y.Z`), approve the `release` environment, check the release body and the three zips.
+5. Live test: 1.0.0 -> 1.1.0 self-update on Windows and Linux; fresh Mac install on Apple Silicon and Intel.
+
 ## 1.0.0 (branch `v1`)
 
 One app, Hudini (Tauri 2, `app/`), for both roles; the Bun server runs next to it as the `hudini-server` sidecar.

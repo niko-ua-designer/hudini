@@ -1061,8 +1061,8 @@ function widgetHtml(){
 //   с программой, этим сервером и README. Меняем всё, кроме data/, и запускаем программу с окном заново.
 const REPO = 'niko-ua-designer/hudini';
 const ASSET = { win32:'HudiniHost-windows.exe', linux:'HudiniHost-linux', darwin: os.arch()==='arm64' ? 'HudiniHost-mac-arm64' : 'HudiniHost-mac-intel' }[process.platform];
-const APP_OS = { win32:'windows', linux:'linux', darwin:'macos' }[process.platform];   // для macOS одна universal-сборка
-const ASSET_OS = ASSET.replace(/^HudiniHost-/, '').replace(/\.exe$/, '');   // windows | linux | mac-arm64 | mac-intel
+const APP_OS = { win32:'windows', linux:'linux', darwin:'mac' }[process.platform];   // для macOS одна universal-сборка (Apple Silicon и Intel)
+const ASSET_OS = APP_OS;   // windows | linux | mac: HudiniHost-<система>-<версия>.zip
 // Программа с окном: на macOS это папка «Hudini.app», файл внутри неё; иначе сам файл программы
 const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(APP_EXE) || [])[1] || APP_EXE;
 const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
@@ -1094,7 +1094,7 @@ function pickRelease(list){
 function pickAsset(assets, ver){
   assets = Array.isArray(assets) ? assets : [];
   if(!APP) return assets.find(a => a.name===ASSET+'.zip');
-  // Сейчас релизы выходят как HudiniHost-<система>-<версия>.zip (эти имена ждёт rc.4); Hudini-<система>-<версия>.zip — будущее имя
+  // Релизы выходят как HudiniHost-<система>-<версия>.zip (windows | linux | mac; эти имена ждёт и 1.0); Hudini-<система>-<версия>.zip — будущее имя
   const names = [`Hudini-${APP_OS}`, `HudiniHost-${ASSET_OS}`];
   for(const n of names){ const a = assets.find(a => a.name===`${n}-${prettyVer(ver)}.zip`); if(a) return a; }
   for(const n of names){ const re = new RegExp('^'+n+'-\\d[\\w.]*\\.zip$'), a = assets.find(a => re.test(a.name||'')); if(a) return a; }
