@@ -2512,6 +2512,7 @@ function renderCsHud(el){
   if(document.activeElement!==$('iCsPb')) fillSel($('iCsPb'), el.pb, 'Игрок 2');
   setField(I('iCsCt'), el.ctc); setField(I('iCsT'), el.tc); I('iCsGlow').checked=el.glow; setField(I('iCsFx'), el.fx); setField(I('iCsTheme'), el.theme); I('iCsFlip').checked=el.flip;
   $('csRadarBox').hidden=el.view!=='radar'; I('iCsRbg').checked=el.rbg!==false; I('iCsRmap').checked=el.rmap!==false; setField(I('iCsRds'), String(el.rds??1)); $('vCsRds').textContent=Math.round((el.rds??1)*100)+'%';
+  I('iCsRgr').checked=el.rgr!==false; $('csGrBox').hidden=el.rgr===false; for(const [i,k] of [['iCsRgm','rgm'],['iCsRgh','rgh'],['iCsRgf','rgf'],['iCsRgs','rgs']]) I(i).checked=el[k]!==false; setField(I('iCsGrenStyle'), el.grenStyle==='B'?'B':'A');
   I('iCsKf').checked=!!el.kfeed; $('csKfRow').hidden=!['hud_solo','hud_tour'].includes(el.view);
   setField(I('iCsTnCT'), el.tnCT); setField(I('iCsTnT'), el.tnT); setField(I('iCsSeries'), el.series);
   renderNicks(el);
@@ -2600,6 +2601,9 @@ bindInput('iCsFlip', (el,f)=>el.flip=f.checked, 'change');
 bindInput('iCsRbg', (el,f)=>el.rbg=f.checked, 'change');
 bindInput('iCsRmap', (el,f)=>el.rmap=f.checked, 'change');
 bindInput('iCsRds', (el,f)=>{ el.rds=num(f.value,1,0.5,2.5); $('vCsRds').textContent=Math.round(el.rds*100)+'%'; });
+bindInput('iCsRgr', (el,f)=>el.rgr=f.checked, 'change');
+for(const [i,k] of [['iCsRgm','rgm'],['iCsRgh','rgh'],['iCsRgf','rgf'],['iCsRgs','rgs']]) bindInput(i, (el,f)=>el[k]=f.checked, 'change');
+bindInput('iCsGrenStyle', (el,f)=>el.grenStyle=f.value==='B'?'B':'A', 'change');
 bindInput('iCsKf', (el,f)=>el.kfeed=f.checked, 'change');
 bindInput('iCsTnCT', (el,f)=>el.tnCT=f.value.slice(0,30));
 bindInput('iCsTnT', (el,f)=>el.tnT=f.value.slice(0,30));

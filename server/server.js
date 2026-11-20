@@ -903,6 +903,33 @@ function posOf(p){
   const f = vec3(p?.forward);
   return { pos:v.map(Math.round), ...(f && (f[0] || f[1]) ? { fw:Math.round(Math.atan2(f[1], f[0]) * 180 / Math.PI) } : {}) };
 }
+// Гранаты на радаре (блок allgrenades, CS2 отдаёт его только зрителю): тип из белого списка, числа проверены, количество ограничено, свободного текста нет.
+const GR_TYPE = { flashbang:'flash', flash:'flash', smoke:'smoke', smokegrenade:'smoke', frag:'he', hegrenade:'he', inferno:'molly', molotov:'molly', incgrenade:'molly' };
+const GR_MAX = 40, GR_FLAMES = 60, GR_FLAMES_ALL = 120;
+const grNum = (v, lo, hi) => { const n = typeof v==='number' || typeof v==='string' ? Number(v) : NaN; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
+function grenadesOf(g){
+  const src = g && typeof g==='object' ? (g.allgrenades ?? g.grenades) : null;
+  if(!src || typeof src!=='object' || Array.isArray(src)) return [];
+  const out = []; let flamesLeft = GR_FLAMES_ALL, scanned = 0;
+  for(const key in src){
+    if(++scanned > 200 || out.length >= GR_MAX) break;
+    const e = src[key]; if(!e || typeof e!=='object' || !/^[0-9A-Za-z_-]{1,12}$/.test(key)) continue;
+    const t = typeof e.type==='string' ? GR_TYPE[e.type.toLowerCase()] : null; if(!t) continue;
+    const pos = typeof e.position==='string' ? vec3(e.position) : null; if(!pos || pos.some(n => Math.abs(n) > 100000)) continue;
+    const vel = typeof e.velocity==='string' ? vec3(e.velocity) : null, v = vel && vel.every(n => Math.abs(n) < 100000) ? vel : [0, 0, 0];
+    const owner = typeof e.owner==='string' ? e.owner : '', ow = owner && g.allplayers && typeof g.allplayers==='object' && Object.hasOwn(g.allplayers, owner) ? g.allplayers[owner] : null;
+    const tm = ow?.team==='CT' || ow?.team==='T' ? ow.team : '';
+    const fl = [];
+    if(t==='molly' && e.flames && typeof e.flames==='object') for(const k in e.flames){
+      if(fl.length >= GR_FLAMES || flamesLeft <= 0) break;
+      const f = typeof e.flames[k]==='string' ? vec3(e.flames[k]) : null; if(f && f.every(n => Math.abs(n) < 100000)){ fl.push([Math.round(f[0]), Math.round(f[1])]); flamesLeft--; }
+    }
+    const et = grNum(e.effecttime, 0, 120) ?? 0;
+    const s = (t==='smoke' && et > 0) || (t==='molly' && fl.length) ? 2 : (Math.hypot(v[0], v[1], v[2]) < 1 ? 1 : 0);
+    out.push({ i:key, t, tm, p:pos.map(Math.round), v:[Math.round(v[0]), Math.round(v[1])], s, ...(et ? { e:Math.round(et*10)/10 } : {}), ...(fl.length ? { f:fl } : {}) });
+  }
+  return out;
+}
 function compactGsi(g){
   const me = g.provider?.steamid, p = g.player || {}, own = !!me && p.steamid === me;
   const st = p.state || {}, ms = p.match_stats || {};
@@ -931,6 +958,7 @@ function compactGsi(g){
     out.spec=true;
     out.players=Object.entries(g.allplayers).slice(0,12).map(([id,pl])=>shortPlayer(pl, id));
     if(p.steamid) out.obs=p.steamid;
+    const gr = grenadesOf(g); if(gr.length) out.gr = gr;
   }
   if(!own && p.name) out.observed=shortPlayer(p, p.steamid);
 
@@ -1228,6 +1256,8 @@ function gsiCfgText(){
     "allplayers_position"    "1"
     "phase_countdowns"       "1"
     "bomb"                   "1"
+    "allgrenades"            "1"
+    "grenades"               "1"
   }
 }
 `;
