@@ -351,7 +351,25 @@ async function onMessage(topic, payload, packet){
 const GEOM_KEYS=['x','y','rot','fs','w','hh','bw','bh','crop'];
 function isGeom(m){ return m==='move' || m==='grp'; }
 function dragIds(){ return isGeom(drag.mode) ? drag.items.map(i=>i.id) : [drag.id]; }
+// Кто обрабатывает сообщение чата, когда его видят несколько пультов: первый записывает себя в state.claims,
+// при споре побеждает меньший clientId. Действие выполняется через CLAIM_WAIT, когда чужие записи уже пришли.
+const CLAIM_WAIT=450;
+function mergeClaims(s){
+  const out=[...(s.claims||[])], idx=new Map(out.map((c,i)=>[c.m, i])); let extra=false;
+  for(const c of state.claims||[]){
+    const i=idx.get(c.m);
+    if(i==null){ idx.set(c.m, out.length); out.push(c); extra=true; }
+    else if(c.o<out[i].o){ out[i]=c; extra=true; }
+  }
+  s.claims=out.slice(-CLAIMS_MAX); return extra;
+}
+function claimChat(mid, fn){
+  if(!mid){ fn(); return; }
+  if(!(state.claims||[]).some(c=>c.m===mid)){ state.claims=[...(state.claims||[]), { m:mid, o:clientId }].slice(-CLAIMS_MAX); publishNow(1); }
+  setTimeout(()=>{ const c=(state.claims||[]).find(x=>x.m===mid); if(c && c.o===clientId) fn(); }, CLAIM_WAIT);
+}
 function acceptState(s, t){
+  if(mergeClaims(s)) scheduleSend();
   if(mergeChat(s, t)) scheduleSend();   // наши голоса и сообщения, которых в чужом экране ещё нет: дошлём
   if(window.Draw?.merge(s)) scheduleSend();   // наши штрихи рисунка, которых там ещё нет
   if(changeOpen) rebaseChange(s);
@@ -409,7 +427,7 @@ function publishNow(qos=0){
   window.Draw?.beforeSend();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
   const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, fonts:state.fonts||[], emx:emxNow(), cs2auto:taCfg() };
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, claims:state.claims||[], fonts:state.fonts||[], emx:emxNow(), cs2auto:taCfg() };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -457,7 +475,7 @@ function canonJSON(v){
   return v===undefined ? 'null' : JSON.stringify(v);
 }
 // поля, которые меняет чат или время сами по себе: при сравнении не считаются чужой правкой
-function undoVolatile(e){ return e.type==='poll' ? ['vk','votes'] : e.type==='counter' ? (e.cmode==='chat' ? ['cids','value'] : ['cids']) : e.type==='raffle' ? ['n'] : []; }
+function undoVolatile(e){ return e.type==='poll' ? ['vk','votes'] : e.type==='counter' ? (e.cmode==='chat' ? ['cids','value'] : ['cids']) : e.type==='raffle' ? ['n'] : e.type==='roulette' ? ['vcnt', ...(e.cOn||e.rOn ? ['people','used'] : [])] : []; }
 function elCanon(e){
   if(!e) return 'null';
   const o={ ...(sanitizeElSafe(e)||e) };
@@ -1880,6 +1898,14 @@ function mergeChat(s, t=Infinity){
         if(has ? fresh : n<VK_MAX){ if(!has) n++; r.vk[k]=i; added=true; }
       }
       if(added) r.votes=pollTally(r.vk, r.opts.length);
+    } else if(r.type==='roulette'){
+      for(const [k, v] of Object.entries(l.vcnt||{})) if(v>(r.vcnt[k]||0)){ r.vcnt[k]=v; added=true; }   // счётчики зрителей: берём большее
+      if(pend) for(const [k, t] of pend){
+        if(t<now-PEND_MS){ pend.delete(k); continue; }
+        if(!k.startsWith('p:')) continue;
+        const n=k.slice(2), low=n.toLowerCase(), has=a=>(a||[]).some(p=>p.n.toLowerCase()===low);
+        if(!has(r.people) && !has(r.used) && has(l.people) && r.people.length<ROU_PEOPLE){ r.people.push({ n, w:1 }); added=true; }   // наш участник, которого чужой экран ещё не видел
+      }
     } else if(r.type==='counter' && r.cmode==='chat' && pend){
       const ids=new Set(r.cids);
       for(const [id, t] of pend){
@@ -2177,7 +2203,16 @@ renderCmd();
 function onChat(user, text, msg){
   if(chatCommand(text, msg)) return;
   const rafAny=rafOnChat(user, text, msg);
-  if(msg) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
+  if(msg){
+    if(msg.reward) noteReward(msg, text);
+    const rEl=state.els.find(e=>e.type==='roulette'), rk=rouKind(rEl, text, msg);
+    const scn=$('scnRun').checked && scnList().some(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg }));
+    if(rk || scn) claimChat(MSGID_RE.test(msg.id||'') ? msg.id : null, ()=>{   // одно сообщение в нескольких пультах: действие у одного
+      if(scn) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
+      const el=state.els.find(e=>e.type==='roulette');
+      if(rk && el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
+    });
+  }
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
   const vm=text.trim().match(/^!?([1-6])$/);
@@ -2695,6 +2730,72 @@ function rouLive(){
   if(r){ const busy=rouBusy(r, now); $('rouSpin').disabled=busy; $('rouTest').disabled=busy; }
 }
 setInterval(rouLive, 400);
+// ---- запуск рулетки зрителями: чат-команда и награда за баллы (без входа в Twitch) ----
+const rouSkipped=[], rouSeenRw=new Map(), rouLastRun={ c:0, r:0 }, rouRate={ c:[], r:[] }, ROU_PER_MIN=20;
+const trp=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
+function rouSkip(msg, text, why){
+  rouSkipped.unshift({ t:Date.now(), u:String(msg?.user||msg?.login||'?').slice(0,40), x:String(text||'').slice(0,60), why });
+  rouSkipped.length=Math.min(rouSkipped.length, 30);
+  if(!$('rouSkipLog').hidden) renderRouSkip();
+}
+function renderRouSkip(){
+  const b=$('rouSkipLog'); b.dataset.i18nSkip=''; b.style.whiteSpace='pre-line';
+  b.textContent = rouSkipped.length ? rouSkipped.map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} ${x.u}: «${x.x}» — ${trp(x.why)}`).join('\n') : '—';
+}
+// какая сторона рулетки ждёт это сообщение: 'r' награда, 'c' команда, null ничего
+function rouKind(el, text, msg){
+  if(!el || !msg) return null;
+  if(msg.reward) return el.rOn && el.rId && msg.reward===el.rId ? 'r' : null;
+  if(!el.cOn) return null;
+  const w=el.cWord.toLowerCase(), low=text.trim().toLowerCase();
+  return w && (low===w || low.startsWith(w+' ')) ? 'c' : null;
+}
+const rouNick=(msg)=>String(msg.user||msg.login||'').replace(/[\p{C}\p{Z}<>]+/gu, ' ').trim().slice(0,40);
+function rouFromChat(el, kind, text, msg){
+  const c=kind==='c', who=c ? el.cWho : 'all', mode=c ? el.cMode : el.rMode, cd=(c ? el.cCd : el.rCd)*1000, lim=c ? el.cLim : el.rLim;
+  const skip=why=>{ rouSkip(msg, text, why); return false; };
+  if(who==='mods' && !msg.mod) return skip('нет прав');
+  if(who==='subs' && !(msg.sub || msg.mod)) return skip('нет прав');
+  if(!c){
+    const words=text.trim().split(/\s+/).filter(Boolean);
+    if(el.rOne && words.length!==1) return skip('в тексте не одно слово');
+    if(el.rWord && (words[0]||'').toLowerCase()!==el.rWord.toLowerCase()) return skip('не то слово');
+  }
+  if(!el.vcnt) el.vcnt=Object.create(null);
+  const login=String(msg.login||'').toLowerCase(), nick=rouNick(msg);
+  if(!VOTER_RE.test(login) || !nick) return skip('странный ник');
+  const now=Date.now(), rate=rouRate[kind];
+  while(rate.length && now-rate[0]>=60000) rate.shift();
+  if(now-rouLastRun[kind]<cd) return skip('пауза');
+  if(rate.length>=ROU_PER_MIN) return skip('слишком часто');
+  if(lim>0 && (el.vcnt[login]||0)>=lim) return skip('лимит на зрителя');
+  if(mode==='add'){
+    const low=nick.toLowerCase(), has=l=>(l||[]).some(p=>p.n.toLowerCase()===low);
+    if(has(el.people) || has(el.used)) return skip('уже в списке');
+    if(el.people.length>=ROU_PEOPLE) return skip('список участников полон');
+    el.people=[...el.people, { n:nick, w:1 }]; pendMark(el.id, 'p:'+nick);
+  } else {
+    if(rouBusy(el, nowMs())) return skip('рулетка занята');
+    if(roulettePrize(el, 0.5)<0) return skip('нет призов');
+    if(!rouSpin(el, nick, false)) return skip('не получилось');
+  }
+  if(lim>0 || mode==='add') el.vcnt[login]=Math.min(999, (el.vcnt[login]||0)+1);
+  rouLastRun[kind]=now; rate.push(now);
+  return true;
+}
+function noteReward(msg, text){
+  rouSeenRw.delete(msg.reward); rouSeenRw.set(msg.reward, { u:rouNick(msg), x:String(text||'').slice(0,40), t:Date.now() });
+  while(rouSeenRw.size>8) rouSeenRw.delete(rouSeenRw.keys().next().value);
+  if(!$('rouRSeen').hidden) renderRouSeen();
+}
+function renderRouSeen(){
+  const box=$('rouRSeen'); box.dataset.i18nSkip=''; box.replaceChildren();
+  if(!rouSeenRw.size){ const d=document.createElement('div'); d.textContent=trp('Пока ни одной награды с вводом текста не было. Получи её сам (или попроси друга), потом нажми кнопку снова.'); box.appendChild(d); return; }
+  for(const [id, v] of [...rouSeenRw].reverse()){
+    const b=document.createElement('button'); b.className='grow'; b.dataset.rw=id; b.style.textAlign='left';
+    b.textContent=`${v.u}: «${v.x}» · ${id.slice(0,8)}…`; box.appendChild(b);
+  }
+}
 function renderRouTab(){
   const el=rouEl();
   $('rouEmpty').hidden=!!el; $('rouBody').hidden=!el;
@@ -2704,6 +2805,10 @@ function renderRouTab(){
   setField(I('iRouVol'), String(el.vol)); setField(I('iRouHide'), String(el.hideAfter)); setField(I('iRouSize'), String(el.fs)); $('vRouSize').textContent=el.fs.toFixed(1);
   I('iRouOnce').checked=el.once; I('iRouWhoOn').checked=el.who; I('iRouOdds').checked=el.odds; I('iRouShow').checked=!el.hidden;
   setField($('iRouPeople'), peopleText(el.people));
+  I('iRouCOn').checked=el.cOn; setField(I('iRouCWord'), el.cWord); setField(I('iRouCWho'), el.cWho); setField(I('iRouCMode'), el.cMode); setField(I('iRouCCd'), String(el.cCd)); setField(I('iRouCLim'), String(el.cLim));
+  I('iRouROn').checked=el.rOn; setField(I('iRouRId'), el.rId); $('rouRClear').hidden=!el.rId; I('iRouROne').checked=el.rOne; setField(I('iRouRWord'), el.rWord);
+  setField(I('iRouRMode'), el.rMode); setField(I('iRouRCd'), String(el.rCd)); setField(I('iRouRLim'), String(el.rLim));
+  if($('rouViewers').open) renderRouSkip();
   $('rouPeopleN').textContent=`· ${el.people.length}` + (el.used?.length ? ` · выбыло ${el.used.length}` : '');
   $('rouBack').hidden=!el.used?.length;
   const total=el.prizes.reduce((a,x)=>a+x.w,0);
@@ -2759,6 +2864,22 @@ bindU('iRouOnce', (el,f)=>el.once=f.checked, 'change');
 bindU('iRouWhoOn', (el,f)=>el.who=f.checked, 'change');
 bindU('iRouOdds', (el,f)=>el.odds=f.checked, 'change');
 bindU('iRouShow', (el,f)=>el.hidden=!f.checked, 'change');
+bindU('iRouCOn', (el,f)=>el.cOn=f.checked, 'change');
+bindU('iRouCWord', (el,f)=>el.cWord=f.value.replace(/\s+/g,'').slice(0,24) || '!крутить', 'change');
+bindU('iRouCWho', (el,f)=>el.cWho=['all','subs','mods'].includes(f.value) ? f.value : 'mods', 'change');
+bindU('iRouCMode', (el,f)=>el.cMode=f.value==='spin' ? 'spin' : 'add', 'change');
+bindU('iRouCCd', (el,f)=>el.cCd=Math.round(num(f.value,10,0,3600)));
+bindU('iRouCLim', (el,f)=>el.cLim=Math.round(num(f.value,1,0,99)));
+bindU('iRouROn', (el,f)=>el.rOn=f.checked, 'change');
+bindU('iRouROne', (el,f)=>el.rOne=f.checked, 'change');
+bindU('iRouRWord', (el,f)=>el.rWord=f.value.replace(/\s+/g,'').slice(0,24), 'change');
+bindU('iRouRMode', (el,f)=>el.rMode=f.value==='spin' ? 'spin' : 'add', 'change');
+bindU('iRouRCd', (el,f)=>el.rCd=Math.round(num(f.value,5,0,3600)));
+bindU('iRouRLim', (el,f)=>el.rLim=Math.round(num(f.value,0,0,99)));
+$('rouRDetect').onclick=()=>{ const b=$('rouRSeen'); b.hidden=!b.hidden; if(!b.hidden) renderRouSeen(); };
+$('rouRSeen').addEventListener('click', e=>{ const id=e.target.closest('button')?.dataset.rw; if(!id || !REWARD_RE.test(id)) return; actU(el=>{ el.rId=id; el.rOn=true; }); $('rouRSeen').hidden=true; });
+$('rouRClear').onclick=()=>actU(el=>{ el.rId=''; el.rOn=false; });
+$('rouViewers').addEventListener('toggle', ()=>{ if($('rouViewers').open) renderRouSkip(); });
 $('iRouPeople').addEventListener('change', e=>actU(el=>{ el.people=parsePeople(e.target.value); }));
 $('cMinus').onclick=()=>act(el=>el.value-=el.step);
 $('cReset').onclick=()=>act(el=>{ el.value=0; el.startAt=Date.now(); chatSeen.delete(el.id); });
