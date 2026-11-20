@@ -52,8 +52,8 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const zip = zipOne(path.join(rel, ASSET), 'Hudini/' + ASSET);   // same layout as the portable release zip
   fs.writeFileSync(path.join(rel, ASSET + '.zip'), zip);
   // Release layout of the app (window and tray), as .github/workflows/host.yml builds it: HudiniHost-<os>-<version>.zip
-  // (the names rc.4 looks for), folder «HudiniHost/» with several files
-  const APP_OS = ASSET.replace(/^HudiniHost-/, '').replace(/\.exe$/, '');
+  // (windows | linux | one universal mac archive), folder «HudiniHost/» with several files
+  const APP_OS = { win32:'windows', linux:'linux', darwin:'mac' }[process.platform];   // real asset names: HudiniHost-{windows,linux,mac}-<ver>.zip
   const APP_ZIP = `HudiniHost-${APP_OS}-1.0.zip`;
   const newServer = fs.readFileSync(path.join(rel, ASSET));
   const fakeApp = '#!/bin/sh\necho "$@" > "$(dirname "$0")/launched.txt"\n';   // the new «app»: records how it was started
