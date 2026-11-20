@@ -681,6 +681,29 @@
 .cs2 .rd-dot.dead{background:none;box-shadow:none;opacity:.7;z-index:1}
 .cs2 .rd-dot.dead b{color:var(--tc);font-size:1em}
 .cs2 .rd-dot.other{opacity:.35}
+/* гранаты на радаре: значок + след + зона (стиль A), точки и простые зоны (стиль B, .gs-b) */
+.cs2 .rd-tr{position:absolute;inset:0;width:100%;height:100%;font-size:var(--ds,.6em);pointer-events:none;overflow:visible}
+.cs2 .rd-trail{fill:none;stroke:var(--tc,#fff);stroke-width:.2em;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;opacity:.35}
+.cs2 .rd-trail.new{opacity:.85}.cs2 .rd-trail.other{opacity:.15}
+.cs2 .rd-trail.tm-ct,.cs2 .rd-gr.tm-ct,.cs2 .rd-zone.tm-ct,.cs2 .rd-burst.tm-ct{--tc:var(--ct,#5d9cec)}
+.cs2 .rd-trail.tm-t,.cs2 .rd-gr.tm-t,.cs2 .rd-zone.tm-t,.cs2 .rd-burst.tm-t{--tc:var(--tt,#e0a030)}
+.cs2 .rd-gr{position:absolute;font-size:var(--ds,.6em);width:.95em;height:.95em;margin:-.475em 0 0 -.475em;color:var(--tc,#fff);filter:drop-shadow(0 0 .2em #000);z-index:2;transition:left .1s linear,top .1s linear}
+.cs2 .rd-gr .hi{width:100%;height:100%}.cs2 .rd-gr i{display:none}
+.cs2 .rd-gr.land{opacity:.8}.cs2 .rd-gr.eff{opacity:.55}.cs2 .rd-gr.other{opacity:.3}
+.cs2 .rd-zone{position:absolute;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:0}
+.cs2 .rd-zone.smoke{background:radial-gradient(circle,#c8ccd6d9 0,#a9afbcc0 60%,#8d93a090 100%);box-shadow:0 0 0 .12em var(--tc,#fff)}
+.cs2 .rd-zone.fire{background:radial-gradient(circle,#ffb020d0 0,#ff6a1ac0 55%,#ff3a0a50 100%);box-shadow:0 0 .5em #ff7a1a}
+.cs2 .rd-zone.other{filter:opacity(.35)}
+.cs2 .rd-burst{position:absolute;aspect-ratio:1;transform:translate(-50%,-50%) scale(.2);border-radius:50%;pointer-events:none;z-index:1;animation:rd-burst .6s ease-out forwards}
+.cs2 .rd-burst.he{border:.18em solid #ff5a3a;background:#ff5a3a30;box-shadow:0 0 .6em #ff5a3a}
+.cs2 .rd-burst.flash{background:radial-gradient(circle,#fff 0,#ffffffa0 50%,#fff0 100%)}
+@keyframes rd-burst{to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.cs2 .gs-b .rd-gr .hi{display:none}
+.cs2 .gs-b .rd-gr i{display:block;width:.6em;height:.6em;margin:.175em;border-radius:50%;background:var(--gc,#fff);box-shadow:0 0 0 .13em var(--tc,#fff)}
+.cs2 .gs-b .gt-smoke{--gc:#b9bec9}.cs2 .gs-b .gt-molly{--gc:#ff8a1a}.cs2 .gs-b .gt-he{--gc:#ff4d4d}.cs2 .gs-b .gt-flash{--gc:#fff}
+.cs2 .gs-b .rd-zone{box-shadow:none;border:.1em solid var(--tc,#fff)}
+.cs2 .gs-b .rd-zone.smoke{background:#b9bec966}.cs2 .gs-b .rd-zone.fire{background:#ff8a1a66}
+.cs2 .gs-b .rd-burst{animation-duration:.4s}
 .cs2 .rd-bomb{position:absolute;font-size:var(--ds,.6em);width:.95em;height:.95em;margin:-.475em 0 0 -.475em;color:#ff4d5e;filter:drop-shadow(0 0 .25em #ff4d5e);transition:left .25s linear,top .25s linear;z-index:2}
 .cs2 .rd-bomb .hi{width:100%;height:100%}
 .cs2 .rd-bomb.planted{animation:rd-blink 1s infinite}

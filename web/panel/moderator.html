@@ -600,6 +600,11 @@
         <label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsRbg"><span class="tgl-k"></span><span>Фон карточки <span class="hint">(рамка, плашка и сетка за картой)</span></span></label>
         <label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsRmap"><span class="tgl-k"></span><span>Подложка карты <span class="hint">(выкл.: только точки)</span></span></label>
         <div class="row"><span class="hint">Значки игроков</span><input type="range" id="iCsRds" min="0.5" max="2.5" step="0.05" class="grow"><span class="hint u-width-36px-text-align-right" id="vCsRds"></span></div>
+        <label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsRgr"><span class="tgl-k"></span><span>Гранаты на радаре <span class="hint">(полёт и зона действия)</span></span></label>
+        <div id="csGrBox">
+          <div class="row"><label class="chk"><input type="checkbox" id="iCsRgm"> Молотов</label><label class="chk"><input type="checkbox" id="iCsRgh"> HE</label><label class="chk"><input type="checkbox" id="iCsRgf"> Флешка</label><label class="chk"><input type="checkbox" id="iCsRgs"> Дым</label></div>
+          <div class="row"><span class="hint">Вид гранат</span><select id="iCsGrenStyle" class="grow"><option value="A">Значки со следом</option><option value="B">Минимализм: точки</option></select></div>
+        </div>
       </div>
       <label class="tgl u-margin-top-6px"><input type="checkbox" id="iCsFlip"><span class="tgl-k"></span><span>Флип-цифры в стате <span class="hint">(кроме HP)</span></span></label>
       <div id="csHud">

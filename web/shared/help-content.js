@@ -118,6 +118,7 @@ ru: {
 <li><b>Авто-таб</b>: анимированная таблица со всеми игроками (K/D, ADR, HS%, деньги, оружие, счёт, серия). Появляется сама на тактических таймаутах и паузе, при смене сторон и в конце карты с итогами и MVP. Тумблер и выбор моментов во вкладке CS2, есть четыре стиля.</li>
 <li><b>Номера игроков.</b> В авто-табе есть переключатель: «как в игре» (клавиши наблюдателя CS2) или «по порядку в худе» (слева 1–5, справа 6–0).</li>
 <li><b>Радар</b>: где стоит каждый игрок, цвет команды, номер слота, мёртвые и бомба. Фирменные карты в трёх темах.</li>
+<li><b>Гранаты на радаре</b>: молотов, HE, флешка и дым летят со следом и оставляют зону действия. Включается в настройках радара, типы и вид (значки со следом или точки) выбираются там же. Нужен файл CS2 из Hudini Host: после обновления нажми «Подключить CS2» и перезапусти игру. Работает, когда ты смотришь матч зрителем.</li>
 </ul>`],
 ['perms', 'Права модераторов и док OBS', `
 <p><b>Права.</b> В настройках Hudini стример выбирает, что разрешено модераторам. Четыре галочки, все включены по умолчанию: звуки и видео; сайты и файлы; чат, рисование и эффекты; кейсы, розыгрыши, опросы и CS2. Выключенное пропадает из пульта и не проходит на стрим.</p>
@@ -289,6 +290,7 @@ en: {
 <li><b>Auto scoreboard</b>: an animated table with all players (K/D, ADR, HS%, money, weapon, score, series). It appears on its own during tactical timeouts and pauses, at the side switch and at the end of the map with results and MVP. The switch and the choice of moments are in the CS2 tab, and there are four styles.</li>
 <li><b>Player numbers.</b> The auto scoreboard has a switch: "as in the game" (the CS2 spectator keys) or "in HUD order" (left 1–5, right 6–0).</li>
 <li><b>Radar</b>: where each player stands, team colour, slot number, the dead and the bomb. Branded maps in three themes.</li>
+<li><b>Grenades on the radar</b>: molotovs, HE, flashes and smokes fly with a trail and leave their effect zone. Switch it on in the radar settings, where you also pick the types and the look (icons with a trail or plain dots). It needs the CS2 file from Hudini Host: after updating press "Connect CS2" and restart the game. It works while you watch a match as a spectator.</li>
 </ul>`],
 ['perms', 'Moderator permissions and the OBS dock', `
 <p><b>Permissions.</b> In Hudini's settings the streamer chooses what moderators may do. Four ticks, all on by default: sounds and video; websites and files; chat, drawing and effects; cases, giveaways, polls and CS2. Whatever is off disappears from the panel and does not reach the stream.</p>
@@ -460,6 +462,7 @@ uk: {
 <li><b>Авто-таб</b>: анімована таблиця з усіма гравцями (K/D, ADR, HS%, гроші, зброя, рахунок, серія). З'являється сама на тактичних таймаутах і паузі, під час зміни сторін і в кінці карти з підсумками та MVP. Перемикач і вибір моментів на вкладці CS2, є чотири стилі.</li>
 <li><b>Номери гравців.</b> В авто-табі є перемикач: «як у грі» (клавіші спостерігача CS2) або «за порядком у худі» (ліворуч 1–5, праворуч 6–0).</li>
 <li><b>Радар</b>: де стоїть кожен гравець, колір команди, номер слота, мертві й бомба. Фірмові карти в трьох темах.</li>
+<li><b>Гранати на радарі</b>: молотов, HE, флешка й дим летять зі слідом і лишають зону дії. Вмикається в налаштуваннях радара, типи й вигляд (значки зі слідом або точки) обираються там же. Потрібен файл CS2 з Hudini Host: після оновлення натисни «Підключити CS2» і перезапусти гру. Працює, коли ти дивишся матч глядачем.</li>
 </ul>`],
 ['perms', 'Права модераторів і док OBS', `
 <p><b>Права.</b> У налаштуваннях Hudini стример обирає, що дозволено модераторам. Чотири галочки, усі ввімкнені за замовчуванням: звуки й відео; сайти й файли; чат, малювання й ефекти; кейси, розіграші, опитування й CS2. Вимкнене зникає з пульта й не проходить на стрім.</p>
@@ -631,6 +634,7 @@ de: {
 <li><b>Auto-Tab</b>: eine animierte Tabelle mit allen Spielern (K/D, ADR, HS%, Geld, Waffe, Stand, Serie). Sie erscheint von selbst bei taktischen Auszeiten und Pausen, beim Seitenwechsel und am Kartenende mit Ergebnis und MVP. Schalter und Auswahl der Momente sind im CS2-Tab, es gibt vier Stile.</li>
 <li><b>Spielernummern.</b> Der Auto-Tab hat einen Schalter: „wie im Spiel“ (die Zuschauertasten von CS2) oder „in HUD-Reihenfolge“ (links 1–5, rechts 6–0).</li>
 <li><b>Radar</b>: wo jeder Spieler steht, Teamfarbe, Slot-Nummer, Tote und die Bombe. Eigene Karten in drei Themen.</li>
+<li><b>Granaten auf dem Radar</b>: Molotow, HE, Flash und Rauch fliegen mit Spur und lassen ihre Wirkungszone zurück. Das schaltest du in den Radar-Einstellungen ein, dort wählst du auch Typen und Look (Symbole mit Spur oder einfache Punkte). Nötig ist die CS2-Datei aus Hudini Host: nach dem Update "CS2 verbinden" drücken und das Spiel neu starten. Funktioniert, wenn du ein Match als Zuschauer ansiehst.</li>
 </ul>`],
 ['perms', 'Rechte der Moderatoren und das OBS-Dock', `
 <p><b>Rechte.</b> In den Einstellungen von Hudini legt der Streamer fest, was Moderatoren dürfen. Vier Häkchen, standardmäßig alle an: Sounds und Videos; Websites und Dateien; Chat, Zeichnen und Effekte; Cases, Verlosungen, Umfragen und CS2. Was aus ist, verschwindet aus dem Pult und gelangt nicht in den Stream.</p>

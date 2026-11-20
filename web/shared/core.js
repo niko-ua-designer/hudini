@@ -259,6 +259,8 @@ function sanitizeEl(e){
     o.nicks=cleanNicks(e.nicks);
     o.series=str(e.series,120); o.pick=str(e.pick,40); o.pa=str(e.pa,40); o.pb=str(e.pb,40);
     o.rbg=e.rbg!==false; o.rmap=e.rmap!==false;   // радар: рамка с плашкой и сеткой; сама картинка карты
+    o.rgr=e.rgr!==false; o.rgm=e.rgm!==false; o.rgh=e.rgh!==false; o.rgf=e.rgf!==false; o.rgs=e.rgs!==false;   // гранаты на радаре: всего и по типам (молотов, HE, флешка, дым)
+    o.grenStyle=e.grenStyle==='B' ? 'B' : 'A';   // A: значки со следом и зоны, B: точки без следа и простые зоны
     o.rds=num(e.rds,1,0.5,2.5);   // размер значков радара: множитель от маленького по умолчанию
     o.theme=['classic','glass','ko'].includes(e.theme)?e.theme:'glass'; o.flip=!!e.flip; o.kfeed=!!e.kfeed;   // свой киллфид в HUD (kf занят анимацией движения)
     if(CS2_FULL.has(o.view)){ o.x=50; o.y=50; o.rot=0; }
@@ -2137,17 +2139,89 @@ function radarDims(map){
   const b=typeof cs2MapBox==='function' ? cs2MapBox(map) : [0,0,1,1], bw=b[2]-b[0], bh=b[3]-b[1], k=RADAR_SIDE/Math.max(bw, bh);
   return { w:bw*k, h:bh*k, b };
 }
+// ---- гранаты на радаре ----
+// Хост присылает d.gr: [{ i, t:'molly'|'he'|'flash'|'smoke', tm:'CT'|'T'|'', p:[x,y,z], v:[vx,vy], s:0 летит|1 лежит|2 действует, e?, f?:[[x,y]…] }].
+// История позиций (след) и время начала эффекта хранятся здесь, в карточке; пакеты с гранатами идут до 10 раз в секунду.
+const GR_TRAIL = 8, GR_SMOKE_R = 144, GR_FIRE_R = 120, GR_FLAME_R = 55, GR_SMOKE_T = 18, GR_FIRE_T = 7;
+const GR_BURST = { he:{ r:140, ms:650 }, flash:{ r:90, ms:450 } };
+const grOn = (el, t) => el.rgr!==false && el[{ molly:'rgm', he:'rgh', flash:'rgf', smoke:'rgs' }[t]]!==false;
+// нужные радару гранаты: только включённые типы, не больше 40, с числами нужной формы (данные пришли из сети)
+function grList(el, d){
+  const out=[]; if(!Array.isArray(d?.gr)) return out;
+  for(const g of d.gr.slice(0,40)){
+    if(!g || typeof g!=='object' || !['molly','he','flash','smoke'].includes(g.t) || !grOn(el, g.t)) continue;
+    if(!Array.isArray(g.p) || g.p.length<2 || !g.p.every(Number.isFinite) || !/^[0-9A-Za-z_-]{1,12}$/.test(String(g.i))) continue;
+    out.push({ i:String(g.i), t:g.t, tm:g.tm==='T'?'T':g.tm==='CT'?'CT':'', p:g.p.slice(0,3), s:g.s===2?2:g.s===1?1:0,
+      f:Array.isArray(g.f) ? g.f.slice(0,60).filter(f=>Array.isArray(f) && Number.isFinite(f[0]) && Number.isFinite(f[1])) : [] });
+  }
+  return out;
+}
+// Размеры и прозрачность зоны по времени от начала эффекта (сек): дым сжимается в конце, огонь гаснет
+function grZoneLook(t, age){
+  if(t==='smoke'){ const left=GR_SMOKE_T-age; return { scale: left<1.5 ? Math.max(0.15, left/1.5) : Math.min(1, 0.4+age*1.5), op: left<1.5 ? Math.max(0.1, left/1.5) : 1 }; }
+  const left=GR_FIRE_T-age; return { scale:1, op: left<2 ? Math.max(0.15, left/2) : 1 };
+}
+function paintGrenades(r, el, d, uv, map, lower, place, seen){
+  const now=Date.now(), list=grList(el, d), B=el.grenStyle==='B', gh=r.gh ||= new Map();
+  r.box.classList.toggle('gs-b', B);
+  const k=(()=>{ const a=uv([0,0]), b=uv([1000,0]); return a&&b ? Math.hypot(b[0]-a[0], b[1]-a[1])/1000 : 0; })();
+  const ids=new Set(), pt=[];
+  for(const g of list){
+    const q=uv(g.p); if(!q) continue;
+    ids.add(g.i);
+    let hs=gh.get(g.i); if(!hs){ hs={ trail:[], eff0:0 }; gh.set(g.i, hs); }
+    hs.t=g.t; hs.tm=g.tm; hs.p=g.p; hs.s=g.s; hs.at=now;
+    const last=hs.trail[hs.trail.length-1];
+    if(!last || last[0]!==q[0] || last[1]!==q[1]){ hs.trail.push(q); if(hs.trail.length>GR_TRAIL) hs.trail.shift(); }
+    if(g.s===2 && !hs.eff0) hs.eff0=now;
+    const other=typeof cs2Lower==='function' && cs2Lower(map, g.p)!==lower, tcls='tm-'+(g.tm==='T'?'t':'ct');
+    // зона действия
+    if(g.s===2 && k && (g.t==='smoke' || g.t==='molly')){
+      const lk=grZoneLook(g.t, (now-hs.eff0)/1000);
+      const spots=g.t==='molly' && g.f.length ? g.f.map(f=>[f[0], f[1], GR_FLAME_R]) : [[g.p[0], g.p[1], g.t==='smoke' ? GR_SMOKE_R : GR_FIRE_R]];
+      spots.forEach((sp, j)=>{
+        const key='z'+g.i+'.'+j; seen.add(key); let n=r.map.get(key);
+        if(!n){ n=h('div','rd-zone'); r.dots.appendChild(n); r.map.set(key, n); }
+        n.className='rd-zone '+(g.t==='smoke'?'smoke':'fire')+' '+tcls+(other?' other':'');
+        n.style.width=n.style.height=(sp[2]*2*k*100*lk.scale).toFixed(2)+'%'; n.style.opacity=lk.op.toFixed(2);
+        n.hidden=!place(n, [sp[0], sp[1], 0]);
+      });
+    }
+    // значок
+    const key='g'+g.i; seen.add(key); let n=r.map.get(key);
+    if(!n){ n=h('div','rd-gr'); n.append(hudIc(g.t==='molly'?'molly':g.t), h('i')); r.dots.appendChild(n); r.map.set(key, n); }
+    n.className='rd-gr gt-'+g.t+' '+tcls+(g.s===0?' fly':g.s===1?' land':' eff')+(other?' other':'');
+    n.hidden=!place(n, g.p);
+    if(!B && g.s!==2 && hs.trail.length>1) pt.push([hs.trail, tcls, other]);
+  }
+  // гранаты, которых больше нет: HE и флешка взорвались на месте последней позиции
+  for(const [id,hs] of gh) if(!ids.has(id)){
+    gh.delete(id);
+    const bu=GR_BURST[hs.t];
+    if(bu && hs.s!==2 && k && now-hs.at<1500){
+      const n=h('div','rd-burst '+hs.t+' tm-'+(hs.tm==='T'?'t':'ct')); n.style.width=n.style.height=(bu.r*2*k*100).toFixed(2)+'%'; n.style.animationDuration=bu.ms+'ms';
+      if(place(n, hs.p)){ r.dots.appendChild(n); setTimeout(()=>n.remove(), bu.ms+80); }
+    }
+  }
+  // следы: одна ломаная на гранату, старая часть бледнее
+  const sv=r.tr; sv.replaceChildren();
+  for(const [tr, tcls, other] of pt){
+    const mk=(a, cls)=>{ const l=document.createElementNS('http://www.w3.org/2000/svg','polyline'); l.setAttribute('points', a.map(q=>(Math.min(1,Math.max(0,q[0]))*100).toFixed(2)+','+(Math.min(1,Math.max(0,q[1]))*100).toFixed(2)).join(' ')); l.setAttribute('class','rd-trail '+cls+' '+tcls+(other?' other':'')); sv.appendChild(l); };
+    mk(tr, 'old'); if(tr.length>3) mk(tr.slice(-3), 'new');
+  }
+}
 function paintRadar(c, el, d){
   let r=c._rd;
   if(!r || r.box.parentNode!==c){
     r=c._rd={ box:h('div','rd'), img:document.createElement('img'), dots:h('div','rd-dots'), cap:h('div','rd-cap'), map:new Map(), src:null };
     r.img.className='rd-img'; r.img.alt=''; r.img.draggable=false; r.img.hidden=true;
     r.img.onload=()=>{ r.img.hidden=false; r.box.classList.add('has-img'); }; r.img.onerror=()=>{ r.img.hidden=true; r.box.classList.remove('has-img'); };
-    r.sq=h('div','rd-sq'); r.sq.append(r.img, r.dots);   // слой во всю подложку: рамка .rd лишь вырезает из него нужную часть
+    r.sq=h('div','rd-sq'); r.tr=document.createElementNS('http://www.w3.org/2000/svg','svg'); r.tr.setAttribute('class','rd-tr'); r.tr.setAttribute('viewBox','0 0 100 100'); r.tr.setAttribute('preserveAspectRatio','none'); r.tr.setAttribute('aria-hidden','true');
+    r.sq.append(r.img, r.tr, r.dots);   // слой во всю подложку: рамка .rd лишь вырезает из него нужную часть
     r.box.append(h('div','rd-grid'), r.sq, r.cap); c.replaceChildren(r.box);
   }
   c.classList.toggle('nodata', !d);
-  if(!d){ r.cap.textContent=st('🎯 CS2: ждём данные из игры'); r.dots.replaceChildren(); r.map.clear(); return; }
+  if(!d){ r.cap.textContent=st('🎯 CS2: ждём данные из игры'); r.dots.replaceChildren(); r.map.clear(); r.gh?.clear(); r.tr.replaceChildren(); return; }
   const map=String(d.map||''), players=(d.players||[]).filter(p=>Array.isArray(p.pos));
   const obs=players.find(p=>p.id===d.obs), lower=typeof cs2Lower==='function' && obs ? cs2Lower(map, obs.pos) : false;
   c.dataset.rbg=el.rbg===false ? '0' : '1'; r.box.classList.toggle('nomap', el.rmap===false);
@@ -2180,6 +2254,7 @@ function paintRadar(c, el, d){
     if(!n){ n=h('div','rd-bomb'); n.appendChild(hudIc('bomb')); r.dots.appendChild(n); r.map.set('bomb', n); }
     n.classList.toggle('planted', d.bomb==='planted' || d.bomb==='defusing'); n.hidden=!place(n, d.bpos);
   }
+  paintGrenades(r, el, d, uv, map, lower, place, seen);
   for(const [k,n] of r.map) if(!seen.has(k)){ n.remove(); r.map.delete(k); }
 }
 // ---------- сообщение из чата ----------

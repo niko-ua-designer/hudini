@@ -823,7 +823,7 @@ const { step, check, eq, until, sleep } = T;
     await mod.click('#webTabs button[data-id=chat]');
     check(await until(async () => (await opened()).some(a => a.id === 'chat' && a.url.includes('/popout/other/chat'))), 'another channel opens that chat');
     // вкладки сохраняются
-    const saved = await T.stored(mod, 'overlay.browser');
+    await until(async () => (await T.stored(mod, 'overlay.browser'))?.tabs?.length === 1, 4000); const saved = await T.stored(mod, 'overlay.browser');
     check(saved?.open === true && saved.tabs?.length === 1 && saved.tabs[0].url === 'https://example.com/', 'open state and tabs are stored: ' + JSON.stringify(saved));
     // закрытие вкладки
     await mod.evaluate(() => { window.__calls.length = 0; });
