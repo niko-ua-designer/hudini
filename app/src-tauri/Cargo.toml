@@ -21,6 +21,10 @@ serde_json = "1"
 sys-locale = "0.3"
 hudini-relay = { path = "../relay" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# той же версии и с теми же возможностями, что у wry: нужен для включения media-stream и WebRTC в WebKitGTK
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

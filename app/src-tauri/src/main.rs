@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder};
+use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, WebviewBuilder};
 use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
@@ -663,6 +663,55 @@ fn quit(app: &AppHandle) {
     });
 }
 
+// Права веб-страницы: камера, микрофон и захват экрана только страницам приложения (tauri://, https://tauri.localhost).
+// Всё остальное (геолокация, уведомления, буфер, MIDI, датчики…) и любые другие адреса получают отказ.
+// Обработчик видит адрес окна верхнего уровня; вложенные фреймы ограничивает Permissions-Policy страницы (без allow=… они отказаны).
+fn media_permission(webview: tauri::Webview, kind: PermissionKind) -> PermissionResponse {
+    let media = matches!(kind, PermissionKind::Camera | PermissionKind::Microphone | PermissionKind::DisplayCapture);
+    let app_page = webview.url().map(|u| is_app_url(&u)).unwrap_or(false);
+    if media && app_page {
+        PermissionResponse::Allow
+    } else {
+        PermissionResponse::Deny
+    }
+}
+
+// Linux (WebKitGTK): media-stream и WebRTC по умолчанию выключены. Включаем и перезагружаем страницу, если что-то поменялось,
+// иначе navigator.mediaDevices и RTCPeerConnection в ней не появятся.
+static MEDIA_LINUX_READY: AtomicBool = AtomicBool::new(true);
+
+#[cfg(target_os = "linux")]
+fn enable_media_capture(w: &tauri::WebviewWindow) {
+    MEDIA_LINUX_READY.store(false, Ordering::SeqCst);
+    let res = w.with_webview(|pw| {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        let wv = pw.inner();
+        if let Some(settings) = WebViewExt::settings(&wv) {
+            let changed = !settings.enables_media_stream() || !settings.enables_webrtc();
+            settings.set_enable_media_stream(true);
+            settings.set_enable_webrtc(true);
+            MEDIA_LINUX_READY.store(true, Ordering::SeqCst);
+            if changed {
+                wv.reload();
+            }
+        }
+    });
+    if let Err(e) = res {
+        applog(&format!("media settings: {e}"));
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn enable_media_capture(_w: &tauri::WebviewWindow) {}
+
+// Страница спрашивает, можно ли в этой системе показывать камеру и экран. Сама по себе проверка API (RTCPeerConnection,
+// getUserMedia, getDisplayMedia) остаётся за страницей; тут только причина, которую знает программа.
+#[tauri::command]
+fn media_support() -> serde_json::Value {
+    let ready = MEDIA_LINUX_READY.load(Ordering::SeqCst);
+    serde_json::json!({ "os": std::env::consts::OS, "ready": ready, "reason": if ready { "" } else { "webkit-media-disabled" } })
+}
+
 // ---------- пульт стримера в своём окне («Открыть пульт») ----------
 // Сервер выдаёт одноразовый ключ (строка PANEL со своим префиксом), программа кладёт его в память и открывает окно пульта.
 // Окно забирает ключ командой panel_key один раз и меняет его у сервера на сессию. Локальный адрес сам доступа не даёт.
@@ -701,9 +750,11 @@ fn open_streamer_panel(app: &AppHandle, key: String, port: u16) {
             open_external(&popup, &url);
             NewWindowResponse::Deny
         })
+        .on_permission_request(media_permission)
         .build();
-    if let Err(e) = built {
-        applog(&format!("panel window: {e}"));
+    match built {
+        Ok(w) => enable_media_capture(&w),
+        Err(e) => applog(&format!("panel window: {e}")),
     }
 }
 
@@ -1309,7 +1360,7 @@ fn main() {
         .manage(RelayState::default())
         .manage(Browser::default())
         .manage(PanelKey::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key])
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key, media_support])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;
@@ -1411,7 +1462,9 @@ fn main() {
                         let _ = w.eval(&js);
                     }
                 })
+                .on_permission_request(media_permission)
                 .build()?;
+            enable_media_capture(&window);
 
             // крестик прячет окно в трей; первый раз объясняем уведомлением
             let wh = handle.clone();
