@@ -23,6 +23,7 @@
     "allow-browser-visible",
     "allow-browser-close",
     "allow-browser-nav",
-    "allow-panel-key"
+    "allow-panel-key",
+    "allow-media-support"
   ]
 }

@@ -1652,6 +1652,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "webkit2gtk",
  "windows-sys 0.59.0",
 ]
 
