@@ -208,7 +208,7 @@
     <div class="row"><span class="hint">Карта</span><select id="flMap" class="grow"></select></div>
     <div class="row"><select id="flRoute" class="grow"></select><button id="flNew" title="Новый путь">＋</button><button id="flDup" title="Дублировать путь">⧉</button><button id="flDel" class="danger" title="Удалить путь">🗑</button></div>
     <div id="flBody" hidden>
-      <div class="row"><input type="text" id="flName" class="grow" maxlength="40" placeholder="Название пути"><span class="hint">Секунд</span><input type="number" id="flDur" min="0" max="300" step="0.5" style="width:64px" title="0 — подогнать под остаток фазы"></div>
+      <div class="row"><input type="text" id="flName" class="grow" maxlength="40" placeholder="Название пути"><span class="hint">Секунд</span><input type="number" id="flDur" min="0" max="300" step="0.5" class="u-width-64px" title="0 — подогнать под остаток фазы"></div>
       <div class="hint">Для каких моментов этот путь:</div>
       <div class="row fl-trg"><label class="chk"><input type="checkbox" id="flTfreeze"> Закупка</label><label class="chk"><input type="checkbox" id="flTtech"> Тех. пауза</label><label class="chk"><input type="checkbox" id="flTtimeout"> Таймаут</label><label class="chk"><input type="checkbox" id="flTwarmup"> Разминка</label></div>
       <div id="flRadar" class="fl-radar" data-i18n-skip></div>
@@ -355,7 +355,7 @@
           <div class="row"><button id="rouRDetect" class="grow" title="Покажет награды, которые только что получили зрители">🔍 Определить награду</button><button id="rouRClear" title="Отвязать награду" hidden>✕</button></div>
           <div id="rouRSeen" class="hint" hidden></div>
           <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouROne"><span class="tgl-k"></span><span>Только одно слово в тексте</span></label>
-          <div class="row"><span class="hint u-width-54px">Слово</span><input type="text" id="iRouRWord" class="grow" maxlength="24" placeholder="Необязательно: только это слово"></div>
+          <div class="row"><span class="hint u-width-54px">Слово</span><input type="text" id="iRouRWord" class="grow" maxlength="24" placeholder="Необязательно" title="Необязательно: только это слово"></div>
           <div class="row"><span class="hint u-width-54px">Что делать</span><select id="iRouRMode" class="grow"><option value="add">добавить в участники</option><option value="spin">крутить сразу</option></select></div>
           <div class="row"><span class="hint">Пауза</span><input class="u-width-64px" type="number" id="iRouRCd" min="0" max="3600"><span class="hint">сек</span><span class="hint">Лимит на зрителя</span><input class="u-width-64px" type="number" id="iRouRLim" min="0" max="99"></div>
           <div class="hint">Лимит 0 значит без ограничения. Как создать награду с вводом текста: справка, раздел «Рулетка».</div>

@@ -240,7 +240,7 @@ const { step, check, eq, until, sleep } = T;
   });
 
   await step('the Host refuses ink from the OBS side', async () => {
-    check(/PUB_MOD = new Set\(\[[^\]]*'ink'[^\]]*\]\), PUB_LOCAL = new Set\(\['hb'\]\)/.test(require('fs').readFileSync(require('path').join(__dirname, '../server/server.js'), 'utf8')), 'only moderators publish ink');
+    check(/PUB_MOD = new Set\(\[[^\]]*'ink'[^\]]*\]\), PUB_LOCAL = new Set\(\['hb', 'rtc'\]\)/.test(require('fs').readFileSync(require('path').join(__dirname, '../server/server.js'), 'utf8')), 'only moderators publish ink');
   });
 
   await mod2.context().close();

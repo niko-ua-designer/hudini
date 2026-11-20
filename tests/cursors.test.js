@@ -76,7 +76,7 @@ const { step, check, eq, until, sleep } = T;
     check(f.some(x => x.includes('/hb')) && f.some(x => x.includes('/state')), 'the frame recorder sees the widget\'s traffic', String(f.length));
     check(!f.some(x => x.includes('/cur')), 'the widget neither subscribes to cur nor receives it');
     const src = require('fs').readFileSync(path.join(__dirname, '../server/server.js'), 'utf8');
-    check(/PUB_MOD = new Set\(\[[^\]]*'cur'[^\]]*\]\), PUB_LOCAL = new Set\(\['hb'\]\)/.test(src), 'the Host lets only moderators publish cur');
+    check(/PUB_MOD = new Set\(\[[^\]]*'cur'[^\]]*\]\), PUB_LOCAL = new Set\(\['hb', 'rtc'\]\)/.test(src), 'the Host lets only moderators publish cur');
     const w = require('fs').readFileSync(path.join(__dirname, '../web/widget/widget.html'), 'utf8');
     check(!/\/cur\b|\.cur\b/.test(w), 'the widget page does not mention cur');
   });
