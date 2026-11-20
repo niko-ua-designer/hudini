@@ -14,7 +14,7 @@ M={'💬':'message-circle','👁':'eye','✓':'check','📋':'clipboard','🎞':
 '🧪':'flask-conical','📝':'notebook-pen','📎':'paperclip','🗂':'folder','🔧':'wrench','🧰':'toolbox','📤':'upload','📥':'download','🔌':'plug','📡':'radio-tower',
 '🖨':'printer','💻':'laptop','📱':'smartphone','🗺':'map','🚀':'rocket','⭐':'star','👤':'user','🧑':'user','👑':'crown','🔀':'shuffle','🎲':'dices','💰':'coins','💲':'dollar-sign',
 '🙌':'hand-heart','👍':'thumbs-up','👎':'thumbs-down','🚫':'ban','⛔':'ban','❌':'circle-x','✖':'x','⏰':'alarm-clock','📣':'megaphone','📢':'megaphone','🎮':'gamepad-2','🕹':'joystick','🧱':'brick-wall',
-'🗒':'sticky-note','🗓':'calendar-days','🏁':'flag','🚩':'flag','🔦':'flashlight','🎚':'sliders-vertical','💫':'sparkle','🌀':'loader','📶':'signal','🧊':'box','🪟':'app-window','🔙':'undo-2'}
+'🗒':'sticky-note','🗓':'calendar-days','🏁':'flag','🚩':'flag','🔦':'flashlight','🎚':'sliders-vertical','💫':'sparkle','🌀':'loader','📶':'signal','🧊':'box','🪟':'app-window','🔙':'undo-2','🎙':'mic'}
 icons={}
 miss=[]
 for e,n in M.items():

@@ -48,6 +48,17 @@ ru: {
 <li><b>Боковые панели.</b> Две кнопки в шапке прячут левую и правую панель, холст растягивается. Выбор запоминается.</li>
 <li><b>Отмена по элементам.</b> <kbd>Ctrl+Z</kbd> отменяет последнее действие, <kbd>Ctrl+Y</kbd> или <kbd>Ctrl+Shift+Z</kbd> возвращает. Отмена касается только твоих правок: если другой модератор в это время менял другой элемент, его работа не откатится.</li>
 </ul>`],
+['stream', 'Камера, экран и микрофон', `
+<p>В пульте вкладка ➕ Добавить, блок <b>Трансляция</b>: кнопки <b>Камера</b>, <b>Экран</b> и <b>Микрофон</b>. Нажми кнопку, выбери устройство (для экрана или окна откроется системный выбор), и на холсте появится слой. Это обычный слой: двигай, меняй размер, обрезай (Alt + край), прячь глазком. Кнопка ещё раз или ■ в списке останавливает трансляцию.</p>
+<ul>
+<li><b>Стример</b> показывает свои камеру, экран и микрофон без разрешений. Картинка идёт <b>прямо</b> в виджет OBS на этом же ПК.</li>
+<li><b>Модератор</b> может делиться камерой, экраном и микрофоном, только если стример включил это ползунками в Hudini Host (по умолчанию всё выключено). Без разрешения кнопки неактивны. Стример подтверждает каждую трансляцию в доке и в любой момент может выключить её, тогда слой на стриме гаснет сразу.</li>
+<li><b>Микрофон</b> появляется слоем без картинки: у него громкость и мьют, он есть и во вкладке «Звук».</li>
+<li><b>Фон пульта.</b> Галочка «Показывать мой экран модераторам как фон» у стримера кладёт его экран подложкой под холст у модераторов. У каждого модератора есть своя галочка «Показывать экран стримера фоном». На стрим фон не попадает.</li>
+</ul>
+<p><b>Как это едет.</b> Сначала пробуется прямое соединение (WebRTC): с задержкой в десятки миллисекунд, без серверов посередине. Между разными ПК оно работает по адресам VPN (Tailscale, Radmin, ZeroTier) и в одной локальной сети. Если за 5 секунд прямая связь не поднялась (Porthole, проброс порта, закрытый UDP), картинка идёт запасным путём через Hudini Host стримера, задержка около секунды. Какой путь сейчас, видно в списке трансляций и на слое: «прямое · 40 мс» или «через Host · ~1 с».</p>
+<p><b>Безопасность.</b> Всё зашифровано: договорённость о соединении запечатана ключом комнаты, видео идёт по DTLS-SRTP, а запасной путь шлёт куски, запечатанные ключом комнаты, так что Hudini Host не может их посмотреть. Публичных серверов нет, адреса из сети в договорённость не попадают.</p>
+<p>Если кнопка «Экран» не работает в приложении на Linux, системе нужны пакеты WebRTC и PipeWire.</p>`],
 ['draw', 'Рисование', `
 <p>Добавить → <b>Рисунок</b> создаёт слой для рисования. Рисуешь прямо на холсте пульта, над холстом появляется полоса с инструментами.</p>
 <ul>
@@ -210,6 +221,17 @@ en: {
 <li><b>Side panels.</b> Two buttons in the header hide the left and the right panel, and the canvas stretches. The choice is remembered.</li>
 <li><b>Undo per element.</b> <kbd>Ctrl+Z</kbd> undoes your last action, <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd> redoes it. It only touches your own edits: if another moderator changed a different element meanwhile, their work is not rolled back.</li>
 </ul>`],
+['stream', 'Camera, screen and microphone', `
+<p>In the panel open ➕ Add, block <b>Broadcast</b>: buttons <b>Camera</b>, <b>Screen</b> and <b>Microphone</b>. Press one, pick a device (for a screen or a window the system picker opens) and a layer appears on the canvas. It is a normal layer: move it, resize, crop (Alt + edge), hide it with the eye. Press the button again, or ■ in the list, to stop.</p>
+<ul>
+<li>The <b>streamer</b> shows their own camera, screen and microphone without any permission. The picture goes <b>straight</b> to the OBS widget on the same PC.</li>
+<li>A <b>moderator</b> can share a camera, screen or microphone only if the streamer switched it on with the sliders in Hudini Host (everything is off by default). Without permission the buttons are disabled. The streamer confirms every broadcast in the dock and can cut it at any moment: the layer disappears from the stream at once.</li>
+<li>The <b>microphone</b> is a layer without a picture: it has a volume and a mute, and it is in the Sound tab too.</li>
+<li><b>Panel backdrop.</b> The streamer's box "Show my screen to moderators as a backdrop" puts their screen under the canvas in the moderators' panels. Each moderator has their own box, "Show the streamer's screen as a backdrop". The backdrop never reaches the stream.</li>
+</ul>
+<p><b>How it travels.</b> First a direct connection (WebRTC) is tried: tens of milliseconds, no server in between. Between different PCs it works over VPN addresses (Tailscale, Radmin, ZeroTier) and inside one local network. If the direct link does not come up in 5 seconds (Porthole, a forwarded port, blocked UDP), the picture takes the fallback road through the streamer's Hudini Host, about a second of delay. The current road shows in the broadcast list and on the layer: "direct · 40 ms" or "via Host · ~1 s".</p>
+<p><b>Security.</b> Everything is encrypted: the connection set-up is sealed with the room key, video runs over DTLS-SRTP, and the fallback sends pieces sealed with the room key, so Hudini Host cannot look at them. No public servers; network addresses stay inside the private ranges.</p>
+<p>If the Screen button does not work in the app on Linux, the system needs the WebRTC and PipeWire packages.</p>`],
 ['draw', 'Drawing', `
 <p>Add → <b>Drawing</b> creates a layer to draw on. You draw right on the panel canvas, and a toolbar appears above it.</p>
 <ul>
@@ -372,6 +394,17 @@ uk: {
 <li><b>Бокові панелі.</b> Дві кнопки в шапці ховають ліву й праву панель, полотно розтягується. Вибір запам'ятовується.</li>
 <li><b>Скасування по елементах.</b> <kbd>Ctrl+Z</kbd> скасовує останню дію, <kbd>Ctrl+Y</kbd> або <kbd>Ctrl+Shift+Z</kbd> повертає. Скасування стосується лише твоїх правок: якщо інший модератор змінював інший елемент, його робота не відкотиться.</li>
 </ul>`],
+['stream', 'Камера, екран і мікрофон', `
+<p>У пульті вкладка ➕ Додати, блок <b>Трансляція</b>: кнопки <b>Камера</b>, <b>Екран</b> і <b>Мікрофон</b>. Натисни кнопку, обери пристрій (для екрана чи вікна відкриється системний вибір), і на полотні з'явиться шар. Це звичайний шар: рухай, змінюй розмір, обрізай (Alt + край), ховай оком. Кнопка ще раз або ■ у списку зупиняє трансляцію.</p>
+<ul>
+<li><b>Стример</b> показує свої камеру, екран і мікрофон без дозволів. Картинка йде <b>напряму</b> у віджет OBS на цьому ж ПК.</li>
+<li><b>Модератор</b> може ділитися камерою, екраном і мікрофоном, лише якщо стример увімкнув це повзунками в Hudini Host (за замовчуванням усе вимкнено). Без дозволу кнопки неактивні. Стример підтверджує кожну трансляцію в доці й будь-коли може її вимкнути, тоді шар на стрімі гасне одразу.</li>
+<li><b>Мікрофон</b> з'являється шаром без картинки: у нього є гучність і мʼют, він є і у вкладці «Звук».</li>
+<li><b>Тло пульта.</b> Галочка «Показувати мій екран модераторам як тло» у стримера кладе його екран підкладкою під полотно в модераторів. У кожного модератора є своя галочка «Показувати екран стримера тлом». На стрім тло не потрапляє.</li>
+</ul>
+<p><b>Як це їде.</b> Спочатку пробується пряме зʼєднання (WebRTC): із затримкою в десятки мілісекунд, без серверів посередині. Між різними ПК воно працює за адресами VPN (Tailscale, Radmin, ZeroTier) і в одній локальній мережі. Якщо за 5 секунд пряма звʼязь не піднялася (Porthole, прокинутий порт, закритий UDP), картинка йде запасним шляхом через Hudini Host стримера, затримка близько секунди. Який шлях зараз, видно в списку трансляцій і на шарі: «пряме · 40 мс» або «через Host · ~1 с».</p>
+<p><b>Безпека.</b> Усе зашифровано: домовленість про зʼєднання запечатана ключем кімнати, відео йде по DTLS-SRTP, а запасний шлях шле шматки, запечатані ключем кімнати, тож Hudini Host не може їх переглянути. Публічних серверів немає, адреси з мережі не виходять за межі приватних діапазонів.</p>
+<p>Якщо кнопка «Екран» не працює в застосунку на Linux, системі потрібні пакети WebRTC і PipeWire.</p>`],
 ['draw', 'Малювання', `
 <p>Додати → <b>Малюнок</b> створює шар для малювання. Малюєш просто на полотні пульта, над полотном з'являється смуга з інструментами.</p>
 <ul>
@@ -534,6 +567,17 @@ de: {
 <li><b>Seitenleisten.</b> Zwei Tasten in der Kopfzeile blenden die linke und die rechte Leiste aus, die Fläche wird größer. Die Wahl wird gemerkt.</li>
 <li><b>Rückgängig pro Element.</b> <kbd>Ctrl+Z</kbd> macht deine letzte Aktion rückgängig, <kbd>Ctrl+Y</kbd> oder <kbd>Ctrl+Shift+Z</kbd> stellt sie wieder her. Das betrifft nur deine eigenen Änderungen: Hat ein anderer Moderator inzwischen ein anderes Element geändert, wird seine Arbeit nicht zurückgedreht.</li>
 </ul>`],
+['stream', 'Kamera, Bildschirm und Mikrofon', `
+<p>Im Pult: Tab ➕ Hinzufügen, Block <b>Übertragung</b> mit den Knöpfen <b>Kamera</b>, <b>Bildschirm</b> und <b>Mikrofon</b>. Knopf drücken, Gerät wählen (bei Bildschirm oder Fenster öffnet sich die Systemauswahl), und auf der Fläche erscheint eine Ebene. Das ist eine normale Ebene: verschieben, skalieren, zuschneiden (Alt + Kante), mit dem Auge ausblenden. Der Knopf noch einmal oder ■ in der Liste beendet die Übertragung.</p>
+<ul>
+<li>Der <b>Streamer</b> zeigt seine Kamera, seinen Bildschirm und sein Mikrofon ohne Erlaubnis. Das Bild geht <b>direkt</b> ins OBS-Widget auf demselben PC.</li>
+<li>Ein <b>Moderator</b> darf Kamera, Bildschirm oder Mikrofon nur teilen, wenn der Streamer es mit den Reglern in Hudini Host eingeschaltet hat (standardmäßig ist alles aus). Ohne Erlaubnis sind die Knöpfe gesperrt. Der Streamer bestätigt jede Übertragung im Dock und kann sie jederzeit abschalten, dann verschwindet die Ebene sofort vom Stream.</li>
+<li>Das <b>Mikrofon</b> ist eine Ebene ohne Bild, mit Lautstärke und Stummschaltung, auch im Tab „Ton“.</li>
+<li><b>Hintergrund im Pult.</b> Das Häkchen „Meinen Bildschirm den Moderatoren als Hintergrund zeigen“ legt den Bildschirm des Streamers unter die Fläche der Moderatoren. Jeder Moderator hat sein eigenes Häkchen „Bildschirm des Streamers als Hintergrund zeigen“. Auf den Stream gelangt der Hintergrund nie.</li>
+</ul>
+<p><b>Der Weg.</b> Zuerst wird eine direkte Verbindung (WebRTC) versucht: einige Dutzend Millisekunden, kein Server dazwischen. Zwischen verschiedenen PCs klappt das über VPN-Adressen (Tailscale, Radmin, ZeroTier) und im selben lokalen Netz. Steht die direkte Verbindung nach 5 Sekunden nicht (Porthole, weitergeleiteter Port, gesperrtes UDP), nimmt das Bild den Ersatzweg über das Hudini Host des Streamers, etwa eine Sekunde Verzögerung. Der aktuelle Weg steht in der Liste und auf der Ebene: „direkt · 40 ms“ oder „über Host · ~1 s“.</p>
+<p><b>Sicherheit.</b> Alles ist verschlüsselt: Der Verbindungsaufbau ist mit dem Raumschlüssel versiegelt, das Video läuft über DTLS-SRTP, und der Ersatzweg sendet mit dem Raumschlüssel versiegelte Stücke, die Hudini Host nicht ansehen kann. Keine öffentlichen Server; Netzadressen bleiben in den privaten Bereichen.</p>
+<p>Funktioniert der Knopf „Bildschirm“ in der App unter Linux nicht, braucht das System die Pakete WebRTC und PipeWire.</p>`],
 ['draw', 'Zeichnen', `
 <p>Hinzufügen → <b>Zeichnung</b> erstellt eine Ebene zum Zeichnen. Du zeichnest direkt auf der Fläche des Pults, über der Fläche erscheint eine Werkzeugleiste.</p>
 <ul>

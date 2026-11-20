@@ -127,7 +127,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur'];
+const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur', topics(room).base+'/rtc', topics(room).base+'/media'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
 function homeHttp(){
@@ -318,6 +318,8 @@ async function onMessage(topic, payload, packet){
     const h=await unsealJSON(keys, payload, false); if(!h) return;
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
+  if(topic===T.base+'/rtc'){ window.hudiniBroadcast?.onPacket(payload); return; }
+  if(topic===T.base+'/media'){ window.hudiniBroadcast?.onMedia(payload); return; }   // ответ Host на запрос показать камеру/экран   // камера, экран, микрофон: запечатанная сигнализация (broadcast.js)
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
   if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); window.renderFlights?.(); } return; }
@@ -881,6 +883,7 @@ function renderAll(){
   renderLayers(); renderMixer(); renderRaffleTab(); renderRTabs(); renderInspector(); renderToolbar();
   $('globalEye').textContent = hidAllActive() ? '👁 Показать всё' : '🙈 Скрыть всё';
   window.hudiniMarks?.();   // что стример выключил у себя (streamer.js)
+  window.hudiniBroadcast?.refresh();   // нужные потоки подключаем, лишние отпускаем (broadcast.js)
 }
 const MODE_ICO={ countdown:'⏱', stopwatch:'⏲', until:'📅', clock:'🕐' };
 const MODE_NAME={ countdown:'Таймер', stopwatch:'Секундомер', until:'Отсчёт до', clock:'Часы' };
@@ -894,6 +897,7 @@ function elIcon(el){
   if(el.type==='case') return '📦';
   if(el.type==='draw') return '🎨';
   if(el.type==='roulette') return el.view==='wheel' ? '🎡' : '🎰';
+  if(el.type==='stream') return { cam:'📷', screen:'🖥', mic:'🎙' }[el.kind];
   if(el.type==='cs2') return '🎯';
   if(el.type==='msg' || el.type==='chat') return '💬';
   return { text:'T', image:'🖼', video:'🎞' }[el.type];
@@ -905,6 +909,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый', radar:'радар' }[el.view];
+  if(el.type==='stream') return gT({ cam:'Камера', screen:'Экран', mic:'Микрофон' }[el.kind])+' · '+(el.owner===clientId || (el.owner==='streamer' && document.body.classList.contains('streamer-panel')) ? gT('я') : el.owner.replace(/^[a-z]+_/,'').slice(0,6));
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='draw') return 'Рисунок · '+el.strokes.length;
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
@@ -916,13 +921,13 @@ function elName(el){
 }
 // ---- вкладка «Звук»: общая громкость, эффекты и каждый звучащий элемент ----
 const muteMem=new Map();   // что было на ползунке до 🔇
-const hasSound = el => ['video','web','case','raffle','roulette'].includes(el.type) || (el.type==='timer' && !!el.endSound);
+const hasSound = el => ['video','web','stream','case','raffle','roulette'].includes(el.type) || (el.type==='timer' && !!el.endSound);
 const mxRows = () => [{ key:'master', name:'Общая громкость' }, { key:'fx', name:'Звуковые эффекты (кнопка «Звук», сценарии)' },
   ...drawList(state).filter(hasSound).map(el=>({ key:el.id, el, name:elIcon(el)+' '+elName(el).slice(0,40) }))];
 function mxGet(r){ return r.key==='master' ? num(state.vol,1,0,1) : r.key==='fx' ? num(state.fxVol,1,0,1) : num(r.el.vol,1,0,1); }
 function mxSet(r, v){ if(r.key==='master') state.vol=v; else if(r.key==='fx') state.fxVol=v; else r.el.vol=v; }
 // у видео и сайта звук включается галочкой, у остальных 🔇 — это нулевая громкость
-const mxMuted = r => r.el && (r.el.type==='video' || r.el.type==='web') ? !r.el.sound : mxGet(r)<0.005;
+const mxMuted = r => r.el && (r.el.type==='video' || r.el.type==='web' || r.el.type==='stream') ? !r.el.sound : mxGet(r)<0.005;
 let mixSig='';
 // общая громкость в шапке: тот же state.vol, что и первый ползунок вкладки «Звук»
 function syncHdrVol(){
@@ -960,10 +965,10 @@ function renderMixer(){
       s.append(sl, v);
       const m=document.createElement('button'); m.className='mxm';
       const cur=()=>mxRows().find(x=>x.key===r.key);
-      sl.oninput=()=>{ const x=cur(); if(!x) return; beginChange(); mxSet(x, Number(sl.value)/100); if(x.el && Number(sl.value)>0 && x.el.type!=='video' && x.el.type!=='web') muteMem.delete(x.key); changed(); };
+      sl.oninput=()=>{ const x=cur(); if(!x) return; beginChange(); mxSet(x, Number(sl.value)/100); if(x.el && Number(sl.value)>0 && x.el.type!=='video' && x.el.type!=='web' && x.el.type!=='stream') muteMem.delete(x.key); changed(); };
       sl.onchange=()=>commit();
       m.onclick=()=>{ const x=cur(); if(!x) return; beginChange();
-        if(x.el && (x.el.type==='video' || x.el.type==='web')) x.el.sound=!x.el.sound;
+        if(x.el && (x.el.type==='video' || x.el.type==='web' || x.el.type==='stream')) x.el.sound=!x.el.sound;
         else if(mxGet(x)<0.005) mxSet(x, muteMem.get(x.key) || 0.8);
         else { muteMem.set(x.key, mxGet(x)); mxSet(x, 0); }
         commit(); };
@@ -1112,7 +1117,7 @@ function renderInspector(){
     $('cToggle').textContent = el.running ? '⏸ Остановить' : '▶ Считать';
     $('cToggle').className = el.running ? 'grow' : 'go grow';
   }
-  if(el.type==='video'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
+  if(el.type==='video' || el.type==='stream'){ setField(I('iSound'), el.sound, 'checked'); setField(I('iVol'), String(el.vol)); $('vVol').textContent=Math.round(el.vol*100)+'%'; I('iVol').disabled=!el.sound; }
   if(el.type==='chat'){
     setField(I('iChChan'), el.chan); setField(I('iChTheme'), el.theme); setField(I('iChCard'), el.card); setField(I('iChAccent'), el.accent);
     setField(I('iChFade'), String(el.fade)); $('vChFade').textContent = el.fade ? el.fade+' сек' : 'не исчезают';
@@ -1137,7 +1142,7 @@ function renderInspector(){
     setField(I('iZoom'), String(el.zoom)); $('vZoom').textContent=Math.round(el.zoom*100)+'%';
   }
   renderKf(el);
-  if(el.type==='image'||el.type==='video'){
+  if(el.type==='image'||el.type==='video'||el.type==='stream'){
     setField(I('iHh'), String(el.hh||0)); $('vHh').textContent = el.hh ? el.hh.toFixed(1)+'% высоты' : 'по пропорциям';
     $('bRatio').disabled = !el.hh;
   }
@@ -1380,7 +1385,7 @@ stage.addEventListener('pointermove', e=>{
     const k=sanitizeCrop(c.map(v=>Math.round(v*100)/100));
     if(k) el.crop=k; else delete el.crop;
   } else if(drag.mode==='rz'){
-    const d=drag, tp=el.type, media=tp==='image' || tp==='video', box=BOXABLE.has(tp), corner=!!(d.sx && d.sy);
+    const d=drag, tp=el.type, media=tp==='image' || tp==='video' || tp==='stream', box=BOXABLE.has(tp), corner=!!(d.sx && d.sy);
     const sym=e.ctrlKey || e.metaKey || d.full;
     const uni = d.full || (!media && !box) || e.shiftKey || (box && corner);   // общий множитель: шрифт/ширина вместе с высотой
     const a=sym ? d.c : d.opp;

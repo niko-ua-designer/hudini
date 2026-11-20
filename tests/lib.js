@@ -54,7 +54,8 @@ async function webServer(opts = {}){
 function startHost(env = {}){
   const dir = env.OVERLAY_HOST_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-host-'));
   const port = Number(env.OVERLAY_PORT || PORTS.host);
-  const proc = spawn('bun', ['run', 'server.js'], { cwd: path.join(ROOT, 'server'), env: { ...process.env,
+  const proc = spawn('bun', ['run', 'server.js'], { cwd: process.env.HUDINI_TEST_SERVER_DIR || path.join(ROOT, 'server'),   // HUDINI_TEST_SERVER_DIR: another build of the Host, e.g. a branch checked out elsewhere
+    env: { ...process.env,
     OVERLAY_HOST_DIR: dir, OVERLAY_NO_OPEN: '1', OVERLAY_NO_UPDATE: '1', OVERLAY_PORT: String(port),
     OVERLAY_ADMIN_TOKEN: ADMIN_TOKEN, OVERLAY_MOD_PORT: String(port + 1), ...env } });
   let log = ''; proc.stdout.on('data', d => log += d); proc.stderr.on('data', d => log += d);
@@ -118,10 +119,11 @@ const stored = (page, key) => page.evaluate(k => { try{ return JSON.parse(localS
 
 // ---------- browser ----------
 let browser = null;
+const extraArgs = [];   // a test may add Chromium flags before the first page (fake camera, screen capture)
 const pageErrors = [];
 async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour = false, app = !name.startsWith('widget') } = {}){
   // HUDINI_TEST_GPU=1: real GPU (Vulkan) instead of software GL: smooth 3D and animations in screen recordings
-  browser ||= await chromium.launch(process.env.HUDINI_TEST_GPU ? { args: ['--ignore-gpu-blocklist', '--enable-gpu', '--use-angle=vulkan', '--enable-features=Vulkan', '--disable-vulkan-surface'] } : {});
+  browser ||= await chromium.launch({ args: [...extraArgs, ...(process.env.HUDINI_TEST_GPU ? ['--ignore-gpu-blocklist', '--enable-gpu', '--use-angle=vulkan', '--enable-features=Vulkan', '--disable-vulkan-surface'] : [])] });
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: Number(process.env.HUDINI_TEST_DSF || 1), ignoreHTTPSErrors: true });   // HUDINI_TEST_DSF=2: sharper screen recordings
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   await ctx.route(/github\.io|api\.github\.com/, r => r.fulfill({ status: 404, body: '' }));
@@ -198,4 +200,4 @@ function finish(){
   return bad.length ? 1 : 0;
 }
 // A sealed asset made the same way the panel does it, using core.js inside a page
-module.exports = { answerPw, ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };
+module.exports = { extraArgs, answerPw, ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };

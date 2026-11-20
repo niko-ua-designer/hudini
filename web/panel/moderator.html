@@ -18,7 +18,8 @@
 <script src="../app/sessions.js"></script>
 <script src="../shared/i18n.js?v=3"></script>
 <script src="../shared/icons.js?v=1"></script>
-<script src="../shared/core.js?v=19"></script>
+<script src="../shared/core.js?v=20"></script>
+<script src="../shared/media.js?v=1"></script>
 <script src="../shared/case3d.js?v=1"></script>
 <script src="../shared/cs2-maps.js?v=3"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
@@ -90,6 +91,17 @@
       <button id="addChatFeed" class="wide u-grid-column-span-2" title="Лента всех сообщений чата канала на стриме, с темами оформления">💬 Чат на стриме</button>
       <button id="addDraw" class="wide u-grid-column-span-2" title="Рисовать прямо на холсте: кисти, фигуры, фото">🎨 Рисунок</button>
     </div>
+
+    <h2>Трансляция</h2>
+    <div class="grid2 tiles" id="bcTiles">
+      <button id="bcCam" title="Камера на стрим">📷 Камера</button>
+      <button id="bcScreen" title="Экран или окно на стрим">🖥 Экран</button>
+      <button id="bcMic" class="wide u-grid-column-span-2" title="Микрофон на стрим">🎙 Микрофон</button>
+    </div>
+    <div id="bcList"></div>
+    <label class="chk" id="bcBgShareRow" hidden><input type="checkbox" id="bcBgShare"> Показывать мой экран модераторам как фон</label>
+    <label class="chk"><input type="checkbox" id="bcBgView"> Показывать экран стримера фоном под холстом</label>
+    <div class="hint" id="bcHint"></div>
 
     <h2>Эффекты на весь экран</h2>
     <div class="row"><input id="soundUrl" type="url" class="grow" placeholder="Звук .mp3 / .ogg / .wav"><button id="pickSound" title="Звук с компьютера">📁</button></div>
@@ -446,6 +458,7 @@
   <div id="stageBox">
     <div id="fightBar" hidden title="Бой в CS2: номер — клавиша наблюдателя. На стрим не идёт"><b>⚔ Файт</b> <span id="fightA" data-i18n-skip></span> <i>↔</i> <span id="fightB" data-i18n-skip></span></div>
     <div id="stage">
+      <video id="streamBg" autoplay muted playsinline hidden></video>
       <div id="bgLayer"></div>
       <div id="gridLayer"></div>
       <div id="elLayer"></div>
@@ -706,10 +719,10 @@
     </div>
 
     <!-- видео-файл -->
-    <div data-for="video">
+    <div data-for="video stream">
       <label class="chk u-margin-top-8px"><input type="checkbox" id="iSound"> 🔊 Звук на стриме</label>
       <div class="row"><span class="hint">Громк.</span><input id="iVol" type="range" min="0" max="1" step="0.05" class="grow"><span class="hint" id="vVol"></span></div>
-      <div class="row"><button id="restartVideo" class="grow">⏮ С начала</button></div>
+      <div class="row" data-for="video"><button id="restartVideo" class="grow">⏮ С начала</button></div>
     </div>
 
     <!-- сайт / YouTube / Twitch / вебка -->
@@ -758,12 +771,12 @@
     </div>
     <div class="lbl"><span>Размер</span><span id="vSize"></span></div>
     <input type="range" id="iSize">
-    <div data-for="image video">
+    <div data-for="image video stream">
       <div class="lbl"><span>Высота (растянуть)</span><span id="vHh"></span></div>
       <input type="range" id="iHh" min="0" max="150" step="0.5">
       <div class="row"><button id="bRatio" class="grow" title="Убрать растяжение">↺ Вернуть пропорции</button></div>
     </div>
-    <div data-for="image video web text timer counter poll msg chat">
+    <div data-for="image video stream web text timer counter poll msg chat">
       <div class="row"><button id="bCrop" class="grow" title="Alt + тянуть край — обрезать">✂ Сбросить обрезку</button></div>
     </div>
     <div class="lbl"><span>Поворот</span><span id="vRot"></span></div>
