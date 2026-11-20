@@ -276,20 +276,26 @@ const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'ри
 const cleanOff = o => Object.fromEntries(OFF_KEYS.map(k => [k, o?.[k]===true]));
 // hideIds — элементы, которые стример спрятал глазиком в доке: их прячет только виджет, экран модераторов не меняется
 const cleanIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && x.length>0 && x.length<=40))].slice(0, 200);
-const ctl = { hidden:false, paused:false, stop:0, off:cleanOff(cfg.ctlOff), hideIds:cleanIds(cfg.hideIds) };
+const ctl = { hidden:false, paused:false, stop:0, off:cleanOff(cfg.ctlOff), hideIds:cleanIds(cfg.hideIds), mediaOff:cfg.mediaOff===true };
 async function publishCtl(){
   if(!ROOM || !AES) return;
   aedes.publish({ cmd:'publish', topic:T('host'), payload:await sealAES({ ...ctl, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
 }
 // Права модераторов: четыре галочки стримера. Выключенное виджет не показывает (главная защита, на ПК стримера),
 // пульт прячет кнопки. Тему perms публикует только программа: ни модератор, ни виджет её не подделают.
-const PERM_KEYS = ['av', 'web', 'fx', 'games'];
-const PERM_NAMES = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2' };
-const cleanPerms = p => Object.fromEntries(PERM_KEYS.map(k => [k, p?.[k] !== false]));
+// cam, screen, mic (камера, экран, микрофон модератора) по умолчанию ВЫКЛЮЧЕНЫ: включается только явным true
+const PERM_KEYS = ['av', 'web', 'fx', 'games', 'cam', 'screen', 'mic'];
+const DEFAULT_OFF = ['cam', 'screen', 'mic'];
+const MEDIA_KINDS = ['cam', 'screen', 'mic'];
+const PERM_NAMES = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2',
+  cam:'камера модератора', screen:'экран модератора', mic:'микрофон модератора' };
+const cleanPerms = p => Object.fromEntries(PERM_KEYS.map(k => [k, DEFAULT_OFF.includes(k) ? p?.[k] === true : p?.[k] !== false]));
 cfg.perms = cleanPerms(cfg.perms);
+// Общий выключатель «все трансляции модераторов» (док): пока он стоит, камера, экран и микрофон модераторов выключены независимо от ползунков
+const effPerms = () => ctl.mediaOff ? { ...cfg.perms, cam:false, screen:false, mic:false } : cfg.perms;
 async function publishPerms(){
   if(!ROOM || !AES) return;
-  aedes.publish({ cmd:'publish', topic:T('perms'), payload:await sealAES({ ...cfg.perms, t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
+  aedes.publish({ cmd:'publish', topic:T('perms'), payload:await sealAES({ ...effPerms(), t:Date.now() }), qos:1, retain:true, dup:false }, ()=>{});
 }
 // ---------- пульт стримера на этом компьютере («Открыть пульт») ----------
 // Локальный адрес сам по себе доступа не даёт: в localhost может стучаться любая программа и любая страница на ПК.
@@ -385,11 +391,16 @@ aedes.authenticate = (client, user, pass, cb) => {
 };
 // Кто что пишет: модераторы — только экран (state), эффекты (fx) живые штрихи рисунка (ink) и команды серии CS2 (cs2cmd), виджет OBS — только пульс (hb).
 // srv, cs2 и host публикует только сама программа: подделать данные игры или объявление клиент не может.
-const PUB_MOD = new Set(['state', 'fx', 'ink', 'cs2cmd', 'cur']), PUB_LOCAL = new Set(['hb']);
+const PUB_MOD = new Set(['state', 'fx', 'ink', 'cs2cmd', 'cur', 'rtc']), PUB_LOCAL = new Set(['hb', 'rtc']);   // rtc: сигналинг камеры/экрана/микрофона, см. раздел «Медиа»
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
   if(!(client?.conn?._mod || client?.conn?._streamer ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
   if(ctl.paused && client?.conn?._mod) return cb(new Error('пауза'));
+  if(kind==='rtc'){
+    const r = rtcGate(client, packet);
+    if(r===false) return cb(new Error('rtc: неверный заголовок'));
+    if(r===null){ packet.topic = `${PREFIX}/_drop`; packet.retain = false; }   // тихо отбросить: никто не подписан, соединение не рвём
+  }
   cb(null);
 };
 aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub : null);
@@ -457,7 +468,9 @@ function wsServer(mod){
   const wss = new WebSocketServer({ noServer:true, maxPayload:WS_MAX, handleProtocols: p => p.has('mqtt') ? 'mqtt' : false });
   const perIp = new Map();
   return (req, socket, head) => {
-    if(new URL(req.url, 'http://x').pathname !== '/mqtt'){ socket.destroy(); return; }
+    const pth = new URL(req.url, 'http://x').pathname;
+    if(pth==='/media') return mediaUpgrade(mod, req, socket, head);   // запасной путь для камеры и экрана
+    if(pth !== '/mqtt'){ socket.destroy(); return; }
     // локально подключается только виджет OBS с этого же адреса: чужой сайт в браузере стримера сюда не пустим
     // страница пульта стримера (окно приложения) тоже сюда, но войти она может только с сессией стримера (aedes.authenticate)
     const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
@@ -495,6 +508,234 @@ aedes.on('publish', (packet, client) => {
   if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._mod) status.obsSeen = Date.now();
   if(client && ROOM && packet.topic===T('state') && packet.payload?.length) noteScreen(packet.payload);
 });
+
+// ---------- Медиа: камера, экран и микрофон (сигналинг rtc и запасной путь /media) ----------
+// Host НИКОГДА не расшифровывает медиа и сигналинг: тело запечатано ключом комнаты. Он решает, кому можно вещать и кто что получает,
+// по открытому заголовку и по тому, КТО прислал (соединение), а не по тому, что написано внутри.
+// Формат сообщения темы rtc:  [u16 BE длина заголовка][заголовок JSON, до 300 байт][запечатанное тело, как sealAES]
+//   заголовок: { v:1, sid:'[A-Za-z0-9_-]{8,32}', kind:'cam'|'screen'|'mic', t:'offer'|'answer'|'ice'|'bye'|'want'|'have', to?:'widget'|'streamer'|'m:<clientId>' }
+//   offer/have начинает вещание (владелец sid = тот, кто прислал первым), to обязателен: адресат попадает в список peers сеанса.
+//   answer/ice принимаются только от владельца (ice, и только к адресату из peers) и от адресатов из peers. bye — только владелец и стример.
+//   want — просьба показать (sid любой, сеанс не создаёт). Чужой sid, неверный kind, не-адресат — сообщение молча отбрасывается.
+//   Модератор начинает вещать, только если ползунок kind включён, общий выключатель не стоит и стример подтвердил в доке.
+// Тема media (публикует только Host, запечатана): { ev:'pending'|'ok'|'no'|'bye', cid, kind, sid?, why?, t } — состояние для модератора с этим clientId.
+// Запасной путь: WS /media?sid=SID. Первое сообщение — текст { u:'mod', p:<пароль>, c:<clientId MQTT> } | { u:'streamer', p:<сессия пульта> } | { u:'widget' }.
+//   Потом только бинарные кадры [1 байт тип 0..2][зашифрованный кусок]: шлёт владелец, получают адресаты из peers. Тип 0 (заголовок потока) Host запоминает для опоздавших.
+const MEDIA_FRAME = 1048576, MEDIA_BPS = 500000;   // кадр ≤ 1 МБ, ≤ 4 Мбит/с на источник
+const MEDIA_PER_MOD = 4, MEDIA_TOTAL = 16, MEDIA_MOD_TOTAL = 12, MEDIA_PEERS = 8;   // стримеру всегда остаётся место: модераторы занимают не больше 12 из 16
+const MEDIA_SOCKS = 48, MEDIA_PER_IP = 8, MEDIA_PENDING_SOCKS = 16, MEDIA_ASK = 8, ASK_TTL = 120000, DENY_TTL = 60000, RTC_MAX = 64*1024;
+const SID_RE = /^[A-Za-z0-9_-]{8,32}$/, TO_RE = /^(widget|streamer|m:[\w.:-]{1,64})$/;
+const RTC_T = new Set(['offer', 'answer', 'ice', 'bye', 'want', 'have']);
+const sessions = new Map();   // sid → { sid, kind, owner, ownerType:'mod'|'streamer', ownerClient, ip, since, peers:Set, recv:Set<ws>, sender:ws|null, init:Buffer|null }
+const grants = new Map();     // `${kind}|${clientId}` → { st:'pending'|'ok'|'no', at, kind, ownerType:'mod', ownerClient, cid, ip }
+const idOf = c => c.conn?._streamer ? 'streamer' : c.conn?._mod ? 'm:'+c.id : 'widget';
+const rtcBuckets = new WeakMap(), noteAt = new Map();
+function bucket(owner, cap, perSec){
+  let b = rtcBuckets.get(owner); const now = Date.now();
+  if(!b){ b = { n:cap, t:now }; rtcBuckets.set(owner, b); }
+  b.n = Math.min(cap, b.n + (now-b.t)*perSec/1000); b.t = now;
+  if(b.n < 1) return false; b.n--; return true;
+}
+function rtcHead(buf){
+  if(!Buffer.isBuffer(buf) || buf.length < 2+10+30 || buf.length > RTC_MAX) return null;
+  const n = buf.readUInt16BE(0);
+  if(n < 10 || n > 300 || buf.length < 2+n+30) return null;
+  let h; try{ h = JSON.parse(buf.subarray(2, 2+n).toString('utf8')); }catch{ return null; }
+  if(!h || typeof h!=='object' || h.v!==1 || typeof h.sid!=='string' || !SID_RE.test(h.sid) || !MEDIA_KINDS.includes(h.kind) || !RTC_T.has(h.t)) return null;
+  if(h.to!==undefined && (typeof h.to!=='string' || !TO_RE.test(h.to))) return null;
+  return { sid:h.sid, kind:h.kind, t:h.t, to:h.to };
+}
+// Сообщение модератору (запечатано, его читают все, но обращено к clientId). Одинаковые не чаще раза в 5 с
+async function mediaNote(cid, ev, kind, extra, force){
+  if(!ROOM || !AES) return;
+  const k = ev+'|'+kind+'|'+cid, now = Date.now();
+  if(!force && now - (noteAt.get(k)||0) < 5000) return;
+  noteAt.set(k, now);
+  if(noteAt.size > 300) for(const [x, t] of noteAt) if(now - t > 5000) noteAt.delete(x);
+  const box = await sealAES({ ev, cid, kind, ...extra, t:now });
+  aedes.publish({ cmd:'publish', topic:T('media'), payload:box, qos:0, retain:false, dup:false }, ()=>{});
+}
+async function hostBye(s, why){
+  if(!ROOM || !AES) return;
+  const head = Buffer.from(JSON.stringify({ v:1, sid:s.sid, kind:s.kind, t:'bye', to:'*' })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+  const body = await sealAES({ t:'bye', sid:s.sid, kind:s.kind, from:'host', why, ts:Date.now() });
+  aedes.publish({ cmd:'publish', topic:T('rtc'), payload:Buffer.concat([len, head, body]), qos:0, retain:false, dup:false }, ()=>{});
+}
+function endSession(s, why){
+  if(sessions.get(s.sid)!==s) return;
+  sessions.delete(s.sid);
+  for(const w of [...s.recv, s.sender]) if(w){ try{ w.close(1008, 'end'); }catch{} setTimeout(() => { try{ w.terminate(); }catch{} }, 500).unref?.(); }
+  s.recv.clear(); s.sender = null;
+  hostBye(s, why).catch(()=>{});
+  if(s.ownerType==='mod') mediaNote(s.ownerClient, 'bye', s.kind, { sid:s.sid, why }, true).catch(()=>{});
+}
+// Отзыв: закрыть сеансы и забыть подтверждения, подходящие под условие. Условие получает { kind, ownerType, ownerClient }
+function mediaRevoke(pred, why){
+  let n = 0;
+  for(const s of [...sessions.values()]) if(pred(s)){ endSession(s, why); n++; }
+  for(const [k, g] of [...grants]) if(pred(g)) grants.delete(k);
+  if(n) logc('🎥 Трансляций остановлено:', n, '—', why);
+}
+function grantsSweep(){
+  const now = Date.now();
+  for(const [k, g] of grants) if(g.st!=='ok' && now - g.at > (g.st==='no' ? DENY_TTL : ASK_TTL)) grants.delete(k);
+}
+setInterval(grantsSweep, 15000);
+// Можно ли модератору сейчас вещать kind. Нет разрешения → «no», нет подтверждения → запрос в док (и «pending»)
+function modMediaOk(client, kind){
+  const cid = client.id, key = kind+'|'+cid, now = Date.now();
+  if(!effPerms()[kind]){ mediaNote(cid, 'no', kind, { why:'perm' }).catch(()=>{}); return false; }
+  grantsSweep();
+  const g = grants.get(key);
+  if(g?.st==='ok') return true;
+  if(g?.st==='no'){ mediaNote(cid, 'no', kind, { why:'denied' }).catch(()=>{}); return false; }
+  if(g) return false;   // ждёт ответа стримера
+  const pend = [...grants.values()].filter(x => x.st==='pending');
+  if(pend.length >= MEDIA_ASK || pend.filter(x => x.ownerClient===cid).length >= 3){ mediaNote(cid, 'no', kind, { why:'busy' }).catch(()=>{}); return false; }
+  grants.set(key, { st:'pending', at:now, kind, ownerType:'mod', ownerClient:cid, cid, ip:client.conn._ip });
+  logc('🎥 Модератор', who(client.conn._ip), 'просит показать:', PERM_NAMES[kind].replace(' модератора', ''));
+  mediaNote(cid, 'pending', kind, {}, true).catch(()=>{});
+  return false;
+}
+// true — пропустить, null — тихо отбросить, false — нарушение формата (соединение рвёт aedes)
+function rtcGate(client, packet){
+  const h = rtcHead(packet.payload);
+  if(!h) return false;
+  packet.retain = false;
+  const isMod = !!client.conn?._mod, isStr = !!client.conn?._streamer, id = idOf(client);
+  if(!bucket(client, 100, 30)) return null;   // 30 сообщений в секунду, всплеск 100 (ICE-кандидаты)
+  if(h.t==='want') return true;
+  if(h.t==='offer' || h.t==='have'){
+    if(!isMod && !isStr) return null;   // виджет только отвечает
+    if(!h.to || h.to===id) return false;
+    let s = sessions.get(h.sid);
+    if(s && (s.owner!==id || s.kind!==h.kind)){ refuse(isMod ? client.conn._ip : 'local', 'rtc: чужой sid'); return null; }
+    if(isMod && !modMediaOk(client, h.kind)) return null;
+    if(!s){
+      const mods = [...sessions.values()].filter(x => x.ownerType==='mod');
+      if(sessions.size >= MEDIA_TOTAL || (isMod && (mods.length >= MEDIA_MOD_TOTAL || mods.filter(x => x.ownerClient===client.id).length >= MEDIA_PER_MOD))){ refuse(isMod ? client.conn._ip : 'local', 'rtc: много трансляций'); return null; }
+      s = { sid:h.sid, kind:h.kind, owner:id, ownerType:isMod ? 'mod' : 'streamer', ownerClient:client.id, ip:isMod ? client.conn._ip : 'local', since:Date.now(), peers:new Set(), recv:new Set(), sender:null, init:null };
+      sessions.set(h.sid, s);
+      logc('🎥 Трансляция:', isMod ? who(s.ip) : 'стример', '—', PERM_NAMES[h.kind]);
+    }
+    if(!s.peers.has(h.to)){ if(s.peers.size >= MEDIA_PEERS) return null; s.peers.add(h.to); }
+    return true;
+  }
+  const s = sessions.get(h.sid);
+  if(!s || s.kind!==h.kind) return null;
+  if(h.t==='bye'){
+    if(id!==s.owner && !isStr) return null;
+    setImmediate(() => endSession(s, 'завершено'));
+    return true;
+  }
+  // answer, ice
+  if(id===s.owner) return h.t==='ice' && h.to && s.peers.has(h.to) ? true : null;
+  return s.peers.has(id) ? true : null;
+}
+aedes.on('clientDisconnect', c => {
+  if(c.conn?._mod || c.conn?._streamer) mediaRevoke(x => x.ownerClient===c.id, 'владелец отключился');
+});
+function mediaInfo(){
+  grantsSweep();
+  return { off:!!ctl.mediaOff,
+    pending:[...grants.values()].filter(g => g.st==='pending').map(g => ({ key:g.kind+'|'+g.cid, kind:g.kind, ip:maskHost(g.ip) })),
+    live:[...sessions.values()].map(s => ({ sid:s.sid, kind:s.kind, own:s.ownerType, ip:s.ownerType==='mod' ? maskHost(s.ip) : '', since:s.since, viewers:s.recv.size })) };
+}
+// Кнопки дока: ответ на запрос, «Выключить» у трансляции, общий выключатель
+function mediaAction(action, key){
+  if(action==='mediaoff' || action==='mediaon'){
+    const off = action==='mediaoff';
+    if(ctl.mediaOff!==off){ ctl.mediaOff = cfg.mediaOff = off; saveCfg(); log(off ? '🎥 Стример выключил все трансляции модераторов' : '🎥 Трансляции модераторов снова разрешены (если включены ползунки)'); }
+    if(off) mediaRevoke(x => x.ownerType==='mod', 'стример выключил трансляции модераторов');
+    publishPerms().catch(()=>{});
+    return;
+  }
+  if(typeof key!=='string' || key.length>100) throw new HttpErr(400, 'нет такой трансляции');
+  if(action==='mediastop'){
+    const s = sessions.get(key);
+    if(!s) throw new HttpErr(404, 'трансляции уже нет');
+    if(s.ownerType==='mod') grants.set(s.kind+'|'+s.ownerClient, { st:'no', at:Date.now(), kind:s.kind, ownerType:'mod', ownerClient:s.ownerClient, cid:s.ownerClient, ip:s.ip });   // заново — только через запрос
+    endSession(s, 'стример выключил'); log('🎥 Стример выключил трансляцию:', PERM_NAMES[s.kind]);
+    return;
+  }
+  const g = grants.get(key);
+  if(!g || g.st!=='pending') throw new HttpErr(404, 'запрос уже не актуален');
+  const ok = action==='mediaallow' && effPerms()[g.kind];
+  g.st = ok ? 'ok' : 'no'; g.at = Date.now();
+  logc('🎥', ok ? 'Разрешено:' : 'Отклонено:', who(g.ip), '—', PERM_NAMES[g.kind]);
+  mediaNote(g.cid, ok ? 'ok' : 'no', g.kind, ok ? {} : { why:'denied' }, true).catch(()=>{});
+}
+
+// Запасной путь: зашифрованные куски по WebSocket. Host их только пересылает.
+const mediaWss = new WebSocketServer({ noServer:true, maxPayload:MEDIA_FRAME + 1 });
+const mediaPerIp = new Map();
+let mediaPendingSocks = 0;
+function perIpAdd(ip, d){ const n = (mediaPerIp.get(ip)||0) + d; if(n>0) mediaPerIp.set(ip, n); else mediaPerIp.delete(ip); }
+setInterval(() => { for(const w of mediaWss.clients){ if(w._dead){ w.terminate(); continue; } w._dead = true; try{ w.ping(); }catch{} } }, 20000);
+function mediaUpgrade(mod, req, socket, head){
+  const sid = new URL(req.url, 'http://x').searchParams.get('sid') || '';
+  const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
+  if(!SID_RE.test(sid) || (!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin) && !panel)))){ socket.destroy(); return; }
+  const ip = ipOf(req), loop = isLoop(ip);
+  if(mod && !cfg.modsOn){ socket.destroy(); return; }
+  if(mediaWss.clients.size >= MEDIA_SOCKS || mediaPendingSocks >= MEDIA_PENDING_SOCKS || (!loop && (mediaPerIp.get(ip)||0) >= MEDIA_PER_IP)){ refuse(ip, 'лимит: слишком много медиа-соединений'); socket.destroy(); return; }
+  mediaPendingSocks++;
+  let done = false;
+  const unpend = () => { if(!done){ done = true; mediaPendingSocks--; } };
+  socket.once('close', unpend);
+  mediaWss.handleUpgrade(req, socket, head, ws => {
+    let authed = false, sess = null, isSender = false, tokens = MEDIA_FRAME, last = Date.now();
+    perIpAdd(ip, 1);
+    const pendTimer = setTimeout(() => { try{ ws.terminate(); }catch{} }, 5000);
+    ws.on('pong', () => { ws._dead = false; });
+    ws.on('error', ()=>{});
+    ws.on('close', () => {
+      clearTimeout(pendTimer); unpend(); perIpAdd(ip, -1);
+      if(sess){ sess.recv.delete(ws); if(sess.sender===ws) sess.sender = null; }
+    });
+    const bad = () => { try{ ws.terminate(); }catch{} };
+    ws.on('message', (data, isBinary) => {
+      const b = Buffer.isBuffer(data) ? data : Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
+      if(!authed){
+        if(isBinary || b.length > 600) return bad();
+        let m; try{ m = JSON.parse(b.toString('utf8')); }catch{ return bad(); }
+        if(!m || typeof m!=='object') return bad();
+        let id = '';
+        if(mod){
+          const c = m.u==='mod' && typeof m.c==='string' && Object.hasOwn(aedes.clients, m.c) ? aedes.clients[m.c] : null;
+          if(m.u!=='mod' || !passOk(ip, m.p) || ctl.paused || !c?.conn?._mod || !c.conn._authed || c.conn._ip!==ip) return bad();
+          id = 'm:'+m.c;
+        }else if(m.u==='streamer'){ if(!panel || !panelSessionOk(String(m.p||''))) return bad(); id = 'streamer'; }
+        else if(m.u==='widget' && !panel) id = 'widget';
+        else return bad();
+        sess = sessions.get(sid);
+        if(!sess) return bad();
+        if(id===sess.owner){
+          if(sess.ownerType==='mod' && !(effPerms()[sess.kind] && grants.get(sess.kind+'|'+sess.ownerClient)?.st==='ok')) return bad();
+          try{ sess.sender?.terminate(); }catch{}
+          sess.sender = ws; isSender = true;
+        }else if(sess.peers.has(id) && sess.recv.size < MEDIA_PEERS){
+          sess.recv.add(ws);
+          if(sess.init) try{ ws.send(sess.init, { binary:true }); }catch{}
+        }else return bad();
+        authed = true; clearTimeout(pendTimer); unpend();
+        return;
+      }
+      if(!isBinary || !isSender || sessions.get(sid)!==sess) return bad();   // получатель молчит; текст после входа не нужен
+      if(b.length < 29 || b[0] > 2) return bad();
+      if(sess.ownerType==='mod' && !effPerms()[sess.kind]) return bad();
+      const now = Date.now(); tokens = Math.min(MEDIA_FRAME, tokens + (now-last)*MEDIA_BPS/1000); last = now;
+      if((tokens -= b.length) < 0) return bad();   // быстрее 4 Мбит/с — обрыв
+      if(b[0]===0) sess.init = Buffer.from(b);
+      for(const r of sess.recv){
+        if(r.readyState!==1) continue;
+        if(r.bufferedAmount > 16*1048576){ try{ r.terminate(); }catch{} continue; }
+        if(r.bufferedAmount > 4*1048576 && b[0]!==0) continue;   // отстающему получателю куски пропускаем, заголовок не пропускаем
+        try{ r.send(b, { binary:true }); }catch{}
+      }
+    });
+  });
+}
 
 // ---------- экран для дока в OBS ----------
 // Программа видит зашифрованный экран (тема state) и ключ комнаты у неё есть: расшифровывает сама, проверяет подпись
@@ -1490,7 +1731,7 @@ function dockCs2(){
     obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
 }
 function dockInfo(){
-  return { perms:cfg.perms, els:screen ? screen.els : null, cs2:dockCs2(),
+  return { perms:cfg.perms, media:mediaInfo(), els:screen ? screen.els : null, cs2:dockCs2(),
     ppl:[...modList].map(([id, m]) => ({ id, me:!!m.me, net:m.net, ip:m.me ? '' : maskHost(m.ip), rtt:m.rtt, since:m.since })) };
 }
 async function streamerSession(req, res){
@@ -1570,6 +1811,7 @@ const local = http.createServer(async (req, res) => {
         const next = cleanPerms({ ...cfg.perms, ...(perms && typeof perms==='object' ? perms : {}) });
         const ch = PERM_KEYS.filter(k => next[k]!==cfg.perms[k]);
         cfg.perms = next; saveCfg();
+        for(const k of ch) if(DEFAULT_OFF.includes(k) && !next[k]) mediaRevoke(x => x.kind===k && x.ownerType==='mod', 'стример выключил: '+PERM_NAMES[k]);
         if(ch.length) log('🔒 Права модераторов:', ch.map(k => PERM_NAMES[k]+(next[k] ? ' — можно' : ' — нельзя')).join('; '));
         await publishPerms();
         return send(res, 200, JSON.stringify({ ok:true, perms:cfg.perms }), 'application/json');
@@ -1585,7 +1827,8 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
         const { action, key, on } = JSON.parse(await readBody(req, 1024));
-        if(action==='off'){   // быстрый выключатель: on=true — выключить на стриме
+        if(['mediaallow', 'mediadeny', 'mediastop', 'mediaoff', 'mediaon'].includes(action)) mediaAction(action, key);
+        else if(action==='off'){   // быстрый выключатель: on=true — выключить на стриме
           if(!OFF_KEYS.includes(key)) throw new HttpErr(400, 'неизвестный выключатель');
           if(ctl.off[key]!==!!on){ log(on ? '🚫 Стример выключил на стриме: '+OFF_NAMES[key] : '✅ Стример вернул на стрим: '+OFF_NAMES[key]); }
           ctl.off = { ...ctl.off, [key]:!!on }; cfg.ctlOff = ctl.off; saveCfg();
