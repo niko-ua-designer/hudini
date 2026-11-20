@@ -1104,3 +1104,6 @@
   from { opacity: .45; }
   to { opacity: 1; }
 }
+/* Плашка «карта · счёт · раунд» на время пролёта камеры (cs2auto.plate, по умолчанию выключена) */
+.ctab .fplate{position:absolute;left:2cqw;bottom:2cqw;display:flex;gap:1.2cqw;align-items:baseline;padding:.7cqw 1.6cqw;border-radius:99px;background:#0b0d14cc;border:.1cqw solid #ffffff22;font-size:1.5cqw;font-weight:800;letter-spacing:.03em;text-shadow:0 .2cqw .5cqw #000a}
+.ctab .fplate span{color:#cdd3e6;font-weight:700}

@@ -20,7 +20,7 @@
   const OFF_OF = { chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
   const offNow = () => typeof hostCtl !== 'undefined' && hostCtl?.off && typeof hostCtl.off === 'object' ? hostCtl.off : {};
   let perms = null, permsRoom = null;
-  const cur = () => perms && permsRoom === room ? perms : { av:true, web:true, fx:true, games:true };
+  const cur = () => perms && permsRoom === room ? perms : { av:true, web:true, fx:true, games:true, flights:false };
   const permOff = el => { const p = PERM_OF[el?.type]; return !!p && cur()[p] === false; };
 
   // стили отдельным файлом: CSP окна приложения не пускает <style>, созданный скриптом
@@ -70,12 +70,14 @@
   // Права пришли из программы стримера (тема perms)
   window.hudiniPanelPerms = p => {
     if(!p || typeof p !== 'object') return;
-    perms = { av:p.av !== false, web:p.web !== false, fx:p.fx !== false, games:p.games !== false }; permsRoom = room;
-    applyUi(); marks();
+    perms = { av:p.av !== false, web:p.web !== false, fx:p.fx !== false, games:p.games !== false, flights:p.flights === true }; permsRoom = room;
+    applyUi(); marks(); window.renderFlights?.();
   };
   // После каждой перерисовки пульта (renderAll)
   window.hudiniMarks = () => { applyUi(); marks(); };
   window.hudiniPermOff = permOff;
+  // Пролёты камеры: пульт стримера видит всегда, модератор только с правом flights (Host всё равно проверяет сам)
+  window.hudiniFlightsAllowed = () => document.body.classList.contains('streamer-panel') || cur().flights === true;
   applyUi();
 
   // ---------- «Открыть пульт» у стримера (пульт на том же ПК, что и Hudini Host) ----------

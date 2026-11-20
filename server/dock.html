@@ -50,6 +50,9 @@ a{color:#b9a8ff}
 .score small{font-size:12px;color:var(--muted);font-weight:600}
 .ct{color:#8fb8ff}.t{color:#f5c463}
 .empty{color:var(--muted);padding:6px 0}
+#ask{margin:8px;border:1px solid var(--warn);border-radius:10px;background:#2a2112;padding:8px 10px}
+#ask .row{border-top:0}
+#ask button.go{background:var(--ok);border-color:var(--ok);color:#111;font-weight:600}
 #banner{margin:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
 .foot{margin:10px 8px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
 </style>
@@ -63,6 +66,7 @@ a{color:#b9a8ff}
   <button data-tab="cs2">CS2</button>
 </nav>
 <div id="banner" hidden></div>
+<div id="ask" hidden></div>
 
 <section class="sec on" data-sec="stat">
   <div class="pills" id="pills"></div>
@@ -83,6 +87,8 @@ a{color:#b9a8ff}
 
 <section class="sec" data-sec="ppl">
   <div class="card"><h3><span>Кто на связи</span><span id="pplCnt" data-i18n-skip></span></h3><div id="ppl"></div></div>
+  <div class="card"><h3><span>Трансляции</span><span id="liveCnt" data-i18n-skip></span></h3><div id="live"></div>
+    <div class="btns" style="margin-top:6px"><button id="mediaoff" class="danger">⛔ Выключить все трансляции модераторов</button></div></div>
 </section>
 
 <section class="sec" data-sec="cs2">
@@ -192,10 +198,44 @@ function renderPpl(){
   }));
 }
 
+// ---- Трансляции модераторов: запросы на подтверждение, кто вещает, общий выключатель ----
+const MEDIA_ASK={ cam:'хочет показать камеру', screen:'хочет показать экран', mic:'хочет включить микрофон' }, MEDIA_LIVE={ cam:'Трансляция: камера', screen:'Трансляция: экран', mic:'Трансляция: микрофон' };
+function renderMedia(){
+  const m=s.media||{ off:false, pending:[], live:[] };
+  const box=$('ask');
+  if(!same(box, [m.pending])){
+    if(!m.pending.length) box.replaceChildren();
+    else box.replaceChildren(...m.pending.map(q=>{
+      const row=el('div','row'), n=el('span','n');
+      const ip=el('span',null,q.ip); ip.setAttribute('data-i18n-skip','');
+      n.append(tr('Модератор')+' ', ip, ' '+tr(MEDIA_ASK[q.kind]||q.kind));
+      const ok=el('button','go',tr('Разрешить показ')), no=el('button',null,tr('Отклонить запрос'));
+      ok.dataset.mok=q.key; no.dataset.mno=q.key;
+      ok.onclick=act(()=>({ action:'mediaallow', key:q.key })); no.onclick=act(()=>({ action:'mediadeny', key:q.key }));
+      row.append(n, ok, no); return row;
+    }));
+  }
+  box.hidden=!m.pending.length;
+  const live=$('live');
+  if(!same(live, [m.live, m.off])){
+    $('liveCnt').textContent=String(m.live.length);
+    live.replaceChildren(...(m.live.length ? m.live.map(x=>{
+      const row=el('div','row'), n=el('span','n');
+      const who=el('span',null,x.ip); who.setAttribute('data-i18n-skip','');
+      n.append(tr(MEDIA_LIVE[x.kind]||x.kind)+' · ', x.own==='mod' ? who : tr('Стример'));
+      const b=el('button','kick',tr('Выключить трансляцию')); b.dataset.mstop=x.sid; b.onclick=act(()=>({ action:'mediastop', key:x.sid }));
+      row.append(el('span','dot ok'), n, b); return row;
+    }) : [el('div','empty',tr('Никто не вещает'))]));
+    $('mediaoff').classList.toggle('on', !!m.off);
+    $('mediaoff').textContent = m.off ? tr('✅ Разрешить трансляции модераторов') : tr('⛔ Выключить все трансляции модераторов');
+  }
+}
+$('mediaoff').onclick=act(()=>({ action:s?.media?.off?'mediaon':'mediaoff' }));
+
 // ---- CS2 ----
 function renderCs2(){
   const box=$('cs2'), c=s.cs2;
-  if(same(box, [c, !!fightText(s.fight)])) return;
+  if(same(box, [c, !!fightText(s.fight), busy])) return;
   if(!c){ box.replaceChildren(el('div','empty',tr('CS2 не на связи'))); return; }
   const score=el('div','score');
   score.append(el('span','ct', c.ctName||'CT'), el('span','ct', String(c.ct??0)), el('small',null,':'), el('span','t', String(c.tt??0)), el('span','t', c.tName||'T'));
@@ -210,6 +250,20 @@ function renderCs2(){
     row.append(n, el('span','m','HP '+(c.obs.hp??'—'))); kids.push(row);
   }
   if(!fightText(s.fight)) kids.push(el('div','empty',tr('Файт: тихо')));
+  const f=c.fl, ok=!!f && f.on && f.spec, st=v=>v===1 ? tr('вкл') : v===0 ? tr('выкл') : '—';
+  const q=el('div','quick');
+  q.append(el('div','m', !f ? '' : !f.on ? tr('Включи пролёты во вкладке CS2 пульта') : !f.spec ? tr('Ждёт наблюдателя') : (f.note||'')));
+  const btn=(txt,body,dis)=>{ const b=el('button',null,txt); b.disabled=!ok||!!dis; b.onclick=act(()=>body); return b; };
+  const rowOf=(label,state,...bs)=>{ const r=el('div','row'), n=el('span','n',label); r.append(n, el('span','m',state), ...bs); return r; };
+  q.append(rowOf(tr('Интерфейс игры: только килл-фид'), st(f?.quick?.dn), btn(tr('Вкл'),{ action:'cs2quick', key:'dn', on:true }), btn(tr('Выкл'),{ action:'cs2quick', key:'dn', on:false })));
+  q.append(rowOf(tr('Автодиректор'), st(f?.quick?.ad), btn(tr('Автодиректор: включить'),{ action:'cs2quick', key:'ad', on:true }), btn(tr('Автодиректор: выключить'),{ action:'cs2quick', key:'ad', on:false })));
+  const sel=document.createElement('select'); sel.id='dockRoute';
+  for(const r of (f?.routes||[])){ const o=el('option',null,`${r.name} · ${r.n}`); o.value=r.id; o.setAttribute('data-i18n-skip',''); sel.append(o); }
+  if(!f?.routes?.length) sel.append(el('option',null,tr('Путей на этой карте нет')));
+  const run=el('button',null,tr('Запустить пролёт')); run.id='dockRun'; run.disabled=!ok||!f.routes.length||!!f.flying; run.onclick=act(()=>({ action:'cs2fly', key:sel.value }));
+  const stop=el('button',null,tr('Остановить')); stop.id='dockStop'; stop.disabled=!f?.flying; stop.onclick=act(()=>({ action:'cs2flystop' }));
+  const rr=el('div','row'); rr.append(sel, run, stop); q.append(rr, el('div','m',tr('Вкл и выкл показывают последнюю отправленную команду, а не то, что сейчас в игре.')));
+  kids.push(q);
   box.replaceChildren(...kids);
 }
 
@@ -220,7 +274,7 @@ async function refresh(){
   $('ver').textContent='v'+s.version;
   const c=s.ctl||{};
   banner(c.hidden ? tr('Оверлей спрятан: зрители его не видят.') : c.paused ? tr('Модераторы не могут менять экран.') : '');
-  for(const f of [renderFight, renderStat, renderEls, renderPpl, renderCs2]) try{ f(); }catch(e){ console.warn(e); }
+  for(const f of [renderFight, renderStat, renderEls, renderPpl, renderMedia, renderCs2]) try{ f(); }catch(e){ console.warn(e); }
 }
 refresh(); setInterval(refresh, 1000);
 </script>

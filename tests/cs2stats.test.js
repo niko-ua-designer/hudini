@@ -253,6 +253,38 @@ const { step, check, eq, until, sleep } = T;
     eq((await teams())[4], 0, 'no swap counted');
   });
 
+  await step('numbering: hud order gives left 1-5, right 6-0 on the Host, in the fight hint and in the panel/widget renderer', async () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+    const vm = require('vm'), ctx = {}; vm.createContext(ctx);
+    vm.runInContext(src.slice(src.indexOf('const FIGHT_WIN'), src.indexOf('\nlet fightPrev')) + '\nthis.detectFight = detectFight; this.hudSlots = hudSlots; this.slotKey = slotKey;', ctx);
+    // game slots as CS2 hands them out: T is first here (0-4), CT is 5-9, one hole in the middle of CT
+    const P = (id, team, slot) => ({ id, name: 'n' + id, team, slot, hp: 100, alive: true });
+    const roster = [P('t1', 'T', 0), P('t2', 'T', 1), P('c1', 'CT', 5), P('c2', 'CT', 7), P('c3', 'CT', 9), P('x', 'CT', -1)];
+    const hs = ctx.hudSlots(roster);
+    eq([hs.c1, hs.c2, hs.c3, hs.t1, hs.t2, 'x' in hs], [0, 1, 2, 5, 6, true], 'CT takes 0..4, T takes 5..9, a player without a game slot is numbered last in his team');
+    eq([hs.c1, hs.c3, hs.t1, hs.t2].map(ctx.slotKey), [1, 3, 6, 7], 'keys shown: CT 1 2 3, T 6 7');
+    const prev = Object.fromEntries(roster.map(p => [p.id, p]));
+    const now = roster.map(p => p.id === 't1' ? { ...p, hp: 60 } : p.id === 'c3' ? { ...p, ammo: 5 } : p);
+    const mk = hud => ctx.detectFight(prev, now.map(p => p.id === 't1' ? { ...p, hp: 60, weapon: 'w' } : p), [], 1000, { hurt: {}, act: { c3: 1000 } }, null, hud);
+    const g = mk(false).fight, h = mk(true).fight;
+    eq(g && [g.a.slot, g.b.slot], [0, 1], 'game numbering: raw slots 9 and 0 → keys 0 and 1');
+    eq(h && [h.a.slot, h.b.slot], [3, 6], 'hud numbering: third CT is 3, first T is 6');
+    // the renderer in core.js
+    const box = { console, URL, Blob, TextEncoder, TextDecoder, Intl, setTimeout, clearTimeout, setInterval() {}, addEventListener() {}, document: { addEventListener() {}, currentScript: null, baseURI: 'http://x/' }, location: { protocol: 'https:', origin: 'https://p.test' } };
+    box.window = box; vm.createContext(box);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'web/shared/core.js'), 'utf8') + '\nthis.R = { cleanCs2Auto, setCs2Num, cs2View, slotLabel };', box);
+    const R = box.R, d = { players: roster, observed: roster[2] };
+    const lab = v => v.players.map(p => p.id + ':' + R.slotLabel(p.slot)).join(' ');
+    R.setCs2Num({ num: 'game' });
+    eq(lab(R.cs2View({}, d)), 't1:1 t2:2 c1:6 c2:8 c3:0 x:', 'game numbering: as the game gives it');
+    R.setCs2Num({ num: 'hud' });
+    eq(lab(R.cs2View({}, d)), 't1:6 t2:7 c1:1 c2:2 c3:3 x:4', 'hud numbering: CT 1-4 left, T 6-7 right');
+    eq(R.slotLabel(R.cs2View({}, d).observed.slot), '1', 'the observed player is renumbered too');
+    const ten = [...'abcde'].map((c, i) => P('c' + c, 'CT', 5 + i)).concat([...'abcde'].map((c, i) => P('t' + c, 'T', i)));
+    eq(R.cs2View({}, { players: ten }).players.map(p => R.slotLabel(p.slot)).join(''), '1234567890', 'ten players: left 1-5, right 6-9 and 0');
+    eq([R.cleanCs2Auto(null).num, R.cleanCs2Auto({ num: 'hud' }).num, R.cleanCs2Auto({ num: 'zzz' }).num, R.cleanCs2Auto(null).plate], ['game', 'hud', 'game', false], 'cleanCs2Auto: numbering defaults to the game, plate is off');
+  });
+
   await host.stop();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

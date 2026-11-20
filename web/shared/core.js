@@ -1531,6 +1531,21 @@ function mapName(m){ if(!m) return ''; const n=String(m).replace(/^(de|cs|ar|dz|
 // Та же формула в server.js (slotKey). -1 и пустое значение дают пустую подпись и уходят в конец.
 const slotLabel = s => { const n=Number(s); return s!=null && s!=='' && Number.isInteger(n) && n>=0 && n<=9 ? String((n+1)%10) : ''; };
 const slotOrd = s => slotLabel(s)==='' ? 99 : Number(s);
+// «По порядку в худе»: внутри команды по слоту игры, слева (CT) 0–4 → подписи 1–5, справа (T) 5–9 → 6–0. Та же формула в server.js (hudSlots).
+function cs2HudSlots(players){
+  const out={};
+  for(const side of ['CT','T']) (players||[]).filter(p=>p.team===side).sort((a,b)=>slotOrd(a.slot)-slotOrd(b.slot)).slice(0,5).forEach((p,i)=>{ out[p.id]=(side==='CT'?0:5)+i; });
+  return out;
+}
+let CS2_NUM = 'game';   // режим нумерации из state.cs2auto.num; виджет и пульт ставят его при каждом новом экране
+function setCs2Num(a){ CS2_NUM = a?.num==='hud' ? 'hud' : 'game'; }
+function cs2Renumber(d){
+  if(CS2_NUM!=='hud' || !d?.players) return d;
+  const hs=cs2HudSlots(d.players), re=p=>p && Object.hasOwn(hs, p.id) ? { ...p, slot:hs[p.id] } : p;
+  const out={ ...d, players:d.players.map(re) };
+  if(d.observed) out.observed=re(d.observed);
+  return out;
+}
 const money = v => '$'+String(Math.round(v||0)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const STREAK = { 2:'DOUBLE KILL', 3:'TRIPLE KILL', 4:'QUAD KILL', 5:'ACE!' };
 // Линейные иконки HUD вместо эмодзи: эмодзи разного размера и сидят на разной высоте.
@@ -1617,12 +1632,12 @@ function cs2View(el, d){
   if(!d) return d;
   const nk=el.nicks||{}, has=Object.keys(nk).length>0;
   const flip=d.sw ? 1 : 0, mine=(a,b)=>flip ? b : a;
-  const out={ ...d, ctName: mine(el.tnCT, el.tnT) || d.ctName, tName: mine(el.tnT, el.tnCT) || d.tName, lgCT: mine(el.lgCT, el.lgT)||'', lgT: mine(el.lgT, el.lgCT)||'' };
+  const out={ ...cs2Renumber(d), ctName: mine(el.tnCT, el.tnT) || d.ctName, tName: mine(el.tnT, el.tnCT) || d.tName, lgCT: mine(el.lgCT, el.lgT)||'', lgT: mine(el.lgT, el.lgCT)||'' };
   if(!has) return out;
   const nm=(id,name)=>(id && Object.hasOwn(nk,id)) ? nk[id] : name;
   const pl=p=>p && Object.hasOwn(nk,p.id) ? { ...p, name:nk[p.id], gname:p.name } : p;
-  if(d.players) out.players=d.players.map(pl);
-  if(d.observed) out.observed=pl(d.observed);
+  if(out.players) out.players=out.players.map(pl);
+  if(out.observed) out.observed=pl(out.observed);
   if(d.id && Object.hasOwn(nk,d.id)){ out.gname=d.name; out.name=nk[d.id]; }
   if(d.spectating && d.observed && Object.hasOwn(nk,d.observed.id)) out.spectating=nk[d.observed.id];
   if(d.evs) out.evs=d.evs.map(e=>(e.kid&&Object.hasOwn(nk,e.kid)) || (e.vid&&Object.hasOwn(nk,e.vid)) || (e.k==='multikill'&&e.id&&Object.hasOwn(nk,e.id))
@@ -1926,7 +1941,21 @@ function cleanSeriesView(v){
   const tm = x => ({ name:str(x?.name, 40), w:Math.round(num(x?.w, 0, 0, 9)) });
   const maps = (Array.isArray(v.maps) ? v.maps : []).slice(0, 7).map(m => ({ map:str(m?.map, 40).replace(/[^a-z0-9_]/gi, ''),
     a:{ name:str(m?.a?.name, 40), score:Math.round(num(m?.a?.score, 0, 0, 99)) }, b:{ name:str(m?.b?.name, 40), score:Math.round(num(m?.b?.score, 0, 0, 99)) }, win:m?.win==='a' || m?.win==='b' ? m.win : '' }));
-  return { bo:[1,3,5].includes(v.bo) ? v.bo : 3, a:tm(v.a), b:tm(v.b), maps, ctIs:v.ctIs==='a' || v.ctIs==='b' ? v.ctIs : null, map:str(v.map, 40), go:num(v.go, 0, 0, 1e15) };
+  return { bo:[1,3,5].includes(v.bo) ? v.bo : 3, a:tm(v.a), b:tm(v.b), maps, ctIs:v.ctIs==='a' || v.ctIs==='b' ? v.ctIs : null, map:str(v.map, 40), go:num(v.go, 0, 0, 1e15), fl:cleanFlightView(v.fl) };
+}
+// Пролёты камеры от программы: настройки и маршруты выбранной карты (всё проверяется заново, строки только как текст)
+function cleanFlightView(f){
+  const n=(x, lo, hi, d=0)=>{ x=Number(x); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
+  const vec=(a, k)=>Array.from({ length:k }, (_, i)=>n(a?.[i], -100000, 100000));
+  const key=x=>str(x, 40).replace(/[^a-z0-9_]/gi, '').toLowerCase();
+  f=f && typeof f==='object' ? f : {};
+  return { on:f.on===true, port:Math.round(n(f.port, 1024, 65535, 27015)), pick:f.pick==='random' ? 'random' : 'rr', returnMode:Math.round(n(f.returnMode, 0, 6, 4)), autodir:f.autodir!==false, quick:{ dn:f.quick?.dn===0 || f.quick?.dn===1 ? f.quick.dn : null, ad:f.quick?.ad===0 || f.quick?.ad===1 ? f.quick.ad : null },
+    link:f.link===true, spec:f.spec===true, flying:typeof f.flying==='string' ? f.flying.replace(/[^a-z]/g, '').slice(0, 12) : '', map:key(f.map), edit:key(f.edit), note:str(f.note, 120),
+    maps:(Array.isArray(f.maps) ? f.maps : []).slice(0, 40).map(m=>[key(m?.[0]), Math.round(n(m?.[1], 0, 8))]),
+    routes:(Array.isArray(f.routes) ? f.routes : []).slice(0, 8).map(r=>({ id:str(r?.id, 12).replace(/[^a-z0-9]/gi, ''), name:str(r?.name, 40), dur:n(r?.dur, 0, 300),
+      trg:{ freeze:r?.trg?.freeze===true, tech:r?.trg?.tech===true, timeout:r?.trg?.timeout===true, warmup:r?.trg?.warmup===true },
+      pts:(Array.isArray(r?.pts) ? r.pts : []).slice(0, 40).map(q=>({ p:vec(q?.p, 3), a:vec(q?.a, 3), t:n(q?.t, 0, 120), j:q?.j===1 ? 1 : 0 })) })),
+    chains:Object.fromEntries(['freeze', 'tech', 'timeout', 'warmup'].map(k=>[k, (Array.isArray(f.chains?.[k]) ? f.chains[k] : []).slice(0, 6).map(q=>({ id:str(q?.id, 12).replace(/[^a-z0-9]/gi, ''), join:q?.join==='cut' ? 'cut' : 'smooth', pause:n(q?.pause, 0, 60) }))])) };
 }
 // победы по сторонам сейчас: слева CT, справа T, как в счёте
 function seriesSides(){
@@ -1937,16 +1966,18 @@ function seriesSides(){
 function seriesLabel(){ const x=seriesSides(); if(!x || (x.bo===1 && !x.n)) return ''; return `${st('Серия')} ${x.ct} : ${x.t} · BO${x.bo}`; }
 
 // Авто-таб: таблица всех игроков сама выезжает на таймауте/паузе, смене сторон и в конце карты (15 с), потом уезжает.
-// state.cs2auto = { on, timeout, half, end, theme:'A'..'D', hideBottom, hideTop }. Красится под тему CS2-элемента экрана.
+// state.cs2auto = { on, timeout, half, end, theme:'A'..'D', hideBottom, hideTop, num:'game'|'hud', plate }. Красится под тему CS2-элемента экрана.
 const CS2TAB_STYLES = ['A','B','C','D'], CS2TAB_END_MS = 15000;
 function cleanCs2Auto(a){
   a = a && typeof a==='object' ? a : {};
   return { on:a.on===true, timeout:a.timeout!==false, half:a.half!==false, end:a.end!==false,
-    theme:CS2TAB_STYLES.includes(a.theme) ? a.theme : 'A', hideBottom:a.hideBottom!==false, hideTop:a.hideTop!==false };
+    theme:CS2TAB_STYLES.includes(a.theme) ? a.theme : 'A', hideBottom:a.hideBottom!==false, hideTop:a.hideTop!==false,
+    num:a.num==='hud' ? 'hud' : 'game', plate:a.plate===true };
 }
 // Какой момент сейчас: 'timeout' | 'half' | 'end' | null. mem помнит, когда этот пульт или виджет впервые увидел конец карты;
 // время конца от программы (серия, go) важнее: перезагруженный виджет не покажет итог второй раз.
 function cs2TabMoment(d, a, mem, now){
+  if(a?.plate && d && CS2_SERIES?.fl?.flying) return 'flight';   // плашка «карта · счёт · раунд» во время пролёта камеры (по умолчанию выключена)
   if(!a?.on || !d) return null;
   if(d.phase==='gameover'){
     if(!a.end) return null;
@@ -2015,6 +2046,10 @@ function cs2TabCard(p, mvp){
 }
 // Собирает таб заново (имена и цифры игры — только через textContent)
 function cs2TabBuild(box, d, a, m, look){
+  if(m==='flight'){
+    const p=h('div','fplate'); p.append(h('b',null, mapName(d.map)||'CS2'), h('span',null, `${d.ct??0} : ${d.tt??0}`), h('span',null, `${st('Раунд')} ${(d.round??0)+1}`));
+    box.replaceChildren(p); return;
+  }
   const [title, sub, timer]=cs2TabTitle(d, m, look), end=m==='end';
   const list=d.players?.length ? d.players : (d.name ? [{ ...d, id:d.id||'me', slot:null }] : []);
   const key=slotOrd;
