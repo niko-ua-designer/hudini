@@ -11,6 +11,10 @@ on:
         description: Build only, do not publish a release
         type: boolean
         default: true
+      systems:
+        description: 'Systems to build (comma list of windows, linux, mac); a tag push always builds all three'
+        type: string
+        default: 'windows,linux,mac'
 permissions: {}
 defaults:
   run:
@@ -25,6 +29,7 @@ jobs:
       pre: ${{ steps.v.outputs.pre }}
       pretty: ${{ steps.v.outputs.pretty }}
       title: ${{ steps.v.outputs.title }}
+      matrix: ${{ steps.m.outputs.matrix }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with: { persist-credentials: false }
@@ -46,6 +51,20 @@ jobs:
           echo "pretty=$pretty" >> "$GITHUB_OUTPUT"
           echo "title=$title" >> "$GITHUB_OUTPUT"
           echo "version $ver -> files $pretty, title \"Hudini $title\""
+      - name: Build matrix
+        id: m
+        env:
+          SYSTEMS: ${{ github.event_name == 'workflow_dispatch' && inputs.systems || 'windows,linux,mac' }}
+        run: |
+          all='{"runner":"windows-latest","os":"windows","triple":"x86_64-pc-windows-msvc","bun":"bun-windows-x64","ext":".exe"}
+          {"runner":"ubuntu-22.04","os":"linux","triple":"x86_64-unknown-linux-gnu","bun":"bun-linux-x64","ext":""}
+          {"runner":"macos-latest","os":"mac","triple":"universal-apple-darwin","bun":"bun-darwin-arm64","ext":""}'
+          sel=$(printf '%s\n' "$all" | while read -r line; do
+            os=$(printf '%s' "$line" | grep -oP '"os":"\K[a-z]+')
+            case ",$SYSTEMS," in *",$os,"*) printf '%s\n' "$line";; esac
+          done | paste -sd, -)
+          [ -n "$sel" ] || { echo "no valid systems in '$SYSTEMS'"; exit 1; }
+          echo "matrix=[$sel]" >> "$GITHUB_OUTPUT"
 
   # Desktop app: Tauri window + tray, the Bun server runs next to it as a sidecar
   build:
@@ -55,10 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { runner: windows-latest, os: windows, triple: x86_64-pc-windows-msvc, bun: bun-windows-x64, ext: .exe }
-          - { runner: ubuntu-22.04, os: linux, triple: x86_64-unknown-linux-gnu, bun: bun-linux-x64, ext: '' }
-          - { runner: macos-latest, os: mac, triple: universal-apple-darwin, bun: bun-darwin-arm64, ext: '' }   # one universal archive (Apple Silicon + Intel)
+        include: ${{ fromJSON(needs.version.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       TRIPLE: ${{ matrix.triple }}
