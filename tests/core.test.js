@@ -22,7 +22,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
   await step('widget files are served from /widget and /shared, the old OBS link redirects', async () => {
     const old = await fetch(host.base + '/widget.html?room=abc&v=9', { redirect: 'manual' });
     eq([old.status, old.headers.get('location')], [302, '/widget/widget.html?room=abc&v=9'], 'old /widget.html redirects and keeps the query');
-    for(const f of ['/widget/widget.html', '/shared/core.js', '/shared/core.css', '/shared/case3d.js', '/shared/vendor/three.module.min.js', '/shared/i18n.js', '/shared/icons.js', '/mqtt.min.js'])
+    for(const f of ['/widget/widget.html', '/shared/core.js', '/shared/core.css', '/shared/case3d.js', '/shared/media.js', '/shared/vendor/three.module.min.js', '/shared/i18n.js', '/shared/icons.js', '/mqtt.min.js'])
       eq((await fetch(host.base + f)).status, 200, f + ' is served');
     const html = await (await fetch(host.base + '/widget/widget.html')).text();
     check(html.includes('src="../shared/core.js') && html.includes('src="../mqtt.min.js"'), 'widget page points at ../shared and the local mqtt');

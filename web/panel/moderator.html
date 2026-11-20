@@ -12,19 +12,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="../shared/core.css?v=14">
+<link rel="stylesheet" href="../shared/core.css?v=16">
 <script src="../shared/vendor/mqtt.min.js"></script>
 <script src="../app/store.js"></script>
 <script src="../app/sessions.js"></script>
-<script src="../shared/i18n.js?v=3"></script>
+<script src="../shared/i18n.js?v=4"></script>
 <script src="../shared/icons.js?v=1"></script>
-<script src="../shared/core.js?v=20"></script>
-<script src="../shared/media.js?v=1"></script>
+<script src="../shared/core.js?v=21"></script>
+<script src="../shared/media.js?v=2"></script>
 <script src="../shared/case3d.js?v=1"></script>
-<script src="../shared/cs2-maps.js?v=3"></script>
+<script src="../shared/cs2-maps.js?v=4"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
-<link rel="stylesheet" href="panel.css?v=1">
-<link rel="stylesheet" href="ui.css?v=1">
+<link rel="stylesheet" href="panel.css?v=2">
+<link rel="stylesheet" href="ui.css?v=2">
 </head>
 <body>
 
@@ -160,9 +160,13 @@
     <div id="flQuick" class="fl-quick">
     <h2>⚡ Быстрое управление</h2>
     <div class="hint" id="qHint"></div>
-    <div class="row"><span class="grow">Интерфейс игры: только килл-фид</span><b id="qDnSt" class="hint"></b><button id="qDn1">Вкл</button><button id="qDn0">Выкл</button></div>
-    <div class="row"><span class="grow">Автодиректор</span><b id="qAdSt" class="hint"></b><button id="qAd1">Автодиректор: включить</button><button id="qAd0">Автодиректор: выключить</button></div>
-    <div class="row"><select id="qRoute" class="grow"></select><button id="qRun" class="primary">Запустить пролёт</button><button id="qStop">Остановить</button></div>
+    <div class="fl-qlbl"><span>Интерфейс игры: только килл-фид</span><b id="qDnSt" class="hint"></b></div>
+    <div class="fl-qgrid"><button id="qDn1">Вкл</button><button id="qDn0">Выкл</button></div>
+    <div class="fl-qlbl"><span>Автодиректор</span><b id="qAdSt" class="hint"></b></div>
+    <div class="fl-qgrid"><button id="qAd1">Вкл</button><button id="qAd0">Выкл</button></div>
+    <div class="fl-qlbl"><span>Пролёт камеры</span></div>
+    <select id="qRoute" class="fl-qsel"></select>
+    <div class="fl-qgrid"><button id="qRun" class="primary">Запустить пролёт</button><button id="qStop">Остановить</button></div>
     <div class="hint">Вкл и выкл показывают последнюю отправленную команду, а не то, что сейчас в игре.</div>
     </div>
     <h2>🎯 Авто-таб CS2</h2>
@@ -347,7 +351,8 @@
           <div class="row"><span class="hint u-width-54px">Что делать</span><select id="iRouCMode" class="grow"><option value="add">добавить в участники</option><option value="spin">крутить сразу</option></select></div>
           <div class="row"><span class="hint">Пауза</span><input class="u-width-64px" type="number" id="iRouCCd" min="0" max="3600"><span class="hint">сек</span><span class="hint">Лимит на зрителя</span><input class="u-width-64px" type="number" id="iRouCLim" min="0" max="99"></div>
           <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouROn"><span class="tgl-k"></span><span>Награда за баллы с вводом текста</span></label>
-          <div class="row"><input type="text" id="iRouRId" class="grow" readonly placeholder="Награда не выбрана"><button id="rouRDetect" title="Покажет награды, которые только что получили зрители">🔍 Определить награду</button><button id="rouRClear" title="Отвязать награду" hidden>✕</button></div>
+          <div class="row"><input type="text" id="iRouRId" class="grow" readonly placeholder="Награда не выбрана"></div>
+          <div class="row"><button id="rouRDetect" class="grow" title="Покажет награды, которые только что получили зрители">🔍 Определить награду</button><button id="rouRClear" title="Отвязать награду" hidden>✕</button></div>
           <div id="rouRSeen" class="hint" hidden></div>
           <label class="tgl u-margin-top-6px"><input type="checkbox" id="iRouROne"><span class="tgl-k"></span><span>Только одно слово в тексте</span></label>
           <div class="row"><span class="hint u-width-54px">Слово</span><input type="text" id="iRouRWord" class="grow" maxlength="24" placeholder="Необязательно: только это слово"></div>
@@ -878,6 +883,6 @@
 <div id="toast"></div>
 <div id="fatal"></div>
 
-<script src="boot.js?v=1"></script>
+<script src="boot.js?v=2"></script>
 </body>
 </html>

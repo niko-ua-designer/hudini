@@ -383,8 +383,11 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 
 /* Быстрые кнопки CS2 */
 .fl-quick{margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.fl-quick b{min-width:36px;text-align:center}
-.fl-quick .row{flex-wrap:wrap}.fl-quick .row>span.grow{flex:1 1 100%}.fl-quick button{white-space:nowrap}
+.fl-qlbl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:8px 0 3px;font-size:12.5px}
+.fl-qlbl b{font-weight:600;text-align:right}
+.fl-qgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.fl-qgrid button{min-width:0;white-space:normal;padding-left:6px;padding-right:6px}
+.fl-qsel{display:block;width:100%;margin:0 0 6px;box-sizing:border-box}
 /* Пролёты камеры CS2: редактор путей */
 .fl-h{margin:14px 0 4px;font-size:13px}
 .fl-radar{position:relative;width:100%;aspect-ratio:1/1;max-height:360px;margin:8px 0 4px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#0c0e14;touch-action:none}

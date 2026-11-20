@@ -26,6 +26,7 @@ import I18N_JS from '../web/shared/i18n.js' with { type: 'text' };
 import ICONS_JS from '../web/shared/icons.js' with { type: 'text' };
 import CS2_MAPS_JS from '../web/shared/cs2-maps.js' with { type: 'text' };
 import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
+import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
 import { createFlight } from './netcon.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
@@ -1270,7 +1271,7 @@ async function installGsi(){
 // ---------- файлы виджета: свежие с сайта, запасные встроены в программу ----------
 const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
 // Ключ = путь файла на сайте и на этом сервере; в кэше имя без «/»
-const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS, 'shared/cs2-maps.js':CS2_MAPS_JS };
+const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS, 'shared/media.js':MEDIA_JS, 'shared/cs2-maps.js':CS2_MAPS_JS };
 const cacheName = f => f.replace(/\//g, '_');
 const files = { ...EMBED };
 for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, cacheName(f)), 'utf8'); }catch{}
@@ -1915,6 +1916,7 @@ const local = http.createServer(async (req, res) => {
     if(p==='/shared/core.js') return send(res, 200, files['shared/core.js'], 'application/javascript; charset=utf-8');
     if(p==='/shared/core.css') return send(res, 200, files['shared/core.css'], 'text/css; charset=utf-8');
     if(p==='/shared/case3d.js') return send(res, 200, files['shared/case3d.js'], 'application/javascript; charset=utf-8');
+    if(p==='/shared/media.js') return send(res, 200, files['shared/media.js'], 'application/javascript; charset=utf-8');
     if(p==='/shared/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
     if(p==='/shared/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
     if(p==='/shared/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
