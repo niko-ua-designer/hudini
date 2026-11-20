@@ -180,6 +180,7 @@ details[open] summary{margin-bottom:10px}
       <label class="tgl"><input type="checkbox" id="perm_cam" data-perm="cam"><span class="sw"></span><span>Модераторы могут показывать камеру</span></label>
       <label class="tgl"><input type="checkbox" id="perm_screen" data-perm="screen"><span class="sw"></span><span>Модераторы могут показывать экран</span></label>
       <label class="tgl"><input type="checkbox" id="perm_mic" data-perm="mic"><span class="sw"></span><span>Модераторы могут говорить в микрофон</span></label>
+      <label class="tgl"><input type="checkbox" id="perm_flights" data-perm="flights"><span class="sw"></span><span>Модераторы управляют камерой и консолью CS2 (пролёты, автодиректор, интерфейс)</span></label>
     </div>
   </div>
 
@@ -371,7 +372,7 @@ function renderConnect(s){
   $('modsOn').checked=!!s.modsOn;
   $('panelCard').hidden=!s.panel; $('openPanel').disabled=!s.ownRoom;
   $('panelHint').textContent=s.ownRoom ? '' : 'Работает с комнатой, которую создал Hudini Host, а не со ссылкой из пульта модератора.';
-  for(const c of document.querySelectorAll('[data-perm]')) if(document.activeElement!==c) c.checked=['cam','screen','mic'].includes(c.dataset.perm) ? s.perms?.[c.dataset.perm]===true : s.perms?.[c.dataset.perm]!==false;
+  for(const c of document.querySelectorAll('[data-perm]')) if(document.activeElement!==c) c.checked=['cam','screen','mic','flights'].includes(c.dataset.perm) ? s.perms?.[c.dataset.perm]===true : s.perms?.[c.dataset.perm]!==false;
   $('cfNotice').hidden=!s.cfNotice;
   // модераторы
   const list=s.modList||[]; $('modCnt').textContent=list.length; $('modCnt').className='tag'+(list.length?' ok':'');

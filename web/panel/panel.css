@@ -381,6 +381,10 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 .rou-it input[data-f=w]{flex:none;width:54px;padding-left:4px;padding-right:2px}
 .rou-it .pc{width:34px}
 
+/* Быстрые кнопки CS2 */
+.fl-quick{margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.fl-quick b{min-width:36px;text-align:center}
+.fl-quick .row{flex-wrap:wrap}.fl-quick .row>span.grow{flex:1 1 100%}.fl-quick button{white-space:nowrap}
 /* Пролёты камеры CS2: редактор путей */
 .fl-h{margin:14px 0 4px;font-size:13px}
 .fl-radar{position:relative;width:100%;aspect-ratio:1/1;max-height:360px;margin:8px 0 4px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#0c0e14;touch-action:none}

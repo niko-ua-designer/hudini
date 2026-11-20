@@ -1,5 +1,5 @@
 // Пролёты камеры CS2 для наблюдателя и демки: клиент консоли игры (параметр запуска -netconport) и проигрыватель маршрутов.
-// Защита от бана и от подмены: соединение только с 127.0.0.1; в консоль уходят три команды (spec_goto, getpos, spec_mode),
+// Защита от бана и от подмены: соединение только с 127.0.0.1; в консоль уходят пять команд (spec_goto, getpos, spec_mode, spec_autodirector, cl_draw_only_deathnotices),
 // числа проверяются и форматируются здесь, текст из пульта в консоль не попадает никогда. Пока GSI не показывает наблюдателя
 // или демку (out.spec), порт даже не открывается: когда стример играет сам, этот файл молчит полностью.
 // ЖЁСТКОЕ ОГРАНИЧЕНИЕ: никаких инжектов в процесс игры, чтения или записи её памяти, хуков, оверлеев поверх процесса,
@@ -18,14 +18,16 @@ const fmt = v => (typeof v==='number' && Number.isFinite(v) && Math.abs(v) <= MA
 export function buildCmd(name, ...args){
   if(name==='getpos') return args.length ? null : 'getpos';
   if(name==='spec_mode'){ const n = args[0]; return args.length===1 && Number.isInteger(n) && n>=0 && n<=6 ? `spec_mode ${n}` : null; }
+  if(name==='spec_autodirector'){ const n = args[0]; return args.length===1 && (n===0 || n===1) ? `spec_autodirector ${n}` : null; }
+  if(name==='cl_draw_only_deathnotices'){ const n = args[0]; return args.length===1 && (n===0 || n===1) ? `cl_draw_only_deathnotices ${n}` : null; }
   if(name==='spec_goto'){
     if(args.length!==5) return null;
     const f = args.map(fmt); return f.every(Boolean) ? `spec_goto ${f.join(' ')}` : null;
   }
   return null;
 }
-// Последняя проверка перед записью в сокет: строка должна совпасть с одной из трёх форм целиком
-const WIRE_RE = /^(getpos|spec_mode [0-6]|spec_goto (-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )-?\d{1,6}\.\d\d)$/;
+// Последняя проверка перед записью в сокет: строка должна совпасть с одной из пяти форм целиком
+const WIRE_RE = /^(getpos|spec_mode [0-6]|spec_autodirector [01]|cl_draw_only_deathnotices [01]|spec_goto (-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )(-?\d{1,6}\.\d\d )-?\d{1,6}\.\d\d)$/;
 export const isWireOk = s => typeof s==='string' && WIRE_RE.test(s);
 
 // Ответ на getpos: «setpos x y z;setang pitch yaw roll». Возвращает { p:[x,y,z], a:[pitch,yaw,roll] } или null.
@@ -176,7 +178,8 @@ export function cleanFlights(j){
   const c = j?.cfg || {};
   const cfg = { on:c.on===true, port:cleanPort(c.port) || 27015,
     pick:['rr', 'random'].includes(c.pick) ? c.pick : 'rr',
-    returnMode:Number.isInteger(c.returnMode) && c.returnMode>=0 && c.returnMode<=6 ? c.returnMode : 4 };
+    returnMode:Number.isInteger(c.returnMode) && c.returnMode>=0 && c.returnMode<=6 ? c.returnMode : 4,
+    autodir:c.autodir!==false };   // выключать spec_autodirector на время пролёта (по умолчанию да)
   return { v:1, cfg, maps, chains };
 }
 
@@ -199,7 +202,7 @@ export function createFlight(d = {}){
   const setT = d.setInterval || setInterval, clrT = d.clearInterval || clearInterval;
   let data = cleanFlights(null);
   if(d.load){ try{ data = cleanFlights(d.load()); }catch{} }
-  let edit = '', last = null, lastAt = 0, done = new Set(), fly = null, timer = null, note = '', want = null, nc = null, ncKey = '', pubFn = d.onChange || (() => {});
+  let edit = '', last = null, lastAt = 0, done = new Set(), fly = null, timer = null, note = '', want = null, qs = { dn:null, ad:null }, nc = null, ncKey = '', pubFn = d.onChange || (() => {});
   const save = () => { try{ d.save?.(data); }catch{} };
   const spec = () => !!last && last.spec === true && now() - lastAt < staleMs;
   const client = () => {
@@ -237,7 +240,10 @@ export function createFlight(d = {}){
   function stopFly(back){
     if(!fly) return; clrT(timer); timer = null;
     const f = fly; fly = null;
-    if(back && spec() && data.cfg.on) client().send('spec_mode', data.cfg.returnMode);   // назад к игроку; не наблюдатель — ни звука
+    if(back && spec() && data.cfg.on){
+      client().send('spec_mode', data.cfg.returnMode);   // назад к игроку; не наблюдатель — ни звука
+      if(f.ad && f.adWasOn && client().send('spec_autodirector', 1)) qs.ad = 1;   // вернуть автодиректор, только если точно знали, что он был включён; иначе его не трогаем
+    }
     pubFn(); return f;
   }
   // totalSec — сколько секунд всего (с паузами); 0 — подогнать под phaseSec. Движение получает всё, что остаётся после пауз
@@ -254,7 +260,10 @@ export function createFlight(d = {}){
     if(!spec()){ stopFly(false); return; }                   // стример вернулся в игру: молча
     const el = now() - fly.t0, c = client();
     if(!c.up){ if(el > 4000) { note = 'Нет связи с консолью игры'; stopFly(false); } else c.open(); return; }
-    if(!fly.sent){ c.send('spec_mode', 6); fly.sent = true; fly.t0 = now(); return; }   // свободная камера, дальше летим
+    if(!fly.sent){
+      if(data.cfg.autodir){ fly.ad = c.send('spec_autodirector', 0); fly.adWasOn = last?.ad === true; if(fly.ad) qs.ad = 0; }   // один раз в начале; галочка снята — команду не шлём вовсе
+      c.send('spec_mode', 6); fly.sent = true; fly.t0 = now(); return;
+    }   // свободная камера, дальше летим
     const r = planAt(fly.plan, el / 1000);
     if(r.pos) c.send('spec_goto', r.pos.p[0], r.pos.p[1], r.pos.p[2], r.pos.a[0], r.pos.a[1]);
     if(r.done) stopFly(true);
@@ -287,10 +296,20 @@ export function createFlight(d = {}){
         if(cleanPort(m.port)) c.port = cleanPort(m.port);
         if(m.pick==='rr' || m.pick==='random') c.pick = m.pick;
         if(Number.isInteger(m.returnMode) && m.returnMode>=0 && m.returnMode<=6) c.returnMode = m.returnMode;
+        if(typeof m.autodir==='boolean') c.autodir = m.autodir;
         if(!c.on){ stopFly(false); nc?.close(); }
         save(); pubFn(); return true;
       }
       if(a==='stop'){ stopFly(true); return true; }
+      if(a==='quick'){   // быстрые кнопки: только два выключателя 0/1; работают, пока GSI показывает наблюдателя или демку
+        const k = m.k==='dn' ? 'cl_draw_only_deathnotices' : m.k==='ad' ? 'spec_autodirector' : '', v = m.v;
+        if(!k || !(v===0 || v===1)) return false;
+        if(!spec() || !data.cfg.on) return reply(false, 'Ждёт наблюдателя: включи пролёты и зайди в игру как наблюдатель или в демку');
+        const c = client(); if(!c.up) c.open();
+        let tries = 0;
+        const go = () => { if(!spec() || !data.cfg.on) return; if(c.send(k, v)){ qs[m.k] = v; reply(true, ''); return; } if(++tries > 30) reply(false, 'Нет связи с консолью игры (порт, -netconport)'); else setTimeout(go, 100); };
+        go(); return true;
+      }
       if(a==='edit'){ edit = mapKey(m.map); pubFn(); return true; }
       const map = mapKey(m.map) || edit || gm;
       if(!map) return reply(false, 'Карта неизвестна: выбери карту');
@@ -335,11 +354,12 @@ export function createFlight(d = {}){
     },
     view(){
       const gm = mapKey(last?.map), em = edit || gm;
-      return { on:data.cfg.on, port:data.cfg.port, pick:data.cfg.pick, returnMode:data.cfg.returnMode,
-        link:!!nc?.up, spec:spec(), flying:fly ? fly.kind : '', map:gm, edit:em,
+      return { on:data.cfg.on, port:data.cfg.port, pick:data.cfg.pick, returnMode:data.cfg.returnMode, autodir:data.cfg.autodir,
+        link:!!nc?.up, spec:spec(), quick:{ dn:qs.dn, ad:qs.ad }, flying:fly ? fly.kind : '', map:gm, edit:em,
         chains:data.chains[em] || cleanChains(null), maps:Object.entries(data.maps).map(([k, v]) => [k, v.length]),
         routes:routesFor(em).map(r => ({ id:r.id, name:r.name, pts:r.pts, dur:r.dur, trg:r.trg })), note };
     },
+    routesOf: map => routesFor(map),
     close(){ stopFly(false); nc?.close(); },
   };
   return api;

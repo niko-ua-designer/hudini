@@ -1,5 +1,5 @@
 // CS2 camera flights: the console client (server/netcon.js) against a fake netcon server, then the whole chain panel → Host → fake game.
-// Checks: only spec_goto / getpos / spec_mode ever reach the console, bad input is rejected, getpos parsing, flight timing under the GSI phase,
+// Checks: only spec_goto / getpos / spec_mode / spec_autodirector ever reach the console, bad input is rejected, getpos parsing, flight timing under the GSI phase,
 // cuts (one jump, nothing in between), chains with pauses, silence while the streamer plays, validation of every field on the Host,
 // and the path editor in the panel (create, edit, duplicate, delete, export/import, sync to the widget, info plate).
 'use strict';
@@ -40,16 +40,18 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     check(!/spec_goto|spec_mode|getpos\s*\(/.test(panel.replace(/\/\/.*$/gm, '').replace(/'[^']*getpos[^']*'/g, '')), 'the panel code has no console commands');
   });
 
-  await step('command whitelist: only spec_goto, getpos and spec_mode, numbers only', async () => {
+  await step('command whitelist: only spec_goto, getpos, spec_mode and spec_autodirector, numbers only', async () => {
     eq(N.buildCmd('getpos'), 'getpos', 'getpos');
+    eq([N.buildCmd('cl_draw_only_deathnotices', 0), N.buildCmd('cl_draw_only_deathnotices', 1)], ['cl_draw_only_deathnotices 0', 'cl_draw_only_deathnotices 1'], 'cl_draw_only_deathnotices 0 and 1');
+    eq([N.buildCmd('spec_autodirector', 0), N.buildCmd('spec_autodirector', 1)], ['spec_autodirector 0', 'spec_autodirector 1'], 'spec_autodirector 0 and 1');
     eq(N.buildCmd('spec_mode', 6), 'spec_mode 6', 'spec_mode 6');
     eq(N.buildCmd('spec_goto', 1, -2.5, 300.123, 10, 359), 'spec_goto 1.00 -2.50 300.12 10.00 359.00', 'spec_goto formats numbers');
-    for(const bad of [['quit'], ['say', 'hi'], ['exec', 'x'], ['rcon_password', 'x'], ['getpos', 'x'], ['spec_mode', 7], ['spec_mode', '4'], ['spec_mode', -1], ['spec_mode', 1.5], ['spec_mode'],
+    for(const bad of [['quit'], ['say', 'hi'], ['exec', 'x'], ['rcon_password', 'x'], ['getpos', 'x'], ['cl_draw_only_deathnotices', 2], ['cl_draw_only_deathnotices', '1'], ['cl_draw_only_deathnotices', true], ['cl_draw_only_deathnotices', -1], ['cl_draw_only_deathnotices'], ['cl_draw_only_deathnotices', 1, 0], ['cl_draw_only_deathnotices', '1; quit'], ['cl_draw_only', 1], ['spec_autodirector', 2], ['spec_autodirector', '0'], ['spec_autodirector', true], ['spec_autodirector', -1], ['spec_autodirector', 0.5], ['spec_autodirector'], ['spec_autodirector', 0, 1], ['spec_autodirector', '0; quit'], ['spec_mode', 7], ['spec_mode', '4'], ['spec_mode', -1], ['spec_mode', 1.5], ['spec_mode'],
       ['spec_goto', 1, 2, 3, 4], ['spec_goto', 1, 2, 3, 4, 5, 6], ['spec_goto', '1; quit', 2, 3, 4, 5], ['spec_goto', NaN, 2, 3, 4, 5], ['spec_goto', Infinity, 2, 3, 4, 5],
       ['spec_goto', 1e9, 2, 3, 4, 5], ['spec_goto', null, 2, 3, 4, 5], ['spec_goto', '', 2, 3, 4, 5], ['spec_goto', true, 2, 3, 4, 5], ['spec_goto', [1], 2, 3, 4, 5], ['__proto__'], ['constructor']])
       eq(N.buildCmd(...bad), null, 'rejected: ' + JSON.stringify(bad));
-    eq(['getpos', 'spec_mode 0', 'spec_goto 1.00 2.00 3.00 4.00 5.00'].map(N.isWireOk), [true, true, true], 'wire check accepts the three forms');
-    eq(['getpos;quit', 'quit', 'spec_goto 1 2 3 4 5', 'spec_goto 1.00 2.00 3.00 4.00 5.00; quit', 'spec_mode 4\nquit', 'echo hi', ' getpos', 'spec_mode 7', ''].map(N.isWireOk), Array(9).fill(false), 'wire check rejects everything else');
+    eq(['getpos', 'spec_mode 0', 'spec_autodirector 0', 'spec_autodirector 1', 'cl_draw_only_deathnotices 0', 'cl_draw_only_deathnotices 1', 'spec_goto 1.00 2.00 3.00 4.00 5.00'].map(N.isWireOk), [true, true, true, true, true, true, true], 'wire check accepts the five forms');
+    eq(['getpos;quit', 'quit', 'spec_goto 1 2 3 4 5', 'spec_goto 1.00 2.00 3.00 4.00 5.00; quit', 'spec_mode 4\nquit', 'echo hi', ' getpos', 'spec_mode 7', '', 'spec_autodirector 2', 'spec_autodirector 0;quit', 'spec_autodirector', 'spec_autodirector  0', 'cl_draw_only_deathnotices 2', 'cl_draw_only_deathnotices 1;quit', 'cl_draw_only_deathnotices'].map(N.isWireOk), Array(16).fill(false), 'wire check rejects everything else');
   });
 
   await step('getpos answer is parsed strictly', async () => {
@@ -123,8 +125,9 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     check(await until(() => f.lines().includes('spec_mode 4'), 7000), 'the flight ends with spec_mode 4 (back to the player)');
     stop();
     const L = f.lines();
-    eq(L[0], 'spec_mode 6', 'first a free camera');
-    check(L.every(l => l === 'spec_mode 6' || l === 'spec_mode 4' || GOTO.test(l)), 'only whitelisted lines reached the console', L.filter(l => !GOTO.test(l)));
+    eq(L.slice(0, 2), ['spec_autodirector 0', 'spec_mode 6'], 'first the auto-director goes off (once), then a free camera');
+    eq(L.filter(l => /^spec_autodirector/.test(l)), ['spec_autodirector 0'], 'one spec_autodirector in the whole flight; it is not known to have been on, so it is not touched after');
+    check(L.every(l => l === 'spec_autodirector 0' || l === 'spec_mode 6' || l === 'spec_mode 4' || GOTO.test(l)), 'only whitelisted lines reached the console', L.filter(l => !GOTO.test(l)));
     const g = gotos(f), span = (g[g.length - 1].t - g[0].t) / 1000;
     check(span > 2.3 && span < 3.1, 'about 2.8 s of movement = 4 s of freeze time minus the margin: ' + span.toFixed(2));
     const rate = g.length / span;
@@ -136,6 +139,67 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     await sleep(500);
     eq(f.lines().filter(l => l === 'spec_mode 6').length, 1, 'one flight only: the same freeze time does not start it twice');
     m.ctl.close(); f.close();
+  });
+
+  await step('spec_autodirector: restored only when it was known to be on; the checkbox off means never sent', async () => {
+    const trg = { freeze: true, tech: false, timeout: false, warmup: false };
+    const route = { id: 'a', name: 'A', pts: [pt(0), pt(300)], dur: 2, trg };
+    const ad = f => f.lines().filter(l => /^spec_autodirector/.test(l));
+    const f1 = await fakeNetcon();
+    const m1 = mk({ v: 1, cfg: cfgOn(f1.port), maps: { de_mirage: [route] }, chains: {} });
+    const s1 = feed(m1.ctl, () => gsiPkt({ ad: true, pend: Date.now() + 5000 }));
+    check(await until(() => f1.lines().includes('spec_mode 4'), 7000), 'flight finished');
+    s1(); await sleep(200);
+    eq(ad(f1), ['spec_autodirector 0', 'spec_autodirector 1'], 'it was on: off at the start, on again after the flight');
+    const L = f1.lines(); check(L.indexOf('spec_autodirector 0') < L.indexOf('spec_mode 6') && L.indexOf('spec_mode 4') < L.indexOf('spec_autodirector 1'), 'in the right order');
+    m1.ctl.close(); f1.close();
+    const f2 = await fakeNetcon();
+    const m2 = mk({ v: 1, cfg: cfgOn(f2.port, { autodir: false }), maps: { de_mirage: [route] }, chains: {} });
+    eq(m2.ctl.view().autodir, false, 'the setting is in the view');
+    const s2 = feed(m2.ctl, () => gsiPkt({ ad: true, pend: Date.now() + 5000 }));
+    check(await until(() => f2.lines().includes('spec_mode 4'), 7000), 'flight finished');
+    s2(); await sleep(200);
+    eq(ad(f2), [], 'checkbox off: not a single spec_autodirector, before or after');
+    check(f2.lines().includes('spec_mode 6'), 'the flight itself ran');
+    m2.ctl.cmd({ a: 'cfg', autodir: 'no' }); eq(m2.ctl.view().autodir, false, 'a non-boolean value is ignored');
+    m2.ctl.cmd({ a: 'cfg', autodir: true }); eq(m2.ctl.view().autodir, true, 'a boolean applies');
+    eq(N.cleanFlights({ cfg: { autodir: 'x' } }).cfg.autodir, true, 'the default is on for junk');
+    eq(N.cleanFlights({ cfg: { autodir: false } }).cfg.autodir, false, 'and an explicit false is kept');
+    m2.ctl.close(); f2.close();
+  });
+
+  await step('quick buttons: 0/1 only, silent for a player and with flights off, last-sent state, a manual flight without any trigger', async () => {
+    const f = await fakeNetcon();
+    const route = { id: 'a', name: 'A', pts: [pt(0), pt(300)], dur: 2, trg: { freeze: false, tech: false, timeout: false, warmup: false } };
+    const m = mk({ v: 1, cfg: cfgOn(f.port), maps: { de_mirage: [route] }, chains: {} });
+    const own = feed(m.ctl, () => gsiPkt({ spec: false }));
+    check(m.ctl.cmd({ a: 'quick', k: 'dn', v: 1 }) === false, 'a player: refused');
+    check(/наблюдател/i.test(m.ctl.view().note), 'with the reason', m.ctl.view().note);
+    await sleep(400);
+    eq([f.conns.length, f.cmds.length], [0, 0], 'a player: not even a connection');
+    own();
+    const stop = feed(m.ctl, () => gsiPkt({ phase: 'live', pphase: 'live', pend: 0 }));
+    eq(m.ctl.view().quick, { dn: null, ad: null }, 'nothing sent yet: unknown');
+    for(const bad of [{ k: 'dn', v: 2 }, { k: 'dn', v: '1' }, { k: 'dn', v: true }, { k: 'xx', v: 1 }, { k: 'spec_goto', v: 0 }, { k: 'dn' }, {}]) eq(m.ctl.cmd({ a: 'quick', ...bad }), false, 'refused: ' + JSON.stringify(bad));
+    await sleep(300);
+    eq(f.cmds.length, 0, 'bad values sent nothing');
+    m.ctl.cmd({ a: 'quick', k: 'dn', v: 1 });
+    check(await until(() => m.ctl.view().quick.dn === 1, 3000), 'deathnotices on is remembered as the last sent');
+    m.ctl.cmd({ a: 'quick', k: 'ad', v: 1 }); m.ctl.cmd({ a: 'quick', k: 'ad', v: 0 }); m.ctl.cmd({ a: 'quick', k: 'dn', v: 0 });
+    check(await until(() => f.lines().length === 4, 3000), 'four lines');
+    eq(f.lines(), ['cl_draw_only_deathnotices 1', 'spec_autodirector 1', 'spec_autodirector 0', 'cl_draw_only_deathnotices 0'], 'exactly the whitelisted lines');
+    eq(m.ctl.view().quick, { dn: 0, ad: 0 }, 'the state is the last command sent');
+    check(m.ctl.cmd({ a: 'preview', id: 'a', map: 'de_mirage' }), 'a manual flight needs no trigger (live phase, no freeze time)');
+    check(await until(() => gotos(f).length > 10, 4000), 'it flies');
+    check(await until(() => f.lines().includes('spec_mode 4'), 6000), 'and returns');
+    stop(); m.ctl.close();
+    const f2 = await fakeNetcon();
+    const m2 = mk({ v: 1, cfg: cfgOn(f2.port, { on: false }), maps: {}, chains: {} });
+    const s2 = feed(m2.ctl, () => gsiPkt());
+    eq(m2.ctl.cmd({ a: 'quick', k: 'dn', v: 1 }), false, 'flights off: refused');
+    await sleep(300); s2();
+    eq([f2.conns.length, f2.cmds.length], [0, 0], 'and silent');
+    m2.ctl.close(); f.close(); f2.close();
   });
 
   await step('a cut: one jump between the lines, nothing in between', async () => {
@@ -185,8 +249,9 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     check(/зайди|наблюдател/i.test(m.ctl.view().note), 'the panel is told why', m.ctl.view().note);
     stop();
     // now a spectator, then the streamer starts playing in the middle of a flight
-    const stop2 = feed(m.ctl, () => gsiPkt({ pend: Date.now() + 8000 }));
+    const stop2 = feed(m.ctl, () => gsiPkt({ ad: true, pend: Date.now() + 8000 }));
     check(await until(() => gotos(f).length > 10, 4000), 'a spectator: the flight runs');
+    eq(f.lines().filter(l => /^spec_autodirector/.test(l)), ['spec_autodirector 0'], 'the auto-director went off at the start');
     stop2();
     const stop3 = feed(m.ctl, own);
     await sleep(250);
@@ -194,6 +259,7 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     await sleep(700);
     eq(f.cmds.length, n, 'no command after he started playing (not even the return spec_mode): ' + last);
     check(!f.lines().includes('spec_mode 4'), 'no spec_mode 4 either');
+    check(!f.lines().includes('spec_autodirector 1'), 'and the auto-director is not touched after he started playing');
     stop3(); m.ctl.close(); f.close();
   });
 
@@ -274,6 +340,7 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     c({ a: 'cfg', port: 80 }); eq(v().port, 27015, 'a port below 1024 is refused');
     c({ a: 'cfg', port: 'abc' }); eq(v().port, 27015, 'a text port is refused');
     c({ a: 'cfg', port: 31337, pick: 'random', returnMode: 5, on: false }); eq([v().port, v().pick, v().returnMode, v().on], [31337, 'random', 5, false], 'good settings apply');
+    c({ a: 'cfg', autodir: 'false' }); eq(v().autodir, true, 'a text autodir is ignored');
     c({ a: 'cfg', pick: 'evil', returnMode: 99, host: '10.0.0.1' }); eq([v().pick, v().returnMode], ['random', 5], 'bad values are ignored; there is no way to set a host');
     c({ a: 'chain', kind: 'freeze', steps: [{ id, join: 'cut', pause: 2 }, { id: 'zzz', join: 'x', pause: -5 }] });
     eq(v().chains.freeze.map(s => [s.join, s.pause]), [['cut', 2], ['smooth', 0]], 'chain steps are cleaned');
@@ -293,7 +360,7 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
   const shotDir = SHOT;
   await step('stack starts', async () => {
     f = await fakeNetcon();
-    s = await T.stack({ hostEnv: { OVERLAY_SITE: 'off' } });
+    s = await T.stack({ hostEnv: { OVERLAY_SITE: 'off', OVERLAY_PANEL_ORIGIN: `http://localhost:${T.PORTS.web}` } });
     check(s.online, 'panel online');
   });
   const cfgFile = () => JSON.parse(fs.readFileSync(path.join(s.host.dir, 'overlay-host.json'), 'utf8'));
@@ -309,6 +376,37 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
   const flightFile = () => { try{ return JSON.parse(fs.readFileSync(path.join(s.host.dir, 'cs2-flights.json'), 'utf8')); }catch{ return null; } };
   const panelFl = () => s.panel.evaluate(() => CS2_SERIES?.fl ? JSON.parse(JSON.stringify(CS2_SERIES.fl)) : null);
   const widgetFl = () => s.widget.evaluate(() => CS2_SERIES?.fl ? JSON.parse(JSON.stringify(CS2_SERIES.fl)) : null);
+
+  const modCmd = o => s.panel.evaluate(o => serCmd({ op: 'fl', ...o }), o);
+  const hid = p => p.evaluate(() => document.getElementById('flSec').hidden);
+
+  await step('flights permission: off by default, a moderator is refused on port, settings, paths and flight start; with it on, allowed', async () => {
+    const st = await s.host.api('/api/status');
+    eq(st.perms.flights, false, 'off by default in the status');
+    check(!cfgFile().perms || cfgFile().perms.flights !== true, 'nothing saved as on');
+    const r = await s.host.api('/api/perms', { perms: { flights: 'yes' } }); eq(r.perms.flights, false, 'a truthy non-true value does not switch it on');
+    eq((await s.host.api('/api/perms', { perms: { flights: 1 } })).perms.flights, false, 'neither does 1');
+    await s.panel.click('[data-tab=cs2]');
+    check(await until(() => s.widget.evaluate(() => PERMS.flights === false)), 'the widget has the permission off');
+    check(await until(() => hid(s.panel)), 'the moderator panel hides the whole flights section (editor, switch, port, preview)');
+    await gsi(specPkt({ endsIn: 60 }));
+    await modCmd({ a: 'cfg', on: true, port: f.port }); await modCmd({ a: 'new', name: 'sneaky', map: 'de_mirage' });
+    await modCmd({ a: 'preview', id: 'x', map: 'de_mirage' }); await modCmd({ a: 'point', id: 'x', map: 'de_mirage' });
+    await modCmd({ a: 'stop' }); await modCmd({ a: 'import', map: 'de_mirage', route: { name: 'imp', pts: [pt(1)] } });
+    await sleep(900);
+    check(!flightFile(), 'nothing was written: no port, no path, no import');
+    eq([f.conns.length, f.cmds.length], [0, 0], 'and the console saw nothing');
+    check(/хотел править пролёты/.test(s.host.log()), 'the Host logged the refusal');
+    // the moderator cannot even see the data it could change: the section is hidden, the Host ignored everything
+    check((await panelFl()) === null || (await panelFl()).routes.length === 0, 'no paths appeared for the moderator');
+    await s.host.api('/api/perms', { perms: { flights: true } });
+    check(await until(() => s.widget.evaluate(() => PERMS.flights === true)), 'enabled: the widget knows');
+    check(await until(async () => !(await hid(s.panel))), 'the moderator panel shows the section');
+    await modCmd({ a: 'cfg', pick: 'random' });
+    check(await until(async () => (await panelFl())?.pick === 'random', 4000), 'enabled: the moderator\'s change is applied');
+    await modCmd({ a: 'cfg', pick: 'rr' });
+    check(await until(async () => (await panelFl())?.pick === 'rr', 4000), 'and back');
+  });
 
   await step('the CS2 tab: enable flights and set the port; the Host stays silent until a spectator shows up', async () => {
     await gsi(specPkt({ own: true, endsIn: 30 }));
@@ -382,7 +480,68 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     check(await until(async () => (await widgetFl())?.flying === '', 4000), 'the plate goes away');
     clearInterval(keep);
     const L = f.lines();
-    check(L.every(l => l === 'getpos' || l === 'spec_mode 6' || l === 'spec_mode 4' || GOTO.test(l)), 'the console only ever saw whitelisted lines');
+    eq(L.filter(l => /^spec_autodirector/.test(l)), ['spec_autodirector 0'], 'one spec_autodirector 0 at the start of the flight, nothing after (its state is unknown)');
+    check(L.indexOf('spec_autodirector 0') < L.indexOf('spec_mode 6'), 'before the free camera');
+    check(L.every(l => l === 'getpos' || l === 'spec_mode 6' || l === 'spec_mode 4' || l === 'spec_autodirector 0' || GOTO.test(l)), 'the console only ever saw whitelisted lines');
+    const n0 = f.lines().filter(l => l === 'spec_autodirector 0').length;
+    await s.panel.$eval('#flAuto', e => e.click());
+    check(await until(() => flightFile()?.cfg.autodir === false, 4000), 'the checkbox off is saved');
+    await s.panel.click('#flPrev');
+    const keep2 = setInterval(() => gsi(specPkt({ endsIn: 60 })).catch(() => {}), 300);
+    check(await until(async () => (await panelFl())?.flying === 'preview', 5000), 'a second flight is running');
+    await sleep(500); clearInterval(keep2);
+    eq(f.lines().filter(l => l === 'spec_autodirector 0').length, n0, 'with the checkbox off no spec_autodirector was sent');
+    await s.panel.click('#flStop');
+    await s.panel.$eval('#flAuto', e => e.click());
+    check(await until(() => flightFile()?.cfg.autodir === true, 4000), 'and on again');
+  });
+
+  await step('quick buttons in the panel strip and in the OBS dock; a moderator without the permission is refused', async () => {
+    const keep = setInterval(() => gsi(specPkt({ endsIn: 60, pphase: 'live' })).catch(() => {}), 300);
+    await gsi(specPkt({ endsIn: 60, pphase: 'live' }));
+    check(await until(() => s.panel.evaluate(() => !document.getElementById('qDn1').disabled)), 'the strip is active while a spectator is in');
+    const n0 = f.lines().length;
+    await s.panel.click('#qDn1');
+    check(await until(() => f.lines().includes('cl_draw_only_deathnotices 1'), 4000), 'kill-feed only: the Host sent cl_draw_only_deathnotices 1');
+    check(await until(async () => (await s.panel.textContent('#qDnSt')) === 'вкл'), 'the strip shows "on" (last sent)');
+    await s.panel.click('#qAd1');
+    check(await until(() => f.lines().includes('spec_autodirector 1'), 4000), 'auto-director on');
+    await s.panel.click('#qAd0');
+    check(await until(() => f.lines().filter(l => l === 'spec_autodirector 0').length >= 2, 4000), 'auto-director off');
+    check(await until(async () => (await s.panel.textContent('#qAdSt')) === 'выкл'), 'shows "off"');
+    await s.panel.locator('#flQuick').screenshot({ path: path.join(shotDir, 'flight-quick-strip-moderator.png') }).catch(() => {});
+    // run a flight by hand from the strip
+    const g0 = gotos(f).length;
+    await s.panel.click('#qRun');
+    check(await until(() => gotos(f).length > g0 + 20, 6000), 'the strip runs the chosen path');
+    await s.panel.click('#qStop');
+    check(await until(async () => (await panelFl())?.flying === '', 4000), 'and stops it');
+    // the dock
+    const dock = await T.newPage('dock', { app: false });
+    await dock.goto(s.host.base + '/dock');
+    await dock.click('[data-tab=cs2]');
+    check(await until(() => dock.evaluate(() => !!document.getElementById('dockRun') && !document.getElementById('dockRun').disabled), 8000), 'the dock has the buttons, active');
+    await dock.evaluate(() => [...document.querySelectorAll('#cs2 .quick button')].find(b => b.textContent === 'Вкл').click());
+    check(await until(() => f.lines().filter(l => l === 'cl_draw_only_deathnotices 1').length >= 2, 4000), 'the dock sends it too');
+    await dock.locator('#cs2').screenshot({ path: path.join(shotDir, 'flight-quick-dock.png') }).catch(() => {});
+    const g1 = gotos(f).length;
+    await dock.click('#dockRun');
+    check(await until(() => gotos(f).length > g1 + 20, 6000), 'the dock runs a flight');
+    await dock.click('#dockStop');
+    check(await until(async () => (await panelFl())?.flying === '', 4000), 'and stops it');
+    // a real status call rejects junk values
+    const bad = await fetch(`http://127.0.0.1:${s.host.port}/api/control`, { method: 'POST', headers: { 'x-hudini-token': T.ADMIN_TOKEN, 'content-type': 'application/json', origin: `http://127.0.0.1:${s.host.port}` }, body: JSON.stringify({ action: 'cs2quick', key: 'rm -rf', on: true }) });
+    check(bad.status >= 400, 'an unknown quick key is refused by the dock API: ' + bad.status);
+    // a moderator without the permission
+    await s.host.api('/api/perms', { perms: { flights: false } });
+    check(await until(() => s.panel.evaluate(() => document.getElementById('flQuick').hidden)), 'the moderator strip is hidden without the permission');
+    const before = f.lines().length;
+    await s.panel.evaluate(() => { for(const [k, v] of [['dn', 0], ['ad', 1]]) serCmd({ op: 'fl', a: 'quick', k, v }); serCmd({ op: 'fl', a: 'preview', id: 'x' }); });
+    await sleep(900);
+    eq(f.lines().length, before, 'the moderator\'s quick commands sent nothing');
+    await s.host.api('/api/perms', { perms: { flights: true } });
+    clearInterval(keep);
+    check(f.lines().every(l => l === 'getpos' || /^spec_mode [046]$/.test(l) || /^spec_autodirector [01]$/.test(l) || /^cl_draw_only_deathnotices [01]$/.test(l) || GOTO.test(l)), 'the console saw only whitelisted lines');
   });
 
   await step('the editor screenshot: a path on the radar', async () => {
@@ -440,6 +599,50 @@ const pt = (x, extra = {}) => ({ p: [x, 0, 100], a: [0, 0, 0], t: 0, j: 0, ...ex
     while((await panelFl()).routes.length){ await s.panel.click('#flDel'); await sleep(250); }
     check(await until(async () => (await panelFl())?.routes.length === 0, 4000), 'no paths left');
     check(!flightFile().maps.de_mirage, 'the map entry is gone from the file');
+  });
+
+  await step('permission taken back: the moderator is refused again, the plate data stays', async () => {
+    await s.host.api('/api/perms', { perms: { flights: false } });
+    check(await until(() => hid(s.panel)), 'the moderator panel hides the section again');
+    const before = JSON.stringify(flightFile());
+    await modCmd({ a: 'new', name: 'late', map: 'de_mirage' }); await modCmd({ a: 'cfg', on: false }); await modCmd({ a: 'cfg', port: 31999 });
+    await sleep(800);
+    eq(JSON.stringify(flightFile()), before, 'nothing changed in the flights file');
+    check((await widgetFl()) !== null, 'the widget still receives the flight data (the info plate keeps working)');
+    await s.host.api('/api/perms', { perms: { flights: true } });
+  });
+
+  // ---- the streamer's own panel: a Host that created its room, so the panel can open from the app ----
+  await step('the streamer panel is never restricted: flights and quick buttons work with the permission off', async () => {
+    const web2 = await T.webServer({ port: T.PORTS.web + 7 });
+    const host2 = T.startHost({ OVERLAY_PORT: String(T.PORTS.host + 70), OVERLAY_SITE: 'off', OVERLAY_PANEL_ORIGIN: web2.url }); await host2.ready();
+    const f2 = await fakeNetcon();
+    const gsi2 = async body => fetch(`http://127.0.0.1:${host2.port}/gsi`, { method: 'POST', headers: { host: `127.0.0.1:${host2.port}` }, body: JSON.stringify({ ...body, auth: { token: JSON.parse(fs.readFileSync(path.join(host2.dir, 'overlay-host.json'), 'utf8')).gsiToken } }) });
+    try{
+      const k = await host2.api('/api/streamer/open', {});
+      const sp = await T.newPage('streamer', { app: false });
+      await sp.goto(`${k.url}?streamer=1#hk=${k.key}&port=${k.port}`);
+      check(await until(async () => (await sp.getAttribute('#status', 'class')).includes('ok'), 15000), 'the streamer panel is online');
+      eq((await host2.api('/api/status')).perms.flights, false, 'the permission is off');
+      const fl = () => sp.evaluate(() => CS2_SERIES?.fl ? JSON.parse(JSON.stringify(CS2_SERIES.fl)) : null);
+      const cmd = o => sp.evaluate(o => serCmd({ op: 'fl', ...o }), o);
+      await sp.click('[data-tab=cs2]');
+      check(await until(async () => (await fl()) !== null, 6000), 'it got the flights state');
+      eq(await sp.evaluate(() => [document.getElementById('flSec').hidden, document.getElementById('flQuick').hidden]), [false, false], 'the editor and the quick strip are visible for the streamer');
+      await cmd({ a: 'cfg', port: f2.port, on: true });
+      check(await until(async () => { const v = await fl(); return v?.on && v.port === f2.port; }, 4000), 'the streamer changed the port and switched on');
+      await cmd({ a: 'new', name: 'str', map: 'de_mirage' });
+      check(await until(async () => (await fl())?.routes.length === 1, 4000), 'and made a path');
+      const keep = setInterval(() => gsi2(specPkt({ endsIn: 60, pphase: 'live' })).catch(() => {}), 300);
+      await gsi2(specPkt({ endsIn: 60, pphase: 'live' }));
+      check(await until(() => sp.evaluate(() => !document.getElementById('qDn0').disabled)), 'the strip is active');
+      await sp.click('#qDn0');
+      check(await until(() => f2.lines().includes('cl_draw_only_deathnotices 0'), 4000), 'the streamer\'s quick button works with the permission off');
+      await sp.screenshot({ path: path.join(shotDir, 'flight-streamer-panel.png') }).catch(() => {});
+      await sp.locator('#flQuick').screenshot({ path: path.join(shotDir, 'flight-quick-strip.png') }).catch(() => {});
+      clearInterval(keep);
+      eq(f2.lines().filter(l => !/^(cl_draw_only_deathnotices [01]|spec_autodirector [01]|getpos|spec_mode \d|spec_goto .*)$/.test(l)), [], 'whitelisted lines only');
+    }finally{ f2.close(); await host2.stop(); await web2.close(); }
   });
 
   f?.close();

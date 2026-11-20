@@ -127,7 +127,7 @@ const nodes=new Map();
 const hostHidden=()=>document.body.classList.contains('host-hidden');
 // Права модераторов (тема perms) и выключатели стримера в доке (тема host): их публикует только Hudini Host.
 // Запрещённое на стрим не попадает, что бы ни прислал пульт: элемент считается скрытым, звук и эффекты не играют.
-let PERMS={ av:true, web:true, fx:true, games:true }, OFF={}, HIDE_IDS=new Set();
+let PERMS={ av:true, web:true, fx:true, games:true, flights:false }, OFF={}, HIDE_IDS=new Set();
 const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
 const OFF_OF={ chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
 function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type]; return (!!p && PERMS[p]===false) || (!!o && !!OFF[o]) || HIDE_IDS.has(el.id); }
@@ -135,7 +135,7 @@ const soundOk=()=>PERMS.av!==false && !OFF.sound;
 const fxOk=()=>PERMS.fx!==false && !OFF.fx;
 function setPerms(p){
   if(!p || typeof p!=='object') return;
-  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false };
+  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false, flights:p.flights===true };
   if(!soundOk()){ stopSounds(); pendingSounds.clear(); }
   if(!fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
   applyState(lastState);

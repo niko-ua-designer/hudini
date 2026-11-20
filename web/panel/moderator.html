@@ -145,6 +145,14 @@
   </section>
 
   <section data-pane="cs2" hidden>
+    <div id="flQuick" class="fl-quick">
+    <h2>⚡ Быстрое управление</h2>
+    <div class="hint" id="qHint"></div>
+    <div class="row"><span class="grow">Интерфейс игры: только килл-фид</span><b id="qDnSt" class="hint"></b><button id="qDn1">Вкл</button><button id="qDn0">Выкл</button></div>
+    <div class="row"><span class="grow">Автодиректор</span><b id="qAdSt" class="hint"></b><button id="qAd1">Автодиректор: включить</button><button id="qAd0">Автодиректор: выключить</button></div>
+    <div class="row"><select id="qRoute" class="grow"></select><button id="qRun" class="primary">Запустить пролёт</button><button id="qStop">Остановить</button></div>
+    <div class="hint">Вкл и выкл показывают последнюю отправленную команду, а не то, что сейчас в игре.</div>
+    </div>
     <h2>🎯 Авто-таб CS2</h2>
     <div class="hint">Таблица всех игроков сама выезжает поверх стрима и сама уезжает. Элемент добавлять не нужно. Красится под стиль CS2-элемента (без него «стекло»).</div>
     <label class="tgl u-margin-top-6px"><input type="checkbox" id="taOn"><span class="tgl-k"></span><span>Авто-таб включён</span></label>
@@ -169,12 +177,14 @@
     <div class="row"><button id="serAdd" class="grow">＋ Карта</button><button id="serSave" class="primary grow">✓ Сохранить</button><button id="serReset" class="danger" title="Начать серию заново">↺ Сброс</button></div>
     <div class="hint" id="serNote"></div>
 
+    <div id="flSec">
     <h2>🎥 Пролёты камеры</h2>
     <div class="hint">Камера сама облетает карту, пока идут закупка, пауза, таймаут или разминка. Только когда ты смотришь игру зрителем или демку; когда играешь сам, Hudini молчит. Нужен параметр запуска CS2 -netconport, инструкция в справке.</div>
     <label class="tgl u-margin-top-6px"><input type="checkbox" id="flOn"><span class="tgl-k"></span><span>Пролёты включены</span></label>
     <div class="row"><span class="hint">Порт консоли</span><input type="number" id="flPort" min="1024" max="65535" class="grow"><span id="flLink" class="hint"></span></div>
     <div class="row"><span class="hint">В конце</span><select id="flRet" class="grow"><option value="4">вернуться к игроку (от первого лица)</option><option value="5">вернуться к игроку (от третьего лица)</option></select></div>
     <div class="row"><span class="hint">Несколько путей</span><select id="flPick" class="grow"><option value="rr">по кругу</option><option value="random">случайный</option></select></div>
+    <label class="chk"><input type="checkbox" id="flAuto" checked> Выключать автодиректор на время пролёта</label>
     <label class="chk"><input type="checkbox" id="flPlate"> Плашка «карта · счёт · раунд» на стриме во время пролёта</label>
     <div class="hint" id="flNote"></div>
 
@@ -196,6 +206,7 @@
     <h3 class="fl-h">Что и когда проигрывать</h3>
     <div class="hint">Если для момента собрать цепочку, пути пойдут подряд. Иначе берётся один путь с галочкой момента.</div>
     <div id="flChains"></div>
+    </div>
   </section>
 
   <section data-pane="sound" hidden>

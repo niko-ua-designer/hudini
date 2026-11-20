@@ -1949,7 +1949,7 @@ function cleanFlightView(f){
   const vec=(a, k)=>Array.from({ length:k }, (_, i)=>n(a?.[i], -100000, 100000));
   const key=x=>str(x, 40).replace(/[^a-z0-9_]/gi, '').toLowerCase();
   f=f && typeof f==='object' ? f : {};
-  return { on:f.on===true, port:Math.round(n(f.port, 1024, 65535, 27015)), pick:f.pick==='random' ? 'random' : 'rr', returnMode:Math.round(n(f.returnMode, 0, 6, 4)),
+  return { on:f.on===true, port:Math.round(n(f.port, 1024, 65535, 27015)), pick:f.pick==='random' ? 'random' : 'rr', returnMode:Math.round(n(f.returnMode, 0, 6, 4)), autodir:f.autodir!==false, quick:{ dn:f.quick?.dn===0 || f.quick?.dn===1 ? f.quick.dn : null, ad:f.quick?.ad===0 || f.quick?.ad===1 ? f.quick.ad : null },
     link:f.link===true, spec:f.spec===true, flying:typeof f.flying==='string' ? f.flying.replace(/[^a-z]/g, '').slice(0, 12) : '', map:key(f.map), edit:key(f.edit), note:str(f.note, 120),
     maps:(Array.isArray(f.maps) ? f.maps : []).slice(0, 40).map(m=>[key(m?.[0]), Math.round(n(m?.[1], 0, 8))]),
     routes:(Array.isArray(f.routes) ? f.routes : []).slice(0, 8).map(r=>({ id:str(r?.id, 12).replace(/[^a-z0-9]/gi, ''), name:str(r?.name, 40), dur:n(r?.dur, 0, 300),

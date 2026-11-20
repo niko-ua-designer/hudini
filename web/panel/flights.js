@@ -120,12 +120,34 @@
     }));
   }
 
+  // ---------- быстрые кнопки: только последняя отправленная команда, не чтение игры ----------
+  const stTxt = v => v === 1 ? 'вкл' : v === 0 ? 'выкл' : '—';
+  function renderQuick(f){
+    const ok = !!f && f.on && f.spec;
+    for(const id of ['qDn1', 'qDn0', 'qAd1', 'qAd0']) $(id).disabled = !ok;
+    $('qHint').textContent = !f ? 'Появится, когда программа стримера подключена.' : !f.on ? 'Включи пролёты (порт консоли ниже), тогда кнопки заработают.' : !f.spec ? 'Ждёт наблюдателя: кнопки включатся, когда ты смотришь игру зрителем или демку.' : f.note || '';
+    $('qDnSt').textContent = stTxt(f?.quick?.dn); $('qAdSt').textContent = stTxt(f?.quick?.ad);
+    const rs = $('qRoute');
+    if(!rs.contains(document.activeElement)){
+      const sig = JSON.stringify((f?.routes || []).map(r => [r.id, r.name, r.pts.length])) + (f?.edit || '');
+      if(rs._sig !== sig){ rs._sig = sig; const keep = rs.value;
+        rs.replaceChildren(...(f?.routes || []).map(r => { const o = document.createElement('option'); o.value = r.id; o.textContent = `${r.name} · ${r.pts.length}`; return o; }));
+        if(!f?.routes.length){ const o = document.createElement('option'); o.textContent = 'Путей на этой карте нет'; rs.replaceChildren(o); }
+        else if(f.routes.some(r => r.id === keep)) rs.value = keep; }
+    }
+    const can = (f?.routes || []).find(r => r.id === rs.value);
+    $('qRun').disabled = !ok || !can || can.pts.length < 2 || !!f.flying; $('qStop').disabled = !f?.flying;
+  }
   // ---------- главный рендер ----------
   function render(){
     const f = fl(), pane = $('flOn'); if(!pane || busy) return;
+    const allowed = window.hudiniFlightsAllowed ? window.hudiniFlightsAllowed() : true;
+    $('flSec').hidden = !allowed; $('flQuick').hidden = !allowed;
+    if(!allowed) return;
+    renderQuick(f);
     $('flBody').hidden = true;
     if(!f){ $('flNote').textContent = 'Пролёты появятся, когда программа стримера подключена.'; return; }
-    setField($('flOn'), f.on, 'checked'); setField($('flPort'), String(f.port)); setField($('flPick'), f.pick); setField($('flRet'), String(f.returnMode === 5 ? 5 : 4));
+    setField($('flOn'), f.on, 'checked'); setField($('flAuto'), f.autodir !== false, 'checked'); setField($('flPort'), String(f.port)); setField($('flPick'), f.pick); setField($('flRet'), String(f.returnMode === 5 ? 5 : 4));
     $('flLink').textContent = !f.on ? '' : f.link ? '● есть связь' : f.spec ? '○ нет связи' : '○ ждёт наблюдателя';
     $('flNote').textContent = f.note || '';
     // карта
@@ -161,6 +183,12 @@
   // ---------- события ----------
   $('flOn').addEventListener('change', e => cmd({ a:'cfg', on:e.target.checked }));
   $('flPort').addEventListener('change', e => { const n = Number(e.target.value); if(Number.isInteger(n) && n >= 1024 && n <= 65535) cmd({ a:'cfg', port:n }); else toast('Порт от 1024 до 65535'); });
+  const quick = (k, v) => cmd({ a:'quick', k, v });
+  $('qDn1').onclick = () => quick('dn', 1); $('qDn0').onclick = () => quick('dn', 0);
+  $('qAd1').onclick = () => quick('ad', 1); $('qAd0').onclick = () => quick('ad', 0);
+  $('qRun').onclick = () => cmd({ a:'preview', id:$('qRoute').value });
+  $('qStop').onclick = () => cmd({ a:'stop' });
+  $('flAuto').addEventListener('change', e => cmd({ a:'cfg', autodir:e.target.checked }));
   $('flPick').addEventListener('change', e => cmd({ a:'cfg', pick:e.target.value }));
   $('flRet').addEventListener('change', e => cmd({ a:'cfg', returnMode:Number(e.target.value) }));
   $('flMap').addEventListener('change', e => { selId = ''; draft = null; cmd({ a:'edit', map:e.target.value }); });
