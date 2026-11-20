@@ -7,9 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Montserrat:wght@900&family=Press+Start+2P&family=Russo+One&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="../shared/core.css?v=14">
+<link rel="stylesheet" href="../shared/core.css?v=15">
 <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js" integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r" crossorigin="anonymous"></script>
-<script src="../shared/core.js?v=19"></script>
+<script src="../shared/core.js?v=20"></script>
+<script src="../shared/media.js?v=1"></script>
 <script src="../shared/case3d.js?v=1"></script>
 <script src="../shared/cs2-maps.js?v=3"></script>
 <style>
@@ -48,6 +49,7 @@ body.host-hidden #stage{opacity:0!important}
 #sizeWarn.show{display:block}
 #sizeWarn small{display:block;font-weight:500;font-size:2.2vmin}
 #debug{position:fixed;left:10px;top:10px;font:600 14px system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Ubuntu,Cantarell,"DejaVu Sans",sans-serif,'Noto Color Emoji';color:#fff;background:#000b;padding:6px 10px;border-radius:6px;z-index:100002;display:none}
+.el.s-mic{visibility:hidden;pointer-events:none}   /* микрофон: только звук */
 .vfx{position:fixed;inset:0;width:100vw;height:100vh;z-index:50;pointer-events:none}.vfx video{width:100%;height:100%;object-fit:contain}
 body.host-hidden .vfx{display:none}
 </style>
@@ -69,7 +71,7 @@ const TOPIC_PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // ===============================================
 
-const WIDGET_VER=18;
+const WIDGET_VER=19;
 // Подсказки на самом виджете: на языке системы (OBS не знает язык пульта)
 const MSG={
   ru:{ size:(w,h)=>`⚠ Источник «Браузер» ${w}×${h}, а нужно 16:9<small>OBS → свойства источника → Ширина <b>1920</b>, Высота <b>1080</b> → ОК, потом Ctrl+F</small>`,
@@ -127,20 +129,40 @@ const nodes=new Map();
 const hostHidden=()=>document.body.classList.contains('host-hidden');
 // Права модераторов (тема perms) и выключатели стримера в доке (тема host): их публикует только Hudini Host.
 // Запрещённое на стрим не попадает, что бы ни прислал пульт: элемент считается скрытым, звук и эффекты не играют.
-let PERMS={ av:true, web:true, fx:true, games:true }, OFF={}, HIDE_IDS=new Set();
+// Камера, экран и микрофон (cam/screen/mic): выключены, пока программа явно не включила (PERMS[k]===true). Свой поток стримера (владелец «streamer») права не спрашивает: запрос модератора Host пропускает или режет сам.
+let PERMS={ av:true, web:true, fx:true, games:true, cam:false, screen:false, mic:false }, OFF={}, HIDE_IDS=new Set();
 const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
 const OFF_OF={ chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
-function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type]; return (!!p && PERMS[p]===false) || (!!o && !!OFF[o]) || HIDE_IDS.has(el.id); }
+function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type];
+  if(el.type==='stream' && PERMS[el.kind]!==true && el.owner!=='streamer') return true;
+  return (!!p && PERMS[p]===false) || (!!o && !!OFF[o]) || HIDE_IDS.has(el.id); }
 const soundOk=()=>PERMS.av!==false && !OFF.sound;
 const fxOk=()=>PERMS.fx!==false && !OFF.fx;
 function setPerms(p){
   if(!p || typeof p!=='object') return;
-  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false };
+  PERMS={ av:p.av!==false, web:p.web!==false, fx:p.fx!==false, games:p.games!==false, cam:p.cam===true, screen:p.screen===true, mic:p.mic===true };
   if(!soundOk()){ stopSounds(); pendingSounds.clear(); }
   if(!fxOk() || !soundOk()) document.querySelectorAll('.vfx').forEach(l=>l._done?.());
   applyState(lastState);
 }
 let visible=true, lastState={ visible:true, els:[], raffle:null };
+// Живая картинка в слое stream: пока потока нет, слой прозрачный. Звук только если слой его просит.
+window.streamPaint=(node, el)=>{
+  if(!media) return;
+  const live=!el.hidden && !hostHidden();
+  media.paint(node, live ? el : { ...el, owner:'' }, { muted:!el.sound || hostHidden() || !soundOk() || el.hidden, volume:num(el.vol*masterVol(),1,0,1) });
+};
+// Какие потоки нужны: показанные слои. Владелец и вид берутся только из экрана, подписанного модератором.
+function streamsWanted(){
+  if(hostHidden()) return [];
+  const seen=new Set(), out=[];
+  for(const e of lastState.els){
+    if(e.type!=='stream' || e.hidden || blockedEl(e) || (e.ttl && nowMs()>=e.ttl)) continue;
+    const k=e.owner+'|'+e.kind; if(seen.has(k)) continue; seen.add(k); out.push({ owner:e.owner, kind:e.kind, purpose:'main' });
+  }
+  return out;
+}
+function repaintStreams(){ for(const n of nodes.values()) if(n._el?.type==='stream') paintNode(n, n._el, n._z); }
 function pop(node){ const b=node.querySelector('.body'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 function applyState(s){
   if(s.lang) STREAM_LANG=s.lang;
@@ -181,11 +203,12 @@ function applyState(s){
     if(isNew){ void node.offsetWidth; requestAnimationFrame(()=>node.classList.remove('instant')); }
   });
   for(const [id,node] of nodes) if(!seen.has(id)){
-    nodes.delete(id); node.style.opacity=0;
+    nodes.delete(id); node.style.opacity=0; if(node._el?.type==='stream') node.querySelector('video')?.removeAttribute('src');
     node.querySelector('video')?.pause(); chatUnbind(node);
     setTimeout(()=>node.remove(), 400);
   }
   if(!assetGcT) assetGcT=setTimeout(runAssetGc, ASSET_KEEP_MS);
+  media?.refresh();   // нужные потоки подключаем, ненужные (спрятан слой, отозвано право) отпускаем
 }
 // Файлы, которых нет на экране дольше минуты, отдают память (blob-URL). Вернутся на экран: скачаются снова.
 const ASSET_KEEP_MS=60000, assetSeen=new Map(); let assetGcT=null;
@@ -378,7 +401,7 @@ function clockSample(t){
 
 // ================== СВЯЗЬ ==================
 // Принимаем только сообщения, подписанные ключом модератора. Остальное (подделки, мусор) молча выкидываем.
-let KEYS=null, lastStateT=0, lastStop=null;
+let KEYS=null, lastStateT=0, lastStop=null, media=null;
 const seenFx=new Map();
 function needHost(title, more){
   const n=document.getElementById('need');
@@ -399,7 +422,13 @@ async function start(){
   // время последнего принятого экрана помним и после перезапуска OBS: старый сохранённый экран не вернётся
   const tKey='hudini.stateT.'+room;
   try{ lastStateT=Math.max(lastStateT, Number(localStorage.getItem(tKey))||0); }catch{}
-  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink', perms:base+'/perms', cs2series:base+'/cs2series' };
+  const T={ state:base+'/state', fx:base+'/fx', hb:base+'/hb', cs2:base+'/cs2', host:base+'/host', ink:base+'/ink', perms:base+'/perms', cs2series:base+'/cs2series', rtc:base+'/rtc' };
+  const wsBase=brokerUrl.replace(/\/mqtt$/, '');
+  media=!window.HudiniMedia ? null : HudiniMedia.createHub({ id:'wid_'+Math.random().toString(36).slice(2,12), keys:()=>KEYS, sign:false, now:nowMs,
+    publish:b=>{ if(client.connected) client.publish(T.rtc, b, { qos:0 }); },
+    mediaUrl:sid=>/^[a-z0-9]{12}$/.test(sid) ? `${wsBase}/media?sid=${sid}` : '',   // сокет только на программу этого же компьютера
+    mediaAuth:()=>({ u:'widget' }), forceP2:()=>qs.has('p2') || window.__hudiniForceP2===true,
+    addr:()=>'widget', desired:streamsWanted, onChange:repaintStreams });
   const client=mqtt.connect(brokerUrl, { clientId:'wid_'+Math.random().toString(36).slice(2,12),
     clean:true, keepalive:30, reconnectPeriod:2000, connectTimeout:8000 });
   // файлы берём из программы на этом же компьютере и проверяем подпись модератора
@@ -419,7 +448,7 @@ async function start(){
   setInterval(async()=>{ if(!client.connected) return;
     client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
   }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms, T.cs2series], { qos:1 }); client.subscribe(T.ink, { qos:0 }); Assets.retry(); applyState(lastState); });
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms, T.cs2series], { qos:1 }); client.subscribe([T.ink, T.rtc], { qos:0 }); Assets.retry(); applyState(lastState); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
@@ -440,6 +469,7 @@ async function start(){
       tabOff=!!c.tabOff || o.tab===true; tabTick();
       lastStop=Number(c.stop)||0; return;
     }
+    if(topic===T.rtc){ media?.onPacket(payload); return; }   // запечатанная сигнализация камеры/экрана/микрофона (media.js)
     if(topic===T.perms){ setPerms(await unsealJSON(KEYS, payload, false)); return; }   // права модераторов (публикует только программа)
     if(topic===T.cs2){                               // данные CS2 шлёт программа стримера: зашифрованы ключом комнаты
       const d=await unsealJSON(KEYS, payload, false);

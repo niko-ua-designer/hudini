@@ -82,7 +82,7 @@ const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
 const COUNTER_MODES = ['manual','chat','interval'];
-const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case','draw','roulette'];
+const TYPES = ['text','image','video','timer','counter','web','poll','cs2','msg','chat','raffle','case','draw','roulette','stream'];
 const CHAT_THEMES = ['glass','bubbles','minimal','neon','panel','accent'];
 // Общая громкость оверлея: звук на стриме = общая × громкость элемента. Виджет задаёт её из состояния.
 let MASTER_VOL = 1, FX_VOL = 1;
@@ -157,7 +157,8 @@ function outline(color, wEm){
 // Элементы, у которых размер можно задать рамкой: тогда они не прыгают от данных
 const BOXABLE = new Set(['text','timer','counter','poll','cs2','msg','chat']);
 // Обрезка как в OBS: [слева, сверху, справа, снизу] в % размера элемента. Для CS2, кейса и розыгрыша не нужна
-const CROPPABLE = new Set(['image','video','web','text','timer','counter','poll','msg','chat']);
+const STREAM_KINDS = ['cam','screen','mic'];
+const CROPPABLE = new Set(['image','video','stream','web','text','timer','counter','poll','msg','chat']);
 function sanitizeCrop(c){
   if(!Array.isArray(c) || c.length!==4) return null;
   const a=c.map(v=>Math.round(num(v,0,0,90)*100)/100);
@@ -233,6 +234,13 @@ function sanitizeEl(e){
     o.w=num(e.w,25,1,200);
     o.hh=num(e.hh,0,0,300);   // высота в % экрана; 0 = по пропорциям картинки
     if(type==='video'){ o.sound=!!e.sound; o.vol=num(e.vol,1,0,1); o.restart=num(e.restart,0,0,1e15); }
+  } else if(type==='stream'){
+    // a camera, a screen or a microphone of one participant. The owner is only a name here: the widget decides whether to show it
+    o.owner = typeof e.owner==='string' && /^[A-Za-z0-9_-]{1,40}$/.test(e.owner) ? e.owner : '';
+    o.kind = STREAM_KINDS.includes(e.kind) ? e.kind : '';
+    if(!o.owner || !o.kind) return null;
+    o.w=num(e.w,30,1,200); o.hh=num(e.hh,0,0,300);
+    o.sound=!!e.sound; o.vol=num(e.vol,1,0,1);
   } else if(type==='web'){
     o.url=safeUrl(e.url); if(!o.url || blockedEmbed(o.url)) return null;
     o.w=num(e.w,40,1,200); o.ar=typeof e.ar==='string' && Object.hasOwn(ASPECTS, e.ar)?e.ar:'16:9'; o.shape=SHAPES.includes(e.shape)?e.shape:'rect';
@@ -795,6 +803,10 @@ function buildNode(el){
   const body=document.createElement('div'); body.className='body';
   let c;
   if(el.type==='text'){ c=document.createElement('div'); c.className='txt'; }
+  else if(el.type==='stream'){
+    c=document.createElement('video'); c.autoplay=true; c.muted=true; c.playsInline=true;
+    c.setAttribute('playsinline',''); c.setAttribute('muted','');
+  }
   else if(el.type==='video'){
     c=document.createElement('video'); c.autoplay=true; c.loop=true; c.muted=true; c.playsInline=true;
     c.setAttribute('playsinline',''); c.setAttribute('muted','');
@@ -857,6 +869,13 @@ function paintNode(node, el, z){
     const url=resolveSrc(el.src);
     if(url && c.getAttribute('src')!==url) c.setAttribute('src', url);
     node.classList.toggle('loading', !url);
+  } else if(el.type==='stream'){
+    node.style.width=el.kind==='mic' ? '' : el.w+'%';
+    node.dataset.kind=el.kind; node.classList.toggle('s-mic', el.kind==='mic');
+    c.style.height = el.hh ? `calc(var(--u) * ${el.hh})` : '';
+    c.style.objectFit = el.hh ? 'fill' : '';
+    c.style.aspectRatio = el.hh ? 'auto' : (c._ar || '16 / 9');
+    window.streamPaint?.(node, el);   // the page binds the live picture (media.js)
   } else if(el.type==='msg'){
     node.style.width='';
     c.style.fontSize=`calc(var(--u) * ${el.fs})`; c.style.fontFamily=fontCss(el.font); c.style.color=el.color;

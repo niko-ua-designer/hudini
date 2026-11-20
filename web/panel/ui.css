@@ -246,3 +246,24 @@ aside details>summary:hover{color:var(--text)}
 .pbtn .pn{fill:currentColor;stroke:none;opacity:0}
 .pbtn.on .pn{opacity:.32}
 .pbtn.on{border-color:var(--acc)}
+
+/* ---- Трансляция: камера, экран, микрофон ---- */
+#bcTiles button.on{border-color:var(--acc);background:#7c5cff33;color:#fff}
+#bcTiles button:disabled{opacity:.45;cursor:not-allowed}
+#bcList{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.bcrow{display:flex;align-items:center;gap:6px;font-size:12px;background:#1d212a;border-radius:8px;padding:5px 8px}
+.bcrow .bcn{white-space:nowrap}
+.bcrow .bcdev{flex:1;min-width:0;font-size:12px}
+.bcrow .bcp{flex:1;text-align:right;margin:0;white-space:nowrap}
+.bcrow .bcstop{padding:2px 8px}
+#streamBg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:.8;background:#000}
+#streamBg[hidden]{display:none}
+/* слой потока в пульте: заглушка, пока сигнала нет, и строка с путём и задержкой */
+.el[data-type="stream"].nosig .body{min-height:60px;outline:2px dashed #ffffff55;background:#0008}
+.el[data-type="stream"].nosig .body::after{content:attr(data-nosig);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#cfd3e0;pointer-events:none}
+.el[data-type="stream"] .sinfo{position:absolute;left:0;bottom:-18px;font:11px/1.2 system-ui,sans-serif;color:#fff;background:#000a;border-radius:4px;padding:1px 5px;white-space:nowrap;pointer-events:none}
+.el[data-type="stream"] .sinfo:empty{display:none}
+.el.s-mic .content{display:none}
+.el.s-mic .body{width:56px;height:56px;border-radius:50%;background:#171a21;outline:2px solid var(--acc);display:flex;align-items:center;justify-content:center}
+.el[data-type="stream"].s-mic .body::after{content:"🎙";font-size:26px;position:static;display:block;inset:auto;outline:0;background:none}
+.el.s-mic.nosig .body{outline-style:dashed}
