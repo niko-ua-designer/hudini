@@ -17,7 +17,7 @@ const { step, check, eq, until, sleep } = T;
     await put([{ id: 'tx1', type: 'text', text: 'всегда' }, { id: 'im1', type: 'image', src: 'https://example.com/a.png' }, { id: 'po1', type: 'poll', title: 'Карта?', opts: ['A', 'B'] }, { id: 'vi1', type: 'video', src: 'https://example.com/a.mp4' }]);
     const s = await until(async () => { const s = await shown(); return s.tx1 && s.im1 && s.po1 && s.vi1 && s; });
     check(s, 'all four are on stream: ' + JSON.stringify(await shown()));
-    eq((await host.api('/api/status')).perms, { av: true, web: true, fx: true, games: true }, 'everything is allowed by default');
+    eq((await host.api('/api/status')).perms, { av: true, web: true, fx: true, games: true, cam: false, screen: false, mic: false }, 'everything is allowed by default, except camera, screen and microphone');
   });
 
   await step('«Кейсы, розыгрыши, опросы, CS2» off: the poll leaves the stream, the panel hides the tiles', async () => {
