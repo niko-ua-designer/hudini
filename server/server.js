@@ -1134,7 +1134,8 @@ function serMap(m){
 }
 function cleanSeries(j){
   const s = { v:1, bo:SER_BO.includes(Number(j?.bo)) ? Number(j.bo) : 3, names:{ a:serName(j?.names?.a), b:serName(j?.names?.b) },
-    maps:(Array.isArray(j?.maps) ? j.maps : []).slice(0, 50).map(serMap).filter(Boolean).slice(0, SER_MAX), cur:null };
+    maps:(Array.isArray(j?.maps) ? j.maps : []).slice(0, 50).map(serMap).filter(Boolean).slice(0, SER_MAX), cur:null,
+    touched:Number.isFinite(Number(j?.touched)) && Number(j.touched)>0 ? Math.round(Number(j.touched)) : 0 };
   const c = j?.cur;
   if(c && typeof c==='object' && serMapName(c.map)) s.cur = { map:serMapName(c.map), live:!!c.live, done:!!c.done, aSide:c.aSide==='T' ? 'T' : 'CT', sw:c.sw ? 1 : 0,
     round:serNum(c.round), ct:serNum(c.ct), tt:serNum(c.tt), ph:String(c.ph ?? '').slice(0, 20), go:Number(c.go) || 0 };
@@ -1165,7 +1166,7 @@ function seriesStep(s, p, now){
   if(p.phase==='live' && !c.live){
     c.live = true; c.sw = 0;
     const last = s.maps[s.maps.length - 1];
-    if(last && (!last.at || now - last.at > SER_STALE)){ s.maps = []; s.names = { a:'', b:'' }; }   // старая серия: начинаем заново, формат остаётся
+    if(last && (!last.at || now - Math.max(last.at || 0, s.touched || 0) > SER_STALE)){ s.maps = []; s.names = { a:'', b:'' }; }   // старая серия (последняя карта и ручная правка s.touched старше 6 ч; запись без времени из файла 1.0 тоже старая): начинаем заново, формат остаётся
     const A = s.names.a, B = s.names.b, ctN = serName(p.ctName), tN = serName(p.tName);
     if(!A && !B && (ctN || tN)) s.names = { a:ctN, b:tN };
     c.aSide = (s.names.a && tN===s.names.a) || (s.names.b && ctN===s.names.b) ? 'T' : 'CT';
@@ -1190,14 +1191,15 @@ function seriesView(s, p){
   return { bo:s.bo, a:{ name:s.names.a, w:wa }, b:{ name:s.names.b, w:wb }, maps:s.maps, ctIs:side ? (side==='CT' ? 'a' : 'b') : null, map:c?.map || '', go:c?.done ? c.go : 0 };
 }
 // Команда пульта (тема cs2cmd): формат, сброс, ручная правка карт и имён
-function seriesCmd(s, m){
+function seriesCmd(s, m, now = Date.now()){
   if(!m || typeof m!=='object') return false;
   if(m.op==='bo' && SER_BO.includes(Number(m.bo))){ s.bo = Number(m.bo); return true; }
   if(m.op==='reset'){ s.maps = []; s.names = { a:'', b:'' }; return true; }
   if(m.op==='edit'){
-    const old = s.maps, now = Date.now();
+    const old = s.maps;
     const t = cleanSeries({ bo:s.bo, names:m.names, maps:(Array.isArray(m.maps) ? m.maps : []).map((x, i) => x && typeof x==='object' ? { ...x, at:old[i] && old[i].map===serMapName(x.map) && old[i].at ? old[i].at : now } : x) });
     s.maps = t.maps; s.names = t.names; if(SER_BO.includes(Number(m.bo))) s.bo = Number(m.bo);
+    s.touched = now;
     return true;
   }
   return false;
