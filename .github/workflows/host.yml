@@ -1,6 +1,6 @@
 # Builds Hudini Host (Tauri desktop app + Bun server sidecar) and publishes it to Releases
 # when a version tag (v1.2.3 or v1.2.3-rc.1) is pushed. The tag must match `const VERSION` in server/server.js.
-# Manual run (workflow_dispatch): builds everything; publishes only from a tag ref with dry_run unchecked.
+# Manual run (workflow_dispatch): builds the chosen systems; publishes only from a tag ref with dry_run unchecked, and only with all three systems.
 name: Hudini Host release
 on:
   push:
@@ -55,6 +55,7 @@ jobs:
         id: m
         env:
           SYSTEMS: ${{ github.event_name == 'workflow_dispatch' && inputs.systems || 'windows,linux,mac' }}
+          PUBLISHING: ${{ github.ref_type == 'tag' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
           all='{"runner":"windows-latest","os":"windows","triple":"x86_64-pc-windows-msvc","bun":"bun-windows-x64","ext":".exe"}
           {"runner":"ubuntu-22.04","os":"linux","triple":"x86_64-unknown-linux-gnu","bun":"bun-linux-x64","ext":""}
@@ -64,6 +65,10 @@ jobs:
             case ",$SYSTEMS," in *",$os,"*) printf '%s\n' "$line";; esac
           done | paste -sd, -)
           [ -n "$sel" ] || { echo "no valid systems in '$SYSTEMS'"; exit 1; }
+          # a release without all three systems would still become "latest" and break updates for the missing one
+          if [ "$PUBLISHING" = true ] && [ "$(printf '%s\n' "$sel" | tr ',' '\n' | grep -c '"os"')" -ne 3 ]; then
+            echo "publishing needs all three systems (windows,linux,mac), got '$SYSTEMS'; run with dry_run for a partial build"; exit 1
+          fi
           echo "matrix=[$sel]" >> "$GITHUB_OUTPUT"
 
   # Desktop app: Tauri window + tray, the Bun server runs next to it as a sidecar

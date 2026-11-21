@@ -904,7 +904,7 @@ function posOf(p){
   return { pos:v.map(Math.round), ...(f && (f[0] || f[1]) ? { fw:Math.round(Math.atan2(f[1], f[0]) * 180 / Math.PI) } : {}) };
 }
 // Гранаты на радаре (блок allgrenades, CS2 отдаёт его только зрителю): тип из белого списка, числа проверены, количество ограничено, свободного текста нет.
-const GR_TYPE = { flashbang:'flash', flash:'flash', smoke:'smoke', smokegrenade:'smoke', frag:'he', hegrenade:'he', inferno:'molly', molotov:'molly', incgrenade:'molly' };
+const GR_TYPE = { flashbang:'flash', flash:'flash', smoke:'smoke', smokegrenade:'smoke', frag:'he', hegrenade:'he', inferno:'molly', firebomb:'molly', molotov:'molly', incgrenade:'molly' };
 const GR_MAX = 40, GR_FLAMES = 60, GR_FLAMES_ALL = 120;
 const grNum = (v, lo, hi) => { const n = typeof v==='number' || typeof v==='string' ? Number(v) : NaN; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
 function grenadesOf(g){
@@ -1134,7 +1134,8 @@ function serMap(m){
 }
 function cleanSeries(j){
   const s = { v:1, bo:SER_BO.includes(Number(j?.bo)) ? Number(j.bo) : 3, names:{ a:serName(j?.names?.a), b:serName(j?.names?.b) },
-    maps:(Array.isArray(j?.maps) ? j.maps : []).slice(0, 50).map(serMap).filter(Boolean).slice(0, SER_MAX), cur:null };
+    maps:(Array.isArray(j?.maps) ? j.maps : []).slice(0, 50).map(serMap).filter(Boolean).slice(0, SER_MAX), cur:null,
+    touched:Number.isFinite(Number(j?.touched)) && Number(j.touched)>0 ? Math.round(Number(j.touched)) : 0 };
   const c = j?.cur;
   if(c && typeof c==='object' && serMapName(c.map)) s.cur = { map:serMapName(c.map), live:!!c.live, done:!!c.done, aSide:c.aSide==='T' ? 'T' : 'CT', sw:c.sw ? 1 : 0,
     round:serNum(c.round), ct:serNum(c.ct), tt:serNum(c.tt), ph:String(c.ph ?? '').slice(0, 20), go:Number(c.go) || 0 };
@@ -1165,7 +1166,7 @@ function seriesStep(s, p, now){
   if(p.phase==='live' && !c.live){
     c.live = true; c.sw = 0;
     const last = s.maps[s.maps.length - 1];
-    if(last && (!last.at || now - last.at > SER_STALE)){ s.maps = []; s.names = { a:'', b:'' }; }   // старая серия: начинаем заново, формат остаётся
+    if(last && (!last.at || now - Math.max(last.at || 0, s.touched || 0) > SER_STALE)){ s.maps = []; s.names = { a:'', b:'' }; }   // старая серия (последняя карта и ручная правка s.touched старше 6 ч; запись без времени из файла 1.0 тоже старая): начинаем заново, формат остаётся
     const A = s.names.a, B = s.names.b, ctN = serName(p.ctName), tN = serName(p.tName);
     if(!A && !B && (ctN || tN)) s.names = { a:ctN, b:tN };
     c.aSide = (s.names.a && tN===s.names.a) || (s.names.b && ctN===s.names.b) ? 'T' : 'CT';
@@ -1190,14 +1191,15 @@ function seriesView(s, p){
   return { bo:s.bo, a:{ name:s.names.a, w:wa }, b:{ name:s.names.b, w:wb }, maps:s.maps, ctIs:side ? (side==='CT' ? 'a' : 'b') : null, map:c?.map || '', go:c?.done ? c.go : 0 };
 }
 // Команда пульта (тема cs2cmd): формат, сброс, ручная правка карт и имён
-function seriesCmd(s, m){
+function seriesCmd(s, m, now = Date.now()){
   if(!m || typeof m!=='object') return false;
   if(m.op==='bo' && SER_BO.includes(Number(m.bo))){ s.bo = Number(m.bo); return true; }
   if(m.op==='reset'){ s.maps = []; s.names = { a:'', b:'' }; return true; }
   if(m.op==='edit'){
-    const old = s.maps, now = Date.now();
+    const old = s.maps;
     const t = cleanSeries({ bo:s.bo, names:m.names, maps:(Array.isArray(m.maps) ? m.maps : []).map((x, i) => x && typeof x==='object' ? { ...x, at:old[i] && old[i].map===serMapName(x.map) && old[i].at ? old[i].at : now } : x) });
     s.maps = t.maps; s.names = t.names; if(SER_BO.includes(Number(m.bo))) s.bo = Number(m.bo);
+    s.touched = now;
     return true;
   }
   return false;
@@ -1778,8 +1780,11 @@ const errOut = (res, e, extra={}) => {
 function dockCs2(){
   const c = status.cs2; if(!c || Date.now()-status.cs2Seen > 15000) return null;
   const o = c.observed || (!c.spectating && c.name ? c : null);
+  // номер, как его видит зритель: клавиша 1…0 или место в худе (режим «по порядку в худе»)
+  const hs = screenNum==='hud' && Array.isArray(c.players) ? hudSlots(c.players) : null;
+  const key = o ? slotKey(hs && o.id!=null && o.id in hs ? hs[o.id] : o.slot) : null;
   return { map:c.map, round:c.round, phase:c.phase, ct:c.ct, tt:c.tt, ctName:c.ctName, tName:c.tName,
-    obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
+    obs:o ? { name:o.name, slot:key, hp:o.hp, team:o.team } : null };
 }
 function dockInfo(){
   return { perms:cfg.perms, media:mediaInfo(), els:screen ? screen.els : null, cs2:dockCs2(), nickStrip:screenStrip,

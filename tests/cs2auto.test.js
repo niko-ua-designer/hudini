@@ -155,6 +155,16 @@ const C = box.C;
     eq(o.maps[0].at, 0, 'no time in an old file');
     S.seriesStep(o, P('de_dust2', 'live', 0, 0, 0), 5000);
     eq([o.maps.length, o.names.a], [0, ''], 'record without time → reset');
+    // names typed in the panel before the match keep an old series alive
+    const e = S.cleanSeries(null);
+    S.seriesStep(e, P('de_mirage', 'live', 0, 0, 0), 1000);
+    S.seriesStep(e, P('de_mirage', 'gameover', 13, 5, 18), 2000);
+    S.seriesCmd(e, { op: 'edit', names: { a: 'Red', b: 'Blue' }, maps: e.maps }, 2000 + 7 * H);
+    S.seriesStep(e, P('de_dust2', 'live', 0, 0, 0), 2000 + 7 * H + 1000);
+    eq([e.maps.length, e.names.a], [1, 'Red'], 'fresh manual edit → no reset');
+    S.seriesStep(e, P('de_dust2', 'gameover', 13, 1, 14), 2000 + 7 * H + 2000);
+    S.seriesStep(e, P('de_nuke', 'live', 0, 0, 0), 2000 + 14 * H + 3000);
+    eq([e.maps.length, e.names.a], [0, ''], 'edit and last map both older than 6 hours → reset');
     // no records: nothing to do, names stay
     const n = S.cleanSeries({ names: { a: 'A', b: 'B' } });
     S.seriesStep(n, P('de_dust2', 'live', 0, 0, 0), 5000);
@@ -257,6 +267,14 @@ const C = box.C;
     eq(st.cs2.players.find(p => p.id === '101').fw, 0, 'forward 1,0,0 is 0°');
     const cfgText = await (await fetch(`http://127.0.0.1:${s.host.port}/api/gsi/cfg`, { headers: { 'x-hudini-token': T.ADMIN_TOKEN } })).text();
     check(/"allplayers_position"\s+"1"/.test(cfgText), 'gsi cfg has allplayers_position');
+  });
+
+  await step('dock shows the number the viewer sees: observer slot 3 is key 4', async () => {
+    const g = spec(); g.player = { steamid: '104', name: 'pelmech', team: 'CT', observer_slot: 3, state: { health: 80 } };
+    check((await gsi(g)).ok, 'packet accepted');
+    const dock = await (await fetch(`${s.host.base}/api/status`)).json();
+    eq([dock.cs2?.obs?.name, dock.cs2?.obs?.slot], ['pelmech', 4], 'dock status carries the key, not the raw slot');
+    check((await gsi(spec())).ok, 'back to the default packet');
   });
 
   await step('auto tab is off by default: a timeout shows nothing', async () => {

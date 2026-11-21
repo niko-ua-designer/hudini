@@ -94,7 +94,7 @@ function cancelOfflineWait(){
   clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=18, widgets=new Map();
+const WIDGET_VER=22, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -2206,12 +2206,15 @@ function onChat(user, text, msg){
   if(msg){
     if(msg.reward) noteReward(msg, text);
     const rEl=state.els.find(e=>e.type==='roulette'), rk=rouKind(rEl, text, msg);
-    const scn=$('scnRun').checked && scnList().some(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg }));
-    if(rk || scn) claimChat(MSGID_RE.test(msg.id||'') ? msg.id : null, ()=>{   // одно сообщение в нескольких пультах: действие у одного
-      if(scn) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
+    const scnIds=$('scnRun').checked ? scnList().filter(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg })).map(sc=>sc.id).sort().join('|') : '';
+    const mid=MSGID_RE.test(msg.id||'') ? msg.id : null;
+    // Рулетка и сценарии заявляются отдельно: пульт без нужного сценария не должен перебивать пульт, у которого он есть.
+    // Сценарии одного набора выполняет один пульт; пульты с другим набором выполняют свои.
+    if(rk) claimChat(mid, ()=>{   // одно сообщение в нескольких пультах: действие у одного
       const el=state.els.find(e=>e.type==='roulette');
-      if(rk && el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
+      if(el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
     });
+    if(scnIds) claimChat(mid && mid.slice(0, 48)+'-s'+[...scnIds].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0, 7).toString(36), ()=>fire('chat', { user:msg.user, msg:text, chatMsg:msg }));
   }
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
@@ -2550,13 +2553,14 @@ function renderNicks(el){
   const box=$('csNickBox'), list=$('csNickList'); if(!box || list.contains(document.activeElement)) return;
   const nk=el?.nicks||{}, ps=csPlayers(), seen=new Set(ps.map(p=>p.id));
   // CS2 шлёт пакеты по 10 раз в секунду: список перерисовываем только когда в нём что-то поменялось, иначе поле ввода уходит из-под рук
-  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk]); if(list._sig===sig) return; list._sig=sig;
+  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk, CS2_NUM]); if(list._sig===sig) return; list._sig=sig;
   list.replaceChildren();
+  const hudSl=CS2_NUM==='hud' ? cs2HudSlots(ps) : {};   // номер, как его видит зритель
   if(!ps.length && !Object.keys(nk).length){ const e=document.createElement('div'); e.className='hint'; e.textContent='Игроков пока нет: нужна запущенная CS2 и Hudini Host'; list.appendChild(e); return; }
   for(const p of [...ps, ...Object.keys(nk).filter(id=>!seen.has(id)).map(id=>({ id, name:'', offline:true }))]){
     const r=document.createElement('div'); r.className='row'; r.dataset.id=p.id;
     const nm=document.createElement('span'); nm.className='hint'; nm.dataset.i18nSkip=''; nm.style.minWidth='7em';
-    nm.textContent=(p.slot!=null?p.slot+' · ':'')+(p.team||'')+(p.team?' · ':'')+(p.name||p.id);
+    nm.textContent=(slotLabel(hudSl[p.id] ?? p.slot)?slotLabel(hudSl[p.id] ?? p.slot)+' · ':'')+(p.team||'')+(p.team?' · ':'')+(p.name||p.id);
     const inp=document.createElement('input'); inp.type='text'; inp.className='grow'; inp.maxLength=24; inp.placeholder='Ник в HUD (пусто = игровой)'; inp.value=nk[p.id]||'';
     inp.addEventListener('change', ()=>setNick(p.id, inp.value));
     const b=document.createElement('button'); b.textContent='↺'; b.title='Сбросить ник'; b.disabled=!nk[p.id];

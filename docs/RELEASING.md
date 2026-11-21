@@ -5,7 +5,9 @@
 Version `1.1.0` is in `server/server.js`, `server/package.json`, `app/src-tauri/Cargo.toml` and `tauri.conf.json`.
 The release has exactly three archives, plus the checksums:
 - `HudiniHost-windows-1.1.zip`, `HudiniHost-linux-1.1.zip` and one universal `HudiniHost-mac-1.1.zip` (Apple Silicon and Intel).
-  Each holds a `HudiniHost/` folder (macOS: `Hudini.app`), `hudini-server`, `data/` and README.txt.
+  Windows and Linux: a `HudiniHost/` folder with the app (`HudiniHost[.exe]`), `hudini-server[.exe]` next to it, `data/` and README.txt.
+  macOS: the same folder holds `Hudini.app` (the `hudini-server` sidecar is inside the bundle, in `Contents/MacOS/`, not next to it), `data/` and README.txt.
+- A manual run publishes only with all three systems selected; a partial set is refused for a real release, use `dry_run` for partial builds.
 - `SHA256SUMS.txt` and `SHA256SUMS.txt.sig` cover these three zips (same signing key as before).
 - The single-file legacy zips (`HudiniHost-windows.exe.zip`, ...) and the `legacy` job are gone, so rc.3 and older installs no longer update themselves.
 - Windows and Linux keep the `HudiniHost-` names, so 1.0 installs still update themselves. 1.1 picks `HudiniHost-mac-<ver>.zip`

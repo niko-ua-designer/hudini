@@ -282,6 +282,16 @@ const { step, check, eq, until, sleep } = T;
     await sleep(2200);
     const v = p => p.evaluate(() => state.els.find(x => x.id === 'cnt1').value);
     eq([await v(mod), await v(mod2), await wid.evaluate(() => lastState.els.find(x => x.id === 'cnt1').value)], [1, 1, 1], 'the scenario ran once, not twice');
+    // the scenario lives in one panel only: it runs whichever panel wins the chat line, the other does not take the claim
+    for (const [i, [has, lacks]] of [[mod, mod2], [mod2, mod], [mod, mod2], [mod2, mod]].entries()) {
+      await has.evaluate(sc => { scnList().length = 0; scnList().push(sc); }, { ...scn, id: 's-only' + i });
+      await lacks.evaluate(() => { scnList().length = 0; });
+      await sleep(3200);
+      await both(line('solo' + i, '!hi', 'solo-' + i));
+      await sleep(2000);
+      eq([await v(mod), await v(mod2)], [2 + i, 2 + i], 'scenario in one panel only (' + i + ') runs once');
+    }
+    for (const p of [mod, mod2]) await p.evaluate(() => { scnList().length = 0; });
     await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cMode = 'spin'; commit(); });
     await sleep(900);
     await both(line('spinner', '!крутить', 'dup-3', 'Spinner'));

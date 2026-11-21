@@ -28,12 +28,14 @@ const SHOT = process.env.HUDINI_SHOT_DIR || '';
       102: { owner: '2', position: '10, 20, 30', velocity: '0, 0, 0', type: 'smoke', lifetime: '3', effecttime: '4.26' },
       103: { owner: '2', position: '10, 20, 30', velocity: '0, 0, 0', type: 'inferno', lifetime: '3', flames: { 1: '11, 21, 30', 2: '31.2, 41, 30' } },
       104: { owner: '1', position: '5, 5, 5', velocity: '0, 0, 0', type: 'frag' },
+      106: { owner: '1', position: '50, 60, 70', velocity: '200, 100, 10', type: 'firebomb' },
       105: { owner: '777', position: '5, 5, 5', velocity: '0, 0, 0', type: 'decoy' },
     } });
-    eq(g.map(x => x.t), ['flash', 'smoke', 'molly', 'he'], 'four known types in order, decoy dropped');
+    eq(g.map(x => x.t), ['flash', 'smoke', 'molly', 'he', 'molly'], 'five known types in order (a flying molotov is firebomb), decoy dropped');
     eq([g[0].tm, g[1].tm], ['CT', 'T'], 'owner team from allplayers');
     eq([g[0].p, g[0].v, g[0].s], [[-500, 1501, 20], [300, -200], 0], 'flying: rounded position and 2D velocity');
     eq([g[1].s, g[1].e, g[2].s, g[2].f, g[3].s], [2, 4.3, 2, [[11, 21], [31, 41]], 1], 'smoke with effect time, molotov with flames, landed HE');
+    eq([g[4].s, g[4].v], [0, [200, 100]], 'flying firebomb is a molotov in flight');
     check(g.every(x => !('owner' in x) && !('lifetime' in x)), 'no raw fields are forwarded');
   });
 
@@ -121,6 +123,16 @@ const SHOT = process.env.HUDINI_SHOT_DIR || '';
     eq((await size(5))[0], 1, 'full size mid-life'); const late = await size(17.5); check(late[0] < 0.5 && late[1] < 0.5, 'shrinks and fades at the end', late);
     await paint([G(2, 'smoke', 'T', [0, 1000, 0], 2, { e: 1 })]);
     check(parseFloat(await css('.rd-zone.smoke', 'opacity')) < 0.5, 'the painted zone is faded at 17.5 s');
+  });
+
+  await step('a widget loaded mid-smoke counts the fade from the effect time the Host sends', async () => {
+    await paint([]);
+    await paint([G(8, 'smoke', 'T', [0, 1000, 0], 2, { e: 17.5 })]);
+    check(parseFloat(await css('.rd-zone.smoke', 'opacity')) < 0.5, 'first paint of a smoke that is 17.5 s old is already fading');
+    await paint([]);
+    await paint([G(8, 'smoke', 'T', [0, 1000, 0], 2, { e: 1 })]);
+    eq(parseFloat(await css('.rd-zone.smoke', 'opacity')), 1, 'a fresh smoke is fully opaque');
+    await paint([]);
   });
 
   await step('molotov: fire zone from flame points, circle without them, fades with time', async () => {
