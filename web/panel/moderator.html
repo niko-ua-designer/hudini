@@ -16,9 +16,9 @@
 <script src="../shared/vendor/mqtt.min.js"></script>
 <script src="../app/store.js"></script>
 <script src="../app/sessions.js"></script>
-<script src="../shared/i18n.js?v=5"></script>
+<script src="../shared/i18n.js?v=6"></script>
 <script src="../shared/icons.js?v=1"></script>
-<script src="../shared/core.js?v=22"></script>
+<script src="../shared/core.js?v=23"></script>
 <script src="../shared/media.js?v=2"></script>
 <script src="../shared/case3d.js?v=1"></script>
 <script src="../shared/cs2-maps.js?v=5"></script>
@@ -168,6 +168,7 @@
     <label class="chk"><input type="checkbox" id="taHideBottom"> Карточки игроков внизу уезжают</label>
     <label class="chk"><input type="checkbox" id="taHideTop"> Счёт сверху уезжает</label>
     <div class="row"><span class="hint">Номера игроков</span><select id="taNum" class="grow"><option value="game">как в игре</option><option value="hud">по порядку в худе (слева 1–5, справа 6–0)</option></select></div>
+    <div class="row"><span class="hint">Убрать из ников</span><input id="taStrip" class="grow" maxlength="200" placeholder="Lite, Premium" title="Слова через запятую, по умолчанию Lite, Premium. Убираются из ников игроков на экране; пусто — ничего не убирать"></div>
     <div id="taPrev" class="ta-prev" data-i18n-skip><div id="taBox" class="ctab" hidden></div></div>
     <div class="row"><select id="taMoment" class="grow"><option value="timeout">Таймаут</option><option value="half">Смена сторон</option><option value="end">Конец карты</option></select><button id="taPreview" title="Проиграть появление в превью">▶ Превью</button></div>
     <div class="row"><button id="taShow" class="primary grow" title="Показать на стриме на 8 секунд: с данными игры или с примером">📺 Показать сейчас</button></div>

@@ -17,12 +17,57 @@ const noop = () => {};
 const box = { console, URL, Blob, TextEncoder, TextDecoder, crypto: require('crypto').webcrypto, atob, btoa, Intl, setTimeout, clearTimeout, setInterval: noop, addEventListener: noop, document: { addEventListener: noop, currentScript: null, baseURI: 'http://x/' }, location: { protocol: 'https:', origin: 'https://panel.test' } };
 box.window = box; vm.createContext(box);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'web/shared/core.js'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'web/shared/cs2-maps.js'), 'utf8')
-  + '\nthis.C = { cleanCs2Auto, cs2TabMoment, sanitizeState, cleanSeriesView, cs2MapUV, cs2MapBox, radarDims, sanitizeEl, cs2RadarImg, cs2Lower, cs2Mvp, cs2TabLook, setSeries: v => { CS2_SERIES = v; }, seriesLabel };', box);
+  + '\nthis.C = { cs2Nick, cs2View, setCs2Num, cleanCs2Auto, cs2TabMoment, sanitizeState, cleanSeriesView, cs2MapUV, cs2MapBox, radarDims, sanitizeEl, cs2RadarImg, cs2Lower, cs2Mvp, cs2TabLook, setSeries: v => { CS2_SERIES = v; }, seriesLabel };', box);
 const C = box.C;
 
 (async () => {
   // packet as compactGsi makes it
   const P = (map, phase, ct, tt, round, extra = {}) => ({ map, phase, ct, tt, round, ...extra });
+
+  await step('nick cleanup: Lite/Premium tags go, whole tokens only', async () => {
+    const n = (x, st) => C.cs2Nick(x, st);
+    eq(n('nick [LITE]'), 'nick', '[LITE] at the end');
+    eq(n('PREMIUM | nick'), 'nick', 'PREMIUM | prefix');
+    eq(n('nick-lite'), 'nick', '-lite suffix');
+    eq(n('nick | Lite'), 'nick', '| Lite suffix');
+    eq(n('(Premium) nick'), 'nick', '(Premium) prefix');
+    eq(n('a  Lite   b'), 'a b', 'spaces collapse');
+    eq(n('Elite'), 'Elite', 'Elite is untouched');
+    eq(n('Litemaster'), 'Litemaster', 'Litemaster is untouched');
+    eq(n('Lite'), 'Lite', 'a nick made only of the tag stays');
+    eq(n('[Premium]'), '[Premium]', 'bracketed only-tag stays');
+    eq(n('nick [faceit]', 'faceit'), 'nick', 'own list');
+    eq(n('nick [LITE]', 'faceit'), 'nick [LITE]', 'own list replaces the default');
+    eq(n('nick [LITE]', ''), 'nick [LITE]', 'empty list removes nothing');
+    eq(n('a.b (x) Lite', 'a.b, (x)'), 'Lite', 'words with special characters are cut literally');
+    eq(n('axb Lite', 'a.b'), 'axb Lite', 'a dot in a word is not a regexp dot');
+    eq(n('nick Lite', undefined), 'nick', 'undefined strip means the default list');
+  });
+  await step('nick cleanup: cs2auto.strip default and empty string differ', async () => {
+    eq(C.cleanCs2Auto(null).strip, 'Lite, Premium', 'default without the field');
+    eq(C.cleanCs2Auto({}).strip, 'Lite, Premium', 'default for an empty object');
+    eq(C.cleanCs2Auto({ strip: '' }).strip, '', 'empty string stays empty');
+    eq(C.cleanCs2Auto({ strip: 'x'.repeat(300) }).strip.length, 200, 'cut to 200');
+    eq(C.cleanCs2Auto({ strip: 5 }).strip, 'Lite, Premium', 'not a string: default');
+  });
+  await step('nick cleanup: applied to players, observed, events and the viewed player', async () => {
+    const d = { id: 'a', name: 'me Lite', spectating: 'obs [LITE]', observed: { id: 'b', name: 'PREMIUM | bob', team: 'T' },
+      players: [{ id: 'a', name: 'me Lite' }, { id: 'b', name: 'PREMIUM | bob' }, { id: 'c', name: 'Elite' }],
+      evs: [{ k: 'frag', killer: 'me Lite', victim: 'bob-lite' }, { k: 'multikill', name: '(Premium) me', n: 3 }] };
+    C.setCs2Num({ strip: 'Lite, Premium' });
+    const v = C.cs2View({}, d);
+    eq(v.players.map(p => p.name), ['me', 'bob', 'Elite'], 'players');
+    eq(v.players[1].gname, 'PREMIUM | bob', 'raw nick kept in gname');
+    eq(v.observed.name, 'bob', 'observed');
+    eq(v.name, 'me', 'viewed player');
+    eq(v.spectating, 'obs', 'spectating');
+    eq([v.evs[0].killer, v.evs[0].victim, v.evs[1].name], ['me', 'bob', 'me'], 'events');
+    C.setCs2Num({ strip: '' });
+    eq(C.cs2View({}, d).players[0].name, 'me Lite', 'empty list changes nothing');
+    C.setCs2Num({ strip: 'Lite, Premium' });
+    eq(C.cs2View({ nicks: { b: 'Bobby' } }, d).players[1].name, 'Bobby', 'manual nick wins');
+    C.setCs2Num(null);
+  });
 
   await step('series: two maps, sides switch at half time, no team names', async () => {
     const s = S.cleanSeries(null);
@@ -73,8 +118,8 @@ const C = box.C;
   });
 
   await step('auto tab: sanitize and moments', async () => {
-    eq(C.cleanCs2Auto(null), { on: false, timeout: true, half: true, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game' }, 'defaults: off, all moments, style A, both hide');
-    eq(C.cleanCs2Auto({ on: 'yes', theme: 'E', hideTop: 0, half: false, x: 1 }), { on: false, timeout: true, half: false, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game' }, 'garbage: on only with true, no style E');
+    eq(C.cleanCs2Auto(null), { on: false, timeout: true, half: true, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game', strip: 'Lite, Premium' }, 'defaults: off, all moments, style A, both hide');
+    eq(C.cleanCs2Auto({ on: 'yes', theme: 'E', hideTop: 0, half: false, x: 1 }), { on: false, timeout: true, half: false, end: true, theme: 'A', hideBottom: true, hideTop: true, num: 'game', strip: 'Lite, Premium' }, 'garbage: on only with true, no style E');
     eq(C.sanitizeState({ els: [], cs2auto: { on: true, theme: 'D', hideBottom: false } }).cs2auto.theme, 'D', 'sanitizeState keeps cs2auto');
     eq(C.sanitizeState({ els: [] }).cs2auto.on, false, 'old screen: auto tab off');
     const a = C.cleanCs2Auto({ on: true }), mem = {};
