@@ -125,6 +125,16 @@ const SHOT = process.env.HUDINI_SHOT_DIR || '';
     check(parseFloat(await css('.rd-zone.smoke', 'opacity')) < 0.5, 'the painted zone is faded at 17.5 s');
   });
 
+  await step('a widget loaded mid-smoke counts the fade from the effect time the Host sends', async () => {
+    await paint([]);
+    await paint([G(8, 'smoke', 'T', [0, 1000, 0], 2, { e: 17.5 })]);
+    check(parseFloat(await css('.rd-zone.smoke', 'opacity')) < 0.5, 'first paint of a smoke that is 17.5 s old is already fading');
+    await paint([]);
+    await paint([G(8, 'smoke', 'T', [0, 1000, 0], 2, { e: 1 })]);
+    eq(parseFloat(await css('.rd-zone.smoke', 'opacity')), 1, 'a fresh smoke is fully opaque');
+    await paint([]);
+  });
+
   await step('molotov: fire zone from flame points, circle without them, fades with time', async () => {
     await paint([G(3, 'molly', 'CT', [0, 1000, 0], 2, { f: [[0, 1000], [40, 1020], [-30, 990]] })]);
     eq(await q('.rd-zone.fire'), 3, 'one blob per flame point');

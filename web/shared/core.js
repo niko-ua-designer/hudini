@@ -2181,7 +2181,7 @@ function grList(el, d){
   for(const g of d.gr.slice(0,40)){
     if(!g || typeof g!=='object' || !['molly','he','flash','smoke'].includes(g.t) || !grOn(el, g.t)) continue;
     if(!Array.isArray(g.p) || g.p.length<2 || !g.p.every(Number.isFinite) || !/^[0-9A-Za-z_-]{1,12}$/.test(String(g.i))) continue;
-    out.push({ i:String(g.i), t:g.t, tm:g.tm==='T'?'T':g.tm==='CT'?'CT':'', p:g.p.slice(0,3), s:g.s===2?2:g.s===1?1:0,
+    out.push({ i:String(g.i), t:g.t, tm:g.tm==='T'?'T':g.tm==='CT'?'CT':'', p:g.p.slice(0,3), s:g.s===2?2:g.s===1?1:0, e:Number.isFinite(g.e) ? Math.min(120, Math.max(0, g.e)) : 0,   // e: сколько секунд эффект уже идёт (effecttime)
       f:Array.isArray(g.f) ? g.f.slice(0,60).filter(f=>Array.isArray(f) && Number.isFinite(f[0]) && Number.isFinite(f[1])) : [] });
   }
   return out;
@@ -2203,7 +2203,7 @@ function paintGrenades(r, el, d, uv, map, lower, place, seen){
     hs.t=g.t; hs.tm=g.tm; hs.p=g.p; hs.s=g.s; hs.at=now;
     const last=hs.trail[hs.trail.length-1];
     if(!last || last[0]!==q[0] || last[1]!==q[1]){ hs.trail.push(q); if(hs.trail.length>GR_TRAIL) hs.trail.shift(); }
-    if(g.s===2 && !hs.eff0) hs.eff0=now;
+    if(g.s===2 && !hs.eff0) hs.eff0=now-g.e*1000;   // после перезагрузки виджета отсчёт идёт с настоящего начала эффекта
     const other=typeof cs2Lower==='function' && cs2Lower(map, g.p)!==lower, tcls='tm-'+(g.tm==='T'?'t':'ct');
     // зона действия
     if(g.s===2 && k && (g.t==='smoke' || g.t==='molly')){
