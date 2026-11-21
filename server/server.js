@@ -1121,12 +1121,15 @@ async function pushCs2(data){
 const SER_BO = [1, 3, 5], SER_MAX = 7;
 const serName = v => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
 const serNum = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(99, Math.max(0, n)) : 0; };
+const SER_STALE = 6 * 3600 * 1000;   // последняя карта старше: серия вчерашняя, начинаем заново
+// режимы без серии: deathmatch, gungame*/armsrace, training, survival, coop*; остальные (competitive, wingman, casual, кастомные) идут в зачёт
+const serSkipMode = v => /deathmatch|gungame|armsrace|training|survival|coop/i.test(String(v ?? ''));
 const serMapName = v => String(v ?? '').replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 40);
 function serMap(m){
   if(!m || typeof m!=='object') return null;
   const a = serNum(m.a?.score), b = serNum(m.b?.score);
   const win = m.win==='a' || m.win==='b' ? m.win : m.win==='' && 'win' in m ? '' : a>b ? 'a' : b>a ? 'b' : '';
-  return { map:serMapName(m.map), a:{ name:serName(m.a?.name), score:a }, b:{ name:serName(m.b?.name), score:b }, win };
+  return { map:serMapName(m.map), a:{ name:serName(m.a?.name), score:a }, b:{ name:serName(m.b?.name), score:b }, win, at:Number.isFinite(Number(m.at)) && Number(m.at)>0 ? Math.round(Number(m.at)) : 0 };
 }
 function cleanSeries(j){
   const s = { v:1, bo:SER_BO.includes(Number(j?.bo)) ? Number(j.bo) : 3, names:{ a:serName(j?.names?.a), b:serName(j?.names?.b) },
@@ -1143,9 +1146,9 @@ function serSide(s, c, p){
   if(A && p?.tName===A) return 'T';
   return c.sw ? (c.aSide==='CT' ? 'T' : 'CT') : c.aSide;
 }
-function serRecord(s, c, ct, tt, p){
+function serRecord(s, c, ct, tt, p, now){
   const side = serSide(s, c, p), a = side==='CT' ? ct : tt, b = side==='CT' ? tt : ct;
-  s.maps.push(serMap({ map:c.map, a:{ name:s.names.a, score:a }, b:{ name:s.names.b, score:b } }));
+  s.maps.push(serMap({ map:c.map, a:{ name:s.names.a, score:a }, b:{ name:s.names.b, score:b }, at:now }));
   if(s.maps.length > SER_MAX) s.maps.shift();
 }
 // Один пакет CS2 (сжатый, как в compactGsi) → меняет серию s. true, если что-то поменялось.
@@ -1156,11 +1159,12 @@ function seriesStep(s, p, now){
   const round = Number.isInteger(p.round) ? p.round : null;
   // новая карта; новый матч на той же карте после конца; рестарт посреди карты (раунд пошёл назад) — без записи
   if(!c || c.map!==map || (c.done && p.phase!=='gameover') || (!c.done && round!==null && round < c.round)){
-    if(c && c.map!==map && c.live && !c.done && c.ct + c.tt > 0) serRecord(s, c, c.ct, c.tt);   // карту сменили после игры без конца: пишем последний счёт
     c = s.cur = { map, live:false, done:false, aSide:'CT', sw:0, round:round ?? 0, ct:0, tt:0, ph:'', go:0 }; ch = true;
   }
   if(p.phase==='live' && !c.live){
     c.live = true; c.sw = 0;
+    const last = s.maps[s.maps.length - 1];
+    if(last && (!last.at || now - last.at > SER_STALE)){ s.maps = []; s.names = { a:'', b:'' }; }   // старая серия: начинаем заново, формат остаётся
     const A = s.names.a, B = s.names.b, ctN = serName(p.ctName), tN = serName(p.tName);
     if(!A && !B && (ctN || tN)) s.names = { a:ctN, b:tN };
     c.aSide = (s.names.a && tN===s.names.a) || (s.names.b && ctN===s.names.b) ? 'T' : 'CT';
@@ -1168,7 +1172,10 @@ function seriesStep(s, p, now){
   }
   if(p.phase==='intermission' && c.ph!=='intermission' && c.live){ c.sw ^= 1; ch = true; }
   const ct = serNum(p.ct), tt = serNum(p.tt);
-  if(p.phase==='gameover' && c.live && !c.done){ c.done = true; c.go = now; serRecord(s, c, ct, tt, p); ch = true; }
+  if(p.phase==='gameover' && c.live && !c.done){
+    c.done = true; c.go = now; ch = true;
+    if(ct + tt > 0 && !serSkipMode(p.mode)) serRecord(s, c, ct, tt, p, now);   // карту засчитывает только gameover
+  }
   if(c.ph!==p.phase){ c.ph = String(p.phase).slice(0, 20); ch = true; }
   if(round!==null && round!==c.round){ c.round = round; ch = true; }
   if(ct!==c.ct || tt!==c.tt){ c.ct = ct; c.tt = tt; ch = true; }
@@ -1187,7 +1194,8 @@ function seriesCmd(s, m){
   if(m.op==='bo' && SER_BO.includes(Number(m.bo))){ s.bo = Number(m.bo); return true; }
   if(m.op==='reset'){ s.maps = []; s.names = { a:'', b:'' }; return true; }
   if(m.op==='edit'){
-    const t = cleanSeries({ bo:s.bo, names:m.names, maps:m.maps });
+    const old = s.maps, now = Date.now();
+    const t = cleanSeries({ bo:s.bo, names:m.names, maps:(Array.isArray(m.maps) ? m.maps : []).map((x, i) => x && typeof x==='object' ? { ...x, at:old[i] && old[i].map===serMapName(x.map) && old[i].at ? old[i].at : now } : x) });
     s.maps = t.maps; s.names = t.names; if(SER_BO.includes(Number(m.bo))) s.bo = Number(m.bo);
     return true;
   }
