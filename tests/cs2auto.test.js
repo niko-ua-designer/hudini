@@ -269,6 +269,14 @@ const C = box.C;
     check(/"allplayers_position"\s+"1"/.test(cfgText), 'gsi cfg has allplayers_position');
   });
 
+  await step('dock shows the number the viewer sees: observer slot 3 is key 4', async () => {
+    const g = spec(); g.player = { steamid: '104', name: 'pelmech', team: 'CT', observer_slot: 3, state: { health: 80 } };
+    check((await gsi(g)).ok, 'packet accepted');
+    const dock = await (await fetch(`${s.host.base}/api/status`)).json();
+    eq([dock.cs2?.obs?.name, dock.cs2?.obs?.slot], ['pelmech', 4], 'dock status carries the key, not the raw slot');
+    check((await gsi(spec())).ok, 'back to the default packet');
+  });
+
   await step('auto tab is off by default: a timeout shows nothing', async () => {
     await gsi(spec({ pphase: 'timeout_ct' }));
     await sleep(700);

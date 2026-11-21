@@ -1780,8 +1780,11 @@ const errOut = (res, e, extra={}) => {
 function dockCs2(){
   const c = status.cs2; if(!c || Date.now()-status.cs2Seen > 15000) return null;
   const o = c.observed || (!c.spectating && c.name ? c : null);
+  // номер, как его видит зритель: клавиша 1…0 или место в худе (режим «по порядку в худе»)
+  const hs = screenNum==='hud' && Array.isArray(c.players) ? hudSlots(c.players) : null;
+  const key = o ? slotKey(hs && o.id!=null && o.id in hs ? hs[o.id] : o.slot) : null;
   return { map:c.map, round:c.round, phase:c.phase, ct:c.ct, tt:c.tt, ctName:c.ctName, tName:c.tName,
-    obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
+    obs:o ? { name:o.name, slot:key, hp:o.hp, team:o.team } : null };
 }
 function dockInfo(){
   return { perms:cfg.perms, media:mediaInfo(), els:screen ? screen.els : null, cs2:dockCs2(), nickStrip:screenStrip,

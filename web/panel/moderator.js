@@ -2553,13 +2553,14 @@ function renderNicks(el){
   const box=$('csNickBox'), list=$('csNickList'); if(!box || list.contains(document.activeElement)) return;
   const nk=el?.nicks||{}, ps=csPlayers(), seen=new Set(ps.map(p=>p.id));
   // CS2 шлёт пакеты по 10 раз в секунду: список перерисовываем только когда в нём что-то поменялось, иначе поле ввода уходит из-под рук
-  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk]); if(list._sig===sig) return; list._sig=sig;
+  const sig=JSON.stringify([ps.map(p=>[p.id,p.name,p.team,p.slot]), nk, CS2_NUM]); if(list._sig===sig) return; list._sig=sig;
   list.replaceChildren();
+  const hudSl=CS2_NUM==='hud' ? cs2HudSlots(ps) : {};   // номер, как его видит зритель
   if(!ps.length && !Object.keys(nk).length){ const e=document.createElement('div'); e.className='hint'; e.textContent='Игроков пока нет: нужна запущенная CS2 и Hudini Host'; list.appendChild(e); return; }
   for(const p of [...ps, ...Object.keys(nk).filter(id=>!seen.has(id)).map(id=>({ id, name:'', offline:true }))]){
     const r=document.createElement('div'); r.className='row'; r.dataset.id=p.id;
     const nm=document.createElement('span'); nm.className='hint'; nm.dataset.i18nSkip=''; nm.style.minWidth='7em';
-    nm.textContent=(p.slot!=null?p.slot+' · ':'')+(p.team||'')+(p.team?' · ':'')+(p.name||p.id);
+    nm.textContent=(slotLabel(hudSl[p.id] ?? p.slot)?slotLabel(hudSl[p.id] ?? p.slot)+' · ':'')+(p.team||'')+(p.team?' · ':'')+(p.name||p.id);
     const inp=document.createElement('input'); inp.type='text'; inp.className='grow'; inp.maxLength=24; inp.placeholder='Ник в HUD (пусто = игровой)'; inp.value=nk[p.id]||'';
     inp.addEventListener('change', ()=>setNick(p.id, inp.value));
     const b=document.createElement('button'); b.textContent='↺'; b.title='Сбросить ник'; b.disabled=!nk[p.id];
