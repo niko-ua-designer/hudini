@@ -904,7 +904,7 @@ function posOf(p){
   return { pos:v.map(Math.round), ...(f && (f[0] || f[1]) ? { fw:Math.round(Math.atan2(f[1], f[0]) * 180 / Math.PI) } : {}) };
 }
 // Гранаты на радаре (блок allgrenades, CS2 отдаёт его только зрителю): тип из белого списка, числа проверены, количество ограничено, свободного текста нет.
-const GR_TYPE = { flashbang:'flash', flash:'flash', smoke:'smoke', smokegrenade:'smoke', frag:'he', hegrenade:'he', inferno:'molly', molotov:'molly', incgrenade:'molly' };
+const GR_TYPE = { flashbang:'flash', flash:'flash', smoke:'smoke', smokegrenade:'smoke', frag:'he', hegrenade:'he', inferno:'molly', firebomb:'molly', molotov:'molly', incgrenade:'molly' };
 const GR_MAX = 40, GR_FLAMES = 60, GR_FLAMES_ALL = 120;
 const grNum = (v, lo, hi) => { const n = typeof v==='number' || typeof v==='string' ? Number(v) : NaN; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
 function grenadesOf(g){
