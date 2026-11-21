@@ -2206,12 +2206,15 @@ function onChat(user, text, msg){
   if(msg){
     if(msg.reward) noteReward(msg, text);
     const rEl=state.els.find(e=>e.type==='roulette'), rk=rouKind(rEl, text, msg);
-    const scn=$('scnRun').checked && scnList().some(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg }));
-    if(rk || scn) claimChat(MSGID_RE.test(msg.id||'') ? msg.id : null, ()=>{   // одно сообщение в нескольких пультах: действие у одного
-      if(scn) fire('chat', { user:msg.user, msg:text, chatMsg:msg });
+    const scnIds=$('scnRun').checked ? scnList().filter(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg })).map(sc=>sc.id).sort().join('|') : '';
+    const mid=MSGID_RE.test(msg.id||'') ? msg.id : null;
+    // Рулетка и сценарии заявляются отдельно: пульт без нужного сценария не должен перебивать пульт, у которого он есть.
+    // Сценарии одного набора выполняет один пульт; пульты с другим набором выполняют свои.
+    if(rk) claimChat(mid, ()=>{   // одно сообщение в нескольких пультах: действие у одного
       const el=state.els.find(e=>e.type==='roulette');
-      if(rk && el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
+      if(el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
     });
+    if(scnIds) claimChat(mid && mid.slice(0, 48)+'-s'+[...scnIds].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0, 7).toString(36), ()=>fire('chat', { user:msg.user, msg:text, chatMsg:msg }));
   }
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
