@@ -321,6 +321,8 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       // the backdrop screen is the streamer's alone (the Host-made address in the header decides, m.a)
       const d = want.find(x => x.kind === m.kind && (x.purpose === 'bg' ? m.bg && m.a === 'streamer' : (x.owner === m.from && !m.bg)));
       if(!d) return;
+      // a moderator's hub id must belong to the Host address that sent it: the address is 'm:' + clientId + a short suffix (the Host stamps it, the hub id comes from the body)
+      if(d.purpose !== 'bg' && m.from !== 'streamer' && !(m.a.startsWith('m:' + m.from) && m.a.length <= m.from.length + 2 + 4)) return;
       const key = keyOf(d, m.from), old = d.purpose === 'bg' ? [...recvs.values()].find(x => x.purpose === 'bg' && x.kind === d.kind) : recvs.get(key);
       if(old){
         // the same sid again while the link is alive: nothing to do; a dead or stuck one (path 'none', 'lost', ICE never came up) starts over

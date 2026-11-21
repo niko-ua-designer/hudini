@@ -414,6 +414,22 @@ async function stubHost(port){
         mimeMic: M.cleanRtc({ t: 'have', kind: 'mic', sid: 'abcdefghij12', from: 'x', mime: 'video/webm;codecs=vp8' }).mime };
     });
     eq([r.n0, r.n1, r.n2, r.n3], [r.n0, r.n0, r.n0, r.n0], 'no backdrop and no receiver came from the forged offers');
+    // a moderator cannot put his camera into another moderator's layer: the hub id must match his own Host address
+    const own = await mod.evaluate(async () => {
+      const M = HudiniMedia, h = hudiniBroadcast.hub, sdp = 'v=0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n', po = window.hudiniPermOff;
+      window.hudiniPermOff = () => false;
+      state.els.push({ id: 'victimlayer', type: 'stream', owner: 'mod_victim1234', kind: 'cam', x: 0, y: 0, w: 100 });
+      const pack = async (sid, from, a) => { const b = await seal(KEYS, TE.encode(JSON.stringify({ t: 'offer', kind: 'cam', sid, from, a, to: '*', sdp })), true); await h.onPacket(M.wrapRtc({ v: 1, sid, kind: 'cam', t: 'offer', to: '*', from: a }, b)); };
+      const has = sid => [...h.recvs.values()].some(e => e.sid === sid);
+      await pack('stolensid001', 'mod_victim1234', 'm:mod_attacker99h');
+      const stolen = has('stolensid001');
+      await pack('honestsid001', 'mod_victim1234', 'm:mod_victim1234h');
+      const honest = has('honestsid001');
+      for(const e of [...h.recvs.values()]) if(e.owner === 'mod_victim1234') h.recvs.delete(e.key);
+      state.els = state.els.filter(e => e.id !== 'victimlayer'); window.hudiniPermOff = po;
+      return { stolen, honest };
+    });
+    eq([own.stolen, own.honest], [false, true], 'an offer from another moderator\'s address does not enter his layer; his own address does');
     check(r.tkt === null && r.tkOk, 'a ticket is accepted only as the Host\'s');
     eq([r.mimeScreen, r.mimeCam, r.mimeMic], ['', 'video/webm;codecs=vp8', ''], 'the recording type must fit the kind (no sound in a screen, no picture in a microphone)');
   });
