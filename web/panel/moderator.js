@@ -2206,15 +2206,16 @@ function onChat(user, text, msg){
   if(msg){
     if(msg.reward) noteReward(msg, text);
     const rEl=state.els.find(e=>e.type==='roulette'), rk=rouKind(rEl, text, msg);
-    const scnIds=$('scnRun').checked ? scnList().filter(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg })).map(sc=>sc.id).sort().join('|') : '';
+    const scnIds=$('scnRun').checked ? scnList().filter(sc=>sc.on && sc.trig?.type==='chat' && matchTrig(sc.trig, { msg:text, chatMsg:msg })).map(sc=>String(sc.id)) : [];
     const mid=MSGID_RE.test(msg.id||'') ? msg.id : null;
     // Рулетка и сценарии заявляются отдельно: пульт без нужного сценария не должен перебивать пульт, у которого он есть.
-    // Сценарии одного набора выполняет один пульт; пульты с другим набором выполняют свои.
+    // Каждый сценарий заявляется отдельно (ключ сообщения + хеш id сценария, длина в пределах MSGID_RE): при пересекающихся наборах у двух пультов
+    // общий сценарий выполняет один из них, а сценарий, которого нет у другого пульта, выполняет его владелец.
     if(rk) claimChat(mid, ()=>{   // одно сообщение в нескольких пультах: действие у одного
       const el=state.els.find(e=>e.type==='roulette');
       if(el && rouKind(el, text, msg)===rk && rouFromChat(el, rk, text, msg)){ renderAll(); publishNow(1); }
     });
-    if(scnIds) claimChat(mid && mid.slice(0, 48)+'-s'+[...scnIds].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0, 7).toString(36), ()=>fire('chat', { user:msg.user, msg:text, chatMsg:msg }));
+    for(const id of new Set(scnIds)) claimChat(mid && mid.slice(0, 48)+'-s'+[...id].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0, 7).toString(36), ()=>fire('chat', { user:msg.user, msg:text, chatMsg:msg }, id));
   }
   const low=text.toLowerCase(), tokens=new Set(low.split(/\s+/));
   let any=false;
@@ -3528,10 +3529,10 @@ const scnLast=new Map(), scnFired=[], SCN_MIN_CD=3000, SCN_PER_MIN=30, SCN_TEXT_
 function capChatMsg(m, n){
   return { ...m, text:String(m.text||'').slice(0, n), emotes:(Array.isArray(m.emotes)?m.emotes:[]).filter(e=>Number(e?.[2])<n) };
 }
-function fire(kind, ctx){
+function fire(kind, ctx, onlyId){   // onlyId: запустить только этот сценарий (его заявка выиграна)
   if(!$('scnRun').checked) return;
   for(const sc of scnList()){
-    if(!sc.on || sc.trig?.type!==kind) continue;
+    if(!sc.on || sc.trig?.type!==kind || (onlyId!=null && String(sc.id)!==onlyId)) continue;
     const c={ ...ctx };
     if(!matchTrig(sc.trig, c)) continue;
     const now=Date.now(), cd=Math.max(SCN_MIN_CD, num(sc.trig.cd,0,0,3600)*1000), last=scnLast.get(sc.id)||0;

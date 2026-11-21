@@ -291,6 +291,16 @@ const { step, check, eq, until, sleep } = T;
       await sleep(2000);
       eq([await v(mod), await v(mod2)], [2 + i, 2 + i], 'scenario in one panel only (' + i + ') runs once');
     }
+    // overlapping sets: A has {sa, sb}, B has {sa}: the shared one runs once in total, the one only A has runs too
+    await sleep(3200);
+    const hook = p => p.evaluate(() => { window.__runs = []; if(!window.__rs0){ window.__rs0 = runScenario; runScenario = (sc, c) => { window.__runs.push(sc.id); return window.__rs0(sc, c); }; } });
+    await hook(mod); await hook(mod2);
+    await mod.evaluate(sc => { scnList().length = 0; scnList().push(sc.a, sc.b); }, { a: { ...scn, id: 'ova' }, b: { ...scn, id: 'ovb' } });
+    await mod2.evaluate(sc => { scnList().length = 0; scnList().push(sc.a); }, { a: { ...scn, id: 'ova' } });
+    await both(line('overlap', '!hi', 'ovl-1'));
+    await sleep(2200);
+    const runs = (await mod.evaluate(() => window.__runs)).concat(await mod2.evaluate(() => window.__runs)).sort();
+    eq(runs, ['ova', 'ovb'], 'overlapping scenario sets: each scenario ran exactly once in total (the shared one in one panel, the one only A has in A)');
     for (const p of [mod, mod2]) await p.evaluate(() => { scnList().length = 0; });
     await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cMode = 'spin'; commit(); });
     await sleep(900);
