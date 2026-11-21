@@ -335,6 +335,47 @@ const subtle = globalThis.crypto.subtle;
     check(await until(async () => (await dock()).media.live.length === 0), 'the owner leaving ends it');
   });
 
+  await step('a released receiver loses its /media socket; tickets of dead widgets do not fill the limit', async () => {
+    await perms({ cam: true });
+    const O = await mod('o2'), sid = sidn();
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
+    await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + O.id));
+    await ctrl('mediaallow', 'cam|' + O.id);
+    await until(() => O.t.media.some(m => m.ev === 'ok'));
+    const R = await mod('r3'), R2 = await mod('r4');
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:' + R.id });
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:' + R2.id });
+    check(await until(() => R.t.tk[sid] && R2.t.tk[sid] && O.t.tk[sid]), 'receivers and owner got tickets');
+    const open = (port, auth) => new Promise(res => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/media?sid=${sid}`, { rejectUnauthorized: false });
+      const r = { ws, got: [], closed: false }; ws.on('message', d => r.got.push(Buffer.from(d))); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {});
+      ws.on('open', () => { ws.send(JSON.stringify(auth)); res(r); });
+    });
+    const snd = await open(MPORT, { u: 'mod', p: pass, t: O.t.tk[sid] });
+    const r1 = await open(MPORT, { u: 'mod', p: pass, t: R.t.tk[sid] }), r2 = await open(MPORT, { u: 'mod', p: pass, t: R2.t.tk[sid] });
+    await sleep(400);
+    const fr = (type, n) => Buffer.concat([Buffer.from([type]), Buffer.alloc(n, 7)]);
+    snd.ws.send(fr(0, 100));
+    check(await until(() => r1.got.length === 1 && r2.got.length === 1), 'both receivers get the chunk');
+    await R.pub({ sid, kind: 'cam', t: 'bye' });
+    check(await until(() => r1.closed), 'bye closes the receiver\'s /media socket');
+    const r1b = await open(MPORT, { u: 'mod', p: pass, t: R.t.tk[sid] }); check(await until(() => r1b.closed), 'the ticket does not let it back in after bye');
+    snd.ws.send(fr(1, 100)); await sleep(300);
+    eq([r1.got.length, r2.got.length], [1, 2], 'the released receiver gets nothing more, the other one does');
+    R2.c.end(true);
+    check(await until(() => r2.closed), 'a receiver\'s disconnect closes its /media socket');
+    const r2b = await open(MPORT, { u: 'mod', p: pass, t: R2.t.tk[sid] }); check(await until(() => r2b.closed), 'a ticket does not work after the MQTT connection is gone');
+    // widgets reloaded in OBS: dead tickets do not use up the limit
+    for(let i = 0; i < 30; i++) {
+      const c = await connect(`ws://localhost:${PORT}/mqtt`, { clientId: 'widget-r' + i }); const T2 = await track(c);
+      await O.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
+      check(await until(() => T2.tk[sid]), 'the reloaded widget #' + i + ' gets a ticket');
+      c.end(true); await sleep(60);
+    }
+    O.c.end(true);
+    await until(async () => (await dock()).media.live.length === 0);
+  });
+
   await step('a quick reconnect with the same client id keeps the streamer\'s approval for a short while', async () => {
     await perms({ cam: true });
     const G = await mod('g'), sid = sidn();

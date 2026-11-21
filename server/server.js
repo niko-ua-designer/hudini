@@ -618,6 +618,7 @@ async function sendTicket(s, cl){
   if(!ROOM || !AES || sessions.get(s.sid)!==s) return;
   let e = s.tix.get(cl);
   if(!e){
+    for(const [k] of s.tix) if(aedes.clients[k.id]!==k) s.tix.delete(k);   // мёртвые билеты не занимают лимит
     if(s.tix.size >= MEDIA_TIX) return;
     const tk = nodeCrypto.randomBytes(24).toString('base64url');
     e = { tk, h:sha(tk), client:cl }; s.tix.set(cl, e);
@@ -633,7 +634,11 @@ function ticketOwner(s, tk){
   return hit && hit.client.connected !== false && aedes.clients[hit.client.id]===hit.client ? hit.client : null;
 }
 function peerSeen(s, id){ s.peerAt.set(id, Date.now()); }
-function peerDrop(s, id){ s.peers.delete(id); s.peerAt.delete(id); }
+// Сокеты /media получателя закрываем вместе с местом: иначе он продолжит получать кадры до конца сеанса
+function recvClose(s, pred){
+  for(const w of [...s.recv]) if(pred(w)){ s.recv.delete(w); try{ w.close(1008, 'end'); }catch{} setTimeout(() => { try{ w.terminate(); }catch{} }, 500).unref?.(); }
+}
+function peerDrop(s, id){ s.peers.delete(id); s.peerAt.delete(id); recvClose(s, w => w._id===id); }
 // true — пропустить, null — тихо отбросить, false — нарушение формата (соединение рвёт aedes)
 function rtcGate(client, packet){
   const h = rtcHead(packet.payload);
@@ -689,14 +694,17 @@ setInterval(() => {
 }, 15000).unref?.();
 // Отключился модератор: его сеансы закрываем, а одобрение стримера помним MEDIA_GRACE мс для того же clientId (моргнула сеть). Права и общий выключатель сверяются как всегда.
 aedes.on('clientDisconnect', c => {
-  if(!c.conn?._mod && !c.conn?._streamer) return;
+  const priv = !!(c.conn?._mod || c.conn?._streamer);
   const replaced = aedes.clients[c.id] && aedes.clients[c.id]!==c;   // тот же clientId уже вернулся: у нового соединения свои сеансы
   for(const s of [...sessions.values()]){
+    s.tix.delete(c);   // билеты уходят и у виджетов: лимит MEDIA_TIX считается на живые соединения
+    recvClose(s, w => w._cl===c);
+    if(!priv) continue;
     if(s.ownerClient===c.id && !replaced) endSession(s, 'владелец отключился');
-    s.tix.delete(c);
     const id = idOf(c);
     if(s.peers.has(id) && !tixHolders(id).some(x => x!==c)) peerDrop(s, id);
   }
+  if(!priv) return;
   if(c.conn._mod && !replaced){
     for(const [k, g] of [...grants]){
       if(g.cid!==c.id) continue;
@@ -779,7 +787,7 @@ function mediaUpgrade(mod, req, socket, head){
         }else if(m.u==='streamer'){ if(!panel || !panelSessionOk(String(m.p||'')) || !cl.conn?._streamer) return bad(); }
         else if(m.u==='widget' && !panel){ if(cl.conn?._mod || cl.conn?._streamer) return bad(); }
         else return bad();
-        id = idOf(cl); ws._id = id;
+        id = idOf(cl); ws._id = id; ws._cl = cl;
         if(id===sess.owner){
           if(sess.ownerType==='mod' && !(effPerms()[sess.kind] && grants.get(sess.kind+'|'+sess.ownerClient)?.st==='ok')) return bad();
           try{ sess.sender?.terminate(); }catch{}
