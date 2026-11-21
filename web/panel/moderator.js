@@ -31,7 +31,7 @@ function showFight(f){
   const bar=$('fightBar'); if(!bar || !f?.a || !f?.b) return;
   // ники игроков из настроек CS2-элемента (Host их не знает, поэтому в доке остаётся игровой ник)
   const nk=state.els.find(e=>e.type==='cs2' && e.nicks && Object.keys(e.nicks).length)?.nicks||{};
-  const nick=p=>(p.id && Object.hasOwn(nk, p.id)) ? nk[p.id] : p.name;
+  const nick=p=>(p.id && Object.hasOwn(nk, p.id)) ? nk[p.id] : cs2Nick(p.name, taCfg().strip);
   const fill=(id, p)=>{ const s=$(id); s.className=p.team==='T'?'t':'ct'; s.replaceChildren(); if(p.slot!=null){ const n=document.createElement('em'); n.textContent=String(p.slot); s.appendChild(n); } s.append(String(nick(p)||'?').slice(0,40)); };
   fill('fightA', f.a); fill('fightB', f.b); bar.hidden=false;
   clearTimeout(showFight.t); showFight.t=setTimeout(()=>{ bar.hidden=true; }, Math.max(500, Math.min(4000, Number(f.ttl)||4000)));
@@ -646,7 +646,7 @@ function repaintCs2(){
 }
 function renderCsStatus(){
   $('csStatus').textContent = cs2Fresh()
-    ? `✓ Данные идут: ${mapName(CS2.map)||'меню'}${CS2.name?' · '+CS2.name:''}`
+    ? `✓ Данные идут: ${mapName(CS2.map)||'меню'}${CS2.name?' · '+cs2Nick(CS2.name, taCfg().strip):''}`
     : 'Нет данных. У стримера должна быть запущена программа Hudini Host и нажата кнопка «Подключить CS2».';
   if(cs2Fresh()) $('csStatus').textContent += CS2.spec ? ` · 👁 режим наблюдателя, игроков: ${CS2.players.length}` : ' · игрок (панели команд — только в режиме наблюдателя)';
 }
@@ -4048,11 +4048,12 @@ function taSet(k, v){ state.cs2auto={ ...taCfg(), [k]:v }; renderTa(); publishNo
 for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']])
   $(id).addEventListener('change', e=>taSet(k, e.target.checked));
 $('taNum').addEventListener('change', e=>taSet('num', e.target.value));
+{ let t; $('taStrip').addEventListener('input', e=>{ clearTimeout(t); const v=e.target.value; t=setTimeout(()=>taSet('strip', v), 400); }); }
 $('taStyle').addEventListener('change', e=>{ taSet('theme', e.target.value); taPlay($('taMoment').value); });
 function renderTa(){
   const a=taCfg();
   for(const [id, k] of [['taOn','on'],['taTimeout','timeout'],['taHalf','half'],['taEnd','end'],['taHideBottom','hideBottom'],['taHideTop','hideTop']]) setField($(id), a[k], 'checked');
-  setField($('taStyle'), a.theme); setField($('taNum'), a.num);
+  setField($('taStyle'), a.theme); setField($('taNum'), a.num); setField($('taStrip'), a.strip);
   $('taOffNote').hidden=!taOffNow();
 }
 // превью во вкладке: «▶ Превью» на 6 с, а в игре — то же, что сейчас на стриме

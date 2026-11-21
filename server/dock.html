@@ -118,11 +118,20 @@ function banner(text){ $('banner').textContent=text; $('banner').hidden=!text; }
 const act=body=>async()=>{ if(busy) return; busy=true; try{ await api('/api/control', body()); }catch(e){ banner(e.message); } busy=false; refresh(); };
 
 // ---- «Файт» (подсказка кастеру из CS2): поверх любой вкладки ----
+// Ник без приписок (Lite, Premium): та же логика, что cs2Nick в shared/core.js; список слов приходит с экрана (s.nickStrip)
+function cs2Nick(name, strip){
+  const raw=name==null ? '' : String(name); if(!raw) return raw;
+  const w=String(strip??'Lite, Premium').split(',').map(x=>x.trim()).filter(Boolean).slice(0,20).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  if(!w.length) return raw;
+  const SEP='[\\s\\[\\](){}|\\-·_.,:]', re=new RegExp(`[\\[({]\\s*(?:${w.join('|')})\\s*[\\])}]|(^|${SEP})(?:${w.join('|')})(?=${SEP}|$)`, 'giu');
+  const out=raw.replace(re, (m, p1)=>p1 ?? ' ').replace(/\s+/g,' ').replace(/^[\s|\-·_.,:]+|[\s|\-·_.,:]+$/g,'');
+  return out || raw;
+}
 function fightText(f){
   if(!f) return '';
   if(typeof f==='string') return f;
   if(f.text) return String(f.text);
-  const side=p=>p ? [p.key ?? p.slot, p.name].filter(x=>x!=null && x!=='').join(' ') : '?';
+  const side=p=>p ? [p.key ?? p.slot, cs2Nick(p.name, s?.nickStrip)].filter(x=>x!=null && x!=='').join(' ') : '?';
   return f.a || f.b ? `${side(f.a)} ↔ ${side(f.b)}` : '';
 }
 function renderFight(){
@@ -235,7 +244,7 @@ $('mediaoff').onclick=act(()=>({ action:s?.media?.off?'mediaon':'mediaoff' }));
 // ---- CS2 ----
 function renderCs2(){
   const box=$('cs2'), c=s.cs2;
-  if(same(box, [c, !!fightText(s.fight), busy])) return;
+  if(same(box, [c, !!fightText(s.fight), busy, s.nickStrip])) return;
   if(!c){ box.replaceChildren(el('div','empty',tr('CS2 не на связи'))); return; }
   const score=el('div','score');
   score.append(el('span','ct', c.ctName||'CT'), el('span','ct', String(c.ct??0)), el('small',null,':'), el('span','t', String(c.tt??0)), el('span','t', c.tName||'T'));
@@ -245,7 +254,7 @@ function renderCs2(){
   const kids=[score, info];
   if(c.obs){
     const row=el('div','row'), n=el('span','n');
-    const who=el('span',null,[c.obs.slot, c.obs.name].filter(x=>x!=null && x!=='').join(' · ')); who.setAttribute('data-i18n-skip','');
+    const who=el('span',null,[c.obs.slot, cs2Nick(c.obs.name, s.nickStrip)].filter(x=>x!=null && x!=='').join(' · ')); who.setAttribute('data-i18n-skip','');
     n.append(tr('Наблюдаю:')+' ', who);
     row.append(n, el('span','m','HP '+(c.obs.hp??'—'))); kids.push(row);
   }

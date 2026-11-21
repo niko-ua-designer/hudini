@@ -741,7 +741,7 @@ function mediaUpgrade(mod, req, socket, head){
 // ---------- экран для дока в OBS ----------
 // Программа видит зашифрованный экран (тема state) и ключ комнаты у неё есть: расшифровывает сама, проверяет подпись
 // модератора и отдаёт доку только список {id, type, name, hidden}. Сам экран и файлы дальше не уходят.
-let screen = null, screenBuf = null, screenBusy = false, screenNum = 'game';
+let screen = null, screenBuf = null, screenBusy = false, screenNum = 'game', screenStrip = 'Lite, Premium';   // screenStrip: «Убрать из ников» из экрана, для дока
 // Экран (тема state) и команды серии CS2 (cs2cmd) разбирает одна функция; max — предел размера сообщения
 async function openSigned(buf, max=Infinity){
   try{
@@ -770,6 +770,7 @@ function noteScreen(buf){
     const m = await openSigned(b);
     if(m && Array.isArray(m.els) && (!screen || (Number(m.t)||0) >= screen.t)){
       screenNum = m.cs2auto?.num==='hud' ? 'hud' : 'game';
+      screenStrip = typeof m.cs2auto?.strip==='string' ? m.cs2auto.strip.slice(0, 200) : 'Lite, Premium';
       const list = [...m.els.slice(0, 200), ...(m.raffle && typeof m.raffle==='object' ? [m.raffle] : [])];
       screen = { t:Number(m.t)||0, els:list.filter(e => e && typeof e==='object' && typeof e.id==='string' && typeof e.type==='string')
         .map(e => ({ id:e.id.slice(0, 40), type:e.type.slice(0, 12), name:elLabel(e), hidden:e.hidden===true })) };
@@ -1781,7 +1782,7 @@ function dockCs2(){
     obs:o ? { name:o.name, slot:o.slot, hp:o.hp, team:o.team } : null };
 }
 function dockInfo(){
-  return { perms:cfg.perms, media:mediaInfo(), els:screen ? screen.els : null, cs2:dockCs2(),
+  return { perms:cfg.perms, media:mediaInfo(), els:screen ? screen.els : null, cs2:dockCs2(), nickStrip:screenStrip,
     ppl:[...modList].map(([id, m]) => ({ id, me:!!m.me, net:m.net, ip:m.me ? '' : maskHost(m.ip), rtt:m.rtt, since:m.since })) };
 }
 async function streamerSession(req, res){

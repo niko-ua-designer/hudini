@@ -1569,7 +1569,28 @@ function cs2HudSlots(players){
   return out;
 }
 let CS2_NUM = 'game';   // режим нумерации из state.cs2auto.num; виджет и пульт ставят его при каждом новом экране
-function setCs2Num(a){ CS2_NUM = a?.num==='hud' ? 'hud' : 'game'; }
+const CS2_STRIP_DEF = 'Lite, Premium';
+let CS2_STRIP = CS2_STRIP_DEF;   // «Убрать из ников» из state.cs2auto.strip, ставится вместе с CS2_NUM
+function setCs2Num(a){ CS2_NUM = a?.num==='hud' ? 'hud' : 'game'; CS2_STRIP = typeof a?.strip==='string' ? a.strip : CS2_STRIP_DEF; }
+// Ник без приписок вроде Lite/Premium (Cybershoke): слова через запятую, каждое режется как отдельный токен без учёта регистра,
+// вместе со скобками и разделителями ([LITE], (Premium), «PREMIUM | ник», «ник-lite»). «Elite» не трогаем. Пусто после чистки — исходный ник.
+// strip: undefined = слова по умолчанию, '' = ничего не убирать.
+const CS2_NICK_SEP = '[\\s\\[\\](){}|\\-·_.,:]', cs2NickRe = new Map();
+function cs2Nick(name, strip){
+  const raw = name==null ? '' : String(name);
+  if(!raw) return raw;
+  const list = String(strip===undefined || strip===null ? CS2_STRIP_DEF : strip);
+  let re = cs2NickRe.get(list);
+  if(re===undefined){
+    const w = list.split(',').map(x=>x.trim()).filter(Boolean).slice(0,20).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+    re = w.length ? new RegExp(`[\\[({]\\s*(?:${w.join('|')})\\s*[\\])}]|(^|${CS2_NICK_SEP})(?:${w.join('|')})(?=${CS2_NICK_SEP}|$)`, 'giu') : null;
+    if(cs2NickRe.size>50) cs2NickRe.clear();
+    cs2NickRe.set(list, re);
+  }
+  if(!re) return raw;
+  const out = raw.replace(re, (m, p1)=>p1 ?? ' ').replace(/\s+/g,' ').replace(/^[\s|\-·_.,:]+|[\s|\-·_.,:]+$/g,'');
+  return out || raw;
+}
 function cs2Renumber(d){
   if(CS2_NUM!=='hud' || !d?.players) return d;
   const hs=cs2HudSlots(d.players), re=p=>p && Object.hasOwn(hs, p.id) ? { ...p, slot:hs[p.id] } : p;
@@ -1664,14 +1685,22 @@ function cs2View(el, d){
   const nk=el.nicks||{}, has=Object.keys(nk).length>0;
   const flip=d.sw ? 1 : 0, mine=(a,b)=>flip ? b : a;
   const out={ ...cs2Renumber(d), ctName: mine(el.tnCT, el.tnT) || d.ctName, tName: mine(el.tnT, el.tnCT) || d.tName, lgCT: mine(el.lgCT, el.lgT)||'', lgT: mine(el.lgT, el.lgCT)||'' };
+  // приписки (Lite, Premium) убираем при показе: в пакетах хранится игровой ник, он же ключ аватарок (gname)
+  const cn=n=>typeof n==='string' ? cs2Nick(n, CS2_STRIP) : n;
+  const sp=p=>{ if(!p) return p; const n=cn(p.name); return n!==p.name ? { ...p, name:n, gname:p.gname||p.name } : p; };
+  if(out.players) out.players=out.players.map(sp);
+  if(out.observed) out.observed=sp(out.observed);
+  if(typeof d.name==='string' && cn(d.name)!==d.name){ out.gname=d.name; out.name=cn(d.name); }
+  if(out.spectating) out.spectating=cn(out.spectating);
+  if(out.evs) out.evs=out.evs.map(e=>{ const k=cn(e.killer), v=cn(e.victim), n=cn(e.name); return k!==e.killer || v!==e.victim || n!==e.name ? { ...e, killer:k, victim:v, name:n } : e; });
   if(!has) return out;
   const nm=(id,name)=>(id && Object.hasOwn(nk,id)) ? nk[id] : name;
-  const pl=p=>p && Object.hasOwn(nk,p.id) ? { ...p, name:nk[p.id], gname:p.name } : p;
+  const pl=p=>p && Object.hasOwn(nk,p.id) ? { ...p, name:nk[p.id], gname:p.gname||p.name } : p;
   if(out.players) out.players=out.players.map(pl);
   if(out.observed) out.observed=pl(out.observed);
   if(d.id && Object.hasOwn(nk,d.id)){ out.gname=d.name; out.name=nk[d.id]; }
   if(d.spectating && d.observed && Object.hasOwn(nk,d.observed.id)) out.spectating=nk[d.observed.id];
-  if(d.evs) out.evs=d.evs.map(e=>(e.kid&&Object.hasOwn(nk,e.kid)) || (e.vid&&Object.hasOwn(nk,e.vid)) || (e.k==='multikill'&&e.id&&Object.hasOwn(nk,e.id))
+  if(out.evs) out.evs=out.evs.map(e=>(e.kid&&Object.hasOwn(nk,e.kid)) || (e.vid&&Object.hasOwn(nk,e.vid)) || (e.k==='multikill'&&e.id&&Object.hasOwn(nk,e.id))
     ? { ...e, killer: nm(e.kid, e.killer), victim: nm(e.vid, e.victim), name: e.k==='multikill' ? nm(e.id, e.name) : e.name } : e);
   return out;
 }
@@ -1905,7 +1934,7 @@ function paintHud(c, el, d){
   scoreTop.c=c; statRows.c=c; statRows.el=el;
   // перерисовываем только когда что-то поменялось: иначе анимации перезапускались бы с каждым пакетом CS2
   const now0=Date.now(), feed=(d?.evs||[]).filter(x=>x.k==='frag' && now0-(d._skew||0)-x.t<9000).map(x=>x.s).join();
-  const sig=JSON.stringify([el, seriesLabel(), d && [d.players, d.observed, d.ct, d.tt, d.ctName, d.tName, d.sw, d.name, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
+  const sig=JSON.stringify([el, CS2_STRIP, seriesLabel(), d && [d.players, d.observed, d.ct, d.tt, d.ctName, d.tName, d.sw, d.name, d.round, d.pphase, d.hp, d.armor, d.money, d.k, d.d, d.a, d.adr, d.weapon, d.ammo, d.alive, d.team], feed, el.view==='duel' && (d?.evs||[]).slice(-1)[0]?.s, now0<(c._duntil||0)]);
   if(c._sig===sig) return; c._sig=sig;
   if(!d){ c.replaceChildren(h('div','hd-wait', st('🎯 CS2: ждём данные из игры'))); return; }
   const players=d.players||[], byName=n=>players.find(x=>{ const q=String(n||'').toLowerCase(); return String(x.name||'').toLowerCase()===q || String(x.gname||'').toLowerCase()===q; });
@@ -1983,13 +2012,14 @@ function seriesSides(){
 function seriesLabel(){ const x=seriesSides(); if(!x || (x.bo===1 && !x.n)) return ''; return `${st('Серия')} ${x.ct} : ${x.t} · BO${x.bo}`; }
 
 // Авто-таб: таблица всех игроков сама выезжает на таймауте/паузе, смене сторон и в конце карты (15 с), потом уезжает.
-// state.cs2auto = { on, timeout, half, end, theme:'A'..'D', hideBottom, hideTop, num:'game'|'hud' }. Красится под тему CS2-элемента экрана.
+// state.cs2auto = { on, timeout, half, end, theme:'A'..'D', hideBottom, hideTop, num:'game'|'hud', strip:'Lite, Premium' }. Красится под тему CS2-элемента экрана.
 const CS2TAB_STYLES = ['A','B','C','D'], CS2TAB_END_MS = 15000;
 function cleanCs2Auto(a){
   a = a && typeof a==='object' ? a : {};
   return { on:a.on===true, timeout:a.timeout!==false, half:a.half!==false, end:a.end!==false,
     theme:CS2TAB_STYLES.includes(a.theme) ? a.theme : 'A', hideBottom:a.hideBottom!==false, hideTop:a.hideTop!==false,
-    num:a.num==='hud' ? 'hud' : 'game' };
+    num:a.num==='hud' ? 'hud' : 'game',
+    strip:typeof a.strip==='string' ? a.strip.replace(/[\u0000-\u001f\u007f-\u009f]/g,'').slice(0,200) : CS2_STRIP_DEF };
 }
 // Какой момент сейчас: 'timeout' | 'half' | 'end' | null. mem помнит, когда этот пульт или виджет впервые увидел конец карты;
 // время конца от программы (серия, go) важнее: перезагруженный виджет не покажет итог второй раз.
@@ -2109,7 +2139,7 @@ function cs2TabRender(box, o){
   box.style.setProperty('--ct', look.ctc); box.style.setProperty('--t', look.tc);
   box.style.fontFamily = look.font ? fontCss(look.font) : '';
   const list=d.players||[];
-  const sig=JSON.stringify([m, a.theme, look.theme, look.ctc, look.tc, look.font, seriesLabel(), d.ct, d.tt, d.map, d.pphase, d.ctName, d.tName,
+  const sig=JSON.stringify([m, CS2_STRIP, a.theme, look.theme, look.ctc, look.tc, look.font, seriesLabel(), d.ct, d.tt, d.map, d.pphase, d.ctName, d.tName,
     list.map(p=>[p.id,p.name,p.slot,p.team,p.k,p.d,p.adr,p.hsp,p.money,p.main||p.weapon,p.alive,p.mvps]), list.length ? null : [d.name,d.k,d.d,d.money]]);
   if(!box._on){
     box._on=true; clearTimeout(box._hT); box.hidden=false; box.classList.remove('show','still');
