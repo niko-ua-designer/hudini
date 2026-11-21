@@ -8,18 +8,25 @@
 //     and goes through the Host's WebSocket /media?sid=. The receiver unseals it and plays it through MediaSource.
 //
 // `rtc` topic payload: [u16 BE header length][JSON header <= 300 bytes][sealed body], all together <= 64 KB.
-//   header: { v:1, sid, kind:'cam'|'screen'|'mic', t:'offer'|'answer'|'ice'|'bye'|'want'|'have', to?:'widget'|'streamer'|'m:<mqtt client id>' }  (the Host reads this)
+//   header: { v:1, sid, kind:'cam'|'screen'|'mic', t:'offer'|'answer'|'ice'|'bye'|'want'|'have', to?:'widget'|'streamer'|'m:<mqtt client id>', from }  (the Host reads this and stamps `from` itself:
+//     the real address of the sender; a receiver trusts only this field and drops a body whose `a` disagrees. `tkt` is the Host's alone.)
 //   body (sealed JSON, the Host cannot read it): { t, kind, sid, from:<hub id>, a:<own Host address>, to:<hub id>|'*', sdp?, cand?, mime?, bg?, p2?, owner? }
 // The body repeats kind, sid and t: a receiver rejects the message when they differ from the header.
 // Discovery: a receiver sends `want` {owner, kind} (any sid); the owner answers with an `offer`, the Host registers the receiver as a peer of that sid.
 // Media frame on /media: [1 byte: 0 = first piece of a recording (stream header), 1 = next piece][sealed: 8 bytes sender time (float64) + WebM bytes].
-// First text message on /media: { u:'mod', p:<password>, c:<mqtt client id> } | { u:'streamer', p:<panel session> } | { u:'widget' }.
+// First text message on /media: { u:'mod', p:<password> } | { u:'streamer', p:<panel session> } | { u:'widget' }, plus t:<ticket>.
+// The ticket is made by the Host for one MQTT connection and one sid, and sent to that connection alone on the `rtc` topic (t:'tkt', from the Host)
+// when it owns the stream or is addressed by an offer/have. Without it /media does not let anyone in.
+// Sound belongs to a microphone only: the audio tracks of a camera and a screen are never played, a microphone has no picture.
 (function(root){
   'use strict';
   const KINDS = ['cam', 'screen', 'mic'];
   const SID_RE = /^[A-Za-z0-9_-]{8,32}$/, ID_RE = /^[A-Za-z0-9_-]{1,40}$/, ADDR_RE = /^(widget|streamer|m:[\w.:-]{1,64})$/;
-  const RTC_T = ['offer', 'answer', 'ice', 'bye', 'want', 'have'];
+  const RTC_T = ['offer', 'answer', 'ice', 'bye', 'want', 'have', 'tkt'];   // tkt: only the Host makes it (the /media ticket), see onPacket
+const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
   const MIMES = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'audio/webm;codecs=opus'];
+  // What a recording of a kind may carry: a camera and a screen show a picture only, a microphone has sound only. Anything else is not played.
+  const KIND_MIMES = { cam:['video/webm;codecs=vp8'], screen:['video/webm;codecs=vp8'], mic:['audio/webm;codecs=opus'] };
   const ICE_MS = 5000, HAVE_MS = 4000, WANT_MS = 3000, P2_KEEP_MS = 12000, MAX_PEERS = 8, MAX_SDP = 60000, MAX_CHUNK = 900 * 1024;
   // Quality presets: camera 720p30, screen 1080p30, the panel background 720p15 on a smaller bitrate
   const QUALITY = {
@@ -48,7 +55,8 @@
     let h; try{ h = JSON.parse(TD.decode(b.subarray(2, 2 + n))); }catch{ return null; }
     if(!h || typeof h !== 'object' || h.v !== 1 || !isStr(h.sid) || !SID_RE.test(h.sid) || !KINDS.includes(h.kind) || !RTC_T.includes(h.t)) return null;
     if(h.to !== undefined && (!isStr(h.to) || !(ADDR_RE.test(h.to) || h.to === '*'))) return null;
-    return { head:{ sid:h.sid, kind:h.kind, t:h.t, to:h.to }, body:b.subarray(2 + n) };
+    if(h.from !== undefined && (!isStr(h.from) || !(ADDR_RE.test(h.from) || h.from === 'host'))) return null;
+    return { head:{ sid:h.sid, kind:h.kind, t:h.t, to:h.to, from:h.from }, body:b.subarray(2 + n) };
   }
 
   // ---------- addresses and SDP ----------
@@ -81,6 +89,7 @@
   function cleanRtc(m){
     if(!m || typeof m !== 'object' || Array.isArray(m)) return null;
     if(!RTC_T.includes(m.t) || !KINDS.includes(m.kind) || !isStr(m.sid) || !SID_RE.test(m.sid) || !isStr(m.from) || !ID_RE.test(m.from)) return null;
+    if(m.t === 'tkt' && m.from !== 'host') return null;
     const to = m.to === undefined || m.to === '*' ? '*' : isStr(m.to) && ID_RE.test(m.to) ? m.to : null; if(!to) return null;
     const o = { t:m.t, kind:m.kind, sid:m.sid, from:m.from, to, a:isStr(m.a) && ADDR_RE.test(m.a) ? m.a : '' };
     if(m.t === 'offer' || m.t === 'answer'){ const s = cleanSdp(m.sdp); if(!s) return null; o.sdp = s; }
@@ -88,7 +97,8 @@
       const c = m.cand; if(!c || typeof c !== 'object' || !isStr(c.candidate) || !candOk(c.candidate)) return null;
       o.cand = { candidate:c.candidate, sdpMid:isStr(c.sdpMid) ? c.sdpMid.slice(0, 16) : null, sdpMLineIndex:Number.isInteger(c.sdpMLineIndex) && c.sdpMLineIndex >= 0 && c.sdpMLineIndex < 4 ? c.sdpMLineIndex : 0 };
     }
-    if(m.t === 'offer' || m.t === 'have'){ o.bg = m.bg === true; o.mime = MIMES.includes(m.mime) ? m.mime : ''; }
+    if(m.t === 'offer' || m.t === 'have'){ o.bg = m.bg === true; o.mime = MIMES.includes(m.mime) && KIND_MIMES[m.kind].includes(m.mime) ? m.mime : ''; }
+    if(m.t === 'tkt'){ if(!isStr(m.tk) || !TK_RE.test(m.tk)) return null; o.tk = m.tk; }
     if(m.t === 'want'){ o.bg = m.bg === true; o.p2 = m.p2 === true; o.owner = isStr(m.owner) && ID_RE.test(m.owner) ? m.owner : ''; }
     if((m.t === 'offer' || m.t === 'want') && !o.a) return null;   // nowhere to answer
     return o;
@@ -130,6 +140,11 @@
     const hub = { sources, recvs, id:me };
     const change = () => { try{ o.onChange?.(); }catch(e){ console.warn(e); } };
     let quiet = false;           // after shutdown() nothing more goes out (the room has changed)
+    const timers = [], every = (f, ms) => { const t = setInterval(f, ms); timers.push(t); return t; };
+    const tickets = new Map();   // sid → the Host's one-time ticket for /media (it comes on the rtc topic, for this connection alone)
+    const ticketFor = sid => tickets.get(sid) || '';
+    // the first /media message: the page's login plus the ticket; without a ticket the socket is not opened
+    const loginOf = sid => { const a = o.mediaAuth?.(sid), t = ticketFor(sid); return a && t ? JSON.stringify({ ...a, t }) : ''; };
 
     // m: { t, kind, sid, ...body }, hostTo: the header's `to` (a Host address) or undefined
     async function send(m, hostTo){
@@ -148,7 +163,7 @@
       const src = { sid:newSid(), kind, stream, bg:!!opts.bg, peers:new Map(), wanters:new Map(), mime:pickMime(kind, stream), rec:null, ws:null, p2Until:0, p2peers:new Map(), hb:null, pending:false, q:[] };
       sources.set(src.sid, src);
       for(const t of stream.getTracks()) t.addEventListener('ended', () => hub.stop(src.sid));
-      src.hb = setInterval(() => announce(src), HAVE_MS);
+      src.hb = every(() => announce(src), HAVE_MS);
       announce(src); change();
       return src;
     }
@@ -235,9 +250,11 @@
     function ensureWs(src){
       if(src.ws && src.ws.readyState <= 1) return;
       const url = o.mediaUrl?.(src.sid); if(!url) return;
+      const login = loginOf(src.sid);
+      if(!login){ if(!quiet && sources.has(src.sid) && !src.tkWait){ src.tkWait = setTimeout(() => { src.tkWait = null; if(src.rec) ensureWs(src); }, 300); } return; }   // the ticket comes with the Host's answer to our `have`
       try{
         const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; src.ws = ws;
-        ws.onopen = () => { const a = o.mediaAuth?.(); if(a) ws.send(JSON.stringify(a)); for(const fr of src.q.splice(0)) ws.send(fr); };   // what was cut while the socket was opening (the header first)
+        ws.onopen = () => { ws.send(login); for(const fr of src.q.splice(0)) ws.send(fr); };   // what was cut while the socket was opening (the header first)
         ws.onerror = () => {};
       }catch{}
     }
@@ -258,11 +275,11 @@
         ensureWs(src);
         const fr = new Uint8Array(1 + sealed.length); fr[0] = type; fr.set(sealed, 1);
         if(src.ws?.readyState === 1) src.ws.send(fr);
-        else if(src.ws?.readyState === 0 && src.q.length < 30) src.q.push(fr);   // the socket is still opening
+        else if((!src.ws || src.ws.readyState === 0) && src.q.length < 30) src.q.push(fr);   // the socket is still opening (or waits for the ticket)
       };
       rec.start(250);
     }
-    setInterval(() => { for(const s of sources.values()) if(s.rec && now() > s.p2Until){ stopRecorder(s); try{ s.ws?.close(); }catch{} s.ws = null; } }, 3000);
+    every(() => { for(const s of sources.values()) if(s.rec && now() > s.p2Until){ stopRecorder(s); try{ s.ws?.close(); }catch{} s.ws = null; } }, 3000);
 
     // ---------- receiver ----------
     const keyOf = (d, owner) => d.purpose === 'bg' ? 'bg||' + d.kind : 'main|' + (owner ?? d.owner) + '|' + d.kind;
@@ -270,7 +287,7 @@
     const rsids = new Map();     // desire key → the sid we put into our `want`s
     function closeRecv(e){
       recvs.delete(e.key);
-      clearTimeout(e.timer); clearInterval(e.stats); clearInterval(e.keep);
+      clearTimeout(e.tkWait); clearTimeout(e.timer); clearInterval(e.stats); clearInterval(e.keep);
       try{ e.pc?.close(); }catch{}
       closeP2(e);
       change();
@@ -293,24 +310,36 @@
       }
     }
     hub.refresh = sendWants;
-    setInterval(sendWants, WANT_MS);
+    every(sendWants, WANT_MS);
     // a receiver whose sender fell silent is let go; the next `want` brings a fresh offer
-    setInterval(() => { const t = now(); for(const e of [...recvs.values()]) if(e.path === 'host' && t - (e.lastFrame || e.started) > 10000) closeRecv(e); }, 2000);
+    // (a receiver that gave up for good, path 'none', goes too: the next `want` brings a fresh offer)
+    every(() => { const t = now(); for(const e of [...recvs.values()]) if((e.path === 'host' && t - (e.lastFrame || e.started) > 10000) || (e.path === 'none' && t - e.started > ICE_MS + 4000)) closeRecv(e); }, 2000);
 
     async function onOffer(m, signed){
       if(!signed) return;
       const want = o.desired() || [];
-      const d = want.find(x => x.kind === m.kind && (x.purpose === 'bg' ? m.bg : (x.owner === m.from && !m.bg)));
+      // the backdrop screen is the streamer's alone (the Host-made address in the header decides, m.a)
+      const d = want.find(x => x.kind === m.kind && (x.purpose === 'bg' ? m.bg && m.a === 'streamer' : (x.owner === m.from && !m.bg)));
       if(!d) return;
       const key = keyOf(d, m.from), old = d.purpose === 'bg' ? [...recvs.values()].find(x => x.purpose === 'bg' && x.kind === d.kind) : recvs.get(key);
-      if(old){ if(old.sid === m.sid) return; closeRecv(old); }
+      if(old){
+        // the same sid again while the link is alive: nothing to do; a dead or stuck one (path 'none', 'lost', ICE never came up) starts over
+        const alive = old.path === 'direct' || (old.path === 'host' && now() - old.lastFrame < 8000) || now() - old.started < ICE_MS + 4000;
+        if(alive && (old.sid === m.sid || old.addr !== m.a)) return;   // a live entry belongs to whoever opened it
+        closeRecv(old);
+      }
       const e = { key, sid:m.sid, owner:m.from, addr:m.a, kind:m.kind, purpose:d.purpose, mime:m.mime, pc:null, stream:null, url:'', path:'wait', ms:null, started:now(), lastFrame:0,
         timer:null, stats:null, keep:null, ws:null, mse:null, el:null, queue:Promise.resolve(), pend:[], icePend:[] };
       recvs.set(key, e); change();
       if(o.forceP2?.()){ goP2(e); return; }
       e.timer = setTimeout(() => goP2(e), ICE_MS);
       const pc = new RTCPeerConnection({ iceServers:[], bundlePolicy:'max-bundle' }); e.pc = pc;
-      pc.ontrack = ev => { if(e.pc !== pc) return; e.stream = ev.streams[0] || new MediaStream([ev.track]); change(); };
+      // only the tracks the kind allows: a camera and a screen carry no sound, a microphone no picture (the sender's own checks are not trusted)
+      pc.ontrack = ev => {
+        if(e.pc !== pc || ev.track.kind !== (e.kind === 'mic' ? 'audio' : 'video')) return;
+        if(!e.stream) e.stream = new MediaStream();
+        e.stream.addTrack(ev.track); change();
+      };
       pc.onicecandidate = ev => { if(ev.candidate && candOk(ev.candidate.candidate)) send({ t:'ice', to:e.owner, sid:e.sid, kind:e.kind, cand:ev.candidate.toJSON() }, e.addr); };
       pc.onconnectionstatechange = () => {
         if(e.pc !== pc) return;
@@ -349,9 +378,11 @@
     // ---- path 2, receiver ----
     function openP2(e){
       const url = o.mediaUrl(e.sid); if(!url) return;
+      const login = loginOf(e.sid);
+      if(!login){ clearTimeout(e.tkWait); e.tkWait = setTimeout(() => { if(recvs.get(e.key) === e && e.path === 'host' && !e.ws && !quiet) openP2(e); }, 300); return; }   // the ticket comes with the offer
       let ws; try{ ws = new WebSocket(url); }catch{ return; }
       ws.binaryType = 'arraybuffer'; e.ws = ws;
-      ws.onopen = () => { const a = o.mediaAuth?.(); if(a) ws.send(JSON.stringify(a)); wantP2(e); };   // ask for the stream only when the socket is ready, so the header is not missed
+      ws.onopen = () => { ws.send(login); wantP2(e); };   // ask for the stream only when the socket is ready, so the header is not missed
       ws.onmessage = ev => { if(!(ev.data instanceof ArrayBuffer) || ev.data.byteLength > MAX_CHUNK + 200) return; e.queue = e.queue.then(() => p2Frame(e, new Uint8Array(ev.data))).catch(() => {}); };
       ws.onclose = () => { if(e.ws === ws){ e.ws = null; if(e.path === 'host'){ e.path = 'lost'; change(); setTimeout(() => { if(recvs.get(e.key) === e && e.path === 'lost'){ e.path = 'wait'; goP2(e); } }, 2000); } } };
     }
@@ -369,7 +400,7 @@
     }
     function resetMse(e){
       if(e.url){ try{ URL.revokeObjectURL(e.url); }catch{} e.url = ''; }
-      const mime = e.mime && root.MediaSource?.isTypeSupported(e.mime) ? e.mime : (e.kind === 'mic' ? 'audio/webm;codecs=opus' : 'video/webm;codecs=vp8');
+      const mime = e.mime && KIND_MIMES[e.kind].includes(e.mime) && root.MediaSource?.isTypeSupported(e.mime) ? e.mime : KIND_MIMES[e.kind][0];
       if(!root.MediaSource || !MediaSource.isTypeSupported(mime)){ e.path = 'none'; change(); return; }
       const ms = new MediaSource(), st = { ms, sb:null };
       e.mse = st; e.pend = []; e.url = URL.createObjectURL(ms);
@@ -389,7 +420,7 @@
       }catch(err){ if(err.name === 'QuotaExceededError') e.pend.splice(0, e.pend.length - 2); }
     }
     // keep the picture near the live edge
-    setInterval(() => {
+    every(() => {
       for(const e of recvs.values()){
         const v = e.el; if(e.path !== 'host' || !v || !e.mse?.sb) continue;
         try{ const b = v.buffered; if(b.length){ const end = b.end(b.length - 1); if(end - v.currentTime > 1.2) v.currentTime = end - 0.3; if(v.paused && v.readyState >= 2) v.play().catch(() => {}); } }catch{}
@@ -405,8 +436,17 @@
       let raw; try{ raw = JSON.parse(TD.decode(plain)); }catch{ return; }
       // the open header must repeat what is inside
       const m = cleanRtc(raw); if(!m || m.kind !== w.head.kind || m.sid !== w.head.sid || m.t !== w.head.t || m.from === me) return;
+      // the Host stamps the real sender into the header; the body must agree with it (nobody can speak for the streamer or for the Host)
+      const hf = w.head.from; if(!hf) return;
+      if(m.from === 'host' || hf === 'host'){ if(m.from !== hf) return; }
+      else if(m.a !== hf || (m.from === 'streamer') !== (hf === 'streamer')) return;
       if(m.to !== '*' && m.to !== me) return;
-      if(m.t === 'bye' && m.from === 'host'){   // the Host cut the stream off (permission taken back, the streamer pressed stop)
+      if(m.t === 'tkt'){   // the Host's ticket for /media, made for this connection alone
+        if(hf !== 'host') return;
+        tickets.set(m.sid, m.tk); if(tickets.size > 100) tickets.delete(tickets.keys().next().value);
+        return;
+      }
+      if(m.t === 'bye' && m.from === 'host' && w.head.from === 'host'){   // the Host cut the stream off (permission taken back, the streamer pressed stop)
         if(sources.has(m.sid)) hub.stop(m.sid);
         for(const x of [...recvs.values()]) if(x.sid === m.sid) closeRecv(x);
         return;
@@ -415,17 +455,17 @@
       if(src){   // we are the sender of this sid: answers, candidates and wishes come from receivers
         if(m.t === 'want') return onWant(m);
         const p = src.peers.get(m.from);
-        if(!p) return;
+        if(!p || p.addr !== m.a) return;
         if(m.t === 'answer' && p.pc.signalingState === 'have-local-offer') p.pc.setRemoteDescription({ type:'answer', sdp:m.sdp }).catch(() => {});
         else if(m.t === 'ice') p.pc.addIceCandidate(m.cand).catch(() => {});
         else if(m.t === 'bye') closePeer(src, m.from);
         return;
       }
       if(m.t === 'want'){ onWant(m); return; }   // a discovery `want` carries a sid of the receiver's own making
-      if(m.t === 'have'){ if(signed){ bgSids.set(m.sid, m.bg); if(bgSids.size > 100) bgSids.delete(bgSids.keys().next().value); sendWants(); change(); } return; }
+      if(m.t === 'have'){ if(signed && m.a === 'streamer'){ bgSids.set(m.sid, m.bg); if(bgSids.size > 100) bgSids.delete(bgSids.keys().next().value); sendWants(); change(); } return; }
       if(m.t === 'offer') return onOffer(m, signed);
       const e = [...recvs.values()].find(x => x.sid === m.sid && x.kind === m.kind);
-      if(!e || e.owner !== m.from || !signed) return;
+      if(!e || e.owner !== m.from || e.addr !== m.a || !signed) return;
       if(m.t === 'bye'){ closeRecv(e); return; }
       if(m.t === 'ice'){ if(e.pc?.remoteDescription) e.pc.addIceCandidate(m.cand).catch(() => {}); else if(e.icePend.length < 30) e.icePend.push(m.cand); }
     };
@@ -469,19 +509,19 @@
         if(r) v.play?.().catch(() => { v.muted = true; v.play().catch(() => {}); });
       }
       if(r?.entry) r.entry.el = v;
-      v.muted = !!(opts.muted || r?.local);
+      v.muted = !!(opts.muted || r?.local || opts.kind !== 'mic');   // sound only from a microphone: a camera and a screen are never played aloud
       if(opts.volume != null) v.volume = Math.min(1, Math.max(0, opts.volume));
       return !!r;
     };
     hub.paint = (node, el, opts = {}) => {
       const v = node.querySelector('video.content'); if(!v) return false;
-      const ok = hub.bind(v, hub.streamFor(el.owner, el.kind), opts);
+      const ok = hub.bind(v, hub.streamFor(el.owner, el.kind), { ...opts, kind:el.kind });
       if(!v._rs){ v._rs = true; v.addEventListener('resize', () => { if(v.videoWidth && v.videoHeight){ v._ar = v.videoWidth + ' / ' + v.videoHeight; if(!(node._el?.hh > 0)) v.style.aspectRatio = v._ar; } }); }
       node.classList.toggle('nosig', !ok);
       return ok;
     };
     hub.close = () => { hub.stopAll(); for(const e of [...recvs.values()]) closeRecv(e); };
-    hub.shutdown = () => { quiet = true; hub.close(); };
+    hub.shutdown = () => { quiet = true; hub.close(); for(const t of timers.splice(0)) clearInterval(t); for(const s of sources.values()) clearTimeout(s.tkWait); };
     return hub;
   }
 

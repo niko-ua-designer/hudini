@@ -31,10 +31,13 @@ const subtle = globalThis.crypto.subtle;
   const connect = (url, o) => new Promise((res, rej) => { const c = mqtt.connect(url, { reconnectPeriod: 0, connectTimeout: 4000, rejectUnauthorized: false, ...o }); c.on('connect', () => res(c)); c.on('error', e => { rej(e); c.end(true); }); });
   // a client that records what the Host delivers on rtc and media
   const track = async (c, who) => {
-    const t = { rtc: [], media: [], closed: false };
+    const t = { rtc: [], media: [], closed: false, tk: {} };
     c.on('close', () => { t.closed = true; });
     c.on('message', async (topic, buf) => {
-      if(topic === `${base}/rtc`) t.rtc.push(headOf(buf));
+      if(topic === `${base}/rtc`) {
+        const h = headOf(buf); t.rtc.push(h);
+        if(h.t === 'tkt') { try { t.tk[h.sid] = (await unseal(buf.subarray(2 + buf.readUInt16BE(0)))).tk; } catch {} }
+      }
       if(topic === `${base}/media`) { try { t.media.push(await unseal(buf)); } catch {} }
     });
     await new Promise(r => c.subscribe([`${base}/rtc`, `${base}/media`], r));
@@ -170,42 +173,45 @@ const subtle = globalThis.crypto.subtle;
     const idle = await open(PORT, sidA, null);
     check(await until(() => idle.closed, 7000), 'a socket that does not log in is dropped in about 5 s');
     // wrong password, wrong client id, a client without MQTT
-    const wrongPass = await open(MPORT, sidA, { u: 'mod', p: 'nope', c: A.id }, true); check(await dead(wrongPass), 'wrong password');
-    const noMqtt = await open(MPORT, sidA, { u: 'mod', p: pass, c: 'mod-ghost' }, true); check(await dead(noMqtt), 'a client id that is not connected over MQTT');
-    const stranger = await open(MPORT, sidA, { u: 'mod', p: pass, c: B.id }, true); check(await dead(stranger), 'a moderator who is not an addressee of the session cannot receive it');
-    const asStr = await open(MPORT, sidA, { u: 'streamer', p: ses.pass }, true); check(await dead(asStr), 'the streamer login does not work on the moderators\' port');
-    const badSid = await open(PORT, 'x', { u: 'widget' }); check(await dead(badSid), 'a bad sid is refused');
-    const noSess = await open(PORT, sidn(), { u: 'widget' }); check(await dead(noSess), 'an unknown sid is refused');
-    const wrongOrigin = await open(PORT, sidA, { u: 'widget' }, false, { origin: 'https://evil.example' }); check(await dead(wrongOrigin), 'a foreign website cannot connect on the local port');
-    const widAsPanel = await open(PORT, sidA, { u: 'widget' }, false, { origin: PANEL }); check(await dead(widAsPanel), 'the panel origin cannot pose as the widget');
-    const panelBad = await open(PORT, sidA, { u: 'streamer', p: 'guess' }, false, { origin: PANEL }); check(await dead(panelBad), 'wrong streamer session');
+    const tkA = A.t.tk[sidA], tkW = W.tk[sidA];
+    check(typeof tkA === 'string' && tkA.length >= 16 && typeof tkW === 'string' && !B.t.tk[sidA], 'the owner and the widget got tickets; a bystander did not');
+    const wrongPass = await open(MPORT, sidA, { u: 'mod', p: 'nope', t: tkA }, true); check(await dead(wrongPass), 'wrong password');
+    const noMqtt = await open(MPORT, sidA, { u: 'mod', p: pass, t: 'x'.repeat(32) }, true); check(await dead(noMqtt), 'a made-up ticket');
+    const noTicket = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true); check(await dead(noTicket), 'the right password and client id, but no ticket: no way into someone else\'s session');
+    const stranger = await open(MPORT, sidA, { u: 'mod', p: pass, c: B.id, t: tkA.slice(0, -1) + (tkA.endsWith('a') ? 'b' : 'a') }, true); check(await dead(stranger), 'a moderator who is not an addressee of the session cannot receive it');
+    const asStr = await open(MPORT, sidA, { u: 'streamer', p: ses.pass, t: tkW }, true); check(await dead(asStr), 'the streamer login does not work on the moderators\' port');
+    const badSid = await open(PORT, 'x', { u: 'widget', t: tkW }); check(await dead(badSid), 'a bad sid is refused');
+    const noSess = await open(PORT, sidn(), { u: 'widget', t: tkW }); check(await dead(noSess), 'an unknown sid is refused');
+    const wrongOrigin = await open(PORT, sidA, { u: 'widget', t: tkW }, false, { origin: 'https://evil.example' }); check(await dead(wrongOrigin), 'a foreign website cannot connect on the local port');
+    const widAsPanel = await open(PORT, sidA, { u: 'widget', t: tkW }, false, { origin: PANEL }); check(await dead(widAsPanel), 'the panel origin cannot pose as the widget');
+    const panelBad = await open(PORT, sidA, { u: 'streamer', p: 'guess', t: tkW }, false, { origin: PANEL }); check(await dead(panelBad), 'wrong streamer session');
     // sender and receiver
-    const snd = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true);
-    const rcv = await open(PORT, sidA, { u: 'widget' });
+    const snd = await open(MPORT, sidA, { u: 'mod', p: pass, t: tkA }, true);
+    const rcv = await open(PORT, sidA, { u: 'widget', t: tkW });
     await sleep(400);
     check(!snd.closed && !rcv.closed, 'the owner and the addressee are in');
     snd.ws.send(frame(0, 100)); snd.ws.send(frame(1, 5000));
     check(await until(() => rcv.got.length === 2), 'the widget gets both chunks');
     eq([rcv.got[0].length, rcv.got[0][0], rcv.got[1].length, rcv.got[1][0]], [101, 0, 5001, 1], 'unchanged bytes (the Host only forwards)');
-    const late = await open(PORT, sidA, { u: 'widget' });
+    const late = await open(PORT, sidA, { u: 'widget', t: tkW });
     check(await until(() => late.got.length === 1 && late.got[0][0] === 0), 'a late receiver gets the stored stream header first');
     late.ws.send(frame(1, 50));
     check(await dead(late), 'a receiver that sends anything is dropped');
     // the sender breaking the rules
-    const s2 = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true);   // a new sender replaces the old one
+    const s2 = await open(MPORT, sidA, { u: 'mod', p: pass, t: A.t.tk[sidA] }, true);   // a new sender replaces the old one
     check(await dead(snd), 'a second sender replaces the first');
     s2.ws.send(frame(9, 100)); check(await dead(s2), 'unknown chunk type');
-    const s3 = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true); await sleep(300); s3.ws.send('text'); check(await dead(s3), 'text after login');
-    const s4 = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true); await sleep(300); s4.ws.send(Buffer.alloc(5)); check(await dead(s4), 'a chunk that is too small to be sealed');
-    const s5 = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true); await sleep(300); s5.ws.send(frame(1, 1048576 + 10)); check(await dead(s5), 'a frame over 1 MB');
-    const s6 = await open(MPORT, sidA, { u: 'mod', p: pass, c: A.id }, true); await sleep(300); s6.ws.send(frame(1, 900000)); s6.ws.send(frame(1, 900000)); check(await dead(s6), 'faster than 4 Mbit/s breaks the connection');
+    const s3 = await open(MPORT, sidA, { u: 'mod', p: pass, t: A.t.tk[sidA] }, true); await sleep(300); s3.ws.send('text'); check(await dead(s3), 'text after login');
+    const s4 = await open(MPORT, sidA, { u: 'mod', p: pass, t: A.t.tk[sidA] }, true); await sleep(300); s4.ws.send(Buffer.alloc(5)); check(await dead(s4), 'a chunk that is too small to be sealed');
+    const s5 = await open(MPORT, sidA, { u: 'mod', p: pass, t: A.t.tk[sidA] }, true); await sleep(300); s5.ws.send(frame(1, 1048576 + 10)); check(await dead(s5), 'a frame over 1 MB');
+    const s6 = await open(MPORT, sidA, { u: 'mod', p: pass, t: A.t.tk[sidA] }, true); await sleep(300); s6.ws.send(frame(1, 900000)); s6.ws.send(frame(1, 900000)); check(await dead(s6), 'faster than 6 Mbit/s breaks the connection');
     check((await dock()).media.live.some(l => l.sid === sidA), 'the session itself survives broken sockets');
     rcv.ws.close();
   });
 
   await step('revoking the permission cuts the sockets and sends "bye"; approval is forgotten', async () => {
-    const snd = await new Promise(res => { const ws = new WebSocket(`wss://127.0.0.1:${MPORT}/media?sid=${sidA}`, { rejectUnauthorized: false }); const r = { ws, closed: false }; ws.on('open', () => { ws.send(JSON.stringify({ u: 'mod', p: pass, c: A.id })); res(r); }); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {}); });
-    const rcv = await new Promise(res => { const ws = new WebSocket(`ws://localhost:${PORT}/media?sid=${sidA}`); const r = { ws, closed: false }; ws.on('open', () => { ws.send(JSON.stringify({ u: 'widget' })); res(r); }); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {}); });
+    const snd = await new Promise(res => { const ws = new WebSocket(`wss://127.0.0.1:${MPORT}/media?sid=${sidA}`, { rejectUnauthorized: false }); const r = { ws, closed: false }; ws.on('open', () => { ws.send(JSON.stringify({ u: 'mod', p: pass, t: A.t.tk[sidA] })); res(r); }); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {}); });
+    const rcv = await new Promise(res => { const ws = new WebSocket(`ws://localhost:${PORT}/media?sid=${sidA}`); const r = { ws, closed: false }; ws.on('open', () => { ws.send(JSON.stringify({ u: 'widget', t: W.tk[sidA] })); res(r); }); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {}); });
     await sleep(300);
     const byes = cnt(W, h => h.sid === sidA && h.t === 'bye'), n0 = A.t.media.length;
     await perms({ screen: false });
@@ -260,7 +266,7 @@ const subtle = globalThis.crypto.subtle;
     check((await dock()).media.live.some(l => l.sid === sid && l.own === 'streamer'), 'a moderator\'s bye does not end the streamer\'s stream');
     eq((await dock()).media.live.filter(l => l.own === 'streamer').length, 1, 'the widget\'s offer was not registered');
     const mws = new WebSocket(`wss://127.0.0.1:${MPORT}/media?sid=${sid}`, { rejectUnauthorized: false });
-    let mclosed = false; mws.on('close', () => { mclosed = true; }); mws.on('error', () => {}); mws.on('open', () => mws.send(JSON.stringify({ u: 'mod', p: pass, c: B.id })));
+    let mclosed = false; mws.on('close', () => { mclosed = true; }); mws.on('error', () => {}); mws.on('open', () => mws.send(JSON.stringify({ u: 'mod', p: pass, c: B.id, t: W.tk[sid] || 'z'.repeat(32) })));
     check(await until(() => mclosed), 'a moderator cannot receive the streamer\'s stream unless it is addressed to them');
     await sc.publish(`${base}/rtc`, await rtc({ sid, kind: 'screen', t: 'bye' }));
     check(await until(async () => (await dock()).media.live.length === 0), 'the streamer\'s bye ends it');
@@ -281,6 +287,76 @@ const subtle = globalThis.crypto.subtle;
     check(cnt(W, h => h.sid === sidP && h.t === 'offer') >= 1, 'offers to the first peers go through');
     D.c.end(true);
     check(await until(async () => (await dock()).media.live.length === 0), 'sessions end with the owner\'s connection');
+  });
+
+  await step('the Host stamps the real sender into the header; nobody can speak for the streamer', async () => {
+    await perms({ cam: true });
+    const F = await mod('f'), sid = sidn();
+    await F.pub({ sid, kind: 'cam', t: 'offer', to: 'widget', from: 'streamer' });
+    await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + F.id));
+    await ctrl('mediaallow', 'cam|' + F.id);
+    await until(() => F.t.media.some(m => m.ev === 'ok'));
+    await F.pub({ sid, kind: 'cam', t: 'offer', to: 'widget', from: 'streamer' });
+    await F.pub({ sid, kind: 'cam', t: 'have', to: 'widget', from: 'host' });
+    check(await until(() => W.rtc.filter(h => h.sid === sid && (h.t === 'offer' || h.t === 'have')).length === 2), 'both reach the widget');
+    eq(W.rtc.filter(h => h.sid === sid && h.t !== 'tkt').map(h => h.from), ['m:' + F.id, 'm:' + F.id], 'the forged "from" was replaced by the real address');
+    await wc.publish(`${base}/rtc`, await rtc({ sid: sidn(), kind: 'cam', t: 'want', from: 'streamer' }));
+    await sc.publish(`${base}/rtc`, await rtc({ sid: sidn(), kind: 'cam', t: 'want' }));
+    check(await until(() => W.rtc.filter(h => h.t === 'want' && h.from === 'streamer').length >= 1 && W.rtc.some(h => h.t === 'want' && h.from === 'widget')), 'the streamer and the widget are stamped with their own addresses');
+    check(typeof W.tk[sid] === 'string' && !S.tk[sid] && !F.t.tk[sid] === false, 'the widget (the addressee) and the owner got tickets for it, the streamer\'s panel did not');
+    await F.pub({ sid, kind: 'cam', t: 'tkt', to: 'widget' });
+    await sleepMsg();
+    check(F.t.closed, 'a client cannot make a ticket packet (the format breaks the connection)');
+  });
+
+  await step('receivers are released: bye, disconnect and a full table do not block new addressees', async () => {
+    await perms({ cam: true });
+    const O = await mod('o'), sid = sidn();
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
+    await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + O.id));
+    await ctrl('mediaallow', 'cam|' + O.id);
+    await until(() => O.t.media.some(m => m.ev === 'ok'));
+    const R1 = await mod('r1'), R2 = await mod('r2');
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:' + R1.id });
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:' + R2.id });
+    for(let i = 0; i < 6; i++) await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:fake' + i });   // widget + R1 + R2 + 5 = 8 (the first offer only asked the streamer)
+    await sleepMsg();
+    const to = x => W.rtc.filter(h => h.sid === sid && h.t === 'offer' && h.to === x).length;
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:late1' }); await sleepMsg();
+    eq(to('m:late1'), 0, 'the ninth addressee is refused while the table is full');
+    await R1.pub({ sid, kind: 'cam', t: 'bye' }); await sleepMsg();
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:late1' });
+    check(await until(() => to('m:late1') === 1), 'after a receiver\'s bye its place is free');
+    R2.c.end(true); await sleep(400);
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:late2' });
+    check(await until(() => to('m:late2') === 1), 'after a receiver disconnects its place is free');
+    check((await dock()).media.live.some(l => l.sid === sid), 'a receiver\'s bye does not end the stream');
+    O.c.end(true);
+    check(await until(async () => (await dock()).media.live.length === 0), 'the owner leaving ends it');
+  });
+
+  await step('a quick reconnect with the same client id keeps the streamer\'s approval for a short while', async () => {
+    await perms({ cam: true });
+    const G = await mod('g'), sid = sidn();
+    await G.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
+    await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + G.id));
+    await ctrl('mediaallow', 'cam|' + G.id);
+    await until(() => G.t.media.some(m => m.ev === 'ok'));
+    G.c.end(true);
+    check(await until(async () => (await dock()).media.live.length === 0), 'the session is closed on the drop');
+    const G2 = await mod('g'), sid2 = sidn();
+    await G2.pub({ sid: sid2, kind: 'cam', t: 'offer', to: 'widget' });
+    check(await until(() => cnt(W, h => h.sid === sid2 && h.t === 'offer') === 1), 'the same client id is accepted again without a new request');
+    eq((await dock()).media.pending.length, 0, 'no new question for the streamer');
+    G2.c.end(true);
+    await until(async () => (await dock()).media.live.length === 0);
+    const G3 = await mod('h-other'); const sid3 = sidn();
+    await G3.pub({ sid: sid3, kind: 'cam', t: 'offer', to: 'widget' }); await sleepMsg();
+    eq(cnt(W, h => h.sid === sid3), 0, 'another client id inherits nothing');
+    await perms({ cam: false }); await perms({ cam: true });
+    const G4 = await mod('g'), sid4 = sidn();
+    await G4.pub({ sid: sid4, kind: 'cam', t: 'offer', to: 'widget' }); await sleepMsg();
+    eq(cnt(W, h => h.sid === sid4), 0, 'turning the permission off wipes the remembered approval');
   });
 
   await step('the moderators\' count of rtc messages is limited, the topic is never retained, and logs show no keys', async () => {

@@ -23,7 +23,34 @@ async function stubHost(port){
   const srv = http.createServer((q, r) => { r.setHeader('access-control-allow-origin', '*'); r.setHeader('access-control-allow-headers', '*'); r.statusCode = q.method === 'OPTIONS' ? 204 : 404; r.end(); });
   const mqttWss = new WSS({ noServer: true, handleProtocols: p => (p.has ? (p.has('mqtt') ? 'mqtt' : false) : p.includes?.('mqtt') ? 'mqtt' : false) });
   const mediaWss = new WSS({ noServer: true, maxPayload: 1 << 20 });
-  const bySid = new Map();
+  const bySid = new Map(), issued = new Map(), inits = new Map();   // issued: sid → Set of tickets handed out
+  const state = { key: null };
+  const roleOf = c => c._user === 'streamer' ? 'streamer' : c._user === 'mod' ? 'm:' + c.id : 'widget';
+  aedes.authenticate = (c, user, pass, cb) => { c._user = user; cb(null, true); };
+  // the real Host's job in short: stamp the true sender into the rtc header and hand out a /media ticket to the owner and the addressee
+  const seal = async obj => { const key = await crypto.subtle.importKey('raw', Buffer.from(state.key, 'base64url'), 'AES-GCM', false, ['encrypt']), iv = crypto.getRandomValues(new Uint8Array(12));
+    return Buffer.concat([Buffer.from([1, 0]), iv, new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, Buffer.from(JSON.stringify(obj))))]); };
+  aedes.authorizePublish = (c, pkt, cb) => {
+    if(c && pkt.topic.endsWith('/rtc')){
+      try{
+        const n = pkt.payload.readUInt16BE(0), h = JSON.parse(pkt.payload.subarray(2, 2 + n).toString()), from = roleOf(c);
+        const head = Buffer.from(JSON.stringify({ ...h, from })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+        pkt.payload = Buffer.concat([len, head, pkt.payload.subarray(2 + n)]);
+        if((h.t === 'offer' || h.t === 'have') && state.key && h.to){
+          const targets = [c, ...Object.values(aedes.clients).filter(x => x !== c && roleOf(x) === h.to)];
+          for(const x of targets) (async () => {
+            const tk = require('crypto').randomBytes(24).toString('base64url');
+            if(!issued.has(h.sid)) issued.set(h.sid, new Map());
+            const m = issued.get(h.sid); if(m.has(x.id) && !x._tkResend) return;   // one ticket per connection (a reloaded page is a new connection)
+            m.set(x.id, tk); m.set(roleOf(x), tk);
+            const hd = Buffer.from(JSON.stringify({ v: 1, sid: h.sid, kind: h.kind, t: 'tkt', to: roleOf(x), from: 'host' })), l2 = Buffer.alloc(2); l2.writeUInt16BE(hd.length);
+            x.publish({ cmd: 'publish', topic: pkt.topic, payload: Buffer.concat([l2, hd, await seal({ t: 'tkt', sid: h.sid, kind: h.kind, from: 'host', tk, ts: Date.now() })]), qos: 0, retain: false, dup: false }, () => {});
+          })();
+        }
+      }catch{}
+    }
+    cb(null);
+  };
   aedes.on('publish', (pkt, c) => { if(c && pkt.topic.endsWith('/rtc')) stats.rtc.push(Buffer.from(pkt.payload)); });
   srv.on('upgrade', (req, sock, head) => {
     const u = new URL(req.url, 'http://x');
@@ -32,8 +59,8 @@ async function stubHost(port){
       const sid = u.searchParams.get('sid'); stats.mediaSocks++;
       if(!bySid.has(sid)) bySid.set(sid, new Set()); bySid.get(sid).add(ws);
       ws.on('message', (d, bin) => {
-        if(typeof d === 'string'){ stats.auth.push(d); ws._authed = true; return; }   // the stand-in takes every login
-        stats.media++; stats.types.add(d[0]);
+        if(typeof d === 'string'){ stats.auth.push(d); let m = {}; try{ m = JSON.parse(d); }catch{} if([...(issued.get(sid)?.values() || [])].includes(m.t)){ ws._authed = true; if(inits.has(sid) && m.u !== 'streamer') ws.send(inits.get(sid), { binary: true }); } else ws.close(); return; }   // a login counts only with a ticket the stand-in issued for this sid
+        stats.media++; stats.types.add(d[0]); if(d[0] === 0) inits.set(sid, Buffer.from(d));   // like the Host: the stream header is kept for late receivers
         for(const o of bySid.get(sid)) if(o !== ws && o.readyState === 1 && o._authed) o.send(d, { binary: true });
       });
       ws.on('close', () => bySid.get(sid)?.delete(ws));
@@ -41,7 +68,7 @@ async function stubHost(port){
     sock.destroy();
   });
   await new Promise(r => srv.listen(port, r));
-  return { aedes, stats, port, async close(){ for(const s of bySid.values()) for(const w of s) w.terminate(); await new Promise(r => aedes.close(r)); srv.close(); } };
+  return { aedes, stats, port, state, issued, async close(){ for(const s of bySid.values()) for(const w of s) w.terminate(); await new Promise(r => aedes.close(r)); srv.close(); } };
 }
 
 (async () => {
@@ -52,6 +79,7 @@ async function stubHost(port){
   await panel.goto(`${web.url}/panel/moderator.html`);
   await panel.waitForFunction(() => window.hudiniReady && typeof room === 'string' && !!KEYS && !!window.hudiniBroadcast, null, { timeout: 20000 });
   const R = await panel.evaluate(() => { const r = curRoom(); return { code: r.code, k: r.k, p: r.p, s: r.s }; });
+  stub.state.key = R.k;
   await panel.evaluate(u => { document.body.classList.add('streamer-panel'); openHome({ url: u, pass: 'x', user: 'streamer' }); }, brokerUrl);
   check(await until(() => panel.evaluate(() => !!client?.connected)), 'the streamer panel is connected to the stand-in Host');
 
@@ -241,10 +269,12 @@ async function stubHost(port){
     }, sid);
     await sleep(800);
     check((await wid.evaluate(() => media.recvs.size)) === before, 'an unsigned bye from a non-Host does not end the stream');
-    await panel.evaluate(async sid => {
+    // the Host's own message: published by the broker itself (a client's header is always stamped with the client's address)
+    const hostBye = await panel.evaluate(async sid => {
       const b = await seal(KEYS, TE.encode(JSON.stringify({ t: 'bye', sid, kind: 'cam', from: 'host', why: 'test', ts: Date.now() })), false);
-      client.publish(topics(room).base + '/rtc', HudiniMedia.wrapRtc({ v: 1, sid, kind: 'cam', t: 'bye', to: '*' }, b), { qos: 0 });
+      return Array.from(HudiniMedia.wrapRtc({ v: 1, sid, kind: 'cam', t: 'bye', to: '*', from: 'host' }, b));
     }, sid);
+    await new Promise(r => stub.aedes.publish({ cmd: 'publish', topic: `stream-overlay/v1/${R.code}/rtc`, payload: Buffer.from(hostBye), qos: 0, retain: false, dup: false }, r));
     check(await until(() => wid.evaluate(s => ![...media.recvs.values()].some(e => e.sid === s), sid), 5000), 'a bye from the Host ends it at once');
     // the same Host message also reaches the sender (it is the dock's "stop"): the capture ends, and the streamer can start again
     check(await until(() => panel.evaluate(() => !hudiniBroadcast.hub.local('cam')), 5000), 'a bye from the Host on our own sid stops the capture');
@@ -278,6 +308,26 @@ async function stubHost(port){
     await panel.click('#bcScreen');
   });
 
+  // ---------- sound is only for a microphone ----------
+  await step('a camera that carries a sound track is shown without the sound, even if the layer asks for it', async () => {
+    await panel.evaluate(() => {
+      const hub = hudiniBroadcast.hub; hub.stopKind('cam');
+      const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const g = cv.getContext('2d'); let i = 0;
+      setInterval(() => { g.fillStyle = 'hsl(' + (i++ * 9 % 360) + ',80%,50%)'; g.fillRect(0, 0, 320, 180); }, 60);
+      const ac = new AudioContext(), osc = ac.createOscillator(), dst = ac.createMediaStreamDestination(); osc.connect(dst); osc.start();
+      const st = cv.captureStream(15); st.addTrack(dst.stream.getAudioTracks()[0]);
+      window.__loud = hub.share('cam', st);
+    });
+    await edit(panel, 'cam', { sound: true, vol: 1 });
+    check(await until(() => alive(), 25000), 'the picture arrives');
+    const r = await wid.evaluate(() => { const e = [...media.recvs.values()].find(x => x.kind === 'cam'); const n = [...nodes.values()].find(x => x._el.kind === 'cam' && x._el.owner === 'streamer'); const v = n.querySelector('video'); return { audio: e.stream ? e.stream.getAudioTracks().length : -1, video: e.stream ? e.stream.getVideoTracks().length : -1, muted: v.muted, sound: n._el.sound, srcAudio: v.srcObject ? v.srcObject.getAudioTracks().length : -1 }; });
+    check(r.sound === true && r.muted === true && r.audio === 0 && r.srcAudio === 0 && r.video === 1, 'no audio track reaches the player, the element is muted: ' + JSON.stringify(r));
+    await panel.evaluate(() => hudiniBroadcast.hub.stopKind('cam'));
+    await panel.click('#bcCam');
+    check(await until(() => alive(), 25000), 'the normal camera is back');
+    await edit(panel, 'cam', { sound: null });
+  });
+
   // ---------- path 2 ----------
   await step('path 2 (forced, as when UDP is blocked): sealed pieces through /media', async () => {
     await wid.close();
@@ -290,7 +340,7 @@ async function stubHost(port){
     check(await until(() => stub.stats.media > media0 + 5, 6000), 'pieces went through /media: ' + (stub.stats.media - media0));
     check(stub.stats.types.has(0) && stub.stats.types.has(1) && ![...stub.stats.types].some(t => t > 2), 'frame types: 0 = stream header, then 1');
     const logins = stub.stats.auth.slice(auth0).map(x => { try{ return JSON.parse(x); }catch{ return null; } });
-    check(logins.some(l => l?.u === 'widget') && logins.some(l => l?.u === 'streamer' && typeof l.p === 'string'), 'the first message on /media is the login: widget and streamer: ' + JSON.stringify(logins.map(l => l && l.u)));
+    check(logins.some(l => l?.u === 'widget' && typeof l.t === 'string') && logins.some(l => l?.u === 'streamer' && typeof l.p === 'string' && typeof l.t === 'string'), 'the first message on /media is the login with the Host\'s ticket: widget and streamer: ' + JSON.stringify(logins.map(l => l && l.u)));
     check(await until(async () => ['host', 'both'].includes((await panel.evaluate(() => hudiniBroadcast.hub.info('streamer', 'cam')))?.path), 8000), 'the panel reports the path through the Host');
     const ms = await wid.evaluate(() => [...media.recvs.values()].map(e => e.ms));
     check(ms.length >= 1 && ms[0] != null && ms[0] < 3000, 'latency measured: ' + ms);
@@ -304,7 +354,8 @@ async function stubHost(port){
     const frames = [];
     const ws = new WebSocket(`ws://127.0.0.1:${stub.port}/media?sid=${sid}`);
     await new Promise(r => ws.on('open', r));
-    ws.send(JSON.stringify({ u: 'widget' }));
+    const tkW = stub.issued.get(sid)?.get('widget');
+    ws.send(JSON.stringify({ u: 'widget', t: tkW }));
     ws.on('message', d => frames.push(Buffer.from(d)));
     await sleep(1800);
     ws.close();
@@ -314,7 +365,7 @@ async function stubHost(port){
     const before = await vid();
     const ws2 = new WebSocket(`ws://127.0.0.1:${stub.port}/media?sid=${sid}`);
     await new Promise(r => ws2.on('open', r));
-    ws2.send(JSON.stringify({ u: 'widget' }));
+    ws2.send(JSON.stringify({ u: 'widget', t: tkW }));
     ws2.send(Buffer.concat([Buffer.from([1]), Buffer.alloc(300, 9)]), { binary: true });
     ws2.send(Buffer.concat([Buffer.from([0]), Buffer.alloc(300, 9)]), { binary: true });
     await sleep(800); ws2.close();
@@ -338,6 +389,55 @@ async function stubHost(port){
     await wid.goto(widgetUrl());
     check(await until(async () => { const v = await vid(); return v && v.w > 0 && v.src === 'blob:'; }, 35000), 'the picture comes through MediaSource');
     check(Date.now() - t0 >= 4000, 'not before the 5 s wait: ' + (Date.now() - t0) + ' ms');
+  });
+
+  // ---------- who is speaking: the Host's header decides ----------
+  await step('a message whose body names another sender than the Host-stamped header is dropped', async () => {
+    const r = await mod.evaluate(async () => {
+      const M = HudiniMedia, h = hudiniBroadcast.hub, sdp = 'v=0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n';
+      const pack = async (head, body) => { const b = await seal(KEYS, TE.encode(JSON.stringify(body)), true); await h.onPacket(M.wrapRtc({ v: 1, ...head }, b)); };
+      const bg = () => [...h.recvs.values()].filter(e => e.purpose === 'bg' || e.owner === 'evil_mod' || e.sid === 'forgedsid001').length;
+      const n0 = bg();
+      // a moderator (address m:evil) offers his screen as the backdrop: only the streamer may
+      await pack({ sid: 'forgedsid001', kind: 'screen', t: 'offer', to: '*', from: 'm:evil' }, { t: 'offer', kind: 'screen', sid: 'forgedsid001', from: 'evil_mod', a: 'm:evil', to: '*', sdp, bg: true });
+      const n1 = bg();
+      // the body claims to be the streamer, the header says it is a moderator
+      await pack({ sid: 'forgedsid002', kind: 'screen', t: 'offer', to: '*', from: 'm:evil' }, { t: 'offer', kind: 'screen', sid: 'forgedsid002', from: 'streamer', a: 'streamer', to: '*', sdp, bg: true });
+      const n2 = bg();
+      // a header without "from" (not stamped by a Host)
+      await pack({ sid: 'forgedsid003', kind: 'screen', t: 'offer', to: '*' }, { t: 'offer', kind: 'screen', sid: 'forgedsid003', from: 'streamer', a: 'streamer', to: '*', sdp, bg: true });
+      const n3 = bg();
+      // a ticket that is not from the Host is not stored
+      await pack({ sid: 'forgedsid004', kind: 'screen', t: 'tkt', to: '*', from: 'm:evil' }, { t: 'tkt', kind: 'screen', sid: 'forgedsid004', from: 'host', tk: 'a'.repeat(32), to: '*' });
+      return { n0, n1, n2, n3, tkt: M.cleanRtc({ t: 'tkt', kind: 'cam', sid: 'abcdefghij12', from: 'mod_x', tk: 'a'.repeat(32) }), tkOk: !!M.cleanRtc({ t: 'tkt', kind: 'cam', sid: 'abcdefghij12', from: 'host', tk: 'a'.repeat(32) }),
+        mimeScreen: M.cleanRtc({ t: 'have', kind: 'screen', sid: 'abcdefghij12', from: 'x', mime: 'video/webm;codecs=vp8,opus' }).mime, mimeCam: M.cleanRtc({ t: 'have', kind: 'cam', sid: 'abcdefghij12', from: 'x', mime: 'video/webm;codecs=vp8' }).mime,
+        mimeMic: M.cleanRtc({ t: 'have', kind: 'mic', sid: 'abcdefghij12', from: 'x', mime: 'video/webm;codecs=vp8' }).mime };
+    });
+    eq([r.n0, r.n1, r.n2, r.n3], [r.n0, r.n0, r.n0, r.n0], 'no backdrop and no receiver came from the forged offers');
+    check(r.tkt === null && r.tkOk, 'a ticket is accepted only as the Host\'s');
+    eq([r.mimeScreen, r.mimeCam, r.mimeMic], ['', 'video/webm;codecs=vp8', ''], 'the recording type must fit the kind (no sound in a screen, no picture in a microphone)');
+  });
+
+  await step('a receiver whose link is dead starts over on the next offer (also when there is no path through the Host)', async () => {
+    const was = await wid.evaluate(() => { const e = [...media.recvs.values()].find(x => x.kind === 'cam'); return e ? { sid: e.sid } : null; });
+    if(!was){ check(false, 'there is a cam receiver to break'); return; }
+    await wid.evaluate(() => { const e = [...media.recvs.values()].find(x => x.kind === 'cam'); window.__oldRecv = e; e.path = 'none'; e.started -= 30000; e.stream = null; try{ e.pc?.close(); }catch{} });
+    check(await until(() => wid.evaluate(() => { const e = [...media.recvs.values()].find(x => x.kind === 'cam'); return !!e && e !== window.__oldRecv; }), 20000), 'a fresh receiver was made from a new offer');
+    check(await until(() => alive(), 30000), 'and the picture is back');
+  });
+
+  await step('shutdown lets go of every timer', async () => {
+    const r = await panel.evaluate(() => {
+      const open = new Set(), si = window.setInterval, ci = window.clearInterval;
+      window.setInterval = (f, ms) => { const id = si(f, ms); open.add(id); return id; };
+      window.clearInterval = id => { open.delete(id); return ci(id); };
+      try{
+        const h = HudiniMedia.createHub({ id: 'tmp_hub', keys: () => KEYS, sign: true, now: () => Date.now(), addr: () => 'streamer', publish() {}, mediaUrl: () => '', desired: () => [] });
+        const made = open.size; h.shutdown();
+        return { made, left: open.size };
+      }finally{ window.setInterval = si; window.clearInterval = ci; }
+    });
+    check(r.made >= 3 && r.left === 0, 'timers made ' + r.made + ', left after shutdown ' + r.left);
   });
 
   // ---------- the panel background ----------
