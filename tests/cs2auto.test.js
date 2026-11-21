@@ -48,15 +48,84 @@ const C = box.C;
     eq([v.a.w, v.b.w, v.ctIs], [1, 1, 'b'], 'series 1:1, Bravo on CT');
   });
 
-  await step('series: a map changed after live is recorded with the last score, a restart is not', async () => {
+  await step('series: a map changed without gameover and a restart are not recorded', async () => {
     const s = S.cleanSeries({ bo: 5 });
     S.seriesStep(s, P('de_nuke', 'live', 0, 0, 0), 1);
     S.seriesStep(s, P('de_nuke', 'live', 5, 2, 7), 2);
-    S.seriesStep(s, P('de_nuke', 'live', 0, 0, 0), 3);              // round went back: restart, nothing recorded
-    eq(s.maps.length, 0, 'restart is not a finished map');
+    S.seriesStep(s, P('de_nuke', 'live', 0, 0, 0), 3);              // round went back: restart
     S.seriesStep(s, P('de_nuke', 'live', 6, 3, 9), 4);
-    S.seriesStep(s, P('de_inferno', 'warmup', 0, 0, 0), 5);
-    eq(s.maps.map(m => [m.map, m.a.score, m.b.score]), [['de_nuke', 6, 3]], 'switching maps after live records the last score');
+    S.seriesStep(s, P('de_inferno', 'warmup', 0, 0, 0), 5);         // map changed, no gameover
+    eq(s.maps.length, 0, 'only gameover records a map');
+  });
+
+  await step('series: warmup, deathmatch and gameover 0:0 are not recorded', async () => {
+    const s = S.cleanSeries(null);
+    S.seriesStep(s, P('de_mirage', 'warmup', 0, 0, 0, { mode: 'competitive' }), 1);
+    S.seriesStep(s, P('de_dust2', 'warmup', 0, 0, 0, { mode: 'competitive' }), 2);
+    for (const mode of ['deathmatch', 'gungameprogressive', 'armsrace', 'training', 'survival', 'coopstrike', 'Cooperative', 'DEATHMATCH']){
+      S.seriesStep(s, P('de_' + mode.toLowerCase().slice(0, 6), 'live', 0, 0, 0, { mode }), 3);
+      S.seriesStep(s, P('de_' + mode.toLowerCase().slice(0, 6), 'gameover', 10, 5, 15, { mode }), 4);
+    }
+    eq(s.maps.length, 0, 'modes without a series');
+    S.seriesStep(s, P('de_anubis', 'live', 0, 0, 0, { mode: 'competitive' }), 5);
+    S.seriesStep(s, P('de_anubis', 'gameover', 0, 0, 0, { mode: 'competitive' }), 6);
+    eq(s.maps.length, 0, 'gameover 0:0');
+    for (const mode of ['competitive', 'scrimcomp2v2', 'casual', 'custom', undefined]){
+      const t = S.cleanSeries(null);
+      S.seriesStep(t, P('de_ancient', 'live', 0, 0, 0, { mode }), 1);
+      S.seriesStep(t, P('de_ancient', 'gameover', 7, 13, 20, { mode }), 2);
+      eq(t.maps.length, 1, 'mode ' + mode + ' counts');
+    }
+  });
+
+  await step('series: overtime until gameover is one record', async () => {
+    const s = S.cleanSeries(null);
+    S.seriesStep(s, P('de_mirage', 'live', 0, 0, 0, { mode: 'competitive' }), 1);
+    S.seriesStep(s, P('de_mirage', 'intermission', 12, 12, 24), 2);
+    S.seriesStep(s, P('de_mirage', 'live', 12, 12, 24), 3);
+    S.seriesStep(s, P('de_mirage', 'intermission', 15, 12, 27), 4);
+    S.seriesStep(s, P('de_mirage', 'live', 12, 15, 27), 5);
+    S.seriesStep(s, P('de_mirage', 'gameover', 19, 16, 35, { mode: 'competitive' }), 6);
+    eq(s.maps.length, 1, 'one record');
+    eq(s.maps[0].at, 6, 'record has the time');
+  });
+
+  await step('series: a series older than 6 hours starts over on the next live', async () => {
+    const H = 3600 * 1000, s = S.cleanSeries({ bo: 5, names: { a: 'A', b: 'B' } });
+    S.seriesStep(s, P('de_mirage', 'live', 0, 0, 0), 1000);
+    S.seriesStep(s, P('de_mirage', 'gameover', 13, 5, 18), 2000);
+    eq(s.maps.length, 1, 'recorded');
+    S.seriesStep(s, P('de_dust2', 'warmup', 0, 0, 0), 2000 + 7 * H);
+    eq(s.maps.length, 1, 'warmup alone changes nothing');
+    S.seriesStep(s, P('de_dust2', 'live', 0, 0, 0), 2000 + 7 * H + 1);
+    eq([s.maps.length, s.names.a, s.names.b, s.bo], [0, '', '', 5], 'reset, format kept');
+    // within 6 hours: continues
+    const u = S.cleanSeries(null);
+    S.seriesStep(u, P('de_mirage', 'live', 0, 0, 0), 1000);
+    S.seriesStep(u, P('de_mirage', 'gameover', 13, 5, 18), 2000);
+    S.seriesStep(u, P('de_dust2', 'live', 0, 0, 0), 2000 + 5 * H);
+    eq(u.maps.length, 1, 'within 6 hours the series continues');
+    // old file: no time on the record
+    const o = S.cleanSeries({ names: { a: 'A', b: 'B' }, maps: [{ map: 'de_mirage', a: { score: 13 }, b: { score: 5 } }] });
+    eq(o.maps[0].at, 0, 'no time in an old file');
+    S.seriesStep(o, P('de_dust2', 'live', 0, 0, 0), 5000);
+    eq([o.maps.length, o.names.a], [0, ''], 'record without time → reset');
+    // no records: nothing to do, names stay
+    const n = S.cleanSeries({ names: { a: 'A', b: 'B' } });
+    S.seriesStep(n, P('de_dust2', 'live', 0, 0, 0), 5000);
+    eq(n.names.a, 'A', 'no records → names kept');
+  });
+
+  await step('series: panel edit stamps new records and keeps old times; cleanSeriesView ignores the time', async () => {
+    const s = S.cleanSeries(null);
+    S.seriesStep(s, P('de_mirage', 'live', 0, 0, 0), 1000);
+    S.seriesStep(s, P('de_mirage', 'gameover', 13, 5, 18), 2000);
+    S.seriesCmd(s, { op: 'edit', names: { a: 'A', b: 'B' }, maps: [{ map: 'de_mirage', a: { score: 13 }, b: { score: 4 } }, { map: 'de_nuke', a: { score: 3 }, b: { score: 13 } }] });
+    eq(s.maps[0].at, 2000, 'existing keeps its time');
+    check(s.maps[1].at > 1e12, 'new record gets Date.now()');
+    const v = C.cleanSeriesView(S.seriesView(s, null));
+    eq(v.maps.length, 2, 'view survives the extra field');
+    check(!('at' in v.maps[0]), 'view drops the time');
   });
 
   await step('series: panel commands and garbage', async () => {
