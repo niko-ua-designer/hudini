@@ -515,22 +515,26 @@ aedes.on('publish', (packet, client) => {
 // по открытому заголовку и по тому, КТО прислал (соединение), а не по тому, что написано внутри.
 // Формат сообщения темы rtc:  [u16 BE длина заголовка][заголовок JSON, до 300 байт][запечатанное тело, как sealAES]
 //   заголовок: { v:1, sid:'[A-Za-z0-9_-]{8,32}', kind:'cam'|'screen'|'mic', t:'offer'|'answer'|'ice'|'bye'|'want'|'have', to?:'widget'|'streamer'|'m:<clientId>' }
+//   Host сам проставляет в заголовок from = настоящий адрес отправителя ('streamer' | 'widget' | 'm:<clientId>'); чужое from затирается. Приёмник доверяет только этому полю.
 //   offer/have начинает вещание (владелец sid = тот, кто прислал первым), to обязателен: адресат попадает в список peers сеанса.
 //   answer/ice принимаются только от владельца (ice, и только к адресату из peers) и от адресатов из peers. bye — только владелец и стример.
 //   want — просьба показать (sid любой, сеанс не создаёт). Чужой sid, неверный kind, не-адресат — сообщение молча отбрасывается.
 //   Модератор начинает вещать, только если ползунок kind включён, общий выключатель не стоит и стример подтвердил в доке.
 // Тема media (публикует только Host, запечатана): { ev:'pending'|'ok'|'no'|'bye', cid, kind, sid?, why?, t } — состояние для модератора с этим clientId.
-// Запасной путь: WS /media?sid=SID. Первое сообщение — текст { u:'mod', p:<пароль>, c:<clientId MQTT> } | { u:'streamer', p:<сессия пульта> } | { u:'widget' }.
+// Запасной путь: WS /media?sid=SID. Первое сообщение — текст { u:'mod', p:<пароль> } | { u:'streamer', p:<сессия пульта> } | { u:'widget' } плюс t:<билет>.
+//   Билет (случайный, 24 байта) Host выдаёт при offer/have владельцу сеанса и адресату, лично тому MQTT-соединению, которое отправило/получило (client.publish, тема rtc, t:'tkt', from:'host').
+//   Билет привязан к sid и к самому соединению: без него (или после его закрытия) войти на /media в чужой сеанс нельзя, даже зная sid и clientId.
 //   Потом только бинарные кадры [1 байт тип 0..2][зашифрованный кусок]: шлёт владелец, получают адресаты из peers. Тип 0 (заголовок потока) Host запоминает для опоздавших.
-const MEDIA_FRAME = 1048576, MEDIA_BPS = 500000;   // кадр ≤ 1 МБ, ≤ 4 Мбит/с на источник
+const MEDIA_FRAME = 1048576, MEDIA_BPS = 750000;   // кадр ≤ 1 МБ, ≤ 6 Мбит/с на источник (запись экрана идёт на 3,5 Мбит/с, запас на всплески ключевых кадров)
 const MEDIA_PER_MOD = 4, MEDIA_TOTAL = 16, MEDIA_MOD_TOTAL = 12, MEDIA_PEERS = 8;   // стримеру всегда остаётся место: модераторы занимают не больше 12 из 16
-const MEDIA_SOCKS = 48, MEDIA_PER_IP = 8, MEDIA_PENDING_SOCKS = 16, MEDIA_ASK = 8, ASK_TTL = 120000, DENY_TTL = 60000, RTC_MAX = 64*1024;
+const MEDIA_SOCKS = 48, MEDIA_PER_IP = 8, MEDIA_PENDING_SOCKS = 16, MEDIA_ASK = 8, ASK_TTL = 120000, DENY_TTL = 60000, RTC_MAX = 64*1024, MEDIA_GRACE = 60000, PEER_IDLE = 120000, MEDIA_TIX = 24;
 const SID_RE = /^[A-Za-z0-9_-]{8,32}$/, TO_RE = /^(widget|streamer|m:[\w.:-]{1,64})$/;
 const RTC_T = new Set(['offer', 'answer', 'ice', 'bye', 'want', 'have']);
-const sessions = new Map();   // sid → { sid, kind, owner, ownerType:'mod'|'streamer', ownerClient, ip, since, peers:Set, recv:Set<ws>, sender:ws|null, init:Buffer|null }
+const sessions = new Map();   // sid → { sid, kind, owner, ownerType:'mod'|'streamer', ownerClient, ip, since, peers:Set, peerAt:Map<адрес, мс>, tix:Map<client, {tk, h, client}>, recv:Set<ws>, sender:ws|null, init:Buffer|null }
 const grants = new Map();     // `${kind}|${clientId}` → { st:'pending'|'ok'|'no', at, kind, ownerType:'mod', ownerClient, cid, ip }
 const idOf = c => c.conn?._streamer ? 'streamer' : c.conn?._mod ? 'm:'+c.id : 'widget';
 const rtcBuckets = new WeakMap(), noteAt = new Map();
+const sha = s => nodeCrypto.createHash('sha256').update(String(s)).digest();
 function bucket(owner, cap, perSec){
   let b = rtcBuckets.get(owner); const now = Date.now();
   if(!b){ b = { n:cap, t:now }; rtcBuckets.set(owner, b); }
@@ -558,7 +562,7 @@ async function mediaNote(cid, ev, kind, extra, force){
 }
 async function hostBye(s, why){
   if(!ROOM || !AES) return;
-  const head = Buffer.from(JSON.stringify({ v:1, sid:s.sid, kind:s.kind, t:'bye', to:'*' })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+  const head = Buffer.from(JSON.stringify({ v:1, sid:s.sid, kind:s.kind, t:'bye', to:'*', from:'host' })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
   const body = await sealAES({ t:'bye', sid:s.sid, kind:s.kind, from:'host', why, ts:Date.now() });
   aedes.publish({ cmd:'publish', topic:T('rtc'), payload:Buffer.concat([len, head, body]), qos:0, retain:false, dup:false }, ()=>{});
 }
@@ -579,7 +583,9 @@ function mediaRevoke(pred, why){
 }
 function grantsSweep(){
   const now = Date.now();
-  for(const [k, g] of grants) if(g.st!=='ok' && now - g.at > (g.st==='no' ? DENY_TTL : ASK_TTL)) grants.delete(k);
+  for(const [k, g] of grants){
+    if(g.gone ? now - g.gone > MEDIA_GRACE : g.st!=='ok' && now - g.at > (g.st==='no' ? DENY_TTL : ASK_TTL)) grants.delete(k);
+  }
 }
 setInterval(grantsSweep, 15000);
 // Можно ли модератору сейчас вещать kind. Нет разрешения → «no», нет подтверждения → запрос в док (и «pending»)
@@ -588,7 +594,10 @@ function modMediaOk(client, kind){
   if(!effPerms()[kind]){ mediaNote(cid, 'no', kind, { why:'perm' }).catch(()=>{}); return false; }
   grantsSweep();
   const g = grants.get(key);
-  if(g?.st==='ok') return true;
+  if(g?.st==='ok'){
+    if(g.gone){ if(g.ip!==client.conn._ip){ grants.delete(key); return modMediaOk(client, kind); } delete g.gone; }   // быстрый возврат того же clientId с того же адреса
+    return true;
+  }
   if(g?.st==='no'){ mediaNote(cid, 'no', kind, { why:'denied' }).catch(()=>{}); return false; }
   if(g) return false;   // ждёт ответа стримера
   const pend = [...grants.values()].filter(x => x.st==='pending');
@@ -598,13 +607,41 @@ function modMediaOk(client, kind){
   mediaNote(cid, 'pending', kind, {}, true).catch(()=>{});
   return false;
 }
+// Заголовок уходит дальше с настоящим from (чужое from затирается)
+function stampFrom(packet, h, from){
+  const head = Buffer.from(JSON.stringify({ v:1, sid:h.sid, kind:h.kind, t:h.t, ...(h.to ? { to:h.to } : {}), from })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+  packet.payload = Buffer.concat([len, head, packet.payload.subarray(2 + packet.payload.readUInt16BE(0))]);
+}
+// Билет /media: свой у каждого соединения в сеансе, лично ему и уходит (client.publish), остальные тему rtc с ним не получают
+const tixHolders = (to) => Object.values(aedes.clients).filter(c => c?.conn && c.connected !== false && idOf(c)===to && (to==='widget' ? !c.conn._mod && !c.conn._streamer : true));
+async function sendTicket(s, cl){
+  if(!ROOM || !AES || sessions.get(s.sid)!==s) return;
+  let e = s.tix.get(cl);
+  if(!e){
+    if(s.tix.size >= MEDIA_TIX) return;
+    const tk = nodeCrypto.randomBytes(24).toString('base64url');
+    e = { tk, h:sha(tk), client:cl }; s.tix.set(cl, e);
+  }
+  const head = Buffer.from(JSON.stringify({ v:1, sid:s.sid, kind:s.kind, t:'tkt', to:idOf(cl), from:'host' })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+  const body = await sealAES({ t:'tkt', sid:s.sid, kind:s.kind, from:'host', tk:e.tk, ts:Date.now() });
+  try{ cl.publish({ cmd:'publish', topic:T('rtc'), payload:Buffer.concat([len, head, body]), qos:0, retain:false, dup:false }, ()=>{}); }catch{}
+}
+function ticketOwner(s, tk){
+  if(typeof tk!=='string' || tk.length<16 || tk.length>64) return null;
+  const h = sha(tk); let hit = null;
+  for(const e of s.tix.values()) if(nodeCrypto.timingSafeEqual(h, e.h) && !hit) hit = e;
+  return hit && hit.client.connected !== false && aedes.clients[hit.client.id]===hit.client ? hit.client : null;
+}
+function peerSeen(s, id){ s.peerAt.set(id, Date.now()); }
+function peerDrop(s, id){ s.peers.delete(id); s.peerAt.delete(id); }
 // true — пропустить, null — тихо отбросить, false — нарушение формата (соединение рвёт aedes)
 function rtcGate(client, packet){
   const h = rtcHead(packet.payload);
   if(!h) return false;
   packet.retain = false;
   const isMod = !!client.conn?._mod, isStr = !!client.conn?._streamer, id = idOf(client);
-  if(!bucket(client, 100, 30)) return null;   // 30 сообщений в секунду, всплеск 100 (ICE-кандидаты)
+  if(!bucket(client, 100, 30)) return null;
+  stampFrom(packet, h, id);   // 30 сообщений в секунду, всплеск 100 (ICE-кандидаты)
   if(h.t==='want') return true;
   if(h.t==='offer' || h.t==='have'){
     if(!isMod && !isStr) return null;   // виджет только отвечает
@@ -615,26 +652,57 @@ function rtcGate(client, packet){
     if(!s){
       const mods = [...sessions.values()].filter(x => x.ownerType==='mod');
       if(sessions.size >= MEDIA_TOTAL || (isMod && (mods.length >= MEDIA_MOD_TOTAL || mods.filter(x => x.ownerClient===client.id).length >= MEDIA_PER_MOD))){ refuse(isMod ? client.conn._ip : 'local', 'rtc: много трансляций'); return null; }
-      s = { sid:h.sid, kind:h.kind, owner:id, ownerType:isMod ? 'mod' : 'streamer', ownerClient:client.id, ip:isMod ? client.conn._ip : 'local', since:Date.now(), peers:new Set(), recv:new Set(), sender:null, init:null };
+      s = { sid:h.sid, kind:h.kind, owner:id, ownerType:isMod ? 'mod' : 'streamer', ownerClient:client.id, ip:isMod ? client.conn._ip : 'local', since:Date.now(), peers:new Set(), peerAt:new Map(), tix:new Map(), recv:new Set(), sender:null, init:null };
       sessions.set(h.sid, s);
       logc('🎥 Трансляция:', isMod ? who(s.ip) : 'стример', '—', PERM_NAMES[h.kind]);
     }
     if(!s.peers.has(h.to)){ if(s.peers.size >= MEDIA_PEERS) return null; s.peers.add(h.to); }
+    peerSeen(s, h.to);
+    sendTicket(s, client).catch(()=>{});   // владельцу: нужен ему, чтобы открыть запасной путь
+    for(const c of tixHolders(h.to)) if(c!==client) sendTicket(s, c).catch(()=>{});
     return true;
   }
   const s = sessions.get(h.sid);
   if(!s || s.kind!==h.kind) return null;
   if(h.t==='bye'){
-    if(id!==s.owner && !isStr) return null;
+    if(id!==s.owner && !isStr){   // получатель уходит: место в сеансе освобождается, владелец узнаёт
+      if(!s.peers.has(id)) return null;
+      peerDrop(s, id); return true;
+    }
     setImmediate(() => endSession(s, 'завершено'));
     return true;
   }
   // answer, ice
   if(id===s.owner) return h.t==='ice' && h.to && s.peers.has(h.to) ? true : null;
-  return s.peers.has(id) ? true : null;
+  if(!s.peers.has(id)) return null;
+  peerSeen(s, id);
+  return true;
 }
+// Получатели без вестей и без открытого сокета отпускаются: пульт грузится заново с новым clientId, а мест в сеансе всего MEDIA_PEERS
+setInterval(() => {
+  const now = Date.now();
+  for(const s of sessions.values()) for(const id of [...s.peers]){
+    if(now - (s.peerAt.get(id) || s.since) < PEER_IDLE) continue;
+    const online = Object.values(aedes.clients).some(c => idOf(c)===id), live = [...s.recv].some(w => w._id===id);
+    if(!online || !live) peerDrop(s, id);
+  }
+}, 15000).unref?.();
+// Отключился модератор: его сеансы закрываем, а одобрение стримера помним MEDIA_GRACE мс для того же clientId (моргнула сеть). Права и общий выключатель сверяются как всегда.
 aedes.on('clientDisconnect', c => {
-  if(c.conn?._mod || c.conn?._streamer) mediaRevoke(x => x.ownerClient===c.id, 'владелец отключился');
+  if(!c.conn?._mod && !c.conn?._streamer) return;
+  const replaced = aedes.clients[c.id] && aedes.clients[c.id]!==c;   // тот же clientId уже вернулся: у нового соединения свои сеансы
+  for(const s of [...sessions.values()]){
+    if(s.ownerClient===c.id && !replaced) endSession(s, 'владелец отключился');
+    s.tix.delete(c);
+    const id = idOf(c);
+    if(s.peers.has(id) && !tixHolders(id).some(x => x!==c)) peerDrop(s, id);
+  }
+  if(c.conn._mod && !replaced){
+    for(const [k, g] of [...grants]){
+      if(g.cid!==c.id) continue;
+      if(g.st==='ok') g.gone = Date.now(); else grants.delete(k);
+    }
+  }
 });
 function mediaInfo(){
   grantsSweep();
@@ -702,15 +770,16 @@ function mediaUpgrade(mod, req, socket, head){
         let m; try{ m = JSON.parse(b.toString('utf8')); }catch{ return bad(); }
         if(!m || typeof m!=='object') return bad();
         let id = '';
-        if(mod){
-          const c = m.u==='mod' && typeof m.c==='string' && Object.hasOwn(aedes.clients, m.c) ? aedes.clients[m.c] : null;
-          if(m.u!=='mod' || !passOk(ip, m.p) || ctl.paused || !c?.conn?._mod || !c.conn._authed || c.conn._ip!==ip) return bad();
-          id = 'm:'+m.c;
-        }else if(m.u==='streamer'){ if(!panel || !panelSessionOk(String(m.p||''))) return bad(); id = 'streamer'; }
-        else if(m.u==='widget' && !panel) id = 'widget';
-        else return bad();
         sess = sessions.get(sid);
         if(!sess) return bad();
+        const cl = ticketOwner(sess, m.t);   // билет выдан этому sid и этому MQTT-соединению (см. sendTicket)
+        if(!cl) return bad();
+        if(mod){
+          if(m.u!=='mod' || !passOk(ip, m.p) || ctl.paused || !cl.conn?._mod || !cl.conn._authed || cl.conn._ip!==ip) return bad();
+        }else if(m.u==='streamer'){ if(!panel || !panelSessionOk(String(m.p||'')) || !cl.conn?._streamer) return bad(); }
+        else if(m.u==='widget' && !panel){ if(cl.conn?._mod || cl.conn?._streamer) return bad(); }
+        else return bad();
+        id = idOf(cl); ws._id = id;
         if(id===sess.owner){
           if(sess.ownerType==='mod' && !(effPerms()[sess.kind] && grants.get(sess.kind+'|'+sess.ownerClient)?.st==='ok')) return bad();
           try{ sess.sender?.terminate(); }catch{}
