@@ -376,6 +376,60 @@ const subtle = globalThis.crypto.subtle;
     await until(async () => (await dock()).media.live.length === 0);
   });
 
+  await step('a lagging receiver: pieces are skipped until the next stream header, then the flow resumes', async () => {
+    await perms({ cam: true });
+    const O = await mod('o3'), sid = sidn();
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
+    await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + O.id));
+    await ctrl('mediaallow', 'cam|' + O.id);
+    await until(() => O.t.media.some(m => m.ev === 'ok'));
+    const R = await mod('r5');
+    await O.pub({ sid, kind: 'cam', t: 'offer', to: 'm:' + R.id });
+    check(await until(() => R.t.tk[sid] && O.t.tk[sid]), 'tickets are out');
+    const open = (port, auth) => new Promise(res => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/media?sid=${sid}`, { rejectUnauthorized: false });
+      const r = { ws, got: [], closed: false }; ws.on('message', d => r.got.push(Buffer.from(d))); ws.on('close', () => { r.closed = true; }); ws.on('error', () => {});
+      ws.on('open', () => { ws.send(JSON.stringify(auth)); res(r); });
+    });
+    const snd = await open(MPORT, { u: 'mod', p: pass, t: O.t.tk[sid] });
+    const lag = await open(MPORT, { u: 'mod', p: pass, t: R.t.tk[sid] });
+    await sleep(400);
+    let seq = 0;
+    const fr = (type, n) => { const b = Buffer.alloc(1 + 40 + n, 7); b[0] = type; b.writeUInt32BE(++seq, 1); return b; };
+    snd.ws.send(fr(0, 100)); await sleep(100);
+    check(lag.got.length === 1 && lag.got[0][0] === 0, 'the first header is delivered');
+    // this receiver reads nothing for a while: the Host sees its buffer grow
+    lag.ws._socket.pause();
+    const t0 = Date.now(); let sent = 0;
+    while(Date.now() - t0 < 60000 && !lag.closed) {
+      snd.ws.send(fr(1, 70000)); sent++; await sleep(100);
+      if(sent * 70 > 14000) break;   // about 14 MB: more than the sockets hold, less than the Host's 16 MB cut-off
+    }
+    check(!lag.closed, 'the lagging receiver is not dropped (under 16 MB)');
+    lag.ws._socket.resume(); await sleep(1500);
+    const seqs = lag.got.map(b => b.readUInt32BE(1));
+    const lastBefore = seqs[seqs.length - 1];
+    check(seqs.length < sent + 1, 'some pieces were skipped for the laggard: got ' + seqs.length + ' of ' + (sent + 1));
+    // once it has caught up it still gets nothing until a header arrives
+    snd.ws.send(fr(1, 1000)); snd.ws.send(fr(1, 1000)); await sleep(400);
+    eq(lag.got.length, seqs.length, 'a piece after a skip is not sent before the next header');
+    snd.ws.send(fr(0, 500)); snd.ws.send(fr(1, 1000)); await sleep(400);
+    eq(lag.got.slice(seqs.length).map(b => b[0]), [0, 1], 'the next header and what follows it arrive');
+    check(seqs.every((s, i) => s === i + 1) && lastBefore < sent + 1, 'what arrived is an unbroken start of the flow; everything after the skip is missing (last ' + lastBefore + ' of ' + (sent + 1) + ')');
+    snd.ws.send(fr(1, 1000)); await sleep(300);
+    eq(lag.got[lag.got.length - 1][0], 1, 'and the flow continues');
+    // a receiver that joins later gets the stored header, then waits for the next one
+    const joiner = await open(MPORT, { u: 'mod', p: pass, t: R.t.tk[sid] }); await sleep(100);
+    // (the same ticket for the same client: a second socket is a new receiver with its own state)
+    check(joiner.got.length === 1 && joiner.got[0][0] === 0, 'a late receiver gets the stored header');
+    snd.ws.send(fr(1, 1000)); await sleep(300);
+    eq(joiner.got.length, 1, 'but not the middle of a segment');
+    snd.ws.send(fr(0, 300)); snd.ws.send(fr(1, 300)); await sleep(300);
+    eq(joiner.got.length, 3, 'and everything from the next header on');
+    O.c.end(true);
+    await until(async () => (await dock()).media.live.length === 0);
+  });
+
   await step('a quick reconnect with the same client id keeps the streamer\'s approval for a short while', async () => {
     await perms({ cam: true });
     const G = await mod('g'), sid = sidn();

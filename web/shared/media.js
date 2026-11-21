@@ -27,7 +27,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
   const MIMES = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'audio/webm;codecs=opus'];
   // What a recording of a kind may carry: a camera and a screen show a picture only, a microphone has sound only. Anything else is not played.
   const KIND_MIMES = { cam:['video/webm;codecs=vp8'], screen:['video/webm;codecs=vp8'], mic:['audio/webm;codecs=opus'] };
-  const ICE_MS = 5000, HAVE_MS = 4000, WANT_MS = 3000, P2_KEEP_MS = 12000, MAX_PEERS = 8, MAX_SDP = 60000, MAX_CHUNK = 900 * 1024;
+  const ICE_MS = 5000, HAVE_MS = 4000, WANT_MS = 3000, P2_KEEP_MS = 12000, MAX_PEERS = 8, MAX_SDP = 60000, MAX_CHUNK = 900 * 1024, SEG_MS = 3000, QUEUE_BYTES = 600 * 1024;
   // Quality presets: camera 720p30, screen 1080p30, the panel background 720p15 on a smaller bitrate
   const QUALITY = {
     cam:{ w:1280, h:720, fps:30, bps:2500000 },
@@ -254,30 +254,55 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       if(!login){ if(!quiet && sources.has(src.sid) && !src.tkWait){ src.tkWait = setTimeout(() => { src.tkWait = null; if(src.rec) ensureWs(src); }, 300); } return; }   // the ticket comes with the Host's answer to our `have`
       try{
         const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; src.ws = ws;
-        ws.onopen = () => { ws.send(login); for(const fr of src.q.splice(0)) ws.send(fr); };   // what was cut while the socket was opening (the header first)
+        let opened = 0;
+        ws.onopen = () => { opened = now(); ws.send(login); const q = src.q.splice(0); src.qBytes = 0; for(const fr of q) ws.send(fr); };   // what was cut while the socket was opening (the header first)
         ws.onerror = () => {};
+        // turned away at the door (a stale ticket): forget the ticket, the Host sends a fresh one with its answer to our next `have`; do not hoard pieces meanwhile
+        ws.onclose = () => { if(src.ws === ws){ src.ws = null; if(now() - (opened || now()) < 1500){ tickets.delete(src.sid); src.q.length = 0; src.qBytes = 0; src.qSkip = true; } } };
       }catch{}
     }
-    function stopRecorder(src){ src.q.length = 0; if(src.rec){ const r = src.rec; src.rec = null; try{ if(r.state !== 'inactive') r.stop(); }catch{} } }
+    function stopRecorder(src){ src.q.length = 0; src.qBytes = 0; src.qSkip = false; clearTimeout(src.segT); if(src.rec){ const r = src.rec; r._last = false; src.rec = null; try{ if(r.state !== 'inactive') r.stop(); }catch{} } }
+    // While the socket is not open, only the newest header and what follows it is kept (a piece without its header cannot be played anyway)
+    function enqueue(src, type, fr){
+      if(type === 0){ src.q = [fr]; src.qBytes = fr.length; src.qSkip = false; return; }
+      if(src.qSkip) return;
+      if(src.qBytes + fr.length > QUEUE_BYTES){ src.q.length = 0; src.qBytes = 0; src.qSkip = true; return; }   // too much: wait for the next header instead of sending a torn tail
+      src.q.push(fr); src.qBytes += fr.length;
+    }
+    // The recording is cut into segments: every SEG_MS a new recorder starts on the same stream, so a stream header and a key frame open each segment.
+    // The Host drops pieces for a lagging receiver and resumes at the next header; the receiver restarts its picture there.
+    function startRecorder(src){
+      let first = true, rec;
+      try{ rec = new MediaRecorder(src.stream, { mimeType:src.mime, videoBitsPerSecond:REC_BPS[src.kind], audioBitsPerSecond:src.kind === 'mic' ? REC_BPS.mic : 96000 }); }catch{ return; }
+      src.rec = rec;
+      rec.ondataavailable = e => {
+        if(!e.data?.size || e.data.size > MAX_CHUNK || src.rec !== rec) return;
+        const type = first ? 0 : 1; first = false;
+        // pieces go out strictly in order (sealing is asynchronous)
+        src.chain = (src.chain || Promise.resolve()).then(async () => {
+          const raw = new Uint8Array(await e.data.arrayBuffer()), plain = new Uint8Array(8 + raw.length);
+          new DataView(plain.buffer).setFloat64(0, now()); plain.set(raw, 8);
+          const sealed = await seal(o.keys(), plain, !!o.sign);
+          if(src.rec !== rec && !rec._last) return;
+          ensureWs(src);
+          const fr = new Uint8Array(1 + sealed.length); fr[0] = type; fr.set(sealed, 1);
+          if(src.ws?.readyState === 1) src.ws.send(fr);
+          else if(!src.ws || src.ws.readyState === 0) enqueue(src, type, fr);   // the socket is still opening (or waits for the ticket)
+        }).catch(() => {});
+      };
+      rec.start(250);
+      src.segT = setTimeout(() => {
+        if(src.rec !== rec || quiet) return;
+        rec._last = true;   // its last piece (given on stop) still goes out
+        rec.onstop = () => { if(src.rec === rec){ src.rec = null; startRecorder(src); } };
+        try{ rec.stop(); }catch{ src.rec = null; startRecorder(src); }
+      }, o.segMs || SEG_MS);
+    }
     function ensureRecorder(src){
       ensureWs(src);
       stopRecorder(src);
       if(!root.MediaRecorder || !src.mime) return;
-      let first = true, rec;
-      try{ rec = new MediaRecorder(src.stream, { mimeType:src.mime, videoBitsPerSecond:REC_BPS[src.kind], audioBitsPerSecond:src.kind === 'mic' ? REC_BPS.mic : 96000 }); }catch{ return; }
-      src.rec = rec;
-      rec.ondataavailable = async e => {
-        if(!e.data?.size || e.data.size > MAX_CHUNK) return;
-        const type = first ? 0 : 1; first = false;
-        const raw = new Uint8Array(await e.data.arrayBuffer()), plain = new Uint8Array(8 + raw.length);
-        new DataView(plain.buffer).setFloat64(0, now()); plain.set(raw, 8);
-        const sealed = await seal(o.keys(), plain, !!o.sign);
-        ensureWs(src);
-        const fr = new Uint8Array(1 + sealed.length); fr[0] = type; fr.set(sealed, 1);
-        if(src.ws?.readyState === 1) src.ws.send(fr);
-        else if((!src.ws || src.ws.readyState === 0) && src.q.length < 30) src.q.push(fr);   // the socket is still opening (or waits for the ticket)
-      };
-      rec.start(250);
+      startRecorder(src);
     }
     every(() => { for(const s of sources.values()) if(s.rec && now() > s.p2Until){ stopRecorder(s); try{ s.ws?.close(); }catch{} s.ws = null; } }, 3000);
 
@@ -394,7 +419,9 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       if(!plain || plain.length < 16 || e.path !== 'host') return;
       e.lastFrame = now();
       const ts = new DataView(plain.buffer, plain.byteOffset, 8).getFloat64(0), data = plain.slice(8);
-      if(fr[0] === 0) resetMse(e);
+      // a new header in the middle of the stream (the sender cuts the recording into segments, the Host resumes a lagging receiver at one):
+      // a healthy buffer takes it as a new initialisation segment ('sequence' mode continues the timeline); a broken or missing one is rebuilt
+      if(fr[0] === 0 && (!e.mse?.sb || e.mse.bad || e.mse.ms.readyState !== 'open')) resetMse(e);
       if(!e.mse) return;
       if(Number.isFinite(ts)) e.ms = Math.max(0, Math.round(now() - ts));
       e.pend.push(data); if(e.pend.length > 40) e.pend.splice(0, e.pend.length - 10);
@@ -408,7 +435,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       e.mse = st; e.pend = []; e.url = URL.createObjectURL(ms);
       ms.addEventListener('sourceopen', () => {
         if(e.mse !== st) return;
-        try{ st.sb = ms.addSourceBuffer(mime); st.sb.mode = 'sequence'; st.sb.addEventListener('updateend', () => pump(e)); pump(e); }catch{ e.path = 'none'; change(); }
+        try{ st.sb = ms.addSourceBuffer(mime); st.sb.mode = 'sequence'; st.sb.addEventListener('updateend', () => pump(e)); st.sb.addEventListener('error', () => { st.bad = true; }); pump(e); }catch{ e.path = 'none'; change(); }
       });
       change();
     }
@@ -419,7 +446,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
         const v = e.el;
         if(v && sb.buffered.length && v.currentTime - sb.buffered.start(0) > 10){ sb.remove(0, v.currentTime - 4); return; }
         if(e.pend.length) sb.appendBuffer(e.pend.shift());
-      }catch(err){ if(err.name === 'QuotaExceededError') e.pend.splice(0, e.pend.length - 2); }
+      }catch(err){ if(err.name === 'QuotaExceededError') e.pend.splice(0, e.pend.length - 2); else st.bad = true; }
     }
     // keep the picture near the live edge
     every(() => {

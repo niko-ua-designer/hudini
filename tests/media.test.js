@@ -19,7 +19,7 @@ async function stubHost(port){
   const { Aedes } = await import('aedes');
   const { createWebSocketStream } = require('ws');
   const aedes = await Aedes.createBroker();
-  const stats = { rtc: [], media: 0, mediaSocks: 0, auth: [], types: new Set() };
+  const stats = { rtc: [], media: 0, mediaSocks: 0, hdrs: 0, auth: [], types: new Set() };
   const srv = http.createServer((q, r) => { r.setHeader('access-control-allow-origin', '*'); r.setHeader('access-control-allow-headers', '*'); r.statusCode = q.method === 'OPTIONS' ? 204 : 404; r.end(); });
   const mqttWss = new WSS({ noServer: true, handleProtocols: p => (p.has ? (p.has('mqtt') ? 'mqtt' : false) : p.includes?.('mqtt') ? 'mqtt' : false) });
   const mediaWss = new WSS({ noServer: true, maxPayload: 1 << 20 });
@@ -60,7 +60,7 @@ async function stubHost(port){
       if(!bySid.has(sid)) bySid.set(sid, new Set()); bySid.get(sid).add(ws);
       ws.on('message', (d, bin) => {
         if(typeof d === 'string'){ stats.auth.push(d); let m = {}; try{ m = JSON.parse(d); }catch{} if([...(issued.get(sid)?.values() || [])].includes(m.t)){ ws._authed = true; if(inits.has(sid) && m.u !== 'streamer') ws.send(inits.get(sid), { binary: true }); } else ws.close(); return; }   // a login counts only with a ticket the stand-in issued for this sid
-        stats.media++; stats.types.add(d[0]); if(d[0] === 0) inits.set(sid, Buffer.from(d));   // like the Host: the stream header is kept for late receivers
+        stats.media++; stats.types.add(d[0]); if(d[0] === 0){ inits.set(sid, Buffer.from(d)); stats.hdrs++; }   // like the Host: the stream header is kept for late receivers
         for(const o of bySid.get(sid)) if(o !== ws && o.readyState === 1 && o._authed) o.send(d, { binary: true });
       });
       ws.on('close', () => bySid.get(sid)?.delete(ws));
@@ -346,6 +346,17 @@ async function stubHost(port){
     check(ms.length >= 1 && ms[0] != null && ms[0] < 3000, 'latency measured: ' + ms);
     await panel.screenshot({ path: shot('media-panel-p2') }).catch(() => {});
     await wid.screenshot({ path: shot('media-widget-p2') }).catch(() => {});
+  });
+
+  await step('path 2: the sender cuts the recording into segments; the receiver takes a new header in the middle of the stream', async () => {
+    const h0 = stub.stats.hdrs, probe = () => wid.evaluate(() => { const e = [...media.recvs.values()].find(x => x.kind === 'cam'); return e ? { url: e.url, path: e.path, bad: !!e.mse?.bad, st: e.mse?.ms?.readyState } : null; });
+    const p0 = await probe();
+    await sleep(8000);
+    const p1 = await probe();
+    check(stub.stats.hdrs >= h0 + 2, 'new stream headers keep coming (a segment of about 3 s): ' + (stub.stats.hdrs - h0));
+    eq([p1.path, p1.bad, p1.st], ['host', false, 'open'], 'the receiver stays on the Host path with a healthy buffer');
+    eq(p1.url, p0.url, 'the same MediaSource took the new headers (not rebuilt)');
+    check(await alive(), 'the picture keeps moving across the segment borders');
   });
 
   await step('path 2: the Host sees only sealed bytes; forged pieces are ignored', async () => {

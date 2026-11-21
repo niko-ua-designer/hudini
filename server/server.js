@@ -795,6 +795,7 @@ function mediaUpgrade(mod, req, socket, head){
         }else if(sess.peers.has(id) && sess.recv.size < MEDIA_PEERS){
           sess.recv.add(ws);
           if(sess.init) try{ ws.send(sess.init, { binary:true }); }catch{}
+          ws._skip = true;   // середина записи без заголовка не воспроизводится: ждём следующий заголовок (отправитель режет запись на сегменты)
         }else return bad();
         authed = true; clearTimeout(pendTimer); unpend();
         return;
@@ -808,7 +809,10 @@ function mediaUpgrade(mod, req, socket, head){
       for(const r of sess.recv){
         if(r.readyState!==1) continue;
         if(r.bufferedAmount > 16*1048576){ try{ r.terminate(); }catch{} continue; }
-        if(r.bufferedAmount > 4*1048576 && b[0]!==0) continue;   // отстающему получателю куски пропускаем, заголовок не пропускаем
+        // Куски WebM зависят друг от друга: отстающему пропустили один — следующие до нового заголовка (ключевой кадр) бесполезны, их не шлём
+        if(b[0]===0) r._skip = false;
+        else if(r._skip) continue;
+        else if(r.bufferedAmount > 4*1048576){ r._skip = true; continue; }
         try{ r.send(b, { binary:true }); }catch{}
       }
     });
