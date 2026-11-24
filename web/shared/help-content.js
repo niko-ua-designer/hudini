@@ -16,7 +16,7 @@ ru: {
 <p>Модератор подключается <b>напрямую</b> к ПК стримера, сервера Hudini посередине нет. Работает с Twitch, YouTube и любой платформой, где стримят через OBS.</p>`],
 ['streamer', 'Стример: первый запуск', `
 <ol>
-<li>Скачай Hudini для своей системы со страницы <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, распакуй и запусти.</li>
+<li>Скачай Hudini для своей системы со страницы <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, распакуй и запусти.</li>
 <li>Выбери вкладку <b>Стример</b> и нажми «Запустить». Галочка «Запоминать роль» пропустит этот экран в следующий раз.</li>
 <li>В окне управления в карточке <b>«Ссылка для OBS»</b> нажми «Копировать». В OBS: Источники → <b>+</b> → <b>Браузер</b>, вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>, затем выдели источник и нажми <kbd>Ctrl+F</kbd>.</li>
 <li>Выберите с модератором способ связи (раздел «Как подключиться» ниже). Windows при первом запуске спросит про брандмауэр: разреши для частных сетей.</li>
@@ -189,7 +189,7 @@ en: {
 <p>The moderator connects <b>straight</b> to the streamer's PC, there is no Hudini server in the middle. It works with Twitch, YouTube and any platform you stream to through OBS.</p>`],
 ['streamer', 'Streamer: first start', `
 <ol>
-<li>Download Hudini for your system from <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, unpack it and run it.</li>
+<li>Download Hudini for your system from <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, unpack it and run it.</li>
 <li>Choose the <b>Streamer</b> tab and press Start. The "Remember the role" tick skips this screen next time.</li>
 <li>In the control window, in the card <b>"Link for OBS"</b>, press Copy. In OBS: Sources → <b>+</b> → <b>Browser</b>, paste the link, width <b>1920</b>, height <b>1080</b>, then select the source and press <kbd>Ctrl+F</kbd>.</li>
 <li>Agree with your moderator on how to connect (the "How do we connect?" section below). On the first start Windows asks about the firewall: allow private networks.</li>
@@ -290,6 +290,7 @@ en: {
 <li><b>Map series</b>: format BO1, BO3 or BO5. Hudini records the result of each map itself, and you can reset the score or fix it by hand. The series shows in the scorebar, hud_tour and the auto scoreboard.</li>
 <li><b>Auto scoreboard</b>: an animated table with all players (K/D, ADR, HS%, money, weapon, score, series). It appears on its own during tactical timeouts and pauses, at the side switch and at the end of the map with results and MVP. The switch and the choice of moments are in the CS2 tab, and there are four styles.</li>
 <li><b>Player numbers.</b> The auto scoreboard has a switch: "as in the game" (the CS2 spectator keys) or "in HUD order" (left 1–5, right 6–0).</li>
+<li><b>Strip from nicknames.</b> In the CS2 settings there is a list of words that are cut out of player nicknames on screen (for example the Lite and Premium tags). Words are separated by commas, the default is "Lite, Premium", and an empty field strips nothing.</li>
 <li><b>Radar</b>: where each player stands, team colour, slot number, the dead and the bomb. Branded maps in three themes.</li>
 <li><b>Grenades on the radar</b>: molotovs, HE, flashes and smokes fly with a trail and leave their effect zone. Switch it on in the radar settings, where you also pick the types and the look (icons with a trail or plain dots). It needs the CS2 file from Hudini Host: after updating press "Connect CS2" and restart the game. It works while you watch a match as a spectator.</li>
 </ul>`],
@@ -361,7 +362,7 @@ uk: {
 <p>Модератор підключається <b>напряму</b> до ПК стрімера, сервера Hudini посередині немає. Працює з Twitch, YouTube і будь-якою платформою, де стрімлять через OBS.</p>`],
 ['streamer', 'Стрімер: перший запуск', `
 <ol>
-<li>Завантаж Hudini для своєї системи зі сторінки <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, розпакуй і запусти.</li>
+<li>Завантаж Hudini для своєї системи зі сторінки <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, розпакуй і запусти.</li>
 <li>Обери вкладку <b>Стрімер</b> і натисни «Запустити». Галочка «Запам'ятовувати роль» пропустить цей екран наступного разу.</li>
 <li>У вікні керування в картці <b>«Посилання для OBS»</b> натисни «Копіювати». В OBS: Джерела → <b>+</b> → <b>Браузер</b>, встав посилання, ширина <b>1920</b>, висота <b>1080</b>, потім виділи джерело й натисни <kbd>Ctrl+F</kbd>.</li>
 <li>Домовтеся з модератором про спосіб зв'язку (розділ «Як підключитися» нижче). Під час першого запуску Windows спитає про брандмауер: дозволь для приватних мереж.</li>
@@ -462,6 +463,7 @@ uk: {
 <li><b>Серія карт</b>: формат BO1, BO3 або BO5. Host сам записує підсумок кожної карти, рахунок можна скинути або поправити вручну. Серія видна в scorebar, hud_tour і в авто-табі.</li>
 <li><b>Авто-таб</b>: анімована таблиця з усіма гравцями (K/D, ADR, HS%, гроші, зброя, рахунок, серія). З'являється сама на тактичних таймаутах і паузі, під час зміни сторін і в кінці карти з підсумками та MVP. Перемикач і вибір моментів на вкладці CS2, є чотири стилі.</li>
 <li><b>Номери гравців.</b> В авто-табі є перемикач: «як у грі» (клавіші спостерігача CS2) або «за порядком у худі» (ліворуч 1–5, праворуч 6–0).</li>
+<li><b>Прибрати з ніків.</b> У налаштуваннях CS2 є список слів, які вирізаються з ніків гравців на екрані (наприклад, приписки Lite і Premium). Слова через кому, за замовчуванням «Lite, Premium», порожнє поле нічого не прибирає.</li>
 <li><b>Радар</b>: де стоїть кожен гравець, колір команди, номер слота, мертві й бомба. Фірмові карти в трьох темах.</li>
 <li><b>Гранати на радарі</b>: молотов, HE, флешка й дим летять зі слідом і лишають зону дії. Вмикається в налаштуваннях радара, типи й вигляд (значки зі слідом або точки) обираються там же. Потрібен файл CS2 з Hudini Host: після оновлення натисни «Підключити CS2» і перезапусти гру. Працює, коли ти дивишся матч глядачем.</li>
 </ul>`],
@@ -533,7 +535,7 @@ de: {
 <p>Der Mod verbindet sich <b>direkt</b> mit dem PC des Streamers, ein Hudini-Server dazwischen existiert nicht. Funktioniert mit Twitch, YouTube und jeder Plattform, auf die du über OBS streamst.</p>`],
 ['streamer', 'Streamer: erster Start', `
 <ol>
-<li>Lade Hudini für dein System von <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a> herunter, entpacke es und starte es.</li>
+<li>Lade Hudini für dein System von <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a> herunter, entpacke es und starte es.</li>
 <li>Wähle den Tab <b>Streamer</b> und drücke „Starten“. Das Häkchen „Rolle merken“ überspringt diesen Bildschirm beim nächsten Mal.</li>
 <li>Drücke im Steuerfenster in der Karte <b>„Link für OBS“</b> auf Kopieren. In OBS: Quellen → <b>+</b> → <b>Browser</b>, Link einfügen, Breite <b>1920</b>, Höhe <b>1080</b>, dann die Quelle auswählen und <kbd>Strg+F</kbd> drücken.</li>
 <li>Vereinbart mit deinem Mod, wie ihr euch verbindet (Abschnitt „Wie verbinden wir uns?“ unten). Beim ersten Start fragt Windows nach der Firewall: erlaube private Netzwerke.</li>
@@ -634,6 +636,7 @@ de: {
 <li><b>Kartenserie</b>: Format BO1, BO3 oder BO5. Host speichert das Ergebnis jeder Karte selbst, den Stand kannst du zurücksetzen oder von Hand korrigieren. Die Serie steht im Scorebar, im hud_tour und im Auto-Tab.</li>
 <li><b>Auto-Tab</b>: eine animierte Tabelle mit allen Spielern (K/D, ADR, HS%, Geld, Waffe, Stand, Serie). Sie erscheint von selbst bei taktischen Auszeiten und Pausen, beim Seitenwechsel und am Kartenende mit Ergebnis und MVP. Schalter und Auswahl der Momente sind im CS2-Tab, es gibt vier Stile.</li>
 <li><b>Spielernummern.</b> Der Auto-Tab hat einen Schalter: „wie im Spiel“ (die Zuschauertasten von CS2) oder „in HUD-Reihenfolge“ (links 1–5, rechts 6–0).</li>
+<li><b>Aus Nicknamen entfernen.</b> In den CS2-Einstellungen gibt es eine Wortliste, die aus den Spielernamen auf dem Bildschirm herausgeschnitten wird (zum Beispiel die Zusätze Lite und Premium). Die Wörter stehen durch Kommas getrennt, standardmäßig „Lite, Premium“; ein leeres Feld entfernt nichts.</li>
 <li><b>Radar</b>: wo jeder Spieler steht, Teamfarbe, Slot-Nummer, Tote und die Bombe. Eigene Karten in drei Themen.</li>
 <li><b>Granaten auf dem Radar</b>: Molotow, HE, Flash und Rauch fliegen mit Spur und lassen ihre Wirkungszone zurück. Das schaltest du in den Radar-Einstellungen ein, dort wählst du auch Typen und Look (Symbole mit Spur oder einfache Punkte). Nötig ist die CS2-Datei aus Hudini Host: nach dem Update "CS2 verbinden" drücken und das Spiel neu starten. Funktioniert, wenn du ein Match als Zuschauer ansiehst.</li>
 </ul>`],
