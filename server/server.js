@@ -1818,6 +1818,7 @@ async function filesApi(req, res, url, mod){
   if(req.method==='OPTIONS') return send(res, 204, '', 'text/plain', extra);
   if(!ROOM) return j(503, { ok:false, error:'комната ещё не создана' });
   if(mod && !cfg.modsOn) return j(503, { ok:false, error:'стример не пускает модераторов' });
+  if(mod && ctl.paused) return j(423, { ok:false, error:'пауза модераторов' });   // та же пауза, что и для входа и записи
   const id = p.startsWith('/files/') ? p.slice(7) : '';
   const room = url.searchParams.get('room') || ROOM.room;
   // Виджет на этом же компьютере читает файлы текущей комнаты без пароля, всё остальное только с паролем модераторов
