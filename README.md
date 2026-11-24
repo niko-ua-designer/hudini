@@ -1,12 +1,44 @@
 # Hudini
 
 A free, open-source stream overlay for OBS with a remote control for your moderator.
-Timers, polls, counters, pictures, a 3D case and more appear on the stream while a moderator runs them from their own PC.
+Text, pictures, GIFs, timers, polls, giveaways and more appear on the stream while a moderator runs them from their own PC.
 
-One app, two roles: the same download is installed on the streamer's PC and on the moderator's PC. The role is chosen on the first start (**I am a streamer** / **I am a moderator**).
+One app, two roles: the same download goes on the streamer's PC and on the moderator's PC. Pick the role on the first start (**I am a streamer** / **I am a moderator**).
 
-- Site, downloads and guides: <https://niko-ua-designer.github.io/hudini/>
-- Releases: <https://github.com/niko-ua-designer/hudini/releases>
+- Site, guides and downloads: <https://niko-ua-designer.github.io/hudini/>
+- Latest release: <https://github.com/niko-ua-designer/hudini/releases/latest>
+
+## Download
+
+Grab one archive from the [latest release](https://github.com/niko-ua-designer/hudini/releases/latest):
+
+| System | Archive |
+|---|---|
+| Windows | `HudiniHost-windows-<version>.zip` |
+| Linux | `HudiniHost-linux-<version>.zip` |
+| macOS (Apple Silicon and Intel) | `HudiniHost-mac-<version>.zip` (one universal build) |
+
+Unzip it anywhere and start the app. Your settings live in the `data/` folder next to it.
+Windows and Linux update themselves. If you run 1.0.0 on a Mac, download 1.1 by hand once and keep your `data/` folder; after that updates are automatic.
+
+## Quick start
+
+1. Streamer: start Hudini, choose **I am a streamer**, add the Browser source link to OBS.
+2. Streamer: copy the room code (`hudini1:...`) and send it to the moderator.
+3. Moderator: start Hudini, choose **I am a moderator**, paste the code and connect.
+
+## What's new in 1.1
+
+- Camera, screen and microphone from a moderator or guest. The permissions are off by default and each request is confirmed in the dock.
+- Moderators see each other's cursors, and you can draw right on the canvas.
+- Resize from any edge or corner; hold Alt to crop.
+- Undo and redo work per element and sync between panels.
+- 7TV, BTTV and FFZ emotes in chat.
+- Hudini Host: an event log, per-moderator permissions and a dock with quick controls.
+- Giveaways in one tab: the 3D case and a roulette with weighted prizes.
+- CS2 add-on: radar with grenades, players numbered 1-0, series score.
+
+Full list: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it works
 
@@ -30,22 +62,23 @@ Step-by-step guides for each way (streamer side, moderator side, how to check, w
 
 ## Features
 
-- Text, pictures, GIFs and websites by link
-- Move, scale, rotate; squeeze and stretch pictures by the side handles
-- Select several elements and group them
+- Text, pictures, GIFs, videos and websites by link
+- Move, scale, rotate, crop and group elements
 - Polls that count votes from chat
 - Flip-clock timers and counters
-- 3D case with 4 kinds
-- Raffle
-- Scenarios on chat commands ("if ... then ...": chat command, CS2 event, timer end, counter goal or a button)
+- Chat on screen with 7TV, BTTV and FFZ emotes
+- Giveaways: 3D case and roulette
+- Scenarios on chat commands ("if ... then ...": chat command, timer end, counter goal or a button)
 - Sound tab
-- CS2 tournament HUD with live data from the game (beta)
+- Camera, screen and microphone from moderators
+- Several moderators at once, with permissions
+- CS2 tournament HUD with radar and live data from the game (add-on, beta)
 
 ## Project structure
 
 | Path | What is there |
 |---|---|
-| `web/shared/` | Shared code and assets: `core.js`, `core.css` (render), `case3d.js`, `i18n.js` (en/uk/de), `icons.js`, `help-content.js`, `connect-guides.js`, presets, vendor, fonts, icons |
+| `web/shared/` | Shared code and assets: `core.js`, `core.css` (render), `case3d.js`, `i18n.js` (panel translations: en/uk/de; Russian is the built-in source text), `icons.js`, `help-content.js`, `connect-guides.js`, presets, vendor, fonts, icons |
 | `web/widget/` | `widget.html`, the OBS browser source |
 | `web/panel/` | The moderator panel (`moderator.html`, `moderator.js`, `ui.js`, `ui.css`) |
 | `web/app/` | App start screen, saved sessions, log and data storage pages |
