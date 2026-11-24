@@ -1522,6 +1522,8 @@ async function unseal(keys, buf, requireSig=true){
   try{
     const b = new Uint8Array(buf);
     if(b.length<30 || b[0]!==1) return null;
+    if(b[1]!==0 && b[1]!==1) return null;
+    // the caller decides whether a signature is required; the flag in the packet only says whether one is attached
     const signed = b[1]===1; if(requireSig && !signed) return null;
     const iv = b.subarray(2,14), ct = b.subarray(signed?78:14);
     if(signed){

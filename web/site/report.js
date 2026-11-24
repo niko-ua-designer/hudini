@@ -42,6 +42,16 @@
 
   const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const S = { step: 0, type: 'bug', ver: '', os: detectOs(), role: 'Streamer', conn: '', what: '', steps: '', copied: false };
+  {   // the program opens this page with its own facts: ?v=1.1.2&os=linux&role=streamer&conn=zerotier
+    const q = new URLSearchParams(location.search);
+    const OSMAP = { windows:'Windows', linux:'Linux', 'macos-arm':'macOS (Apple Silicon)', 'macos-intel':'macOS (Intel)', macos:'macOS (Apple Silicon)' };
+    const ROLES = { streamer:'Streamer', moderator:'Moderator', both:'Both' };
+    const CONNS = { radmin:'Radmin VPN', porthole:'Porthole (Steam)', tailscale:'Tailscale', zerotier:'ZeroTier', hamachi:'Hamachi', ext:'Port forwarding', lan:'Same PC or local network' };
+    const v = (q.get('v') || '').slice(0, 20); if(/^[\w.\-]+$/.test(v)) S.ver = v;
+    if(OSMAP[q.get('os')]) S.os = OSMAP[q.get('os')];
+    if(ROLES[q.get('role')]) S.role = ROLES[q.get('role')];
+    if(CONNS[q.get('conn')]) S.conn = CONNS[q.get('conn')];
+  }
   let lang = 'en', clean = null;
   const t = () => R[lang] || R.en, TOTAL = 5;
 
@@ -67,14 +77,15 @@
     } else if(n === 2){
       h = `<p>${k.s3p}</p>` + (idea ? field('fWhat', k.fIdea, k.fIdeaH, `<textarea id="fWhat" rows="5">${esc(S.what)}</textarea>`)
         : field('fWhat', k.fWhat, k.fWhatH, `<textarea id="fWhat" rows="4">${esc(S.what)}</textarea>`) + field('fSteps', k.fSteps, k.fStepsH, `<textarea id="fSteps" rows="4">${esc(S.steps)}</textarea>`));
-      h += `<div class="rp-prev"><span>${k.preview}</span><pre id="prev"></pre><button type="button" class="btn small" id="copy"></button></div>`;
     } else if(n === 3){
       const { truncated } = buildUrl(S);
       h = `<p>${k.s4p}</p><ol class="rp-ol">${k.acc.map(x => `<li>${x}</li>`).join('')}</ol><p class="rp-soft">${k.accHave}</p>
+        <p class="rp-note">${k.logNote}</p>
         <div class="rp-act"><a class="btn primary shine" id="gh" target="_blank" rel="noopener noreferrer"></a></div>${truncated ? `<p class="rp-note">${k.long}</p>` : ''}`;
     } else {
       h = `<p>${k.s5p}</p><ol class="rp-ol">${k.logSteps.map(x => `<li>${x}</li>`).join('')}</ol>
         <div class="rp-chk"><b>${k.chkH}</b><p>${k.chkP}</p><input type="file" id="logFile" accept=".log,.txt,text/plain"><div id="chkOut" aria-live="polite"></div></div>
+        <div class="rp-prev"><span>${k.preview}</span><pre id="prev"></pre><button type="button" class="btn small" id="copy"></button></div>
         <p class="rp-ok">${k.done}</p>`;
     }
     $('body').innerHTML = h;

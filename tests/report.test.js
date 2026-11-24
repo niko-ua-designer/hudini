@@ -43,6 +43,14 @@ async function siteServer(){
     await p.context().close();
   });
 
+  await step('the link from the program fills version, system, role and connection', async () => {
+    const p = await newPage('rep-prefill', { app: false, lang: 'en' });
+    await p.goto(`${site.url}/report.html?lang=en&v=1.1.2&os=linux&role=moderator&conn=zerotier`); await p.waitForSelector('#stTitle');
+    await p.click('[data-type="bug"]'); await p.click('#next');
+    eq(await p.inputValue('#fVer'), '1.1.2', 'version'); eq(await p.inputValue('#fOs'), 'Linux', 'system'); eq(await p.inputValue('#fRole'), 'Moderator', 'role'); eq(await p.inputValue('#fConn'), 'ZeroTier', 'connection');
+    await p.context().close();
+  });
+
   await step('wizard: five steps to the GitHub link', async () => {
     const p = await open();
     check((await p.textContent('#stepOf')).includes('1') && (await p.textContent('#stepOf')).includes('5'), 'step counter');
@@ -53,11 +61,13 @@ async function siteServer(){
     check(await p.isDisabled('#next'), 'next is blocked until something is written');
     await p.fill('#fWhat', 'The panel freezes when I add a timer'); await p.fill('#fSteps', '1. open timer tab');
     check(!(await p.isDisabled('#next')), 'next unlocks');
-    const prev = await p.textContent('#prev'); check(prev.includes('Tailscale') && prev.includes('The panel freezes'), 'live preview', prev);
+    check(!(await p.$('#prev')), 'the report preview is not shown while describing');
     await p.click('#next');
     const href = await p.getAttribute('#gh', 'href'); const u = new URL(href);
     eq(u.searchParams.get('what'), 'The panel freezes when I add a timer', 'link carries the description'); eq(u.searchParams.get('connection'), 'Tailscale', 'link carries the connection');
+    check((await p.textContent('.rp-note')).length > 10, 'step 4 asks to attach the log');
     await p.click('#next'); eq(await p.textContent('#stTitle'), 'Attach the log', 'step 5');
+    const prev = await p.textContent('#prev'); check(prev.includes('Tailscale') && prev.includes('The panel freezes'), 'the report and Copy are at the very end', prev);
     await p.setInputFiles('#logFile', { name: 'app.log', mimeType: 'text/plain', buffer: Buffer.from('start\njoin hudini1:SECRETKEY123 ok\n') });
     await p.waitForSelector('#dlClean'); check((await p.textContent('#chkOut')).includes('1 room code'), 'finds the room code in a log');
     await p.setInputFiles('#logFile', { name: 'ok.log', mimeType: 'text/plain', buffer: Buffer.from('all fine\n') });

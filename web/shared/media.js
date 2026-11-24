@@ -37,7 +37,8 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
   };
   const REC_BPS = { cam:2000000, screen:3500000, mic:64000 };   // the recorder for path 2: together with sound under 4 Mbit/s
 
-  const rnd = (n, abc) => { const a = crypto.getRandomValues(new Uint8Array(n)); let s = ''; for(const b of a) s += abc[b % abc.length]; return s; };
+  // uniform pick from the alphabet: bytes at or above the largest multiple of the length are thrown away (no modulo bias)
+  const rnd = (n, abc) => { const lim = 256 - (256 % abc.length); let s = ''; while(s.length < n){ for(const b of crypto.getRandomValues(new Uint8Array(n * 2))){ if(b < lim && s.length < n) s += abc[b % abc.length]; } } return s; };
   const newSid = () => rnd(12, 'abcdefghijklmnopqrstuvwxyz0123456789');
   const isStr = v => typeof v === 'string';
 

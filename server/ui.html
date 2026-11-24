@@ -102,6 +102,10 @@ details[open] summary{margin-bottom:10px}
 .dot.off{background:#4a5060}
 @media (max-width:700px){ .cols{grid-template-columns:1fr} }
 @media (max-width:560px){ .lim{grid-template-columns:1fr} .row{flex-wrap:wrap} .row>input{flex-basis:100%} }
+.updbar{height:8px;border-radius:99px;background:var(--line,#2a2f3a);overflow:hidden;margin:10px 0 2px}
+.updbar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#a78bfa);transition:width .3s}
+.updbar.busy i{width:35%;animation:updSlide 1.2s ease-in-out infinite}
+@keyframes updSlide{0%{margin-left:-35%}100%{margin-left:100%}}
 </style>
 </head>
 <body>
@@ -228,6 +232,8 @@ details[open] summary{margin-bottom:10px}
     <h2>🔄 Обновления</h2>
     <div class="row" style="margin-top:0"><span id="updInfo" class="hint" style="flex:1;margin:0">—</span>
       <button id="updCheck">Проверить</button><button id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
+    <div class="updbar" id="updBar" hidden><i id="updFill"></i></div>
+    <div class="hint" id="updWhen" style="margin:6px 0 0"></div>
     <label class="hint check" style="margin-top:10px"><input type="checkbox" id="updAuto"> Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)</label>
   </div>
 
@@ -264,7 +270,8 @@ details[open] summary{margin-bottom:10px}
       <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/" target="_blank" rel="noopener">Сайт</a>
       <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/help.html" target="_blank" rel="noopener">Справка</a>
       <a class="rolelink" href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">Исходный код</a>
-      <a class="rolelink" href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener">Сообщить о проблеме</a>
+      <a class="rolelink" id="reportLink" href="https://niko-ua-designer.github.io/hudini/report.html?lang=en" target="_blank" rel="noopener">Сообщить о проблеме</a>
+      <a class="rolelink" href="https://t.me/Hudini_DEV?direct" target="_blank" rel="noopener" data-i18n-skip>Telegram</a>
       <a class="rolelink" href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener">Лицензия</a>
     </div>
     <div class="hint" style="margin-top:12px">Спасибо тестерам: <b data-i18n-skip>Etsuitoku, SaiYeah1, 0_pelmechka_0, runorn</b></div>
@@ -339,10 +346,14 @@ async function refresh(){
     if(c.weapon) add('Оружие', WEAP[c.weapon.replace('weapon_','')]||c.weapon.replace('weapon_',''));
   }
   const u=s.upd||{};
+  $('reportLink').href=reportHref(s);
   $('updInfo').textContent = !u.compiled ? 'Запущено из исходников: обновляй через git pull' :
-    u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…` :
+    u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…${u.prog?.total ? ' '+Math.round(100*u.prog.done/u.prog.total)+'%' : ''}` :
     u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
     u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
+  { const dl=u.state==='downloading'; $('updBar').hidden=!(dl||u.state==='checking'); $('updBar').classList.toggle('busy', !(dl && u.prog?.total));
+    $('updFill').style.width = dl && u.prog?.total ? Math.round(100*u.prog.done/u.prog.total)+'%' : '';
+    $('updWhen').textContent = !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(window.HudiniI18n?.lang==='ru'?'ru':window.HudiniI18n?.lang||'en', { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось'; }
   $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
   $('logs').textContent=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n'); $('logs').scrollTop=1e9;
 }
@@ -352,6 +363,11 @@ $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
 $('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
+const reportHref=(s)=>{ const q=new URLSearchParams({ lang:window.HudiniI18n?.lang||'en', role:'streamer' }); if(s?.version) q.set('v', s.version);
+  const ua=navigator.userAgent||''; q.set('os', /Windows/i.test(ua)?'windows':/Mac/i.test(ua)?'macos':/Linux|X11/i.test(ua)?'linux':'windows');
+  const nets=(s?.addrs||[]).map(a=>a.net).filter(n=>['radmin','porthole','tailscale','zerotier','hamachi','ext'].includes(n)); if(nets.length===1) q.set('conn', nets[0]);
+  return 'https://niko-ua-designer.github.io/hudini/report.html?'+q; };
+$('reportLink').href=reportHref();
 $('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
 // the dock must open on localhost (the widget's origin): on 127.0.0.1 the status API hides everything without the admin cookie
 const DOCK_URL=`http://localhost:${location.port||'7777'}/dock`;

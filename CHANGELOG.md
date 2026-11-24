@@ -2,6 +2,36 @@
 
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
 
+## 1.1.2
+
+**EN**
+- More translations in the Hudini Host window: the connection hints (Tailscale, Radmin VPN, Hamachi, ZeroTier, Porthole, port forwarding), the empty online list, copy buttons, the port line, confirmations and update messages now follow the selected language.
+- The panel messages about connection problems and the room keys warning are translated too.
+- The updater shows a progress bar while the update downloads and the time of the last check.
+- The first start offers the language with English as the default.
+- “Report a problem” in the program opens the report page on the site in the current language instead of GitHub.
+
+**RU**
+- Ещё переводы в окне Hudini Host: подсказки по подключению (Tailscale, Radmin VPN, Hamachi, ZeroTier, Porthole, проброс порта), пустой список «на связи», кнопки копирования, строка про порт, подтверждения и сообщения об обновлении теперь следуют выбранному языку.
+- Сообщения пульта о проблемах подключения и предупреждение про ключи комнаты тоже переведены.
+- Апдейтер показывает прогресс-бар при скачивании обновления и время последней проверки.
+- При первом запуске предлагается выбрать язык, по умолчанию английский.
+- «Сообщить о проблеме» в программе открывает страницу сообщения на сайте на текущем языке, а не GitHub.
+
+**UK**
+- Ще переклади у вікні Hudini Host: підказки щодо підключення (Tailscale, Radmin VPN, Hamachi, ZeroTier, Porthole, прокидання порту), порожній список «на зв’язку», кнопки копіювання, рядок про порт, підтвердження та повідомлення про оновлення тепер відповідають обраній мові.
+- Повідомлення пульта про проблеми підключення та попередження про ключі кімнати теж перекладені.
+- Оновлення показує індикатор прогресу під час завантаження та час останньої перевірки.
+- Під час першого запуску пропонується обрати мову, за замовчуванням англійська.
+- «Повідомити про проблему» в програмі відкриває сторінку повідомлення на сайті поточною мовою, а не GitHub.
+
+**DE**
+- Weitere Übersetzungen im Hudini-Host-Fenster: die Verbindungshinweise (Tailscale, Radmin VPN, Hamachi, ZeroTier, Porthole, Portweiterleitung), die leere Online-Liste, Kopier-Knöpfe, die Port-Zeile, Bestätigungen und Update-Meldungen folgen jetzt der gewählten Sprache.
+- Die Pult-Meldungen zu Verbindungsproblemen und die Warnung zu Raumschlüsseln sind ebenfalls übersetzt.
+- Der Updater zeigt beim Herunterladen einen Fortschrittsbalken und die Zeit der letzten Prüfung.
+- Beim ersten Start wird die Sprache angeboten, Englisch ist voreingestellt.
+- „Problem melden“ im Programm öffnet die Meldeseite auf der Website in der aktuellen Sprache statt GitHub.
+
 ## 1.1.1
 
 **EN**

@@ -30,7 +30,7 @@ import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // Роль модератора: сервер не открывает портов, только проверяет и ставит обновления
@@ -1406,6 +1406,7 @@ function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve()
 // Подложки радара вшиты в программу; недостающие берём с сайта и держим в кэше. Своя картинка в data/radar важнее.
 const RADAR_CACHE = path.join(CACHE, 'radar');
 async function radarImg(name){
+  if(typeof name!=='string' || !/^[a-z0-9_-]{1,60}\.webp$/.test(name)) return null;
   const dirs = [path.join(BASE, 'radar'), ...(compiled ? [] : [path.join(import.meta.dir, '..', 'web', 'shared', 'radar')]), RADAR_CACHE];
   for(const d of dirs){ try{ return fs.readFileSync(path.join(d, name)); }catch{} }
   // подложки вшиты в саму программу (tools/radar-embed.sh): работает без интернета и до выхода сайта
@@ -1415,7 +1416,7 @@ async function radarImg(name){
     const r = await fetch(SITE+'shared/radar/'+name, { signal:AbortSignal.timeout(6000) });
     if(!r.ok) return null;
     const b = Buffer.from(await r.arrayBuffer());
-    if(b.length > 2*1048576 || b.subarray(8, 12).toString()!=='WEBP') return null;
+    if(b.length < 12 || b.length > 2*1048576 || b.subarray(0, 4).toString()!=='RIFF' || b.subarray(8, 12).toString()!=='WEBP' || b.readUInt32LE(4) + 8 !== b.length) return null;   // a real WebP: RIFF size matches the body
     fs.mkdirSync(RADAR_CACHE, { recursive:true }); fs.writeFileSync(path.join(RADAR_CACHE, name), b);
     return b;
   }catch{ return null; }
@@ -1442,7 +1443,7 @@ const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(A
 const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
 const APP_ENTRY = APP_BUNDLE ? path.basename(APP_BUNDLE) : '';
 const startedAt = Date.now();
-const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false };
+const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false, checkedAt:0, prog:null };
 // Версии вида 1.0.0 и 1.0.0-rc.1 (rc раньше готовой версии)
 const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? [+m[1], +m[2], +m[3], m[4]==null ? Infinity : +m[4]] : null; };
 const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
@@ -1563,7 +1564,7 @@ async function doCheck(applyIfIdle){
     const r=await fetch(process.env.OVERLAY_RELEASES_API || `https://api.github.com/repos/${REPO}/releases?per_page=30`, { headers:{ accept:'application/vnd.github+json', 'user-agent':'HudiniHost' }, signal:AbortSignal.timeout(15000) });
     if(!r.ok) throw new Error('GitHub ответил '+r.status);
     const rel=pickRelease(await r.json()), ver=rel ? rel.tag_name.slice(1) : VERSION;
-    upd.latest=ver;
+    upd.checkedAt=Date.now(); upd.latest=ver;
     if(!rel || cmpVer(ver, VERSION)<=0){ upd.state='latest'; return; }
     if(upd.staged?.ver!==ver){
       const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt'), sigA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt.sig');
@@ -1575,7 +1576,11 @@ async function doCheck(applyIfIdle){
       if(!updateSigOk(ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
       const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
       const want=(line||'').trim().split(/\s+/)[0];
-      const zip=Buffer.from(await (await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) })).arrayBuffer());
+      const resp=await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) });
+      if(!resp.ok) throw new Error('GitHub ответил '+resp.status);
+      const chunks=[]; upd.prog={ done:0, total:Number(resp.headers.get('content-length')) || zipA.size || 0 };
+      for await(const c of resp.body){ chunks.push(c); upd.prog.done+=c.length; }
+      const zip=Buffer.concat(chunks); upd.prog=null;
       const got=nodeCrypto.createHash('sha256').update(zip).digest('hex');
       if(!want || got!==want) throw new Error('контрольная сумма не совпала, обновление отменено');
       if(APP){
@@ -1591,7 +1596,7 @@ async function doCheck(applyIfIdle){
     }
     upd.state='ready';
     if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
-  }catch(e){ upd.state='error'; upd.err=e.message; log('⚠ Обновление:', e.message); }
+  }catch(e){ upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Обновление:', e.message); }
 }
 // «Простой»: OBS-виджет не подключён и модераторов нет.
 // Роль модератора простоя не знает (пульт работает в окне программы, сервер его не видит): там обновление ставит только
@@ -1998,7 +2003,7 @@ const local = http.createServer(async (req, res) => {
         await createRoom(name); log('🆕 Комната создана заново');
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
         modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');

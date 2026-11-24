@@ -94,7 +94,7 @@ function cancelOfflineWait(){
   clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER=22, widgets=new Map();
+const WIDGET_VER = 23, widgets=new Map();
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -4003,7 +4003,7 @@ async function boot(){
 }
 // ================== МЕТКИ β / α ==================
 // Стабильное в 1.0 без меток. Бета: работает, но мало проверено на разных ПК. Альфа: экспериментально.
-const ISSUES='https://github.com/niko-ua-designer/hudini/issues';
+const reportUrl=()=>'https://niko-ua-designer.github.io/hudini/report.html?lang='+(window.HudiniI18n?.lang||'en');
 const LEVELS={
   beta:{ mark:'β', name:'Бета', say:'Работает, но мало проверено на разных компьютерах. Если сбоит, напиши.' },
   alpha:{ mark:'α', name:'Альфа', say:'Экспериментально: может ломаться и измениться без предупреждения.' },
@@ -4024,7 +4024,7 @@ function levelPop(anchor, lvl, name){
   const L=LEVELS[lvl], p=document.createElement('div'); p.id='lvlPop';
   const b=document.createElement('b'); b.textContent=`${L.mark} ${L.name}: ${name}`;
   const d=document.createElement('div'); d.textContent=L.say; d.style.margin='4px 0';
-  const a=document.createElement('a'); a.href=ISSUES; a.target='_blank'; a.rel='noopener'; a.textContent='Сообщить о проблеме ↗';
+  const a=document.createElement('a'); a.href=reportUrl(); a.target='_blank'; a.rel='noopener'; a.textContent='Сообщить о проблеме ↗';
   p.append(b, d, a); document.body.appendChild(p);
   const r=anchor.getBoundingClientRect();
   p.style.left=Math.min(innerWidth-280, Math.max(8, r.left))+'px';
