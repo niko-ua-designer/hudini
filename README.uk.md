@@ -10,7 +10,7 @@
 
 <a href="https://github.com/niko-ua-designer/hudini/releases/latest"><img src="docs/buttons/uk/download.svg" height="76" alt="Завантажити Hudini"></a>
 
-<a href="https://niko-ua-designer.github.io/hudini/"><img src="docs/buttons/uk/website.svg" height="60" alt="Сайт"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html"><img src="docs/buttons/uk/help.svg" height="60" alt="Довідка"></a><br>
+<a href="https://niko-ua-designer.github.io/hudini/uk/"><img src="docs/buttons/uk/website.svg" height="60" alt="Сайт"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html?lang=uk"><img src="docs/buttons/uk/help.svg" height="60" alt="Довідка"></a><br>
 <a href="https://t.me/Hudini_DEV?direct"><img src="docs/buttons/uk/telegram.svg" height="60" alt="Telegram"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/report.html?lang=uk"><img src="docs/buttons/uk/idea.svg" height="60" alt="Запропонувати ідею або повідомити про проблему"></a>
 
 [![Latest release](https://img.shields.io/github/v/release/niko-ua-designer/hudini?label=release)](https://github.com/niko-ua-designer/hudini/releases/latest) [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
@@ -60,7 +60,7 @@
 
 Windows і Linux оновлюються самі. Якщо на Mac у вас версія 1.0, один раз завантажте нову версію вручну та збережіть свою папку `data/`; після цього оновлення відбуваються автоматично.
 
-Посібники, скриншоти та відповіді на поширені запитання: [Довідка](https://niko-ua-designer.github.io/hudini/help.html).
+Посібники, скриншоти та відповіді на поширені запитання: [Довідка](https://niko-ua-designer.github.io/hudini/help.html?lang=uk).
 
 ## Підключення
 
@@ -74,7 +74,7 @@ Windows і Linux оновлюються самі. Якщо на Mac у вас в
 | ZeroTier | Добре, якщо у вас уже є мережа. |
 | Проброс портів | Прокиньте TCP 7778 на ПК стрімера. |
 
-Покрокові інструкції для кожного способу є в [Довідці](https://niko-ua-designer.github.io/hudini/help.html).
+Покрокові інструкції для кожного способу є в [Довідці](https://niko-ua-designer.github.io/hudini/help.html?lang=uk).
 
 <details>
 <summary><b>Для розробників</b></summary>
