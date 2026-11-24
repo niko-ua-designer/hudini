@@ -1,0 +1,14 @@
+Hudini is licensed under AGPL-3.0 (see LICENSE). It includes the following third-party components.
+
+Built into the server (hudini-server), from server/package.json:
+- aedes (MQTT broker) - MIT
+- mqtt (MQTT client) - MIT
+- ws (WebSocket) - MIT
+- selfsigned (certificate generation) - MIT
+- their dependencies, mostly MIT, also ISC, BSD-3-Clause, 0BSD and Apache-2.0 (see server/package-lock.json)
+
+Bundled with the overlay and panel (web/shared):
+- three.js (3D case) - MIT, web/shared/vendor/LICENSE-three
+- mqtt.js (browser build) - MIT, web/shared/vendor/LICENSE-mqtt
+- Unbounded and Onest fonts - SIL Open Font License 1.1, web/shared/fonts/LICENSE-unbounded and LICENSE-onest
+- Lucide icons - ISC, web/shared/icons/LICENSE-lucide

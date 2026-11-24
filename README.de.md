@@ -10,7 +10,7 @@
 
 <a href="https://github.com/niko-ua-designer/hudini/releases/latest"><img src="docs/buttons/de/download.svg" height="76" alt="Hudini herunterladen"></a>
 
-<a href="https://niko-ua-designer.github.io/hudini/"><img src="docs/buttons/de/website.svg" height="60" alt="Website"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html"><img src="docs/buttons/de/help.svg" height="60" alt="Hilfe"></a><br>
+<a href="https://niko-ua-designer.github.io/hudini/de/"><img src="docs/buttons/de/website.svg" height="60" alt="Website"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html?lang=de"><img src="docs/buttons/de/help.svg" height="60" alt="Hilfe"></a><br>
 <a href="https://t.me/Hudini_DEV?direct"><img src="docs/buttons/de/telegram.svg" height="60" alt="Telegram"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/report.html?lang=de"><img src="docs/buttons/de/idea.svg" height="60" alt="Eine Idee vorschlagen oder ein Problem melden"></a>
 
 [![Neueste Version](https://img.shields.io/github/v/release/niko-ua-designer/hudini?label=release)](https://github.com/niko-ua-designer/hudini/releases/latest) [![Lizenz: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) ![Plattformen](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
@@ -49,8 +49,8 @@
 ## Los geht's
 
 1. Lade ein Archiv für dein System herunter, entpacke es irgendwo und starte Hudini. Die Einstellungen liegen im Ordner `data/` daneben.
-2. Streamer: wähle **Ich bin Streamer**, füge den Link der Browser-Quelle in OBS ein und schick den Raumcode (`hudini1:...`) an den Moderator.
-3. Moderator: wähle **Ich bin Moderator**, füge den Code ein und verbinde dich.
+2. Streamer: öffne den Tab **Streamer**, füge den Link der Browser-Quelle in OBS ein und schick den Raumcode (`hudini1:...`) an den Moderator.
+3. Moderator: öffne den Tab **Moderator**, füge den Code ein, drücke **➕ Hinzufügen** und verbinde dich.
 
 | System | Archiv |
 |---|---|
@@ -60,7 +60,7 @@
 
 Windows und Linux aktualisieren sich selbst. Wenn du 1.0 auf einem Mac nutzt, lade die neue Version einmal von Hand herunter und behalte deinen Ordner `data/`; danach laufen die Updates automatisch.
 
-Anleitungen, Screenshots und Antworten auf häufige Fragen: [Hilfe](https://niko-ua-designer.github.io/hudini/help.html).
+Anleitungen, Screenshots und Antworten auf häufige Fragen: [Hilfe](https://niko-ua-designer.github.io/hudini/help.html?lang=de).
 
 ## Verbinden
 
@@ -74,7 +74,7 @@ Streamer und Moderator verbinden sich direkt über TLS, sie brauchen also nur ei
 | ZeroTier | Gut, wenn du schon ein Netzwerk hast. |
 | Portweiterleitung | Leite TCP 7778 an den PC des Streamers weiter. |
 
-Schritt-für-Schritt-Anleitungen für jeden Weg findest du in der [Hilfe](https://niko-ua-designer.github.io/hudini/help.html).
+Schritt-für-Schritt-Anleitungen für jeden Weg findest du in der [Hilfe](https://niko-ua-designer.github.io/hudini/help.html?lang=de).
 
 <details>
 <summary><b>Für Entwickler</b></summary>

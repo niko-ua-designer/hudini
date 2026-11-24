@@ -10,7 +10,7 @@ The server part of the Hudini app (`hudini-server` next to the app). On the stre
 
 ### How to use
 
-1. Download the zip for your system from [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), for Windows `HudiniHost-windows-1.0.zip`.
+1. Download the zip for your system from [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), for Windows `HudiniHost-windows-<version>.zip` (Linux: `HudiniHost-linux-<version>.zip`, macOS: `HudiniHost-mac-<version>.zip`, one file for Apple Silicon and Intel).
 2. Unzip it and start Hudini from the `HudiniHost` folder (macOS: `Hudini.app`). Choose **Streamer** on the start screen. It's portable: settings, files, certificate and logs live in `data/` next to it. To remove Hudini, delete the folder.
    Windows may show "Windows protected your PC": click **More info → Run anyway** (the app isn't code-signed). Allow Hudini in private networks when the firewall asks.
 3. The control page opens in the app window:
@@ -36,7 +36,7 @@ The app writes `gamestate_integration_streamoverlay.cfg` into the CS2 `cfg` fold
 
 The app checks GitHub Releases at start and every 3 hours, downloads the zip for your system and installs it only if the **Ed25519 signature** of the release and the file's **SHA-256** match. It never restarts in the middle of a stream: the streamer's app updates on start, when idle (no OBS widget and no moderators) or on **🔄 Update now**; the moderator's app only when you click **Update** on the start screen. Release candidates (`-rc`) are offered only to rc builds.
 
-On macOS, 1.0.0-rc.4 can't update itself to 1.0 (the app is now `Hudini.app`): download the 1.0 zip and replace the old app by hand, keeping `data/`.
+On macOS, 1.0.0 can't update itself to 1.1 (the app is now one universal `Hudini.app`): download the 1.1 zip once and replace the old app by hand, keeping the `data/` folder.
 
 ### Security
 
@@ -60,7 +60,7 @@ Releases: [docs/RELEASING.md](../docs/RELEASING.md). Environment variables: `OVE
 
 ### Как пользоваться
 
-1. Скачай архив для своей системы на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), для Windows это `HudiniHost-windows-1.0.zip`.
+1. Скачай архив для своей системы на странице [Releases](https://github.com/niko-ua-designer/hudini/releases/latest), для Windows это `HudiniHost-windows-<версия>.zip` (Linux: `HudiniHost-linux-<версия>.zip`, macOS: `HudiniHost-mac-<версия>.zip`, один файл для Apple Silicon и Intel).
 2. Распакуй и запусти Hudini из папки `HudiniHost` (macOS: `Hudini.app`). На первом экране выбери **Стример**. Программа портативная: настройки, файлы, сертификат и журналы лежат в `data/` рядом с ней. Чтобы удалить Hudini, удали папку.
    Windows может написать «Система Windows защитила ваш компьютер»: нажми **Подробнее → Выполнить в любом случае** (у программы нет платной подписи). Когда брандмауэр спросит, разреши Hudini в частных сетях.
 3. В окне программы откроется страница управления:
@@ -86,7 +86,7 @@ Releases: [docs/RELEASING.md](../docs/RELEASING.md). Environment variables: `OVE
 
 Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает архив для твоей системы и ставит его, только если совпали **подпись Ed25519** релиза и **SHA-256** файла. Посреди стрима не перезапускается: у стримера обновление ставится при запуске, в простое (нет виджета OBS и модераторов) или по кнопке **🔄 Обновить сейчас**; у модератора только по кнопке **Обновить** на первом экране. Предварительные версии (`-rc`) приходят только тем, у кого стоит rc.
 
-На macOS версия 1.0.0-rc.4 не обновится до 1.0 сама (программа теперь называется `Hudini.app`): скачай архив 1.0 и замени старую программу вручную, папку `data/` оставь.
+На macOS версия 1.0.0 не обновится до 1.1 сама (программа теперь одна универсальная `Hudini.app`): один раз скачай архив 1.1 и замени старую программу вручную, папку `data/` оставь.
 
 ### Безопасность
 

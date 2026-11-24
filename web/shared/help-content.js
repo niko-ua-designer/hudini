@@ -9,15 +9,15 @@ ru: {
 <p>Hudini — оверлей для стрима, которым управляет модератор. Ты показываешь на экране стримера текст, картинки, GIF, видео, сайты, таймеры, голосования, кейсы и эффекты, а стример ничего не нажимает.</p>
 <p>Приложение <b>одно</b>, оно ставится на оба компьютера. При первом запуске выбираешь, кто ты:</p>
 <ul>
-<li><b>Я стример</b>: Hudini на ПК стримера хранит файлы, принимает модераторов и отдаёт оверлей в OBS.</li>
-<li><b>Я модератор</b>: Hudini на твоём ПК с пультом. Вставляешь код от стримера и управляешь его экраном.</li>
+<li><b>Вкладка «Стример»</b>: Hudini на ПК стримера хранит файлы, принимает модераторов и отдаёт оверлей в OBS.</li>
+<li><b>Вкладка «Модератор»</b>: Hudini на твоём ПК с пультом. Вставляешь код от стримера и управляешь его экраном.</li>
 <li><b>Виджет</b> — источник «Браузер» в OBS, который рисует оверлей поверх стрима.</li>
 </ul>
 <p>Модератор подключается <b>напрямую</b> к ПК стримера, сервера Hudini посередине нет. Работает с Twitch, YouTube и любой платформой, где стримят через OBS.</p>`],
 ['streamer', 'Стример: первый запуск', `
 <ol>
-<li>Скачай Hudini для своей системы со страницы <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, распакуй и запусти.</li>
-<li>Выбери <b>Я стример</b> и нажми «Запустить». Галочка «Запоминать роль» пропустит этот экран в следующий раз.</li>
+<li>Скачай Hudini для своей системы со страницы <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, распакуй и запусти.</li>
+<li>Выбери вкладку <b>Стример</b> и нажми «Запустить». Галочка «Запоминать роль» пропустит этот экран в следующий раз.</li>
 <li>В окне управления в карточке <b>«Ссылка для OBS»</b> нажми «Копировать». В OBS: Источники → <b>+</b> → <b>Браузер</b>, вставь ссылку, ширина <b>1920</b>, высота <b>1080</b>, затем выдели источник и нажми <kbd>Ctrl+F</kbd>.</li>
 <li>Выберите с модератором способ связи (раздел «Как подключиться» ниже). Windows при первом запуске спросит про брандмауэр: разреши для частных сетей.</li>
 <li>В карточке <b>«🔑 Код для модератора»</b> нажми «Скопировать код» и отправь его модератору в личку.</li>
@@ -27,8 +27,8 @@ ru: {
 <p>Не закрывай Hudini, пока идёт стрим. Вернуться к выбору роли можно через значок в трее («Сменить роль»).</p>`],
 ['mod', 'Модератор: первый запуск', `
 <ol>
-<li>Скачай Hudini, запусти и выбери <b>Я модератор</b>.</li>
-<li>Стример присылает тебе код. Вставь его в строку вверху (<kbd>Ctrl+V</kbd>) или перетащи в окно и нажми <b>Войти</b>.</li>
+<li>Скачай Hudini, запусти и выбери вкладку <b>Модератор</b>.</li>
+<li>Стример присылает тебе код. Вставь его в строку вверху (<kbd>Ctrl+V</kbd>) или перетащи в окно и нажми <b>➕ Добавить</b>. Затем нажми <b>Войти</b> у этого стримера.</li>
 <li>Стример добавится в список. Его можно закрепить 📌, переименовать или удалить, а в следующий раз просто нажать «Войти».</li>
 <li>Когда капсула вверху позеленеет и покажет пинг, связь есть. Надпись «OBS: виден» значит, что виджет у стримера работает.</li>
 </ol>
@@ -148,7 +148,7 @@ ru: {
 <p><b>Модератор:</b></p>
 <ol>
 <li>На старом сайте открой пульт → вкладка ⚙ Комната → <b>Бэкап</b>, задай пароль и сохрани файл.</li>
-<li>Поставь Hudini, выбери «Я модератор», войди к стримеру по новому коду.</li>
+<li>Поставь Hudini, открой вкладку «Модератор», вставь новый код, нажми «➕ Добавить» и войди к стримеру.</li>
 <li>В пульте: ⚙ Комната → <b>Из бэкапа</b>, выбери файл и введи пароль.</li>
 </ol>
 <p><b>Стример:</b> поставь новую версию. Комната создастся заново, поэтому возьми <b>ссылку для OBS</b> и <b>код для модератора</b> из окна Hudini ещё раз. Старый Hudini Host больше не нужен. <b>На Mac</b> rc.4 сам не обновится: скачай архив для macOS с сайта, распакуй и запусти Hudini.app.</p>`],
@@ -182,15 +182,15 @@ en: {
 <p>Hudini is a stream overlay run by a moderator. You show text, pictures, GIFs, video, websites, timers, polls, cases and effects on the streamer's screen, and the streamer clicks nothing.</p>
 <p>It is <b>one app</b>, installed on both computers. On the first start you choose who you are:</p>
 <ul>
-<li><b>I'm the streamer</b>: Hudini on the streamer's PC stores the files, accepts moderators and feeds the overlay to OBS.</li>
-<li><b>I'm the moderator</b>: Hudini on your PC with the panel. You paste the streamer's code and run their screen.</li>
+<li><b>Streamer tab</b>: Hudini on the streamer's PC stores the files, accepts moderators and feeds the overlay to OBS.</li>
+<li><b>Moderator tab</b>: Hudini on your PC with the panel. You paste the streamer's code and run their screen.</li>
 <li><b>The widget</b> is a Browser source in OBS that draws the overlay over the stream.</li>
 </ul>
 <p>The moderator connects <b>straight</b> to the streamer's PC, there is no Hudini server in the middle. It works with Twitch, YouTube and any platform you stream to through OBS.</p>`],
 ['streamer', 'Streamer: first start', `
 <ol>
-<li>Download Hudini for your system from <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, unpack it and run it.</li>
-<li>Choose <b>I'm the streamer</b> and press Start. The "Remember the role" tick skips this screen next time.</li>
+<li>Download Hudini for your system from <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, unpack it and run it.</li>
+<li>Choose the <b>Streamer</b> tab and press Start. The "Remember the role" tick skips this screen next time.</li>
 <li>In the control window, in the card <b>"Link for OBS"</b>, press Copy. In OBS: Sources → <b>+</b> → <b>Browser</b>, paste the link, width <b>1920</b>, height <b>1080</b>, then select the source and press <kbd>Ctrl+F</kbd>.</li>
 <li>Agree with your moderator on how to connect (the "How do we connect?" section below). On the first start Windows asks about the firewall: allow private networks.</li>
 <li>In the card <b>"🔑 Code for the moderator"</b> press Copy code and send it to the moderator in a private message.</li>
@@ -200,8 +200,8 @@ en: {
 <p>Keep Hudini open while you stream. To get back to the role choice use the tray icon ("Change role").</p>`],
 ['mod', 'Moderator: first start', `
 <ol>
-<li>Download Hudini, run it and choose <b>I'm the moderator</b>.</li>
-<li>The streamer sends you a code. Paste it into the line at the top (<kbd>Ctrl+V</kbd>) or drag it into the window and press <b>Join</b>.</li>
+<li>Download Hudini, run it and choose the <b>Moderator</b> tab.</li>
+<li>The streamer sends you a code. Paste it into the line at the top (<kbd>Ctrl+V</kbd>) or drag it into the window and press <b>➕ Add</b>. Then press <b>Join</b> next to that streamer.</li>
 <li>The streamer is added to the list. You can pin 📌, rename or delete them, and next time just press "Join".</li>
 <li>When the capsule at the top turns green and shows the ping, you are connected. "OBS: visible" means the widget works on the streamer's side.</li>
 </ol>
@@ -290,6 +290,7 @@ en: {
 <li><b>Map series</b>: format BO1, BO3 or BO5. Hudini records the result of each map itself, and you can reset the score or fix it by hand. The series shows in the scorebar, hud_tour and the auto scoreboard.</li>
 <li><b>Auto scoreboard</b>: an animated table with all players (K/D, ADR, HS%, money, weapon, score, series). It appears on its own during tactical timeouts and pauses, at the side switch and at the end of the map with results and MVP. The switch and the choice of moments are in the CS2 tab, and there are four styles.</li>
 <li><b>Player numbers.</b> The auto scoreboard has a switch: "as in the game" (the CS2 spectator keys) or "in HUD order" (left 1–5, right 6–0).</li>
+<li><b>Strip from nicknames.</b> In the CS2 settings there is a list of words that are cut out of player nicknames on screen (for example the Lite and Premium tags). Words are separated by commas, the default is "Lite, Premium", and an empty field strips nothing.</li>
 <li><b>Radar</b>: where each player stands, team colour, slot number, the dead and the bomb. Branded maps in three themes.</li>
 <li><b>Grenades on the radar</b>: molotovs, HE, flashes and smokes fly with a trail and leave their effect zone. Switch it on in the radar settings, where you also pick the types and the look (icons with a trail or plain dots). It needs the CS2 file from Hudini Host: after updating press "Connect CS2" and restart the game. It works while you watch a match as a spectator.</li>
 </ul>`],
@@ -320,7 +321,7 @@ en: {
 <p><b>Moderator:</b></p>
 <ol>
 <li>On the old site open the panel → the ⚙ Room tab → <b>Backup</b>, set a password and save the file.</li>
-<li>Install Hudini, choose "I'm the moderator" and join the streamer with the new code.</li>
+<li>Install Hudini, open the "Moderator" tab, paste the new code, press "➕ Add" and join the streamer.</li>
 <li>In the panel: ⚙ Room → <b>From backup</b>, pick the file and enter the password.</li>
 </ol>
 <p><b>Streamer:</b> install the new version. The room is created again, so take the <b>link for OBS</b> and the <b>code for the moderator</b> from the Hudini window once more. The old Hudini Host is no longer needed. <b>On a Mac</b> rc.4 does not update itself: download the macOS archive from the site, unpack it and start Hudini.app.</p>`],
@@ -351,40 +352,40 @@ uk: {
   title: 'Довідка Hudini', search: 'Пошук у довідці…', empty: 'Нічого не знайдено',
   sections: [
 ['about', 'Що таке Hudini', `
-<p>Hudini — оверлей для стриму, яким керує модератор. Ти показуєш на екрані стримера текст, картинки, GIF, відео, сайти, таймери, голосування, кейси й ефекти, а стример нічого не натискає.</p>
+<p>Hudini — оверлей для стріму, яким керує модератор. Ти показуєш на екрані стрімера текст, картинки, GIF, відео, сайти, таймери, голосування, кейси й ефекти, а стрімер нічого не натискає.</p>
 <p>Застосунок <b>один</b>, він ставиться на обидва комп'ютери. Під час першого запуску обираєш, хто ти:</p>
 <ul>
-<li><b>Я стример</b>: Hudini на ПК стримера зберігає файли, приймає модераторів і віддає оверлей в OBS.</li>
-<li><b>Я модератор</b>: Hudini на твоєму ПК з пультом. Вставляєш код від стримера й керуєш його екраном.</li>
-<li><b>Віджет</b> — джерело «Браузер» в OBS, що малює оверлей поверх стриму.</li>
+<li><b>Вкладка «Стрімер»</b>: Hudini на ПК стрімера зберігає файли, приймає модераторів і віддає оверлей в OBS.</li>
+<li><b>Вкладка «Модератор»</b>: Hudini на твоєму ПК з пультом. Вставляєш код від стрімера й керуєш його екраном.</li>
+<li><b>Віджет</b> — джерело «Браузер» в OBS, що малює оверлей поверх стріму.</li>
 </ul>
-<p>Модератор підключається <b>напряму</b> до ПК стримера, сервера Hudini посередині немає. Працює з Twitch, YouTube і будь-якою платформою, де стримлять через OBS.</p>`],
-['streamer', 'Стример: перший запуск', `
+<p>Модератор підключається <b>напряму</b> до ПК стрімера, сервера Hudini посередині немає. Працює з Twitch, YouTube і будь-якою платформою, де стрімлять через OBS.</p>`],
+['streamer', 'Стрімер: перший запуск', `
 <ol>
-<li>Завантаж Hudini для своєї системи зі сторінки <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a>, розпакуй і запусти.</li>
-<li>Обери <b>Я стример</b> і натисни «Запустити». Галочка «Запам'ятовувати роль» пропустить цей екран наступного разу.</li>
+<li>Завантаж Hudini для своєї системи зі сторінки <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a>, розпакуй і запусти.</li>
+<li>Обери вкладку <b>Стрімер</b> і натисни «Запустити». Галочка «Запам'ятовувати роль» пропустить цей екран наступного разу.</li>
 <li>У вікні керування в картці <b>«Посилання для OBS»</b> натисни «Копіювати». В OBS: Джерела → <b>+</b> → <b>Браузер</b>, встав посилання, ширина <b>1920</b>, висота <b>1080</b>, потім виділи джерело й натисни <kbd>Ctrl+F</kbd>.</li>
 <li>Домовтеся з модератором про спосіб зв'язку (розділ «Як підключитися» нижче). Під час першого запуску Windows спитає про брандмауер: дозволь для приватних мереж.</li>
 <li>У картці <b>«🔑 Код для модератора»</b> натисни «Скопіювати код» і надішли його модератору в особисті.</li>
 </ol>
 <p><b>Код — це ключ доступу</b>: у ньому пароль, ключі кімнати, відбиток сертифіката й адреси. Віддавай його лише тим, кому довіряєш. «Новий код» відключає всіх модераторів, і старий код перестає працювати.</p>
 <p><b>Панель в OBS (за бажанням):</b> картка «🎛 Панель в OBS» підкаже, як додати маленьку панель зі статусом і кнопками «Сховати оверлей», «Зупинити звуки», «Пауза модераторів».</p>
-<p>Не закривай Hudini, поки йде стрим. Повернутися до вибору ролі можна через значок у треї («Змінити роль»).</p>`],
+<p>Не закривай Hudini, поки йде стрім. Повернутися до вибору ролі можна через значок у треї («Змінити роль»).</p>`],
 ['mod', 'Модератор: перший запуск', `
 <ol>
-<li>Завантаж Hudini, запусти й обери <b>Я модератор</b>.</li>
-<li>Стример надсилає тобі код. Встав його в рядок угорі (<kbd>Ctrl+V</kbd>) або перетягни у вікно й натисни <b>Увійти</b>.</li>
-<li>Стример додасться до списку. Його можна закріпити 📌, перейменувати або видалити, а наступного разу просто натиснути «Увійти».</li>
-<li>Коли капсула вгорі зазеленіє й покаже пінг, зв'язок є. Напис «OBS: видно» означає, що віджет у стримера працює.</li>
+<li>Завантаж Hudini, запусти й обери вкладку <b>Модератор</b>.</li>
+<li>Стрімер надсилає тобі код. Встав його в рядок угорі (<kbd>Ctrl+V</kbd>) або перетягни у вікно й натисни <b>➕ Додати</b>. Потім натисни <b>Увійти</b> біля цього стрімера.</li>
+<li>Стрімер додасться до списку. Його можна закріпити 📌, перейменувати або видалити, а наступного разу просто натиснути «Увійти».</li>
+<li>Коли капсула вгорі зазеленіє й покаже пінг, зв'язок є. Напис «OBS: видно» означає, що віджет у стрімера працює.</li>
 </ol>
-<p>Другому модератору стример надсилає той самий код. Він дає повне керування, тому надсилай його лише довіреним людям.</p>`],
+<p>Другому модератору стрімер надсилає той самий код. Він дає повне керування, тому надсилай його лише довіреним людям.</p>`],
 ['connect', '', ``],
 ['panel', 'Пульт: що де', `
 <ul>
 <li><b>Шапка</b>: капсула зв'язку (мережа, <b>пінг</b>, стан OBS), загальна гучність, «Скасувати», «Сховати все», ❓ і меню <b>⋯ Ще</b> (рамка, пароль, очистити все).</li>
 <li><b>Ліворуч рейка вкладок</b>: ➕ Додати (текст, картинки, відео, сайти, віджети, ефекти), 🎞 Сцени й бібліотека, 💬 Чат, ⚡ Сценарії, 🎁 Розіграші, 🔊 Звук, ⚙ Кімната.</li>
-<li><b>У центрі полотно</b> — екран стримера. Тягни елемент, змінюй розмір за кут, <b>розтягуй картинку за бічні маркери</b>, крути за гурток. Над полотном вирівнювання, групування 🔗, показати/сховати, копія й видалення. Картинку можна перетягнути з теки або вставити через <kbd>Ctrl+V</kbd>.</li>
-<li><b>Праворуч шари</b> і налаштування вибраного елемента: шрифт, колір, анімації, «показати на N секунд». Око 👁 ховає зі стриму, не видаляючи.</li>
+<li><b>У центрі полотно</b> — екран стрімера. Тягни елемент, змінюй розмір за кут, <b>розтягуй картинку за бічні маркери</b>, крути за гурток. Над полотном вирівнювання, групування 🔗, показати/сховати, копія й видалення. Картинку можна перетягнути з теки або вставити через <kbd>Ctrl+V</kbd>.</li>
+<li><b>Праворуч шари</b> і налаштування вибраного елемента: шрифт, колір, анімації, «показати на N секунд». Око 👁 ховає зі стріму, не видаляючи.</li>
 <li><b>Папки в шарах.</b> Виділи кілька елементів (Shift+клік по шарах виділяє діапазон, Ctrl+клік додає один) і натисни Ctrl+G: вони стануть папкою «Група 1», яка рухається разом. Подвійний клік по назві або F2 перейменує папку, ▸ згортає її. 👁 і ⚡ папки діють на все всередині. Щоб сховати одразу багато шарів, затисни 👁 і проведи по рядках.</li>
 <li><b>Сцени</b> запам'ятовують весь екран, а <b>бібліотека</b> зберігає окремі елементи.</li>
 <li><b>Ctrl+C / Ctrl+V</b> копіюють елементи, зокрема в іншу кімнату. Клавіші описані наприкінці довідки.</li>
@@ -396,12 +397,12 @@ uk: {
 ['stream', 'Камера, екран і мікрофон', `
 <p>У пульті вкладка ➕ Додати, блок <b>Трансляція</b>: кнопки <b>Камера</b>, <b>Екран</b> і <b>Мікрофон</b>. Натисни кнопку, обери пристрій (для екрана чи вікна відкриється системний вибір), і на полотні з'явиться шар. Це звичайний шар: рухай, змінюй розмір, обрізай (Alt + край), ховай оком. Кнопка ще раз або ■ у списку зупиняє трансляцію.</p>
 <ul>
-<li><b>Стример</b> показує свої камеру, екран і мікрофон без дозволів. Картинка йде <b>напряму</b> у віджет OBS на цьому ж ПК.</li>
-<li><b>Модератор</b> може ділитися камерою, екраном і мікрофоном, лише якщо стример увімкнув це повзунками в Hudini Host (за замовчуванням усе вимкнено). Без дозволу кнопки неактивні. Стример підтверджує кожну трансляцію в доці й будь-коли може її вимкнути, тоді шар на стрімі гасне одразу.</li>
+<li><b>Стрімер</b> показує свої камеру, екран і мікрофон без дозволів. Картинка йде <b>напряму</b> у віджет OBS на цьому ж ПК.</li>
+<li><b>Модератор</b> може ділитися камерою, екраном і мікрофоном, лише якщо стрімер увімкнув це повзунками в Hudini Host (за замовчуванням усе вимкнено). Без дозволу кнопки неактивні. Стрімер підтверджує кожну трансляцію в доці й будь-коли може її вимкнути, тоді шар на стрімі гасне одразу.</li>
 <li><b>Мікрофон</b> з'являється шаром без картинки: у нього є гучність і мʼют, він є і у вкладці «Звук».</li>
-<li><b>Тло пульта.</b> Галочка «Показувати мій екран модераторам як тло» у стримера кладе його екран підкладкою під полотно в модераторів. У кожного модератора є своя галочка «Показувати екран стримера тлом». На стрім тло не потрапляє.</li>
+<li><b>Тло пульта.</b> Галочка «Показувати мій екран модераторам як тло» у стрімера кладе його екран підкладкою під полотно в модераторів. У кожного модератора є своя галочка «Показувати екран стрімера тлом». На стрім тло не потрапляє.</li>
 </ul>
-<p><b>Як це їде.</b> Спочатку пробується пряме зʼєднання (WebRTC): із затримкою в десятки мілісекунд, без серверів посередині. Між різними ПК воно працює за адресами VPN (Tailscale, Radmin, ZeroTier) і в одній локальній мережі. Якщо за 5 секунд пряма звʼязь не піднялася (Porthole, прокинутий порт, закритий UDP), картинка йде запасним шляхом через Hudini Host стримера, затримка близько секунди. Який шлях зараз, видно в списку трансляцій і на шарі: «пряме · 40 мс» або «через Host · ~1 с».</p>
+<p><b>Як це їде.</b> Спочатку пробується пряме зʼєднання (WebRTC): із затримкою в десятки мілісекунд, без серверів посередині. Між різними ПК воно працює за адресами VPN (Tailscale, Radmin, ZeroTier) і в одній локальній мережі. Якщо за 5 секунд пряма звʼязь не піднялася (Porthole, прокинутий порт, закритий UDP), картинка йде запасним шляхом через Hudini Host стрімера, затримка близько секунди. Який шлях зараз, видно в списку трансляцій і на шарі: «пряме · 40 мс» або «через Host · ~1 с».</p>
 <p><b>Безпека.</b> Усе зашифровано: домовленість про зʼєднання запечатана ключем кімнати, відео йде по DTLS-SRTP, а запасний шлях шле шматки, запечатані ключем кімнати, тож Hudini Host не може їх переглянути. Публічних серверів немає, адреси з мережі не виходять за межі приватних діапазонів.</p>
 <p>Якщо кнопка «Екран» не працює в застосунку на Linux, системі потрібні пакети WebRTC і PipeWire.</p>`],
 ['draw', 'Малювання', `
@@ -415,11 +416,11 @@ uk: {
 <li>Малювати можуть усі модератори одразу, штрихи не губляться. Готовий малюнок зберігається в бібліотеку, як будь-який елемент.</li>
 </ul>`],
 ['files', 'Файли й місце', `
-<p>Картинки, GIF і відео з комп'ютера зберігаються у стримера в Hudini, <b>зашифрованими</b>: програма не може їх прочитати, розшифровує лише віджет.</p>
+<p>Картинки, GIF і відео з комп'ютера зберігаються у стрімера в Hudini, <b>зашифрованими</b>: програма не може їх прочитати, розшифровує лише віджет.</p>
 <p>Під кнопкою «Файл» видно, скільки місця лишилося. Якщо місце скінчилося, завантаження не пройде, і пульт запропонує <b>🧹 Видалити невикористані файли</b>: видаляться ті, яких немає на екрані, у сценах, бібліотеці й сценаріях. Сама програма нічого не видаляє.</p>
-<p>Ліміти змінює стример у вікні Hudini стримера.</p>`],
+<p>Ліміти змінює стрімер у вікні Hudini стрімера.</p>`],
 ['chat', 'Чат, голосування, лічильники β', `
-<p>Вкладка 💬 Чат читає чат Twitch без входу в акаунт. Клік по повідомленню показує його на стримі.</p>
+<p>Вкладка 💬 Чат читає чат Twitch без входу в акаунт. Клік по повідомленню показує його на стрімі.</p>
 <p>Кнопка <b>💬 Чат на стрімі</b> на вкладці «Додати» виводить на стрім стрічку всіх повідомлень каналу збоку. Тему оформлення (скло, бульбашки, мінімалізм, неон, панель, картки), зникання повідомлень через N секунд, порядок (нові знизу або зверху) та значки налаштовують праворуч. Повідомлення, яке модератор видалив, або глядач, якого забанили чи відправили в таймаут, одразу зникають і з екрана. Показ одного повідомлення кліком працює як раніше.</p>
 <p>Кнопка <b>🌐</b> у шапці відкриває браузер праворуч. За замовчуванням там чат Twitch твого каналу: увійди у свій акаунт один раз, і всі кнопки модератора (видалити, таймаут, бан) працюють як на сайті. Кнопка «+» додає вкладки з будь-якими сайтами. Ширина колонки змінюється за її лівий край. Це працює в програмі Hudini; на сайті замість неї вбудований чат.</p>
 <p><b>Голосування</b>: глядачі пишуть цифру варіанта. Один глядач — один голос, зараховується останній вибір. <b>Лічильник чату</b> рахує команду чи слово (наприклад, «F»).</p>
@@ -444,17 +445,17 @@ uk: {
 <li><b>Крутити</b>: впиши нік глядача або залиш поле порожнім, тоді нік візьметься зі списку учасників. Приз обирається випадково тут, у пульті, а стрім і інші модератори показують той самий результат. Поки рулетка крутиться, кнопка заблокована.</li>
 <li><b>Учасники</b>: один нік у рядку, «нік x3» дає потрійний шанс. Той, кому випало, виходить зі списку, якщо ввімкнено галочку; «Повернути вибулих» кладе всіх назад.</li>
 <li><b>Вигляд і звук</b>: нік і шанс на папірці, гучність, скільки показувати підсумок. Звуки синтезуються самі, файли не потрібні.</li>
-<li><b>Запуск глядачами</b> (блок «💬 Запуск глядачами», входити в Twitch не треба): <b>команда в чаті</b> (за замовчуванням «!крутить», слово змінюється), «хто може»: стример і модератори, саби або всі. Режим «додати в учасники» кладе глядача в список, «крутити одразу» запускає рулетку з його ніком. «Пауза» не дає запускати частіше, «ліміт на глядача» обмежує кількість запусків однієї людини (0 означає без ліміту). Якщо відкрито кілька пультів, повідомлення обробить лише один.</li>
+<li><b>Запуск глядачами</b> (блок «💬 Запуск глядачами», входити в Twitch не треба): <b>команда в чаті</b> (за замовчуванням «!крутить», слово змінюється), «хто може»: стрімер і модератори, саби або всі. Режим «додати в учасники» кладе глядача в список, «крутити одразу» запускає рулетку з його ніком. «Пауза» не дає запускати частіше, «ліміт на глядача» обмежує кількість запусків однієї людини (0 означає без ліміту). Якщо відкрито кілька пультів, повідомлення обробить лише один.</li>
 <li><b>Нагорода за бали</b>: створи нагороду в Twitch і ввімкни їй <b>«Вимагати від глядача ввести текст»</b> (Панель керування → Нагороди за бали каналу → Додати → «Вимагати введення тексту»). Без введення тексту нагорода в чат не приходить. Потім у пульті натисни «🔍 Визначити нагороду», попроси когось (або зроби сам) отримати нагороду й обери її в списку. Фільтр «лише одне слово» (за замовчуванням увімкнено) відкидає довгі тексти, можна вказати слово, яке обов’язково ввести. Усе відкинуте видно в списку «Пропущено».</li>
 </ul>`],
 ['giveaway', 'Розіграші', `
 <p>Вкладка <b>🎁 Розіграші</b>: розіграш із рулеткою. На екрані один розіграш, він малюється поверх усіх шарів, а положення й розмір задаються повзунками.</p>`],
 ['sound', 'Звук', `
 <p>Вкладка <b>🔊 Звук</b>: загальна гучність (та сама, що в шапці), гучність ефектів і окремий повзунок на кожен звук.</p>
-<p>Відео, сайти, кейс, таймер і розіграш мають власну гучність, на стримі вона множиться на загальну. Значок 🔇 вимикає звук елемента (у відео й сайтів це їхній власний звук).</p>`],
+<p>Відео, сайти, кейс, таймер і розіграш мають власну гучність, на стрімі вона множиться на загальну. Значок 🔇 вимикає звук елемента (у відео й сайтів це їхній власний звук).</p>`],
 ['cs2', 'CS2 β', `
-<p>У вікні Hudini стримера натисни <b>🎯 Підключити CS2</b> і перезапусти гру. Це офіційна функція Valve (Game State Integration): гра сама надсилає дані програмі. Нічого не впроваджується в гру, бану за це немає.</p>
-<p>У пульті додай віджет 🎯 CS2 і вибери вигляд: картка гравця, K/D/A, HP, гроші, зброя, спливашка DOUBLE / TRIPLE / ACE. Вигляди «спостерігач» (α) працюють, коли стример дивиться гру глядачем.</p>
+<p>У вікні Hudini стрімера натисни <b>🎯 Підключити CS2</b> і перезапусти гру. Це офіційна функція Valve (Game State Integration): гра сама надсилає дані програмі. Нічого не впроваджується в гру, бану за це немає.</p>
+<p>У пульті додай віджет 🎯 CS2 і вибери вигляд: картка гравця, K/D/A, HP, гроші, зброя, спливашка DOUBLE / TRIPLE / ACE. Вигляди «спостерігач» (α) працюють, коли стрімер дивиться гру глядачем.</p>
 <ul>
 <li><b>Кілфід</b> Hudini за замовчуванням вимкнений, на екрані видно кілфід самої гри. Вмикається галочкою в елемента CS2.</li>
 <li><b>K/D</b> показується значками: приціл 12 · череп 5. Коефіцієнт 2.40 лишився там, де був.</li>
@@ -462,14 +463,15 @@ uk: {
 <li><b>Серія карт</b>: формат BO1, BO3 або BO5. Host сам записує підсумок кожної карти, рахунок можна скинути або поправити вручну. Серія видна в scorebar, hud_tour і в авто-табі.</li>
 <li><b>Авто-таб</b>: анімована таблиця з усіма гравцями (K/D, ADR, HS%, гроші, зброя, рахунок, серія). З'являється сама на тактичних таймаутах і паузі, під час зміни сторін і в кінці карти з підсумками та MVP. Перемикач і вибір моментів на вкладці CS2, є чотири стилі.</li>
 <li><b>Номери гравців.</b> В авто-табі є перемикач: «як у грі» (клавіші спостерігача CS2) або «за порядком у худі» (ліворуч 1–5, праворуч 6–0).</li>
+<li><b>Прибрати з ніків.</b> У налаштуваннях CS2 є список слів, які вирізаються з ніків гравців на екрані (наприклад, приписки Lite і Premium). Слова через кому, за замовчуванням «Lite, Premium», порожнє поле нічого не прибирає.</li>
 <li><b>Радар</b>: де стоїть кожен гравець, колір команди, номер слота, мертві й бомба. Фірмові карти в трьох темах.</li>
 <li><b>Гранати на радарі</b>: молотов, HE, флешка й дим летять зі слідом і лишають зону дії. Вмикається в налаштуваннях радара, типи й вигляд (значки зі слідом або точки) обираються там же. Потрібен файл CS2 з Hudini Host: після оновлення натисни «Підключити CS2» і перезапусти гру. Працює, коли ти дивишся матч глядачем.</li>
 </ul>`],
 ['perms', 'Права модераторів і док OBS', `
-<p><b>Права.</b> У налаштуваннях Hudini стример обирає, що дозволено модераторам. Чотири галочки, усі ввімкнені за замовчуванням: звуки й відео; сайти й файли; чат, малювання й ефекти; кейси, розіграші, опитування й CS2. Вимкнене зникає з пульта й не проходить на стрім.</p>
+<p><b>Права.</b> У налаштуваннях Hudini стрімер обирає, що дозволено модераторам. Чотири галочки, усі ввімкнені за замовчуванням: звуки й відео; сайти й файли; чат, малювання й ефекти; кейси, розіграші, опитування й CS2. Вимкнене зникає з пульта й не проходить на стрім.</p>
 <p><b>Швидкі вимикачі</b> в доці OBS вимикають на стрімі просто зараз чат, CS2-HUD, звуки, малюнки або ефекти.</p>
-<p><b>Док OBS</b> тепер показує статуси, список елементів на екрані з очками (стример сам ховає зайве), блок «Хто на зв'язку» (модератори, пінг, спосіб зв'язку, кнопка «відключити») і блок CS2 з рахунком, гравцем, за яким стежать, і великою підказкою «файт».</p>
-<p><b>Стример сам собі модератор.</b> Кнопка <b>«Відкрити пульт»</b> у Hudini відкриває повний пульт на цьому ж ПК без коду й пароля. Модератори можуть працювати паралельно.</p>
+<p><b>Док OBS</b> тепер показує статуси, список елементів на екрані з очками (стрімер сам ховає зайве), блок «Хто на зв'язку» (модератори, пінг, спосіб зв'язку, кнопка «відключити») і блок CS2 з рахунком, гравцем, за яким стежать, і великою підказкою «файт».</p>
+<p><b>Стрімер сам собі модератор.</b> Кнопка <b>«Відкрити пульт»</b> у Hudini відкриває повний пульт на цьому ж ПК без коду й пароля. Модератори можуть працювати паралельно.</p>
 <p><b>Журнал і «Про програму».</b> У вікні Hudini є журнал підключень (адреси модераторів записано частково, наприклад <code>100.x.x.12 (Tailscale)</code>) і розділ «Про програму» з версією та подяками тестерам.</p>`],
 ['labels', 'Що означають β і α', `
 <p>Усе без позначок стабільне. <b>β (бета)</b> працює, але мало перевірене на різних комп'ютерах. <b>α (альфа)</b> — експеримент, може ламатися й змінюватися. Натисни на позначку в пульті, щоб повідомити про проблему.</p>`],
@@ -479,27 +481,27 @@ uk: {
 <p>Кнопка <b>❓</b> вгорі повторить навчання й відкриє цю довідку.</p>`],
 ['security', 'Безпека й дані', `
 <ul>
-<li>Модератор підключається <b>напряму</b> до ПК стримера по TLS. Відбиток сертифіката лежить у коді, і Hudini його перевіряє: підміна по дорозі не пройде.</li>
+<li>Модератор підключається <b>напряму</b> до ПК стрімера по TLS. Відбиток сертифіката лежить у коді, і Hudini його перевіряє: підміна по дорозі не пройде.</li>
 <li>Усе, що йде на екран, <b>шифрується</b> (AES-256) і <b>підписується</b> ключем модератора. Віджет відкидає все, що не підписано.</li>
-<li>У Hudini немає власних серверів і акаунтів. Екран, файли й дані CS2 ідуть лише через ПК стримера.</li>
-<li>Файли зберігаються у стримера зашифрованими: програма не може їх прочитати, розшифровує лише віджет.</li>
+<li>У Hudini немає власних серверів і акаунтів. Екран, файли й дані CS2 ідуть лише через ПК стрімера.</li>
+<li>Файли зберігаються у стрімера зашифрованими: програма не може їх прочитати, розшифровує лише віджет.</li>
 <li>Пароль на пульт (⋯ Ще → Пароль) шифрує кімнати й ключі на ПК модератора. Бекап теж шифрується паролем.</li>
-<li>Якщо код витік, стример натискає «Новий код» у вікні Hudini: усі відключаються, старий код не працює.</li>
+<li>Якщо код витік, стрімер натискає «Новий код» у вікні Hudini: усі відключаються, старий код не працює.</li>
 <li>Якщо користуєшся Porthole, тримай лобі приватним і запрошуй лише свого модератора.</li>
 </ul>`],
 ['migrate', 'Переїзд з rc.4', `
-<p>Раніше пульт був сайтом, а на ПК стримера стояв Hudini Host. Тепер це <b>один застосунок Hudini</b>, пульт усередині. Дані пульта лежали в браузері й самі не переїдуть.</p>
+<p>Раніше пульт був сайтом, а на ПК стрімера стояв Hudini Host. Тепер це <b>один застосунок Hudini</b>, пульт усередині. Дані пульта лежали в браузері й самі не переїдуть.</p>
 <p><b>Модератор:</b></p>
 <ol>
 <li>На старому сайті відкрий пульт → вкладка ⚙ Кімната → <b>Бекап</b>, задай пароль і збережи файл.</li>
-<li>Постав Hudini, обери «Я модератор», увійди до стримера за новим кодом.</li>
+<li>Постав Hudini, відкрий вкладку «Модератор», встав новий код, натисни «➕ Додати» й увійди до стрімера.</li>
 <li>У пульті: ⚙ Кімната → <b>З бекапу</b>, обери файл і введи пароль.</li>
 </ol>
-<p><b>Стример:</b> постав нову версію. Кімната створиться заново, тому візьми <b>посилання для OBS</b> і <b>код для модератора</b> з вікна Hudini ще раз. Старий Hudini Host більше не потрібен. <b>На Mac</b> rc.4 сам не оновиться: завантаж архів для macOS із сайту, розпакуй і запусти Hudini.app.</p>`],
+<p><b>Стрімер:</b> постав нову версію. Кімната створиться заново, тому візьми <b>посилання для OBS</b> і <b>код для модератора</b> з вікна Hudini ще раз. Старий Hudini Host більше не потрібен. <b>На Mac</b> rc.4 сам не оновиться: завантаж архів для macOS із сайту, розпакуй і запусти Hudini.app.</p>`],
 ['trouble', 'Якщо щось не працює', `
 <ul>
-<li><b>Капсула вгорі пише «Чекаємо Hudini Host»</b>: немає зв'язку зі стримером. Перевір, що Hudini у стримера запущений, що ви в одній мережі (VPN, Porthole або прокинутий порт), що код свіжий (якщо адреси змінилися, потрібен новий) і що Windows не блокує програму. Докладніше в розділі «Як підключитися».</li>
-<li><b>Пише про сертифікат чи відбиток</b>: стример перестворив кімнату або сертифікат. Попроси в нього новий код.</li>
+<li><b>Капсула вгорі пише «Чекаємо Hudini Host»</b>: немає зв'язку зі стрімером. Перевір, що Hudini у стрімера запущений, що ви в одній мережі (VPN, Porthole або прокинутий порт), що код свіжий (якщо адреси змінилися, потрібен новий) і що Windows не блокує програму. Докладніше в розділі «Як підключитися».</li>
+<li><b>Пише про сертифікат чи відбиток</b>: стрімер перестворив кімнату або сертифікат. Попроси в нього новий код.</li>
 <li><b>«OBS: не видно»</b>: джерело «Браузер» вимкнене, не в поточній сцені або в ньому старе посилання. У властивостях джерела натисни «Оновити кеш поточної сторінки».</li>
 <li><b>«OBS: ⚠ не 16:9»</b>: у джерела не той розмір (типово 800×600). Постав 1920×1080 і натисни <kbd>Ctrl+F</kbd>.</li>
 <li><b>Не вантажиться файл</b>: перевір місце (під кнопкою «Файл») і ліміт на один файл.</li>
@@ -526,15 +528,15 @@ de: {
 <p>Hudini ist ein Stream-Overlay, das ein Mod steuert. Du zeigst auf dem Bildschirm des Streamers Text, Bilder, GIFs, Videos, Websites, Timer, Umfragen, Cases und Effekte, und der Streamer klickt nichts.</p>
 <p>Es ist <b>eine App</b>, die auf beiden Computern installiert wird. Beim ersten Start wählst du, wer du bist:</p>
 <ul>
-<li><b>Ich bin der Streamer</b>: Hudini auf dem PC des Streamers speichert die Dateien, nimmt Mods auf und gibt das Overlay an OBS weiter.</li>
-<li><b>Ich bin der Mod</b>: Hudini auf deinem PC mit dem Pult. Du fügst den Code des Streamers ein und steuerst seinen Bildschirm.</li>
+<li><b>Tab „Streamer“</b>: Hudini auf dem PC des Streamers speichert die Dateien, nimmt Mods auf und gibt das Overlay an OBS weiter.</li>
+<li><b>Tab „Moderator“</b>: Hudini auf deinem PC mit dem Pult. Du fügst den Code des Streamers ein und steuerst seinen Bildschirm.</li>
 <li><b>Das Widget</b> ist eine Browser-Quelle in OBS, die das Overlay über den Stream legt.</li>
 </ul>
 <p>Der Mod verbindet sich <b>direkt</b> mit dem PC des Streamers, ein Hudini-Server dazwischen existiert nicht. Funktioniert mit Twitch, YouTube und jeder Plattform, auf die du über OBS streamst.</p>`],
 ['streamer', 'Streamer: erster Start', `
 <ol>
-<li>Lade Hudini für dein System von <a href="https://github.com/niko-ua-designer/hudini/releases" target="_blank" rel="noopener">Releases</a> herunter, entpacke es und starte es.</li>
-<li>Wähle <b>Ich bin der Streamer</b> und drücke „Starten“. Das Häkchen „Rolle merken“ überspringt diesen Bildschirm beim nächsten Mal.</li>
+<li>Lade Hudini für dein System von <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">Releases</a> herunter, entpacke es und starte es.</li>
+<li>Wähle den Tab <b>Streamer</b> und drücke „Starten“. Das Häkchen „Rolle merken“ überspringt diesen Bildschirm beim nächsten Mal.</li>
 <li>Drücke im Steuerfenster in der Karte <b>„Link für OBS“</b> auf Kopieren. In OBS: Quellen → <b>+</b> → <b>Browser</b>, Link einfügen, Breite <b>1920</b>, Höhe <b>1080</b>, dann die Quelle auswählen und <kbd>Strg+F</kbd> drücken.</li>
 <li>Vereinbart mit deinem Mod, wie ihr euch verbindet (Abschnitt „Wie verbinden wir uns?“ unten). Beim ersten Start fragt Windows nach der Firewall: erlaube private Netzwerke.</li>
 <li>Drücke in der Karte <b>„🔑 Code für den Mod“</b> auf Code kopieren und schick ihn dem Mod privat.</li>
@@ -544,8 +546,8 @@ de: {
 <p>Lass Hudini offen, solange du streamst. Zur Rollenwahl kommst du über das Tray-Symbol („Rolle wechseln“) zurück.</p>`],
 ['mod', 'Mod: erster Start', `
 <ol>
-<li>Lade Hudini herunter, starte es und wähle <b>Ich bin der Mod</b>.</li>
-<li>Der Streamer schickt dir einen Code. Füge ihn in die Zeile oben ein (<kbd>Strg+V</kbd>) oder zieh ihn ins Fenster und drücke <b>Beitreten</b>.</li>
+<li>Lade Hudini herunter, starte es und wähle den Tab <b>Moderator</b>.</li>
+<li>Der Streamer schickt dir einen Code. Füge ihn in die Zeile oben ein (<kbd>Strg+V</kbd>) oder zieh ihn ins Fenster und drücke <b>➕ Hinzufügen</b>. Danach drücke bei diesem Streamer <b>Beitreten</b>.</li>
 <li>Der Streamer erscheint in der Liste. Du kannst ihn anpinnen 📌, umbenennen oder löschen und beim nächsten Mal einfach „Beitreten“ drücken.</li>
 <li>Wird die Kapsel oben grün und zeigt den Ping, steht die Verbindung. „OBS: sichtbar“ heißt, dass das Widget beim Streamer läuft.</li>
 </ol>
@@ -634,6 +636,7 @@ de: {
 <li><b>Kartenserie</b>: Format BO1, BO3 oder BO5. Host speichert das Ergebnis jeder Karte selbst, den Stand kannst du zurücksetzen oder von Hand korrigieren. Die Serie steht im Scorebar, im hud_tour und im Auto-Tab.</li>
 <li><b>Auto-Tab</b>: eine animierte Tabelle mit allen Spielern (K/D, ADR, HS%, Geld, Waffe, Stand, Serie). Sie erscheint von selbst bei taktischen Auszeiten und Pausen, beim Seitenwechsel und am Kartenende mit Ergebnis und MVP. Schalter und Auswahl der Momente sind im CS2-Tab, es gibt vier Stile.</li>
 <li><b>Spielernummern.</b> Der Auto-Tab hat einen Schalter: „wie im Spiel“ (die Zuschauertasten von CS2) oder „in HUD-Reihenfolge“ (links 1–5, rechts 6–0).</li>
+<li><b>Aus Nicknamen entfernen.</b> In den CS2-Einstellungen gibt es eine Wortliste, die aus den Spielernamen auf dem Bildschirm herausgeschnitten wird (zum Beispiel die Zusätze Lite und Premium). Die Wörter stehen durch Kommas getrennt, standardmäßig „Lite, Premium“; ein leeres Feld entfernt nichts.</li>
 <li><b>Radar</b>: wo jeder Spieler steht, Teamfarbe, Slot-Nummer, Tote und die Bombe. Eigene Karten in drei Themen.</li>
 <li><b>Granaten auf dem Radar</b>: Molotow, HE, Flash und Rauch fliegen mit Spur und lassen ihre Wirkungszone zurück. Das schaltest du in den Radar-Einstellungen ein, dort wählst du auch Typen und Look (Symbole mit Spur oder einfache Punkte). Nötig ist die CS2-Datei aus Hudini Host: nach dem Update "CS2 verbinden" drücken und das Spiel neu starten. Funktioniert, wenn du ein Match als Zuschauer ansiehst.</li>
 </ul>`],
@@ -664,7 +667,7 @@ de: {
 <p><b>Mod:</b></p>
 <ol>
 <li>Öffne auf der alten Seite das Pult → Tab ⚙ Raum → <b>Backup</b>, vergib ein Passwort und speichere die Datei.</li>
-<li>Installiere Hudini, wähle „Ich bin der Mod“ und tritt dem Streamer mit dem neuen Code bei.</li>
+<li>Installiere Hudini, öffne den Tab „Moderator“, füge den neuen Code ein, drücke „➕ Hinzufügen“ und tritt dem Streamer bei.</li>
 <li>Im Pult: ⚙ Raum → <b>Aus Backup</b>, Datei wählen und Passwort eingeben.</li>
 </ol>
 <p><b>Streamer:</b> Installiere die neue Version. Der Raum wird neu erstellt, hole dir also den <b>Link für OBS</b> und den <b>Code für den Mod</b> noch einmal aus dem Hudini-Fenster. Das alte Hudini Host brauchst du nicht mehr. <b>Auf dem Mac</b> aktualisiert sich rc.4 nicht selbst: Lade das macOS-Archiv von der Website, entpacke es und starte Hudini.app.</p>`],

@@ -12,4 +12,16 @@ RU
 - Чтобы удалить Hudini полностью, закрой программу и удали эту папку целиком. Больше программа ничего никуда не ставит.
 - Чтобы перенести на другой ПК, скопируй папку целиком.
 
+UK
+- Запусти Hudini (Windows: HudiniHost.exe, Linux: HudiniHost, macOS: Hudini.app) і обери роль: «Стрімер» або «Модератор». Програма живе в треї біля годинника.
+- Усе, що зберігає програма, лежить у теці «data» поруч із нею: налаштування, файли модераторів (зашифровані), сертифікат, журнали, збережені коди кімнат. Коди кімнат — це ключі: нікому не надсилай цю теку. (На macOS, якщо тека програми лише для читання, data лежить в Application Support.)
+- Щоб повністю видалити Hudini, закрий програму й видали цю теку цілком. Більше програма нічого нікуди не ставить.
+- Щоб перенести на інший ПК, скопіюй теку цілком.
+
+DE
+- Starte Hudini (Windows: HudiniHost.exe, Linux: HudiniHost, macOS: Hudini.app) und wähle deine Rolle: Streamer oder Moderator. Die App sitzt im Infobereich (Tray) neben der Uhr.
+- Alles, was die App speichert, liegt im Ordner „data“ neben ihr: Einstellungen, Dateien der Moderatoren (verschlüsselt), Zertifikat, Protokolle, gespeicherte Raumcodes. Raumcodes sind Schlüssel: gib diesen Ordner nicht weiter. (Auf macOS liegt data in Application Support, wenn der App-Ordner schreibgeschützt ist.)
+- Um Hudini vollständig zu entfernen, schließe die App und lösche diesen ganzen Ordner. Sonst wird nirgends etwas installiert.
+- Um Hudini auf einen anderen PC zu übertragen, kopiere den ganzen Ordner.
+
 Guide / Инструкция: https://niko-ua-designer.github.io/hudini/help.html

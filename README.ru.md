@@ -10,7 +10,7 @@
 
 <a href="https://github.com/niko-ua-designer/hudini/releases/latest"><img src="docs/buttons/ru/download.svg" height="76" alt="Скачать Hudini"></a>
 
-<a href="https://niko-ua-designer.github.io/hudini/"><img src="docs/buttons/ru/website.svg" height="60" alt="Сайт"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html"><img src="docs/buttons/ru/help.svg" height="60" alt="Справка"></a><br>
+<a href="https://niko-ua-designer.github.io/hudini/ru/"><img src="docs/buttons/ru/website.svg" height="60" alt="Сайт"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/help.html?lang=ru"><img src="docs/buttons/ru/help.svg" height="60" alt="Справка"></a><br>
 <a href="https://t.me/Hudini_DEV?direct"><img src="docs/buttons/ru/telegram.svg" height="60" alt="Telegram"></a>&nbsp;<a href="https://niko-ua-designer.github.io/hudini/report.html?lang=ru"><img src="docs/buttons/ru/idea.svg" height="60" alt="Предложить идею или сообщить о проблеме"></a>
 
 [![Последний релиз](https://img.shields.io/github/v/release/niko-ua-designer/hudini?label=release)](https://github.com/niko-ua-designer/hudini/releases/latest) [![Лицензия: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) ![Платформы](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
@@ -49,8 +49,8 @@
 ## Быстрый старт
 
 1. Скачайте один архив для своей системы, распакуйте куда угодно и запустите Hudini. Настройки хранятся в папке `data/` рядом с программой.
-2. Стример: выберите **Я стример**, добавьте ссылку Browser source в OBS и отправьте модератору код комнаты (`hudini1:...`).
-3. Модератор: выберите **Я модератор**, вставьте код и подключитесь.
+2. Стример: откройте вкладку **Стример**, добавьте ссылку Browser source в OBS и отправьте модератору код комнаты (`hudini1:...`).
+3. Модератор: откройте вкладку **Модератор**, вставьте код, нажмите **➕ Добавить** и подключитесь.
 
 | Система | Архив |
 |---|---|
@@ -60,7 +60,7 @@
 
 Windows и Linux обновляются сами. Если на Mac у вас версия 1.0, один раз скачайте новую версию вручную и сохраните папку `data/`; дальше обновления идут автоматически.
 
-Руководства, скриншоты и ответы на частые вопросы: [Справка](https://niko-ua-designer.github.io/hudini/help.html).
+Руководства, скриншоты и ответы на частые вопросы: [Справка](https://niko-ua-designer.github.io/hudini/help.html?lang=ru).
 
 ## Подключение
 
@@ -74,7 +74,7 @@ Windows и Linux обновляются сами. Если на Mac у вас в
 | ZeroTier | Подходит, если у вас уже есть сеть. |
 | Проброс портов | Пробросьте TCP 7778 на ПК стримера. |
 
-Пошаговые инструкции по каждому способу есть в [Справке](https://niko-ua-designer.github.io/hudini/help.html).
+Пошаговые инструкции по каждому способу есть в [Справке](https://niko-ua-designer.github.io/hudini/help.html?lang=ru).
 
 <details>
 <summary><b>Для разработчиков</b></summary>
