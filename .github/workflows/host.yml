@@ -214,7 +214,7 @@ jobs:
             cat changelog-section.md
             echo
             echo "Panel / Пульт: https://niko-ua-designer.github.io/hudini/"
-            echo "Guide / Инструкция: https://github.com/${{ github.repository }}/blob/main/server/README.md"
+            echo "Guide / Инструкция: https://niko-ua-designer.github.io/hudini/help.html"
           } > release-body.md
           cat release-body.md
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
