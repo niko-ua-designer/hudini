@@ -141,6 +141,7 @@ jobs:
             cp "$SIDECAR" "pkg/HudiniHost/hudini-server$EXT"
           fi
           cp server/PORTABLE.txt "pkg/HudiniHost/README.txt"
+          cp LICENSE THIRD-PARTY.txt "pkg/HudiniHost/"
           mkdir -p out
           if [ "$RUNNER_OS" = Windows ]; then
             (cd pkg && 7z a -tzip -mx=9 "../out/$ZIP_NAME" "HudiniHost")
@@ -206,14 +207,14 @@ jobs:
           {
             echo "**EN:** Hudini Host, the app for the streamer: overlay server on your PC, file storage and live data. Download the zip for your system: Windows \`HudiniHost-windows-$P.zip\`, Linux \`HudiniHost-linux-$P.zip\` or macOS \`HudiniHost-mac-$P.zip\` (one file for Apple Silicon and Intel). Unzip it into its own folder and run HudiniHost (macOS: Hudini.app). It lives in the tray (next to the clock) and can start with your computer."
             echo "**RU:** Hudini Host, программа для стримера: сервер оверлея на ПК, хранилище файлов и живые данные. Скачай zip для своей системы: Windows \`HudiniHost-windows-$P.zip\`, Linux \`HudiniHost-linux-$P.zip\` или macOS \`HudiniHost-mac-$P.zip\` (один файл для Apple Silicon и Intel). Распакуй в отдельную папку и запусти HudiniHost (macOS: Hudini.app). Программа живёт в трее (у часов) и может запускаться вместе с компьютером."
-            echo "**UK:** Hudini Host, програма для стрімера. Завантаж zip для своєї системи (Windows: \`HudiniHost-windows-$P.zip\`, Linux: \`HudiniHost-linux-$P.zip\`, macOS: \`HudiniHost-mac-$P.zip\`), розпакуй в окрему папку й запусти HudiniHost. Програма живе в треї та може запускатися разом із комп'ютером."
-            echo "**DE:** Hudini Host, die App für den Streamer. Lade die Zip-Datei für dein System herunter (Windows: \`HudiniHost-windows-$P.zip\`, Linux: \`HudiniHost-linux-$P.zip\`, macOS: \`HudiniHost-mac-$P.zip\`), entpacke sie in einen eigenen Ordner und starte HudiniHost. Die App sitzt im Infobereich (Tray) und kann mit dem Computer starten."
+            echo "**UK:** Hudini Host, програма для стрімера: сервер оверлея на ПК, сховище файлів і живі дані. Завантаж zip для своєї системи: Windows \`HudiniHost-windows-$P.zip\`, Linux \`HudiniHost-linux-$P.zip\` або macOS \`HudiniHost-mac-$P.zip\` (один файл для Apple Silicon та Intel). Розпакуй в окрему теку й запусти HudiniHost (macOS: Hudini.app). Програма живе в треї (біля годинника) і може запускатися разом із комп'ютером."
+            echo "**DE:** Hudini Host, die App für den Streamer: Overlay-Server auf deinem PC, Dateispeicher und Live-Daten. Lade die Zip-Datei für dein System herunter: Windows \`HudiniHost-windows-$P.zip\`, Linux \`HudiniHost-linux-$P.zip\` oder macOS \`HudiniHost-mac-$P.zip\` (eine Datei für Apple Silicon und Intel). Entpacke sie in einen eigenen Ordner und starte HudiniHost (macOS: Hudini.app). Die App sitzt im Infobereich (Tray, neben der Uhr) und kann mit dem Computer starten."
             echo
             echo "## What's new / Что нового / Що нового / Was ist neu"
             echo
             cat changelog-section.md
             echo
-            echo "Panel / Пульт: https://niko-ua-designer.github.io/hudini/"
+            echo "Website / Сайт: https://niko-ua-designer.github.io/hudini/"
             echo "Guide / Инструкция: https://niko-ua-designer.github.io/hudini/help.html"
           } > release-body.md
           cat release-body.md

@@ -9,7 +9,7 @@ const SHOTS = process.env.HUDINI_SHOTS || '';   // folder for screenshots (optio
 (async () => {
   const S = await T.stack({ hostEnv: { OVERLAY_SITE: 'off' } });
   const { panel: mod, widget: wid } = S;
-  const IMG = `${S.web.url}/site/img/panel.png`;
+  const IMG = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, 'fixtures/panel.png')).toString('base64');
   const shot = async (page, name) => { if(SHOTS){ fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, name) }); } };
   const OPP = { nw: 'se', n: 's', ne: 'sw', e: 'w', se: 'nw', s: 'n', sw: 'ne', w: 'e' };
   const SIGN = { nw: [-1, -1], n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0] };

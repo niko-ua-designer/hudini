@@ -26,7 +26,15 @@ the moderator connects to it directly over a network both share (VPN, Porthole, 
 - Everything of the moderator stays on the moderator's PC in `data/store.json` next to the app: saved streamers (room codes with keys), scenes, library, settings. The file is plain JSON and is not encrypted; protect the folder like a password store.
 - The streamer's settings, TLS key (`data/tls/`, mode 0600) and logs (`data/logs/`) stay on the streamer's PC.
 - A backup made with the old panel (library, animations, scenes, scenarios) is a file protected with a password you choose; it contains the room keys.
-- Nothing is sent to us. The app only asks GitHub Releases for updates.
+- Nothing is sent to us. We have no server and receive no data.
+
+### Outgoing requests
+
+- GitHub Releases: update check (at start and every 3 hours); updates are installed only with a valid signature and checksum.
+- GitHub Pages: the Host downloads the widget code and the radar backgrounds every 10 minutes. These files are not signed yet.
+- unpkg: `mqtt.js` for the widget, loaded with Subresource Integrity (SRI).
+- Google Fonts: fonts of the widget and the panel.
+- 7TV, BTTV and FFZ: chat emotes.
 
 ## Known limits
 
