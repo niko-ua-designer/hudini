@@ -527,7 +527,7 @@ aedes.on('publish', (packet, client) => {
 //   Потом только бинарные кадры [1 байт тип 0..2][зашифрованный кусок]: шлёт владелец, получают адресаты из peers. Тип 0 (заголовок потока) Host запоминает для опоздавших.
 const MEDIA_FRAME = 1048576, MEDIA_BPS = 750000;   // кадр ≤ 1 МБ, ≤ 6 Мбит/с на источник (запись экрана идёт на 3,5 Мбит/с, запас на всплески ключевых кадров)
 const MEDIA_PER_MOD = 4, MEDIA_TOTAL = 16, MEDIA_MOD_TOTAL = 12, MEDIA_PEERS = 8;   // стримеру всегда остаётся место: модераторы занимают не больше 12 из 16
-const MEDIA_SOCKS = 48, MEDIA_PER_IP = 8, MEDIA_PENDING_SOCKS = 16, MEDIA_ASK = 8, ASK_TTL = 120000, DENY_TTL = 60000, RTC_MAX = 64*1024, MEDIA_GRACE = 60000, PEER_IDLE = 120000, MEDIA_TIX = 24;
+const MEDIA_SOCKS = 48, MEDIA_PER_IP = 8, MEDIA_PENDING_SOCKS = 16, MEDIA_ASK = 8, ASK_TTL = 120000, DENY_TTL = 60000, RTC_MAX = 64*1024, PEER_IDLE = 120000, MEDIA_TIX = 24;
 const SID_RE = /^[A-Za-z0-9_-]{8,32}$/, TO_RE = /^(widget|streamer|m:[\w.:-]{1,64})$/;
 const RTC_T = new Set(['offer', 'answer', 'ice', 'bye', 'want', 'have']);
 const sessions = new Map();   // sid → { sid, kind, owner, ownerType:'mod'|'streamer', ownerClient, ip, since, peers:Set, peerAt:Map<адрес, мс>, tix:Map<client, {tk, h, client}>, recv:Set<ws>, sender:ws|null, init:Buffer|null }
@@ -584,7 +584,7 @@ function mediaRevoke(pred, why){
 function grantsSweep(){
   const now = Date.now();
   for(const [k, g] of grants){
-    if(g.gone ? now - g.gone > MEDIA_GRACE : g.st!=='ok' && now - g.at > (g.st==='no' ? DENY_TTL : ASK_TTL)) grants.delete(k);
+    if(g.st!=='ok' && now - g.at > (g.st==='no' ? DENY_TTL : ASK_TTL)) grants.delete(k);
   }
 }
 setInterval(grantsSweep, 15000);
@@ -595,7 +595,6 @@ function modMediaOk(client, kind){
   grantsSweep();
   const g = grants.get(key);
   if(g?.st==='ok'){
-    if(g.gone){ if(g.ip!==client.conn._ip){ grants.delete(key); return modMediaOk(client, kind); } delete g.gone; }   // быстрый возврат того же clientId с того же адреса
     return true;
   }
   if(g?.st==='no'){ mediaNote(cid, 'no', kind, { why:'denied' }).catch(()=>{}); return false; }
@@ -692,7 +691,7 @@ setInterval(() => {
     if(!online || !live) peerDrop(s, id);
   }
 }, 15000).unref?.();
-// Отключился модератор: его сеансы закрываем, а одобрение стримера помним MEDIA_GRACE мс для того же clientId (моргнула сеть). Права и общий выключатель сверяются как всегда.
+// Отключился модератор: его сеансы закрываем и одобрение стримера забываем (clientId виден другим модераторам, его можно занять): после обрыва стример подтверждает заново.
 aedes.on('clientDisconnect', c => {
   const priv = !!(c.conn?._mod || c.conn?._streamer);
   const replaced = aedes.clients[c.id] && aedes.clients[c.id]!==c;   // тот же clientId уже вернулся: у нового соединения свои сеансы
@@ -708,7 +707,7 @@ aedes.on('clientDisconnect', c => {
   if(c.conn._mod && !replaced){
     for(const [k, g] of [...grants]){
       if(g.cid!==c.id) continue;
-      if(g.st==='ok') g.gone = Date.now(); else grants.delete(k);
+      grants.delete(k);
     }
   }
 });

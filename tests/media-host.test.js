@@ -430,7 +430,7 @@ const subtle = globalThis.crypto.subtle;
     await until(async () => (await dock()).media.live.length === 0);
   });
 
-  await step('a quick reconnect with the same client id keeps the streamer\'s approval for a short while', async () => {
+  await step('after a drop the same client id is asked again, the approval is not inherited', async () => {
     await perms({ cam: true });
     const G = await mod('g'), sid = sidn();
     await G.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
@@ -440,18 +440,11 @@ const subtle = globalThis.crypto.subtle;
     G.c.end(true);
     check(await until(async () => (await dock()).media.live.length === 0), 'the session is closed on the drop');
     const G2 = await mod('g'), sid2 = sidn();
-    await G2.pub({ sid: sid2, kind: 'cam', t: 'offer', to: 'widget' });
-    check(await until(() => cnt(W, h => h.sid === sid2 && h.t === 'offer') === 1), 'the same client id is accepted again without a new request');
-    eq((await dock()).media.pending.length, 0, 'no new question for the streamer');
+    await G2.pub({ sid: sid2, kind: 'cam', t: 'offer', to: 'widget' }); await sleepMsg();
+    eq(cnt(W, h => h.sid === sid2), 0, 'the same client id is not let through without a new question');
+    check(await until(async () => (await dock()).media.pending.some(p => p.key === 'cam|' + G2.id)), 'the streamer is asked again');
     G2.c.end(true);
-    await until(async () => (await dock()).media.live.length === 0);
-    const G3 = await mod('h-other'); const sid3 = sidn();
-    await G3.pub({ sid: sid3, kind: 'cam', t: 'offer', to: 'widget' }); await sleepMsg();
-    eq(cnt(W, h => h.sid === sid3), 0, 'another client id inherits nothing');
-    await perms({ cam: false }); await perms({ cam: true });
-    const G4 = await mod('g'), sid4 = sidn();
-    await G4.pub({ sid: sid4, kind: 'cam', t: 'offer', to: 'widget' }); await sleepMsg();
-    eq(cnt(W, h => h.sid === sid4), 0, 'turning the permission off wipes the remembered approval');
+    await perms({ cam: false });
   });
 
   await step('the moderators\' count of rtc messages is limited, the topic is never retained, and logs show no keys', async () => {
