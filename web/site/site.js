@@ -191,25 +191,40 @@
   document.addEventListener('click', e => {   // the crawlable language links in the footer also remember the choice
     const a = e.target.closest?.('.langlinks a'); if(a) try{ localStorage.setItem('hudini.lang', a.getAttribute('hreflang')); }catch{}
   });
-  // After a download click the release page opens in a new tab: tell which file to take from its Assets list
-  const FILES = { windows:'HudiniHost-windows-<version>.zip', linux:'HudiniHost-linux-<version>.zip', macos:'HudiniHost-mac-<version>.zip' };
-  function dlHint(os){
+  // A download click opens a two-step mini guide: what else is needed (a way to connect the PCs), then the release page with the right file marked
+  function dlGuide(os){
     if(document.querySelector('.lo-back')) return;
     const t = T[lang] || T.en, back = document.createElement('div'); back.className = 'lo-back';
     const box = document.createElement('div'); box.className = 'lo-box dl-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
-    const h = document.createElement('div'); h.className = 'lo-title'; h.textContent = t.dlHintT;
-    const p = document.createElement('p'); p.className = 'dl-p'; p.innerHTML = t.dlHintP;
-    const ul = document.createElement('ul'); ul.className = 'dl-files';
-    for(const [k, name] of OSES){ const li = document.createElement('li'); if(k === os) li.className = 'me'; const b = document.createElement('b'); b.textContent = name; const c = document.createElement('code'); c.textContent = FILES[k]; li.append(b, c); ul.appendChild(li); }
-    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'lo-btn main'; ok.textContent = t.dlHintOk;
+    const osName = (OSES.find(o => o[0] === os) || OSES[0])[1];
     const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
     const onKey = e => { if(e.key === 'Escape') close(); };
-    ok.onclick = close; back.addEventListener('click', e => { if(e.target === back) close(); }); document.addEventListener('keydown', onKey);
-    box.append(h, p, ul, ok); back.appendChild(box); document.body.appendChild(back); ok.focus();
+    const el = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
+    const btn = (label, cls, fn) => { const b = el('button', 'lo-btn' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; return b; };
+    function show(step){
+      box.replaceChildren();
+      const dots = el('div', 'dl-dots'); for(let i = 0; i < 2; i++) dots.appendChild(el('i', i === step ? 'on' : ''));
+      box.append(dots);
+      if(step === 0){
+        box.append(el('div', 'lo-title', t.dlG1T), el('p', 'dl-p', t.dlG1P));
+        const ul = el('ul', 'dl-files');
+        for(const k of ['dlGo1', 'dlGo2', 'dlGo3']){ const li = el('li'); li.append(el('b', '', t[k][0]), el('span', 'dl-sub', t[k][1])); ul.appendChild(li); }
+        const how = el('a', 'dl-how', t.dlGHow); how.href = '#connect'; how.onclick = close;
+        box.append(ul, how, btn(t.dlGNext, 'main', () => show(1)));
+      } else {
+        box.append(el('div', 'lo-title', t.dlG2T));
+        const p = el('p', 'dl-p'); p.innerHTML = t.dlG2P.replace('{os}', osName); box.append(p);
+        const img = el('img', 'dl-img'); img.src = ROOT + 'img/assets-' + os + '.webp'; img.width = 760; img.height = 430; img.alt = ''; box.append(img);
+        const open = el('a', 'lo-btn main dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener'; open.onclick = () => setTimeout(close, 300);
+        box.append(open, btn(t.dlGBack, '', () => show(0)));
+      }
+    }
+    back.addEventListener('click', e => { if(e.target === back) close(); }); document.addEventListener('keydown', onKey);
+    show(0); back.appendChild(box); document.body.appendChild(back); box.querySelector('.lo-btn')?.focus();
   }
   document.addEventListener('click', e => {
     const a = e.target.closest?.('a[data-dl], #otherOs a'); if(!a || document.body.dataset.page === 'help') return;
-    dlHint(a.dataset.os || myOs);
+    e.preventDefault(); dlGuide(a.dataset.os || myOs);
   });
   // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
   function langOffer(){
