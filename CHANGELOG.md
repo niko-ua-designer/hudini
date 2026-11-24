@@ -2,6 +2,44 @@
 
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
 
+## 1.1.3
+
+**EN**
+- Safer permissions: when the streamer switches off "games", a roulette already on screen is hidden and silent, and a moderator can no longer force the CS2 tab on stream.
+- "Pause moderators" also stops moderators from uploading and deleting files; a moderator can no longer take over the connection of another client with the same id.
+- The OBS dock cannot be embedded into another page, and the report page removes OBS links and invitations with keys from what you paste.
+- Home folder names no longer appear in the log and crash report.
+- More translations, the Ukrainian text uses "стрімер" everywhere, role names match the real tabs (Streamer, Moderator, Add), and the help gets the missing nick cleanup entry in English, Ukrainian and German.
+- The site: the connection guides (Radmin VPN, Tailscale, ZeroTier, Porthole) moved into the download window with links to download each tool, smooth page transitions, and the project README in four languages.
+- Calmer look of the panel, the Host window and the dock: visible keyboard focus, clearer buttons and fields, better contrast, larger touch targets.
+
+**RU**
+- Права безопаснее: когда стример выключает «игры», уже стоящая рулетка прячется и молчит, а модератор больше не может принудительно показать CS2-таб на стриме.
+- «Пауза модераторов» запрещает модераторам и загрузку, и удаление файлов; модератор больше не может занять соединение другого клиента с тем же id.
+- OBS-док нельзя встроить в чужую страницу, а страница отчёта убирает из вставленного текста ссылки OBS и приглашения с ключами.
+- Имя папки пользователя больше не попадает в журнал и отчёт о сбое.
+- Больше переводов, в украинских текстах везде «стрімер», названия ролей совпадают с настоящими вкладками (Стример, Модератор, Добавить), в справке на английском, украинском и немецком появился пункт про чистку ников.
+- Сайт: гайды подключения (Radmin VPN, Tailscale, ZeroTier, Porthole) переехали в окно скачивания со ссылками на скачивание каждого инструмента, плавные переходы между страницами, README проекта на четырёх языках.
+- Спокойнее внешний вид пульта, окна Host и дока: видимый фокус с клавиатуры, понятнее кнопки и поля, лучше контраст, крупнее цели нажатия.
+
+**UK**
+- Безпечніші права: коли стрімер вимикає «ігри», рулетка, що вже стоїть, ховається й мовчить, а модератор більше не може примусово показати CS2-таб на стрімі.
+- «Пауза модераторів» забороняє модераторам і завантаження, і видалення файлів; модератор більше не може зайняти з’єднання іншого клієнта з тим самим id.
+- OBS-док не можна вбудувати в чужу сторінку, а сторінка звіту прибирає зі вставленого тексту посилання OBS і запрошення з ключами.
+- Ім’я домашньої теки більше не потрапляє в журнал і звіт про збій.
+- Більше перекладів, в українських текстах скрізь «стрімер», назви ролей збігаються зі справжніми вкладками (Стрімер, Модератор, Додати), у довідці англійською, українською та німецькою з’явився пункт про чистку ніків.
+- Сайт: гайди підключення (Radmin VPN, Tailscale, ZeroTier, Porthole) переїхали у вікно завантаження з посиланнями на завантаження кожного інструмента, плавні переходи між сторінками, README проєкту чотирма мовами.
+- Спокійніший вигляд пульта, вікна Host і дока: видимий фокус із клавіатури, зрозуміліші кнопки й поля, кращий контраст, більші цілі натискання.
+
+**DE**
+- Sicherere Rechte: Wenn der Streamer „Spiele“ ausschaltet, wird eine bereits sichtbare Roulette ausgeblendet und stumm, und ein Mod kann den CS2-Tab nicht mehr erzwingen.
+- „Mods pausieren“ stoppt auch das Hochladen und Löschen von Dateien; ein Mod kann die Verbindung eines anderen Clients mit derselben ID nicht mehr übernehmen.
+- Das OBS-Dock lässt sich nicht in andere Seiten einbetten, und die Meldeseite entfernt OBS-Links und Einladungen mit Schlüsseln aus eingefügtem Text.
+- Der Name des Benutzerordners erscheint nicht mehr im Protokoll und im Absturzbericht.
+- Mehr Übersetzungen, im Ukrainischen überall „стрімер“, Rollennamen passen zu den echten Tabs (Streamer, Moderator, Hinzufügen), und die Hilfe hat den fehlenden Eintrag zur Nick-Bereinigung auf Englisch, Ukrainisch und Deutsch.
+- Die Website: Die Verbindungsanleitungen (Radmin VPN, Tailscale, ZeroTier, Porthole) sind ins Download-Fenster gezogen, mit Links zum Download jedes Tools, sanfte Seitenübergänge und die Projekt-README in vier Sprachen.
+- Ruhigeres Aussehen von Pult, Host-Fenster und Dock: sichtbarer Tastaturfokus, klarere Knöpfe und Felder, besserer Kontrast, größere Tippziele.
+
 ## 1.1.2
 
 **EN**
