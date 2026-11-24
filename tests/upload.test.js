@@ -60,6 +60,33 @@ const PORT = 17810 + Number(process.env.HUDINI_TEST_PORT_OFFSET || 0) + 40;
     eq(await used(), before + 1700, 'only finished bytes remain');
   });
 
+  await step('moderators on pause cannot upload, delete, clean or list files; the streamer side keeps working', async () => {
+    const https = require('https');
+    const mreq = (method, p, body) => new Promise((ok, no) => { const r = https.request({ host: '127.0.0.1', port: host.modPort, path: p, method, rejectUnauthorized: false, headers: { authorization: 'Bearer ' + pass, 'content-type': 'application/octet-stream' } }, res => { res.resume(); res.on('end', () => ok(res.statusCode)); }); r.on('error', no); r.end(body); });
+    eq(await mreq('PUT', '/files/modpauseaaaaaaa?part=0&last=1', A), 200, 'before the pause a moderator uploads');
+    await host.api('/api/control', { action: 'pause' });
+    eq(await mreq('PUT', '/files/modpausebbbbbbb?part=0&last=1', A), 423, 'upload refused');
+    eq(await mreq('DELETE', '/files/modpauseaaaaaaa'), 423, 'delete refused');
+    eq(await mreq('POST', '/files/clean', '{}'), 423, 'clean refused');
+    eq(await mreq('GET', '/files'), 423, 'list refused');
+    eq((await put('streameraaaaaaaa', 0, A, true)).status, 200, 'the streamer side still uploads');
+    await host.api('/api/control', { action: 'resume' });
+    eq(await mreq('DELETE', '/files/modpauseaaaaaaa'), 200, 'after resume delete works');
+  });
+
+  await step('the Host log does not contain the user name from the settings folder path', async () => {
+    const fs = require('fs'), os = require('os'), path = require('path');
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-home-')), user = path.join(home, 'SecretPerson');
+    fs.mkdirSync(path.join(user, 'data'), { recursive: true });
+    const h2 = T.startHost({ OVERLAY_PORT: String(PORT + 10), OVERLAY_SITE: 'off', HOME: user, USERPROFILE: user, OVERLAY_HOST_DIR: path.join(user, 'data') });
+    await h2.ready(); await T.sleep(500);
+    const lg = h2.log();
+    check(/Папка настроек: ~/.test(lg) || !/Папка настроек/.test(lg), 'the settings folder is shown with ~', lg.split('\n').filter(x => /настроек/.test(x)).join('|'));
+    check(!/SecretPerson/.test(lg), 'the user name is not in the log');
+    check(!/SecretPerson/.test(fs.readdirSync(path.join(user, 'data', 'logs')).map(f => fs.readFileSync(path.join(user, 'data', 'logs', f), 'utf8')).join('')), 'nor in the log file');
+    await h2.stop();
+  });
+
   await host.stop();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

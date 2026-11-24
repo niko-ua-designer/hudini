@@ -7,7 +7,7 @@
   const tr = s => window.HudiniI18n ? window.HudiniI18n.t(s) : s;
   const PERM_NAME = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2' };
   // Как в widget.html: тип элемента → право
-  const PERM_OF = { video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
+  const PERM_OF = { video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', roulette:'games', cs2:'games' };
   // Что прятать в пульте. Кнопку можно отдать праву и разметкой: data-perm="fx".
   const PERM_UI = {
     av:['#playSound', '#soundUrl', '#pickSound', '#soundVol'],

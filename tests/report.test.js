@@ -28,7 +28,7 @@ async function siteServer(){
     const r = await p.evaluate(() => {
       const H = window.HudiniReport, s = { type: 'bug', ver: '1.0.0-rc.5', os: 'Windows', role: 'Streamer', conn: 'Radmin VPN', what: 'The case does not open\nsecond line', steps: '1. click' };
       return { rep: H.buildReport(s), url: H.buildUrl(s), idea: H.buildUrl({ type: 'idea', what: 'Dark mode please' }), lag: H.buildUrl({ ...s, type: 'lag' }), long: H.buildUrl({ ...s, what: 'x'.repeat(5000) }),
-        red: H.redact('a hudini1:AbC_123-x b hudini1:zzz'), leak: [H.buildReport({ ...s, what: 'join hudini1:SECRETKEY99 fails' }), H.buildUrl({ ...s, steps: 'paste hudini1:SECRETKEY99' }).url, H.buildUrl({ type: 'idea', what: 'idea hudini1:SECRETKEY99' }).url], os: [H.detectOs('Mozilla/5.0 (Windows NT 10.0)', 'Win32'), H.detectOs('Mozilla/5.0 (X11; Linux x86_64)', 'Linux x86_64')] };
+        red: H.redact('a hudini1:AbC_123-x b hudini1:zzz'), leak: [H.buildReport({ ...s, what: 'join hudini1:SECRETKEY99 fails' }), H.buildUrl({ ...s, steps: 'paste hudini1:SECRETKEY99' }).url, H.buildUrl({ type: 'idea', what: 'idea hudini1:SECRETKEY99' }).url], link: H.redact('open http://localhost:7777/widget/widget.html?room=ROOMSECRET1&broker=ws%3A%2F%2Flocalhost%3A7777%2Fmqtt&v=9#k=KEYSECRET22&p=PASSSECRET3 then #invite=INVSECRET_4-x end'), os: [H.detectOs('Mozilla/5.0 (Windows NT 10.0)', 'Win32'), H.detectOs('Mozilla/5.0 (X11; Linux x86_64)', 'Linux x86_64')] };
     });
     check(r.rep.includes('### What happened\nThe case does not open') && r.rep.includes('### Hudini version\n1.0.0-rc.5') && r.rep.includes('### Connection method\nRadmin VPN'), 'report has the form headings', r.rep);
     const u = new URL(r.url.url); eq(u.origin + u.pathname, 'https://github.com/niko-ua-designer/hudini/issues/new', 'link goes to the repo');
@@ -39,6 +39,7 @@ async function siteServer(){
     check(r.long.truncated && r.long.url.length < 6000, 'long text is cut so the link stays short', String(r.long.url.length));
     eq(r.red.n, 2, 'two room codes redacted'); check(!r.red.text.includes('AbC_123') && r.red.text.includes('hudini1:[removed]'), 'codes are replaced');
     check(r.leak.every(x => !x.includes('SECRETKEY99')), 'a room code typed into the fields never reaches the report or the link', r.leak.join('\n'));
+    eq(r.link.n, 4, 'room, key, password and invite of a widget link are counted'); check(!/SECRET/.test(r.link.text) && r.link.text.includes('room=[removed]') && r.link.text.includes('#k=[removed]') && r.link.text.includes('&p=[removed]') && r.link.text.includes('#invite=[removed]') && r.link.text.includes('&v=9'), 'the widget link is cleaned and the rest stays', r.link.text);
     eq(r.os[0], 'Windows', 'detects Windows'); eq(r.os[1], 'Linux', 'detects Linux');
     await p.context().close();
   });

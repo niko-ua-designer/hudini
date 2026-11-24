@@ -6,6 +6,8 @@
   const REPO = 'https://github.com/niko-ua-designer/hudini/issues/new';
   const OSES = ['Windows', 'macOS (Apple Silicon)', 'macOS (Intel)', 'Linux'];
   const CODE = /hudini1:[^\s"'<>`]+/g;
+  // the OBS widget link carries the room and its keys: ?room=…, #k=…&p=…, #invite=…
+  const KEYS = /([#&?])(k|p)=[^&\s"'<>`#]+/g, INVITE = /([#&?])invite=[A-Za-z0-9_-]+/g, ROOM = /(\bhttps?:\/\/[^\s"'<>`]*widget[^\s"'<>`]*?[?&]room=)[^&\s"'<>`#]+/g;
   const LIMIT = 1500;   // per field in the link, so the whole URL stays well under GitHub's limit
 
   const detectOs = (ua = navigator.userAgent || '', plat = navigator.platform || '') => {
@@ -14,7 +16,13 @@
     if(/Linux|X11/i.test(plat + ua) && !/Android/i.test(ua)) return 'Linux';
     return 'Windows';
   };
-  const redact = (text) => { let n = 0; const out = String(text).replace(CODE, () => { n++; return 'hudini1:[removed]'; }); return { text: out, n }; };
+  const redact = (text) => { let n = 0; 
+    const out = String(text)
+      .replace(CODE, () => { n++; return 'hudini1:[removed]'; })
+      .replace(ROOM, (_, a) => { n++; return a + '[removed]'; })
+      .replace(KEYS, (_, d, k) => { n++; return `${d}${k}=[removed]`; })
+      .replace(INVITE, (_, d) => { n++; return `${d}invite=[removed]`; });
+    return { text: out, n }; };
   const clip = (s, n) => s.length > n ? s.slice(0, n) + ' …' : s;
   // a room code pasted into a field never reaches the public issue
   const scrub = s => { const o = { ...s }; for(const k of ['what', 'steps', 'ver']) if(typeof o[k] === 'string') o[k] = redact(o[k]).text; return o; };

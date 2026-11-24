@@ -4,7 +4,7 @@
 (function(){
   'use strict';
   const start = () => {
-    for(const src of ['streamer.js?v=3', 'moderator.js?v=8', 'broadcast.js?v=2', 'draw.js?v=1', 'cursors.js?v=2','ui.js?v=7']){
+    for(const src of ['streamer.js?v=4', 'moderator.js?v=8', 'broadcast.js?v=2', 'draw.js?v=1', 'cursors.js?v=2','ui.js?v=7']){
       const s = document.createElement('script'); s.src = src; s.async = false;   // по порядку: ui.js нужен готовый moderator.js, а boot() в moderator.js — готовый streamer.js
       document.body.appendChild(s);
     }
