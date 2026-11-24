@@ -288,3 +288,13 @@ a.flogo{text-decoration:none}
 @media (max-width:640px){.bento{gap:12px}.tile,.tile.t-media,.tile.t-cur{grid-column:1/-1;padding:18px}}
 
 .sh-radar{display:block;width:100%;height:auto;border-radius:18px;border:1px solid var(--line2);box-shadow:0 30px 70px -30px #000}
+
+/* language offer on the first visit */
+.lo-back{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,7,12,.72);backdrop-filter:blur(6px)}
+.lo-box{width:min(360px,100%);display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:18px;border:1px solid var(--line2);background:#12141d;box-shadow:0 30px 80px -20px #000,0 0 70px -30px #7c5cff}
+.lo-title{font-weight:700;font-size:18px;margin:0 0 6px;text-align:center}
+.lo-btn{font:inherit;font-size:16px;color:inherit;padding:12px 14px;border-radius:12px;border:1px solid var(--line2);background:#1a1d29;cursor:pointer}
+.lo-btn:hover,.lo-btn:focus-visible{border-color:#9b7dff;outline:none}
+.lo-btn.main{background:linear-gradient(135deg,#6d4dff,#a14dff);border-color:transparent;font-weight:600}
+/* hero headline: the highlighted words always sit on their own line, as in the Russian page */
+.sh-hero h1 span{display:block}

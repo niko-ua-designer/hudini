@@ -188,6 +188,36 @@
   document.addEventListener('click', e => {   // the crawlable language links in the footer also remember the choice
     const a = e.target.closest?.('.langlinks a'); if(a) try{ localStorage.setItem('hudini.lang', a.getAttribute('hreflang')); }catch{}
   });
+  // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
+  function langOffer(){
+    if(document.body.dataset.page !== 'home') return;
+    let saved = null; try{ saved = localStorage.getItem('hudini.lang'); }catch{}
+    if(saved || new URLSearchParams(location.search).get('lang')) return;
+    const mine = canon((navigator.language || '').slice(0, 2).toLowerCase()) || 'en';
+    const TITLE = { en:'Choose your language', ru:'Выберите язык', uk:'Оберіть мову', de:'Sprache wählen' };
+    const order = [mine, ...LANGS.map(l => l[0]).filter(c => c !== mine)];
+    const back = document.createElement('div'); back.className = 'lo-back';
+    const box = document.createElement('div'); box.className = 'lo-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', TITLE[mine]);
+    const h = document.createElement('div'); h.className = 'lo-title'; h.textContent = TITLE[mine];
+    box.appendChild(h);
+    const close = keep => {
+      try{ localStorage.setItem('hudini.lang', keep || lang); }catch{}
+      back.remove(); document.removeEventListener('keydown', onKey);
+    };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    for(const c of order){
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lo-btn' + (c === mine ? ' main' : '');
+      b.textContent = LANGS.find(l => l[0] === c)[1];
+      b.onclick = () => { if(c === lang){ close(c); } else setLang(c); };
+      box.appendChild(b);
+    }
+    back.appendChild(box);
+    back.addEventListener('click', e => { if(e.target === back) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(back);
+    box.querySelector('.lo-btn')?.focus();
+  }
   render();
   if(document.body.dataset.page !== 'help') landingOnce();
+  langOffer();
 })();
