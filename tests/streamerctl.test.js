@@ -108,6 +108,14 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => panel.evaluate(() => !document.getElementById('permNote'))), 'the panel note is gone');
   });
 
+  await step('the dock and the Host page cannot be put in a frame', async () => {
+    for(const [base, p] of [[host.base, '/dock'], [host.admin, '/']]){
+      const r = await fetch(base + p, { headers: { 'x-hudini-token': host.token } });
+      eq(r.headers.get('x-frame-options'), 'DENY', p + ' x-frame-options');
+      check(/frame-ancestors 'none'/.test(r.headers.get('content-security-policy') || ''), p + ' frame-ancestors');
+    }
+  });
+
   // ---------- the new OBS dock: tabs Статус / Элементы / Люди / CS2 ----------
   const dock = await T.newPage('dock', { w: 360, h: 640, app: false });
   await dock.goto(host.base + '/dock');

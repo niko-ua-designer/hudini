@@ -74,6 +74,19 @@ const PORT = 17810 + Number(process.env.HUDINI_TEST_PORT_OFFSET || 0) + 40;
     eq(await mreq('DELETE', '/files/modpauseaaaaaaa'), 200, 'after resume delete works');
   });
 
+  await step('the Host log does not contain the user name from the settings folder path', async () => {
+    const fs = require('fs'), os = require('os'), path = require('path');
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-home-')), user = path.join(home, 'SecretPerson');
+    fs.mkdirSync(path.join(user, 'data'), { recursive: true });
+    const h2 = T.startHost({ OVERLAY_PORT: String(PORT + 10), OVERLAY_SITE: 'off', HOME: user, USERPROFILE: user, OVERLAY_HOST_DIR: path.join(user, 'data') });
+    await h2.ready(); await T.sleep(500);
+    const lg = h2.log();
+    check(/Папка настроек: ~/.test(lg) || !/Папка настроек/.test(lg), 'the settings folder is shown with ~', lg.split('\n').filter(x => /настроек/.test(x)).join('|'));
+    check(!/SecretPerson/.test(lg), 'the user name is not in the log');
+    check(!/SecretPerson/.test(fs.readdirSync(path.join(user, 'data', 'logs')).map(f => fs.readFileSync(path.join(user, 'data', 'logs', f), 'utf8')).join('')), 'nor in the log file');
+    await h2.stop();
+  });
+
   await host.stop();
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

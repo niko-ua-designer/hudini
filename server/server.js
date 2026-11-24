@@ -81,9 +81,15 @@ const MPORT = okPort(process.env.OVERLAY_MOD_PORT) || okPort(cfg.modPort) || POR
 // В памяти последние строки (для страницы управления), на диске data/logs/host-ГГГГ-ММ-ДД.log (7 дней)
 const LOGS_DIR = path.join(BASE, 'logs'); fs.mkdirSync(LOGS_DIR, { recursive:true, mode:0o700 });
 const logs = [], connLogs = [];
+// В журнал и краш-отчёт не попадает имя пользователя ПК: домашняя папка → ~, C:\\Users\\<имя> → C:\\Users\\<user>
+function maskPath(p){
+  let t = String(p);
+  try{ const h = os.homedir(); if(h && h.length > 3) for(const v of new Set([h, h.replace(/\\/g, '/'), h.replace(/\//g, '\\')])) t = t.split(v).join('~'); }catch{}
+  return t.replace(/([A-Za-z]:[\\/]+Users[\\/]+)[^\\/\s:*?"<>|]+/gi, '$1<user>').replace(/(^|[\s'"(=])(\/(?:home|Users)\/)[^\/\s'")]+/g, '$1$2<user>');
+}
 const dayStamp = (d=new Date()) => d.toLocaleDateString('sv-SE');
 function emitLog(conn, a){
-  const text = a.join(' ').replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 2000);   // one plain line: no control characters, no runaway length
+  const text = maskPath(a.join(' ')).replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 2000);   // one plain line: no control characters, no runaway length
   const line = new Date().toLocaleTimeString('ru-RU') + '  ' + text;
   console.log(line); logs.push(line); if(logs.length>200) logs.shift();
   if(conn){ connLogs.push(line); if(connLogs.length>200) connLogs.shift(); }
@@ -104,7 +110,7 @@ let shuttingDown = false;
 function crash(kind, e){
   if(shuttingDown) return;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const text = `${kind} ${new Date().toISOString()}\nHudini ${VERSION} ${process.platform} ${os.arch()}\n\n${e?.stack || e}\n\nПоследние строки журнала:\n${logs.slice(-30).join('\n')}\n`;
+  const text = maskPath(`${kind} ${new Date().toISOString()}\nHudini ${VERSION} ${process.platform} ${os.arch()}\n\n${e?.stack || e}\n\nПоследние строки журнала:\n${logs.slice(-30).join('\n')}\n`);
   try{ fs.writeFileSync(path.join(LOGS_DIR, `crash-${stamp}.log`), text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' '), { mode:0o600 }); }catch{}
   try{ console.error(text); }catch{}
   process.exit(70);
@@ -2030,7 +2036,7 @@ const local = http.createServer(async (req, res) => {
       if(!isAdmin(req)) return send(res, 403, 'Страница управления открывается из приложения Hudini или по ссылке из консоли (…/auth?t=…).');
       return send(res, 200, UI_HTML, 'text/html; charset=utf-8', { 'x-frame-options':'DENY', 'content-security-policy':"frame-ancestors 'none'" });
     }
-    if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8');
+    if(p==='/dock') return send(res, 200, DOCK_HTML, 'text/html; charset=utf-8', { 'x-frame-options':'DENY', 'content-security-policy':"frame-ancestors 'none'" });
     if(p==='/widget.html') return send(res, 302, '', 'text/plain', { location:'/widget/widget.html'+url.search });   // старые ссылки для OBS (hash браузер сохранит сам)
     if(p==='/widget/widget.html'){ if(url.searchParams.has('upd')) await refreshNow(); return send(res, 200, widgetHtml(), 'text/html; charset=utf-8'); }
     if(p==='/shared/core.js') return send(res, 200, files['shared/core.js'], 'application/javascript; charset=utf-8');
@@ -2138,4 +2144,4 @@ local.on('error', e => {
   log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
 
-export { detectFight, slotKey, hudSlots, seriesStep, seriesView, seriesCmd, cleanSeries };   // для тестов (tests/cs2stats.test.js берёт их из исходника)
+export { detectFight, slotKey, hudSlots, seriesStep, seriesView, seriesCmd, cleanSeries, maskPath };   // для тестов (tests/cs2stats.test.js берёт их из исходника)
