@@ -1,5 +1,9 @@
 # Releasing Hudini
 
+## 1.1.1 (patch, branch `v1`)
+
+Same steps and archive names as 1.1.0 (`HudiniHost-<system>-1.1.1.zip`). Version `1.1.1` is in `server/server.js`, `server/package.json`, `app/src-tauri/Cargo.toml`, `app/relay/Cargo.toml` and `tauri.conf.json`; add a `## 1.1.1` section to `CHANGELOG.md`.
+
 ## 1.1.0 (branch `v1`)
 
 Version `1.1.0` is in `server/server.js`, `server/package.json`, `app/src-tauri/Cargo.toml` and `tauri.conf.json`.

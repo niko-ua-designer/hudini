@@ -2,6 +2,32 @@
 
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
 
+## 1.1.1
+
+**EN**
+- Fixed missing translations in the Hudini Host window: the moderator code block, the online list, the moderators port, the address hints and the notice about the old links now follow the selected language (English, Ukrainian, German).
+- The panel no longer sends cursors to a Host older than 1.1, so a 1.1 panel does not get kicked from a 1.0 Host.
+- The streamer's own microphone stays audible on stream while the moderator microphone permission is off.
+- A moderator's approval to show the camera, screen or microphone is forgotten when the moderator disconnects: the streamer is asked again.
+
+**RU**
+- Исправлены недостающие переводы в окне Hudini Host: блок кода для модератора, список «на связи», порт модераторов, подсказки про адреса и уведомление про старые ссылки теперь следуют выбранному языку (английский, украинский, немецкий).
+- Пульт больше не шлёт курсоры на Host старше 1.1, поэтому пульт 1.1 не вылетает с Host 1.0.
+- Собственный микрофон стримера слышен на стриме, даже когда разрешение на микрофон модератора выключено.
+- Подтверждение камеры, экрана или микрофона модератора забывается при его отключении: стример подтверждает заново.
+
+**UK**
+- Виправлено відсутні переклади у вікні Hudini Host: блок коду для модератора, список «на зв’язку», порт модераторів, підказки про адреси та сповіщення про старі посилання тепер відповідають обраній мові (англійська, українська, німецька).
+- Пульт більше не надсилає курсори на Host старіший за 1.1, тож пульт 1.1 не вилітає з Host 1.0.
+- Власний мікрофон стримера чути на стрімі, навіть коли дозвіл на мікрофон модератора вимкнено.
+- Підтвердження камери, екрана чи мікрофона модератора забувається, коли він відключається: стример підтверджує знову.
+
+**DE**
+- Fehlende Übersetzungen im Hudini-Host-Fenster behoben: Code-Block für den Moderator, die Online-Liste, der Moderator-Port, die Adress-Hinweise und der Hinweis zu den alten Links folgen jetzt der gewählten Sprache (Englisch, Ukrainisch, Deutsch).
+- Das Pult sendet keine Cursor mehr an einen Host älter als 1.1, ein 1.1-Pult fliegt so nicht mehr von einem 1.0-Host.
+- Das eigene Mikrofon des Streamers bleibt im Stream hörbar, auch wenn die Mikrofon-Erlaubnis für Moderatoren aus ist.
+- Die Freigabe für Kamera, Bildschirm oder Mikrofon eines Moderators wird beim Trennen vergessen: der Streamer wird erneut gefragt.
+
 ## 1.1.0
 
 **EN**

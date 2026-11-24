@@ -30,7 +30,7 @@ import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // Роль модератора: сервер не открывает портов, только проверяет и ставит обновления
