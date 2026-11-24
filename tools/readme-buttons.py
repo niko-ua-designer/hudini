@@ -18,10 +18,10 @@ LABELS = {
  'de': dict(download='Hudini herunterladen', website='Website', help='Hilfe', telegram='Telegram', idea='Idee oder Problem')}
 SPEC = {  # name: (icon, width, height, fill, stroke, font size, icon size); the four small buttons share one size so the 2x2 grid lines up
  'download': ('dl', 340, 76, PRIM, '#ffffff55', 24, 28),
- 'website': ('web', 250, 60, DARK, '#9b7dff99', 19, 22),
- 'help': ('help', 250, 60, DARK, '#9b7dff99', 19, 22),
- 'telegram': ('tg', 250, 60, TG, '#ffffff55', 19, 22),
- 'idea': ('idea', 250, 60, DARK, '#ff5c9a99', 19, 22)}
+ 'website': ('web', 280, 60, DARK, '#9b7dff99', 19, 22),
+ 'help': ('help', 280, 60, DARK, '#9b7dff99', 19, 22),
+ 'telegram': ('tg', 280, 60, TG, '#ffffff55', 19, 22),
+ 'idea': ('idea', 280, 60, DARK, '#ff5c9a99', 19, 22)}
 def btn(lang, name):
     icon, w, h, fill, stroke, fs, ic = SPEC[name]; label = LABELS[lang][name]
     top = (h - 10 - ic) / 2 + 3; ty = (h - 10) / 2 + 3 + fs * 0.35

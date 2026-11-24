@@ -172,7 +172,8 @@
     const t = T[lang] || T.en;
     const slots = new Map();   // text key -> elements; the HTML itself always comes from the text table below, never from the page
     for(const el of document.querySelectorAll('[data-t]')){ const k = el.dataset.t; if(!slots.has(k)) slots.set(k, []); slots.get(k).push(el); }
-    for(const [k, v] of Object.entries(t)) if(typeof v === 'string') for(const el of slots.get(k) || []) el.innerHTML = v;
+    const VER = document.documentElement.dataset.ver || '';   // the build writes the program version into <html data-ver>
+    for(const [k, v] of Object.entries(t)) if(typeof v === 'string') for(const el of slots.get(k) || []) el.innerHTML = v.replace(/\{ver\}/g, VER);
     if(document.body.dataset.page === 'help') helpPage(); else landing(t);
   }
   function setLang(code){

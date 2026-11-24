@@ -23,7 +23,7 @@ const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': B
 const need = (c, m) => { if(!c) throw new Error('build-seo: ' + m); };
 
 function page(lang){
-  const t = T[lang], g = G[lang] || G.en, pre = lang === 'en' ? '' : '../';
+  const t = JSON.parse(JSON.stringify(T[lang] || null).replaceAll('{ver}', VERSION)), g = G[lang] || G.en, pre = lang === 'en' ? '' : '../';
   need(t && t.seoTitle && t.seoDesc, 'seoTitle/seoDesc missing for ' + lang);
   let h = tpl;
 
@@ -49,6 +49,7 @@ function page(lang){
 
   // 3. <html> attributes
   h = h.replace('<html lang="en">', lang === 'en' ? '<html lang="en" data-lang-routes>' : `<html lang="${lang}" data-root="../" data-static-lang="${lang}">`);
+  h = h.replace(/<html lang="([a-z]+)"/, `<html lang="$1" data-ver="${VERSION}"`);
   if(lang !== 'en') h = h.replace(/<script src="(\.\.\/)?lang-route\.js[^"]*"><\/script>\n/, '');
 
   // 4. head: title, description, canonical, hreflang, social, structured data
