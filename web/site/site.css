@@ -301,4 +301,4 @@ a.flogo{text-decoration:none}
 /* hero video loop: one picture with its own background */
 .sh-video{overflow:hidden;line-height:0}
 .sh-vid{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0d0f17}
-.rp-tg{margin-top:14px;font-size:calc(15px*var(--k));color:var(--soft)}.rp-tg a{color:#9bb8ff;text-decoration:underline}
+.rp-tg{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:12px;font-size:calc(15px*var(--k));color:var(--soft)}

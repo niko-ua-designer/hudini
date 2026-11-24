@@ -78,8 +78,11 @@ async function siteServer(){
 
   await step('idea flow opens the idea form', async () => {
     const p = await open();
-    await p.click('[data-type="idea"]'); await p.click('#next'); await p.click('#next');
+    await p.click('[data-type="idea"]'); await p.click('#next');
+    eq(await p.textContent('#stepOf'), 'Step 2 of 3', 'an idea has three steps');
     await p.fill('#fWhat', 'Please add a dark theme for the panel'); await p.click('#next');
+    eq(await p.textContent('#stepOf'), 'Step 3 of 3', 'the idea goes straight to GitHub');
+    check(!(await p.$('.rp-note')), 'no log request for an idea');
     eq(new URL(await p.getAttribute('#gh', 'href')).searchParams.get('template'), 'idea.yml', 'idea template');
     await p.context().close();
   });

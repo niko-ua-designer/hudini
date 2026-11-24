@@ -53,20 +53,22 @@
     if(CONNS[q.get('conn')]) S.conn = CONNS[q.get('conn')];
   }
   let lang = 'en', clean = null;
-  const t = () => R[lang] || R.en, TOTAL = 5;
+  const t = () => R[lang] || R.en;
+  // an idea has three steps: kind, the idea, GitHub (no facts to collect, no log); a bug has five
+  const total = () => S.type === 'idea' ? 3 : 5, phase = n => S.type === 'idea' ? [0, 2, 3][n] : n;
 
   const field = (id, label, hint, inner) => `<label class="rp-f" for="${id}"><span>${label}</span>${inner}${hint ? `<small>${hint}</small>` : ''}</label>`;
   const select = (id, opts, val) => `<select id="${id}">${opts.map(([v, l]) => `<option value="${esc(v)}"${v === val ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 
   function draw(){
-    const k = t(), n = S.step, idea = S.type === 'idea';
+    const k = t(), n = S.step, idea = S.type === 'idea', ph = phase(n), TOTAL = total();
     $('stepOf').textContent = k.stepOf.replace('{n}', n + 1).replace('{total}', TOTAL);
-    $('dots').innerHTML = k.st.map((_, i) => `<li class="${i < n ? 'done' : i === n ? 'on' : ''}"></li>`).join('');
-    $('stTitle').textContent = k.st[n];
+    $('dots').innerHTML = Array.from({ length: TOTAL }, (_, i) => `<li class="${i < n ? 'done' : i === n ? 'on' : ''}"></li>`).join('');
+    $('stTitle').textContent = idea && n > 0 ? k.stIdea[n] : k.st[ph];
     let h = '';
-    if(n === 0){
+    if(ph === 0){
       h = `<div class="rp-types" role="radiogroup">${k.types.map(([v, a, b]) => `<button type="button" role="radio" aria-checked="${S.type === v}" class="${S.type === v ? 'on' : ''}" data-type="${v}"><b>${a}</b><span>${b}</span></button>`).join('')}</div>`;
-    } else if(n === 1){
+    } else if(ph === 1){
       h = `<p>${k.s2p}</p>`;
       if(idea) h += `<p class="rp-soft">—</p>`;
       else h += `<div class="rp-grid">${field('fVer', k.fVer, k.fVerH, `<input id="fVer" value="${esc(S.ver)}" placeholder="${k.fVerPh}" autocomplete="off">`)}
@@ -74,13 +76,13 @@
         ${field('fRole', k.fRole, '', select('fRole', k.roles, S.role))}
         ${field('fConn', k.fConn, '', select('fConn', [['', '—'], ...k.conns], S.conn))}</div>`;
       h += `<div class="rp-warn"><b>${k.warnH}</b><span>${k.warnP}</span></div>`;
-    } else if(n === 2){
-      h = `<p>${k.s3p}</p>` + (idea ? field('fWhat', k.fIdea, k.fIdeaH, `<textarea id="fWhat" rows="5">${esc(S.what)}</textarea>`)
+    } else if(ph === 2){
+      h = `<p>${idea ? k.s3pIdea : k.s3p}</p>` + (idea ? field('fWhat', k.fIdea, k.fIdeaH, `<textarea id="fWhat" rows="5">${esc(S.what)}</textarea>`)
         : field('fWhat', k.fWhat, k.fWhatH, `<textarea id="fWhat" rows="4">${esc(S.what)}</textarea>`) + field('fSteps', k.fSteps, k.fStepsH, `<textarea id="fSteps" rows="4">${esc(S.steps)}</textarea>`));
-    } else if(n === 3){
+    } else if(ph === 3){
       const { truncated } = buildUrl(S);
       h = `<p>${k.s4p}</p><ol class="rp-ol">${k.acc.map(x => `<li>${x}</li>`).join('')}</ol><p class="rp-soft">${k.accHave}</p>
-        <p class="rp-note">${k.logNote}</p>
+        ${idea ? '' : `<p class="rp-note">${k.logNote}</p>`}
         <div class="rp-act"><a class="btn primary shine" id="gh" target="_blank" rel="noopener noreferrer"></a></div>${truncated ? `<p class="rp-note">${k.long}</p>` : ''}`;
     } else {
       h = `<p>${k.s5p}</p><ol class="rp-ol">${k.logSteps.map(x => `<li>${x}</li>`).join('')}</ol>
@@ -94,7 +96,7 @@
     wire(); validate();
   }
   function validate(){
-    const need = S.step === 2 && S.what.trim().length < 10;
+    const need = phase(S.step) === 2 && S.what.trim().length < 10;
     $('next').disabled = need;
     const prev = $('prev'); if(prev){ prev.textContent = need ? t().tooShort : buildReport(S); $('copy').textContent = S.copied ? t().copied : t().copy; $('copy').disabled = need; }
     const gh = $('gh'); if(gh){ const { url } = buildUrl(S); gh.href = url; gh.textContent = S.type === 'idea' ? t().openIdea : t().open; }
@@ -112,7 +114,7 @@
     };
   }
   $('back').onclick = () => { if(S.step) { S.step--; draw(); window.scrollTo(0, 0); } };
-  $('next').onclick = () => { if(S.step === TOTAL - 1) Object.assign(S, { step: 0, what: '', steps: '', copied: false }); else S.step++; draw(); window.scrollTo(0, 0); };
+  $('next').onclick = () => { if(S.step === total() - 1) Object.assign(S, { step: 0, what: '', steps: '', copied: false }); else S.step++; draw(); window.scrollTo(0, 0); };
 
   function texts(){ const k = t(); document.title = k.title; for(const e of document.querySelectorAll('[data-r]')) if(typeof k[e.dataset.r] === 'string') e.innerHTML = k[e.dataset.r]; draw(); }
   function sync(){ const l = document.documentElement.lang; if(R[l]) lang = l; texts(); }
