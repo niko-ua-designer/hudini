@@ -298,3 +298,6 @@ a.flogo{text-decoration:none}
 .lo-btn.main{background:linear-gradient(135deg,#6d4dff,#a14dff);border-color:transparent;font-weight:600}
 /* hero headline: the highlighted words always sit on their own line, as in the Russian page */
 .sh-hero h1 span{display:block}
+/* hero video loop: one picture with its own background */
+.sh-video{overflow:hidden;line-height:0}
+.sh-vid{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0d0f17}

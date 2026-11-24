@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Hudini · one app for streamer and moderator</title>
 <meta name="description" content="Free, open source stream overlay for OBS that a moderator controls from the Hudini app. Text, pictures, GIFs, timers, polls, cases, Twitch chat, CS2. Direct encrypted connection, no Hudini cloud services, the moderator connects directly to the streamer's PC.">
 <meta name="google-site-verification" content="LoxZv0Ma7iTypIJH2iirwQxE52_-AyxZGqO3PhJuCA4">
@@ -18,11 +18,11 @@
 <meta name="application-name" content="Hudini"><meta name="apple-mobile-web-app-title" content="Hudini">
 <link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="shared/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=14">
+<link rel="stylesheet" href="site.css?v=15">
 <script src="lang-route.js?v=2"></script>
 <script src="shared/connect-guides.js?v=1"></script>
 <script src="site-texts.js?v=3"></script>
-<script src="site.js?v=10" defer></script>
+<script src="site.js?v=11" defer></script>
 </head>
 <body data-page="home">
 <div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -46,10 +46,11 @@
       </div>
       <small class="free"><span data-t="dlOther"></span> <span id="otherOs"></span> · <a data-sums target="_blank" rel="noopener" data-t="dlSums"></a></small>
     </div>
-    <div class="sh-shot" aria-hidden="false">
-      <div class="sh-bar"><i></i><i></i><i></i></div>
-      <img class="sh-panel" src="img/hero-panel.webp" width="1600" height="900" alt="" data-t-alt="altPanel">
-      <img class="sh-stream" src="img/hero-stream.webp" width="1600" height="900" alt="" data-t-alt="altStream">
+    <div class="sh-shot sh-video">
+      <video class="sh-vid" autoplay muted loop playsinline preload="metadata" poster="img/hero-poster.webp" width="1600" height="900" aria-label="" data-t-label="altPanel">
+        <source src="img/hero.webm" type="video/webm">
+        <source src="img/hero.mp4" type="video/mp4">
+      </video>
     </div>
   </section>
 

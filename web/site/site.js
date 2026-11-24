@@ -115,6 +115,8 @@
     for(const a of document.querySelectorAll('a[data-dl]')) a.href = REL;
     for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + `<span class="dl-l">${t.dlFor.replace('{os}', osName)}</span><span class="dl-s">${t.dlShort}</span>`;
     for(const el of document.querySelectorAll('[data-t-alt]')) el.setAttribute('alt', t[el.dataset.tAlt] || '');
+    for(const el of document.querySelectorAll('[data-t-label]')) el.setAttribute('aria-label', t[el.dataset.tLabel] || '');
+    if(reduced) for(const v of document.querySelectorAll('video.sh-vid')){ v.removeAttribute('autoplay'); v.pause(); }   // reduced motion: the poster stays
     for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
     const other = document.getElementById('otherOs');
     if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');

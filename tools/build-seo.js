@@ -37,6 +37,7 @@ function page(lang){
   h = h.replace(/<a class="btn ([a-z ]+)" data-dl data-os-label /g, (m, c) => `<a class="btn ${c}" href="${REL}" data-dl data-os-label `);
   h = h.replace(/<a data-sums /g, `<a href="${REL}" data-sums `);
   h = h.replace(/(data-os-label[^>]*>)(<\/a>)/g, (m, o, c) => o + `<span class="dl-l">${t.dlFor.replace('{os}', 'Windows')}</span><span class="dl-s">${t.dlShort}</span>` + c);
+  h = h.replace(/(<video [^>]*?)aria-label=""([^>]*\sdata-t-label="([A-Za-z0-9]+)")/g, (m, a, b, key) => typeof t[key] === 'string' ? `${a}aria-label="${esc(t[key])}"${b}` : m);
   h = h.replace(/(<img [^>]*?)alt=""([^>]*\sdata-t-alt="([A-Za-z0-9]+)")/g, (m, a, b, key) => typeof t[key] === 'string' ? `${a}alt="${esc(t[key])}"${b}` : m);
   h = h.replace('<!--VER-->', VERSION);
 
