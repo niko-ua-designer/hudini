@@ -18,52 +18,59 @@
 <meta name="application-name" content="Hudini"><meta name="apple-mobile-web-app-title" content="Hudini">
 <link rel="preload" href="shared/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="shared/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=12">
+<link rel="stylesheet" href="site.css?v=13">
 <script src="lang-route.js?v=1"></script>
 <script src="shared/connect-guides.js?v=1"></script>
-<script src="site-texts.js?v=2"></script>
-<script src="site.js?v=8" defer></script>
+<script src="site-texts.js?v=3"></script>
+<script src="site.js?v=9" defer></script>
 </head>
 <body data-page="home">
 <div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <header class="top">
   <a class="logo" href="index.html"><img src="shared/icons/icon-192.png" alt="">Hudini</a>
-  <nav><a href="#start" data-t="start"></a><a href="#connect" data-t="connect"></a><a href="#features" data-t="features"></a><a href="#cs2">CS2</a><a href="#privacy" data-t="privacy"></a><a href="help.html" data-help data-t="help"></a><a href="report.html" data-rep data-t="report"></a></nav>
+  <nav><a href="#features" data-t="features"></a><a href="#connect" data-t="connect"></a><a href="#cs2">CS2</a><a href="help.html" data-help data-t="help"></a><a href="report.html" data-rep data-t="report"></a></nav>
   <a class="btn small primary" data-dl data-os-label target="_blank" rel="noopener"></a>
   <select class="lang" aria-label="Language"></select>
 </header>
 
 <main>
-  <section class="hero wrap">
-    <span class="pill"><b></b><span data-t="badge"></span></span>
-    <h1 data-t="h1"></h1>
-    <p class="sub" data-t="sub"></p>
-    <div class="cta">
-      <a class="btn primary shine" data-dl data-os-label target="_blank" rel="noopener"></a>
-      <a class="btn ghost" href="#connect" data-t="howConnect"></a>
+  <section class="hero wrap sh-hero">
+    <div class="sh-hero-text">
+      <span class="pill"><b></b><span data-t="badge"></span></span>
+      <h1 data-t="h1"></h1>
+      <p class="sub" data-t="sub"></p>
+      <div class="cta">
+        <a class="btn primary shine" data-dl data-os-label target="_blank" rel="noopener"></a>
+        <a class="btn ghost" href="#new" data-t="newLink"></a>
+      </div>
+      <small class="free"><span data-t="dlOther"></span> <span id="otherOs"></span> · <a data-sums target="_blank" rel="noopener" data-t="dlSums"></a></small>
     </div>
-    <small class="free"><span data-t="dlOther"></span> <span id="otherOs"></span> · <a data-sums target="_blank" rel="noopener" data-t="dlSums"></a></small>
-    <div class="demo-wrap"><div class="demo" id="demo" role="img" data-t-aria="demoAria"></div></div>
-    <div class="fn-strip" id="fnStrip"></div>
+    <div class="sh-shot" aria-hidden="false">
+      <div class="sh-bar"><i></i><i></i><i></i></div>
+      <img class="sh-panel" src="img/hero-panel.webp" width="1600" height="900" alt="" data-t-alt="altPanel">
+      <img class="sh-stream" src="img/hero-stream.webp" width="1600" height="900" alt="" data-t-alt="altStream">
+    </div>
   </section>
 
-  <section class="block wrap reveal" id="how">
-    <h2 data-t="hTitle"></h2><p class="lead" data-t="hLead"></p>
-    <div class="flow" id="flow"></div>
+  <section class="block wrap reveal" id="new">
+    <h2 data-t="newTitle"></h2><p class="lead" data-t="newLead"></p>
+    <div class="bento">
+      <article class="tile t-media"><div class="tx"><h3 data-t="n1t"></h3><p data-t="n1d"></p></div><img src="img/media.webp" width="1200" height="750" loading="lazy" alt="" data-t-alt="altMedia"></article>
+      <article class="tile t-cur"><div class="tx"><h3 data-t="n2t"></h3><p data-t="n2d"></p></div><img src="img/cursors.webp" width="1200" height="750" loading="lazy" alt="" data-t-alt="altCursors"></article>
+      <article class="tile"><div class="tx"><h3 data-t="n3t"></h3><p data-t="n3d"></p></div></article>
+      <article class="tile"><div class="tx"><h3 data-t="n4t"></h3><p data-t="n4d"></p></div></article>
+      <article class="tile"><div class="tx"><h3 data-t="n5t"></h3><p data-t="n5d"></p></div></article>
+      <article class="tile"><div class="tx"><h3 data-t="n6t"></h3><p data-t="n6d"></p></div></article>
+    </div>
   </section>
 
   <section class="block wrap reveal" id="start">
-    <h2 data-t="startTitle"></h2><p class="lead" data-t="startLead"></p>
+    <h2 data-t="hTitle"></h2><p class="lead" data-t="hLead"></p>
     <div class="roles">
       <div class="role s"><h3 data-t="sTitle"></h3><ol id="sSteps"></ol></div>
       <div class="role m"><h3 data-t="mTitle"></h3><ol id="mSteps"></ol></div>
     </div>
-  </section>
-
-  <section class="block wrap reveal" id="connect">
-    <h2 id="cTitle"></h2><p class="lead" id="cLead"></p>
-    <div class="chooser" id="chooser"></div>
   </section>
 
   <section class="block wrap reveal" id="features">
@@ -71,15 +78,20 @@
     <div class="cards glow c3" data-cards="f1,f2,f3,f4,f5,f6"></div>
   </section>
 
+  <section class="block wrap reveal" id="connect">
+    <h2 id="cTitle"></h2><p class="lead" id="cLead"></p>
+    <div class="chooser" id="chooser"></div>
+  </section>
+
   <section class="block wrap reveal" id="cs2">
-    <div class="cs2-grid">
+    <div class="cs2-grid sh-cs">
       <div class="cs2-text">
         <span class="tag" data-t="csTag"></span>
         <h2 data-t="csTitle"></h2>
         <p class="lead" data-t="csLead"></p>
         <ul class="ticks" id="csList"></ul>
       </div>
-      <div class="cs2-mini" id="csMini" role="img" data-t-aria="csAria"></div>
+      <img class="sh-radar" src="img/radar.webp" width="1200" height="750" loading="lazy" alt="" data-t-alt="altRadar">
     </div>
   </section>
 
@@ -105,7 +117,7 @@
 </main>
 
 <footer><div class="wrap">
-  <span class="flogo"><img src="shared/icons/icon-192.png" alt="">Hudini 1.0</span>
+  <a class="flogo" href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener"><img src="shared/icons/icon-192.png" alt="">Hudini <!--VER--></a>
   <span><a href="help.html" data-help data-t="helpLink"></a> · <a href="report.html" data-rep data-t="report"></a> · <a href="https://github.com/niko-ua-designer/hudini/issues" target="_blank" rel="noopener" data-t="issues"></a> · <a href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener" data-t="license"></a> AGPL-3.0 / MIT</span>
   <span class="langlinks"><!--LANGS--></span>
   <span class="thanks" data-t="thanks"></span>

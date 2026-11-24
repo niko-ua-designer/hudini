@@ -7,7 +7,8 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.join(__dirname, '..'), out = path.join(root, '_site');
 const BASE = 'https://niko-ua-designer.github.io/hudini/';
-const REL = 'https://github.com/niko-ua-designer/hudini/releases';
+const REL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
+const VERSION = JSON.parse(fs.readFileSync(path.join(root, 'server/package.json'), 'utf8')).version;
 const LANGS = [['en', 'English', 'en_US'], ['ru', 'Русский', 'ru_RU'], ['uk', 'Українська', 'uk_UA'], ['de', 'Deutsch', 'de_DE']];
 
 const load = (file, key) => { const ctx = { window: {} }; vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), ctx); return ctx.window[key]; };
@@ -34,7 +35,10 @@ function page(lang){
   h = h.replace('<ul class="ticks" id="csList"></ul>', `<ul class="ticks" id="csList">${t.csList.map(s => `<li><span>${s}</span></li>`).join('')}</ul>`);
   h = h.replace('<h2 id="cTitle"></h2>', `<h2 id="cTitle">${g.title}</h2>`).replace('<p class="lead" id="cLead"></p>', `<p class="lead" id="cLead">${g.lead}</p>`);
   h = h.replace(/<a class="btn ([a-z ]+)" data-dl data-os-label /g, (m, c) => `<a class="btn ${c}" href="${REL}" data-dl data-os-label `);
-  h = h.replace(/(data-os-label[^>]*>)(<\/a>)/g, (m, o, c) => o + t.dlFor.replace('{os}', 'Windows') + c);
+  h = h.replace(/<a data-sums /g, `<a href="${REL}" data-sums `);
+  h = h.replace(/(data-os-label[^>]*>)(<\/a>)/g, (m, o, c) => o + `<span class="dl-l">${t.dlFor.replace('{os}', 'Windows')}</span><span class="dl-s">${t.dlShort}</span>` + c);
+  h = h.replace(/(<img [^>]*?)alt=""([^>]*\sdata-t-alt="([A-Za-z0-9]+)")/g, (m, a, b, key) => typeof t[key] === 'string' ? `${a}alt="${esc(t[key])}"${b}` : m);
+  h = h.replace('<!--VER-->', VERSION);
 
   // 2. links and assets relative to the language folder
   if(pre){
