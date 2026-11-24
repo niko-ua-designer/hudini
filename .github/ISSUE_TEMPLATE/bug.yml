@@ -26,9 +26,7 @@ body:
     id: version
     attributes:
       label: Hudini version
-      placeholder: "1.0.0"
-    validations:
-      required: true
+      placeholder: "1.1.2"
   - type: dropdown
     id: os
     attributes:
@@ -52,7 +50,7 @@ body:
     id: applog
     attributes:
       label: App log
-      description: "Click Open logs in Hudini, or open the `data/logs` folder next to the app, and paste the latest `app-*.log`."
+      description: "Click “Logs” in Hudini, or open the `data/logs` folder next to the app, and paste the latest `app-*.log`."
       render: text
   - type: textarea
     id: crashlog
