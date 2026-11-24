@@ -82,7 +82,7 @@ window.HUDINI_REPORT = {
   "s2p": "Заповни, що знаєш: усе потрапить у звіт.",
   "fVer": "Версія Hudini", "fVerH": "Наприклад 1.0.0-rc.5. Вона є в назві завантаженого файлу (Hudini-…-1.0.0-rc.5.zip).", "fVerPh": "1.0.0-rc.5",
   "fOs": "Операційна система", "fRole": "Де це відбувається", "fConn": "Як підключаєтесь",
-  "roles": [["Streamer", "Стример"], ["Moderator", "Модератор"], ["Both", "Обидва"]],
+  "roles": [["Streamer", "Стрімер"], ["Moderator", "Модератор"], ["Both", "Обидва"]],
   "conns": [["Radmin VPN", "Radmin VPN"], ["Porthole (Steam)", "Porthole (Steam)"], ["Tailscale", "Tailscale"], ["ZeroTier", "ZeroTier"], ["Hamachi", "Hamachi"], ["Port forwarding", "Проброс порту"], ["Same PC or local network", "Один ПК або локальна мережа"], ["Not related to connection", "Не про підключення"]],
   "warnH": "Ніколи не вставляй у звіт код кімнати.", "warnP": "Код, що починається з <code>hudini1:</code>, це ключ від твоєї кімнати. Хто його побачить, зможе підключитися. Звіт на GitHub бачать усі.",
   "s3p": "Напиши так, щоб незнайома людина змогла це повторити.",
