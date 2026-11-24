@@ -8,7 +8,13 @@
 
 <a href="https://github.com/niko-ua-designer/hudini/releases/latest"><img src="docs/buttons/download.svg" height="76" alt="Download Hudini"></a>
 
-<a href="https://niko-ua-designer.github.io/hudini/"><img src="docs/buttons/website.svg" height="60" alt="Website"></a> <a href="https://niko-ua-designer.github.io/hudini/help.html"><img src="docs/buttons/help.svg" height="60" alt="Help"></a> <a href="https://t.me/Hudini_DEV?direct"><img src="docs/buttons/telegram.svg" height="60" alt="Telegram"></a> <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=en"><img src="docs/buttons/idea.svg" height="60" alt="Suggest an idea or report a problem"></a>
+<a href="https://niko-ua-designer.github.io/hudini/"><img src="docs/buttons/website.svg" height="60" alt="Website"></a>
+
+<a href="https://niko-ua-designer.github.io/hudini/help.html"><img src="docs/buttons/help.svg" height="60" alt="Help"></a>
+
+<a href="https://t.me/Hudini_DEV?direct"><img src="docs/buttons/telegram.svg" height="60" alt="Telegram"></a>
+
+<a href="https://niko-ua-designer.github.io/hudini/report.html?lang=en"><img src="docs/buttons/idea.svg" height="60" alt="Suggest an idea or report a problem"></a>
 
 [![Latest release](https://img.shields.io/github/v/release/niko-ua-designer/hudini?label=release)](https://github.com/niko-ua-designer/hudini/releases/latest) [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
