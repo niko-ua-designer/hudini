@@ -302,3 +302,12 @@ a.flogo{text-decoration:none}
 .sh-video{overflow:hidden;line-height:0}
 .sh-vid{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0d0f17}
 .rp-tg{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:12px;font-size:calc(15px*var(--k));color:var(--soft)}
+
+/* download hint */
+.dl-box{width:min(460px,100%)}
+.dl-p{margin:0 0 4px;line-height:1.5;color:var(--soft,#c9c6e6);font-size:15px}
+.dl-files{list-style:none;margin:6px 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
+.dl-files li{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-radius:12px;border:1px solid var(--line2);background:#1a1d29}
+.dl-files li.me{border-color:#9b7dff;background:#7c5cff22}
+.dl-files b{font-size:15px}
+.dl-files code{font-size:13px;color:#cfc8ff;word-break:break-all}

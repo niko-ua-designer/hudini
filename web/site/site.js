@@ -119,7 +119,7 @@
     if(reduced) for(const v of document.querySelectorAll('video.sh-vid')){ v.removeAttribute('autoplay'); v.pause(); }   // reduced motion: the poster stays
     for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
     const other = document.getElementById('otherOs');
-    if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
+    if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" data-os="${o[0]}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
     for(const a of document.querySelectorAll('a[data-help]')) a.href = ROOT + 'help.html?lang=' + encodeURIComponent(lang);
     for(const a of document.querySelectorAll('a[data-rep]')) a.href = ROOT + 'report.html?lang=' + encodeURIComponent(lang);
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
@@ -189,6 +189,26 @@
   }
   document.addEventListener('click', e => {   // the crawlable language links in the footer also remember the choice
     const a = e.target.closest?.('.langlinks a'); if(a) try{ localStorage.setItem('hudini.lang', a.getAttribute('hreflang')); }catch{}
+  });
+  // After a download click the release page opens in a new tab: tell which file to take from its Assets list
+  const FILES = { windows:'HudiniHost-windows-<version>.zip', linux:'HudiniHost-linux-<version>.zip', macos:'HudiniHost-mac-<version>.zip' };
+  function dlHint(os){
+    if(document.querySelector('.lo-back')) return;
+    const t = T[lang] || T.en, back = document.createElement('div'); back.className = 'lo-back';
+    const box = document.createElement('div'); box.className = 'lo-box dl-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    const h = document.createElement('div'); h.className = 'lo-title'; h.textContent = t.dlHintT;
+    const p = document.createElement('p'); p.className = 'dl-p'; p.innerHTML = t.dlHintP;
+    const ul = document.createElement('ul'); ul.className = 'dl-files';
+    for(const [k, name] of OSES){ const li = document.createElement('li'); if(k === os) li.className = 'me'; const b = document.createElement('b'); b.textContent = name; const c = document.createElement('code'); c.textContent = FILES[k]; li.append(b, c); ul.appendChild(li); }
+    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'lo-btn main'; ok.textContent = t.dlHintOk;
+    const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    ok.onclick = close; back.addEventListener('click', e => { if(e.target === back) close(); }); document.addEventListener('keydown', onKey);
+    box.append(h, p, ul, ok); back.appendChild(box); document.body.appendChild(back); ok.focus();
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest?.('a[data-dl], #otherOs a'); if(!a || document.body.dataset.page === 'help') return;
+    dlHint(a.dataset.os || myOs);
   });
   // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
   function langOffer(){
