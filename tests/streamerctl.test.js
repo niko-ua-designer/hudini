@@ -14,7 +14,7 @@ const { step, check, eq, until, sleep } = T;
   const perms = p => host.api('/api/perms', { perms: p });
 
   await step('setup: text, picture, poll and video on the screen', async () => {
-    await put([{ id: 'tx1', type: 'text', text: 'всегда' }, { id: 'im1', type: 'image', src: 'https://example.com/a.png' }, { id: 'po1', type: 'poll', title: 'Карта?', opts: ['A', 'B'] }, { id: 'vi1', type: 'video', src: 'https://example.com/a.mp4' }]);
+    await put([{ id: 'tx1', type: 'text', text: 'всегда' }, { id: 'im1', type: 'image', src: 'https://example.com/a.png' }, { id: 'po1', type: 'poll', title: 'Карта?', opts: ['A', 'B'] }, { id: 'vi1', type: 'video', src: 'https://example.com/a.mp4' }, { id: 'ro1', type: 'roulette' }]);
     const s = await until(async () => { const s = await shown(); return s.tx1 && s.im1 && s.po1 && s.vi1 && s; });
     check(s, 'all four are on stream: ' + JSON.stringify(await shown()));
     eq((await host.api('/api/status')).perms, { av: true, web: true, fx: true, games: true, cam: false, screen: false, mic: false }, 'everything is allowed by default, except camera, screen and microphone');
@@ -24,6 +24,8 @@ const { step, check, eq, until, sleep } = T;
     const r = await perms({ games: false });
     eq(r.perms.games, false, 'saved');
     check(await until(async () => { const s = await shown(); return !s.po1 && s.tx1 && s.im1; }), 'poll is hidden on stream, the rest stays: ' + JSON.stringify(await shown()));
+    check(await widget.evaluate(() => blockedEl({ id: 'ro1', type: 'roulette' })), 'the roulette is blocked while games are off');
+    check(await widget.evaluate(() => nodes.get('ro1')?._el?.hidden === true), 'the roulette on stream is hidden (and silent)');
     check(await until(() => panel.evaluate(() => document.querySelector('[data-add="poll"]').classList.contains('perm-off') && document.querySelector('[data-tab="raffle"]').classList.contains('perm-off'))), 'poll tile and the giveaways tab are hidden in the panel');
     check(/кейсы, розыгрыши, опросы, CS2/.test(await panel.textContent('#permNote')), 'the panel says what the streamer turned off: ' + await panel.textContent('#permNote'));
     check(await panel.evaluate(() => nodes.get('po1').classList.contains('host-off') && !nodes.get('tx1').classList.contains('host-off')), 'the poll on the panel canvas is marked');

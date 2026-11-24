@@ -131,7 +131,7 @@ const hostHidden=()=>document.body.classList.contains('host-hidden');
 // Запрещённое на стрим не попадает, что бы ни прислал пульт: элемент считается скрытым, звук и эффекты не играют.
 // Камера, экран и микрофон (cam/screen/mic): выключены, пока программа явно не включила (PERMS[k]===true). Свой поток стримера (владелец «streamer») права не спрашивает: запрос модератора Host пропускает или режет сам.
 let PERMS={ av:true, web:true, fx:true, games:true, cam:false, screen:false, mic:false }, OFF={}, HIDE_IDS=new Set();
-const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', cs2:'games' };
+const PERM_OF={ video:'av', web:'web', image:'web', chat:'fx', msg:'fx', draw:'fx', case:'games', raffle:'games', poll:'games', roulette:'games', cs2:'games' };
 const OFF_OF={ chat:'chat', msg:'chat', cs2:'cs2', draw:'draw' };
 function blockedEl(el){ const p=PERM_OF[el.type], o=OFF_OF[el.type];
   if(el.type==='stream' && PERMS[el.kind]!==true && el.owner!=='streamer') return true;
@@ -370,7 +370,7 @@ function onFx(f){
   else if(f.type==='seek'){ const node=nodes.get(str(f.id,40)); if(node?._el) playerSeek(node, node._el, num(f.d,0,-3600,3600)); }
   else if(f.type==='cs2test'){ const ev={ n:Math.round(num(f.n,3,2,5)), name:str(f.name,40), weapon:str(f.weapon,40), hs:Math.round(num(f.hs,0,0,5)) };
     for(const n of nodes.values()) if(n._el?.type==='cs2' && n._el.view==='streak' && !n._el.hidden){ const c=n.querySelector('.cs2'); if(c) cs2Popup(c, ev); } }
-  else if(f.type==='cs2tab'){ const m=['timeout','half','end'].includes(f.m) ? f.m : 'timeout'; tabForce={ m, until:Date.now()+Math.round(num(f.ms,8000,1000,30000)) }; tabTick(); }
+  else if(f.type==='cs2tab'){ const m=['timeout','half','end'].includes(f.m) ? f.m : 'timeout'; if(tabOff || OFF.tab || OFF.cs2 || PERMS.games===false) return; tabForce={ m, until:Date.now()+Math.round(num(f.ms,8000,1000,30000)) }; tabTick(); }
 }
 // ================== CS2 АВТО-ТАБ ==================
 // Сам выезжает на таймауте/паузе, смене сторон и в конце карты (state.cs2auto), стример может выключить его в доке (ctl.tabOff).
@@ -379,11 +379,12 @@ let tabForce=null, tabOff=false;
 const tabMem={};
 function tabTick(){
   const box=document.getElementById('ctab'), a=lastState.cs2auto || cleanCs2Auto(null), now=Date.now();
-  if(tabForce && now>tabForce.until) tabForce=null;
+  if(tabForce && (now>tabForce.until || tabOff || OFF.tab || OFF.cs2 || PERMS.games===false)) tabForce=null;
+  const tabBlocked=tabOff || !!OFF.tab || !!OFF.cs2 || PERMS.games===false;
   const d=cs2Fresh() ? CS2 : null;
   let m=null, data=d;
   if(tabForce){ m=tabForce.m; if(!d?.players?.length) data=cs2DemoFor(m); }   // без игры (или не зрителем) — пример данных
-  else if(!tabOff) m=cs2TabMoment(d, a, tabMem, now);
+  else if(!tabBlocked) m=cs2TabMoment(d, a, tabMem, now);
   const on=cs2TabRender(box, m ? { d:data, a:{ ...a, on:true }, m, look:cs2TabLook(lastState.els) } : null);
   stage.classList.toggle('ctab-hb', on && a.hideBottom); stage.classList.toggle('ctab-ht', on && a.hideTop);
 }

@@ -334,6 +334,20 @@ const C = box.C;
     check(await s.panel.evaluate(() => document.querySelector('#taBox.show') !== null), 'and in the panel preview');
   });
 
+  await step('a forced tab is dropped, and not accepted, while the streamer has the auto tab off', async () => {
+    const ctl = a => fetch(`http://localhost:${s.host.port}/api/control`, { method: 'POST', headers: { host: `localhost:${s.host.port}`, origin: `http://localhost:${s.host.port}`, 'content-type': 'application/json' }, body: JSON.stringify({ action: a }) });
+    await s.widget.evaluate(() => onFx({ type: 'cs2tab', m: 'end', ms: 30000 }));
+    check(await until(tabOn, 3000), 'forced tab shows');
+    check((await ctl('taboff')).ok, 'taboff accepted');
+    check(await until(async () => (await tabOn()) === null, 3000), 'forced tab is gone after switching off');
+    eq(await s.widget.evaluate(() => tabForce), null, 'tabForce reset');
+    await s.widget.evaluate(() => onFx({ type: 'cs2tab', m: 'end', ms: 30000 }));
+    await sleep(600);
+    eq(await tabOn(), null, 'a new force does not show while off');
+    check((await ctl('tabon')).ok, 'tabon accepted');
+    await sleep(400);
+  });
+
   await step('series: a map with a side switch and a second map give 1:1, saved in data/cs2-series.json', async () => {
     const file = () => { try{ return JSON.parse(fs.readFileSync(path.join(s.host.dir, 'cs2-series.json'), 'utf8')); }catch{ return null; } };
     await gsi(spec({ map: 'de_mirage', phase: 'warmup', ct: 0, tt: 0, round: 0 }));   // Dust2 of the steps above is recorded here: start the series over
