@@ -49,8 +49,8 @@
 ## Get started
 
 1. Download one archive for your system, unzip it anywhere and start Hudini. Settings live in the `data/` folder next to it.
-2. Streamer: choose **I am a streamer**, add the Browser source link to OBS, and send the room code (`hudini1:...`) to the moderator.
-3. Moderator: choose **I am a moderator**, paste the code and connect.
+2. Streamer: open the **Streamer** tab, add the Browser source link to OBS, and send the room code (`hudini1:...`) to the moderator.
+3. Moderator: open the **Moderator** tab, paste the code, press **➕ Add** and connect.
 
 | System | Archive |
 |---|---|

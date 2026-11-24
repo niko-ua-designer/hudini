@@ -49,8 +49,8 @@
 ## Los geht's
 
 1. Lade ein Archiv für dein System herunter, entpacke es irgendwo und starte Hudini. Die Einstellungen liegen im Ordner `data/` daneben.
-2. Streamer: wähle **Ich bin Streamer**, füge den Link der Browser-Quelle in OBS ein und schick den Raumcode (`hudini1:...`) an den Moderator.
-3. Moderator: wähle **Ich bin Moderator**, füge den Code ein und verbinde dich.
+2. Streamer: öffne den Tab **Streamer**, füge den Link der Browser-Quelle in OBS ein und schick den Raumcode (`hudini1:...`) an den Moderator.
+3. Moderator: öffne den Tab **Moderator**, füge den Code ein, drücke **➕ Hinzufügen** und verbinde dich.
 
 | System | Archiv |
 |---|---|
