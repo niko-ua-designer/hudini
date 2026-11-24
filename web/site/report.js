@@ -113,8 +113,9 @@
       const d = $('dlClean'); if(d) d.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([clean.text], { type: 'text/plain' })); a.download = file.name.replace(/(\.\w+)?$/, '-clean$1'); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
     };
   }
-  $('back').onclick = () => { if(S.step) { S.step--; draw(); window.scrollTo(0, 0); } };
-  $('next').onclick = () => { if(S.step === total() - 1) Object.assign(S, { step: 0, what: '', steps: '', copied: false }); else S.step++; draw(); window.scrollTo(0, 0); };
+  const swap = fn => window.HudiniSwap ? window.HudiniSwap($('body'), fn) : fn();   // soft step change (site.js)
+  $('back').onclick = () => { if(S.step) { S.step--; swap(draw); window.scrollTo(0, 0); } };
+  $('next').onclick = () => { if(S.step === total() - 1) Object.assign(S, { step: 0, what: '', steps: '', copied: false }); else S.step++; swap(draw); window.scrollTo(0, 0); };
 
   function texts(){ const k = t(); document.title = k.title; for(const e of document.querySelectorAll('[data-r]')) if(typeof k[e.dataset.r] === 'string') e.innerHTML = k[e.dataset.r]; draw(); }
   function sync(){ const l = document.documentElement.lang; if(R[l]) lang = l; texts(); }

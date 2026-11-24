@@ -313,3 +313,110 @@ a.flogo{text-decoration:none}
 .dl-how{display:block;margin:4px 0 8px;font-size:14px;color:#9bb8ff;text-decoration:underline;text-align:center}
 .dl-img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line2);margin:4px 0 8px}
 .dl-open{display:block;text-align:center;text-decoration:none;color:#fff}
+
+/* UX polish: focus rings, press/hover/disabled states, touch targets, contrast, scrollbars (looks only) */
+:root{--focus:#b9a8ff;color-scheme:dark}
+*{scrollbar-width:thin;scrollbar-color:#3a3f52 transparent}
+::selection{background:#7c5cff80;color:#fff}
+::placeholder{color:var(--muted);opacity:1}
+:is(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
+.top nav a:focus-visible,.help aside a:focus-visible{outline-offset:-2px}
+a,button,select,summary{touch-action:manipulation;-webkit-tap-highlight-color:#7c5cff30}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+.top .logo,.top nav a,.btn,.flogo,.langlinks a[aria-current],.help aside a,.dl-open{text-decoration:none}
+.top nav a:active,.help aside a:active{background:#ffffff18}
+.btn{transition:transform .15s var(--ease),border-color .15s,background-color .15s,box-shadow .15s,opacity .15s}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn.primary{background:linear-gradient(135deg,#7050ff,#6a46ff 55%,#a63df0)}
+.btn:disabled,.btn[aria-disabled=true]{opacity:.55;cursor:not-allowed;transform:none}
+select.lang,.help input[type=search],.mig-f input,.rp-f :is(input,select,textarea){transition:border-color .15s,box-shadow .15s}
+select.lang:hover,.help input[type=search]:hover,.mig-f input:hover,.rp-f :is(input,select,textarea):hover{border-color:#ffffff40}
+.rp-f :is(input,select,textarea):user-invalid,.mig-f input:user-invalid,[aria-invalid=true]{border-color:var(--alpha)}
+.rp-f :is(input,select,textarea):focus,.mig-f input:focus,.help input[type=search]:focus{border-color:var(--acc2)}
+.rp-types button{transition:border-color .15s,background-color .15s}
+.rp-types button:active,.chips button:active{transform:scale(.99)}
+.chips button{transition:border-color .15s,background-color .15s,color .15s,transform .1s}
+.tile{transition:border-color .2s,transform .2s var(--ease)}
+.tile:hover{border-color:#a48bff55}
+.note,.mig-steps>li,.rp-card,.role{transition:border-color .2s}
+.lo-btn{transition:border-color .15s,background-color .15s,transform .1s}
+.lo-btn:hover{background:#222636}.lo-btn.main:hover{filter:brightness(1.1);background:linear-gradient(135deg,#6d4dff,#a14dff)}
+.lo-btn:active{transform:scale(.98)}
+.lvl,.lvl.alpha{font-size:12px}.lvl.alpha{color:#111}
+.dl-how:hover{color:#c3d4ff}
+.help aside a.on{box-shadow:inset 2px 0 0 var(--acc2)}
+.chips button.on{background:linear-gradient(135deg,#7050ff,#5a3cff)}
+.mig-steps>li::before{background-image:linear-gradient(135deg,#7050ff,#5a3cff)}
+footer a:hover,.langlinks a:hover{color:#fff}
+.mig .btn:disabled,.rp-nav .btn:disabled{cursor:not-allowed;pointer-events:auto;transform:none}
+@media (pointer:coarse){
+  .btn,.chips button,.rp-types button,.lo-btn{min-height:44px}
+  .btn.small{min-height:40px}
+  .top nav a,.help aside a{display:inline-flex;align-items:center;min-height:40px}
+  .langlinks a,footer .wrap>a{display:inline-flex;align-items:center;min-height:40px}
+  select.lang{min-height:40px}
+  .rp-f :is(input,select,textarea),.mig-f input{min-height:44px;font-size:16px}
+}
+@media (hover:none){.btn:hover{transform:none}.card::before,.card::after{display:none}}
+
+/* UX polish: dialogs, page entrance, anchors (animations are off for reduced motion and in test browsers) */
+@keyframes loBack{from{opacity:0}}
+@keyframes loBox{from{opacity:0;transform:translateY(14px) scale(.96)}}
+@keyframes enterUp{from{opacity:0;transform:translateY(14px)}}
+@keyframes anchorHl{from{background:#7c5cff55;box-shadow:0 0 0 8px #7c5cff55}to{background:transparent;box-shadow:0 0 0 8px transparent}}
+html:not(.no-anim) .lo-back{animation:loBack .18s ease-out backwards}
+html:not(.no-anim) .lo-box{animation:loBox .22s cubic-bezier(.2,.8,.2,1) backwards}
+.lo-back.out{opacity:0;transition:opacity .16s ease-in;pointer-events:none}
+.lo-back.out .lo-box{opacity:0;transform:translateY(8px) scale(.97);transition:transform .16s ease-in,opacity .16s ease-in}
+.lo-box>*{transition:opacity .11s}
+.lo-box.swap>*{opacity:0}
+/* page entrance (html.enter is set by enter.js before the first paint and dropped after 900 ms at the latest): blocks fade in and rise a little, one after another; headings wait for their letters (site.js adds .lt) */
+@keyframes enterUp{from{opacity:0;transform:translateY(12px)}}
+html.enter :is(h1,h2,h3):not(.lt){opacity:0}
+html.enter .sh-hero-text>:not(h1,h2,h3),html.enter .hero:not(.sh-hero)>:not(h1,h2,h3){animation:enterUp .36s cubic-bezier(.2,.8,.2,1) backwards}
+html.enter :is(.sh-hero-text,.hero)>:nth-child(2){animation-delay:.045s}
+html.enter :is(.sh-hero-text,.hero)>:nth-child(3){animation-delay:.09s}
+html.enter :is(.sh-hero-text,.hero)>:nth-child(4){animation-delay:.135s}
+html.enter :is(.sh-hero-text,.hero)>:nth-child(5){animation-delay:.18s}
+html.enter .sh-hero-text+.sh-shot{animation:enterUp .36s cubic-bezier(.2,.8,.2,1) .18s backwards}
+html.enter :is(.rp-card,.help aside){animation:enterUp .36s cubic-bezier(.2,.8,.2,1) .14s backwards}
+html.enter .help article{animation:enterUp .36s cubic-bezier(.2,.8,.2,1) .19s backwards}
+html.enter .mig-steps>li{animation:enterUp .36s cubic-bezier(.2,.8,.2,1) .08s backwards}
+html.enter .mig-steps>li:nth-child(2){animation-delay:.125s}
+html.enter .mig-steps>li:nth-child(3){animation-delay:.17s}
+html.enter .mig-steps>li:nth-child(4){animation-delay:.215s}
+section.block,.help article section,.mig-steps>li{scroll-margin-top:76px}
+section.block:target h2,.help article section:target h2{animation:anchorHl 1.4s ease-out;border-radius:8px}
+html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!important}
+
+/* download / connect guide: a wide window, the head and the buttons stay in view, the middle scrolls */
+.lo-box.dl-box{width:min(880px,100%);max-height:min(92vh,820px);padding:0;gap:0;overflow:hidden}
+.dl-head{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 56px 14px;border-bottom:1px solid var(--line)}
+.dl-head .lo-title{margin:0;font-family:var(--head);font-size:19px;line-height:1.3}
+.dl-head .dl-dots{margin:0}
+.dl-x{position:absolute;top:10px;right:10px;width:40px;height:40px;display:grid;place-items:center;border-radius:12px;border:1px solid transparent;background:none;color:var(--soft);font:inherit;font-size:17px;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s}
+.dl-x:hover{background:#ffffff12;border-color:var(--line2);color:#fff}
+.dl-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 24px 20px;display:flex;flex-direction:column;gap:12px}
+.dl-body .dl-p{margin:0;font-size:15px}
+.dl-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--line);background:#0f111a}
+.dl-foot .lo-btn{min-width:150px;text-align:center}
+.dl-chooser .q{margin-bottom:10px}
+.dl-chooser .chips{margin-bottom:16px}
+.dl-chooser .answer{padding:20px;border-radius:18px}
+.dl-chooser .ahead h3{font-size:20px}
+.dl-tools{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 16px}
+.dl-tool{min-height:48px;padding:12px 22px;white-space:normal;text-align:center}
+.dl-tool span[aria-hidden]{font-size:1.1em;opacity:.9}
+.dl-body .dl-img{margin:0;max-height:46vh;object-fit:contain;object-position:top}
+.dl-foot .dl-open{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:#fff}
+@media (max-width:640px){
+  .lo-box.dl-box{max-height:94vh;border-radius:16px}
+  .dl-head{padding:16px 52px 12px}
+  .dl-head .lo-title{font-size:17px}
+  .dl-body{padding:14px 16px 16px}
+  .dl-foot{padding:12px 16px;flex-direction:column-reverse}
+  .dl-foot .lo-btn{width:100%}
+  .dl-tool{width:100%}
+  .dl-chooser .answer{padding:14px}
+  .lo-back{padding:10px}
+}

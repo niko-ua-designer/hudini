@@ -3,6 +3,7 @@
 // only need a network in common. Texts are trusted HTML written here, never user input.
 window.HUDINI_CONNECT = {
   en: {
+    get: { radmin: 'Get Radmin VPN', tailscale: 'Get Tailscale', zerotier: 'Get ZeroTier', porthole: 'Open Porthole in Steam' },
     title: 'How do we connect?',
     lead: 'Hudini has no server in the middle. The streamer and the moderator just need to be on one network. Pick what you already have.',
     q: 'What do you and your moderator already have?',
@@ -40,6 +41,7 @@ window.HUDINI_CONNECT = {
     },
   },
   ru: {
+    get: { radmin: 'Скачать Radmin VPN', tailscale: 'Скачать Tailscale', zerotier: 'Скачать ZeroTier', porthole: 'Открыть Porthole в Steam' },
     title: 'Как подключиться?',
     lead: 'Между вами нет сервера Hudini. Стримеру и модератору достаточно оказаться в одной сети. Выбери то, что у вас уже есть.',
     q: 'Что у вас с модератором уже есть?',
@@ -77,6 +79,7 @@ window.HUDINI_CONNECT = {
     },
   },
   uk: {
+    get: { radmin: 'Завантажити Radmin VPN', tailscale: 'Завантажити Tailscale', zerotier: 'Завантажити ZeroTier', porthole: 'Відкрити Porthole у Steam' },
     title: 'Як підключитися?',
     lead: 'Між вами немає сервера Hudini. Стримеру й модератору достатньо опинитися в одній мережі. Обери те, що у вас уже є.',
     q: 'Що у вас із модератором уже є?',
@@ -114,6 +117,7 @@ window.HUDINI_CONNECT = {
     },
   },
   de: {
+    get: { radmin: 'Radmin VPN herunterladen', tailscale: 'Tailscale herunterladen', zerotier: 'ZeroTier herunterladen', porthole: 'Porthole in Steam öffnen' },
     title: 'Wie verbinden wir uns?',
     lead: 'Zwischen euch steht kein Hudini-Server. Streamer und Mod müssen nur im selben Netzwerk sein. Wähle, was ihr schon habt.',
     q: 'Was habt ihr beide schon?',

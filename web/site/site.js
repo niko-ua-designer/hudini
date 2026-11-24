@@ -29,6 +29,9 @@
   }
   const myOs = detectOs();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Animations are off for reduced motion and for automated test browsers (enter.js sets html.no-anim; a test can set window.__forceAnim to look at them)
+  const still = () => reduced || document.documentElement.classList.contains('no-anim');
+  const go = u => { if(window.HudiniGo) window.HudiniGo(u); else location.href = u; };   // page change with the site transition (defined at the end of this file)
 
   // Line icons (24×24, stroke = currentColor).
   const P = {
@@ -88,14 +91,17 @@
 
   // ---------- "How do we connect?": pick what you already have, get the steps ----------
   let picked = 'easy';
+  // Where to get each tool (opens in a new tab); the router/port way needs no download
+  const TOOLS = { radmin:'https://www.radmin-vpn.com/', tailscale:'https://tailscale.com/', zerotier:'https://www.zerotier.com/', porthole:'https://store.steampowered.com/app/4963920/Porthole_Local_Port_Sharing/' };
   function chooser(el){
     const g = window.HUDINI_CONNECT?.[lang] || window.HUDINI_CONNECT?.en; if(!g) return;
-    document.getElementById('cTitle').textContent = g.title; document.getElementById('cLead').textContent = g.lead;
+    const get = id => TOOLS[id] ? `<div class="dl-tools"><a class="btn primary dl-tool" href="${TOOLS[id]}" target="_blank" rel="noopener noreferrer"><span>${(g.get || window.HUDINI_CONNECT.en.get)[id]}</span><span aria-hidden="true">\u2197\uFE0E</span></a></div>` : '';
     const ids = picked === 'easy' ? ['radmin', 'porthole'] : [picked];
     const list = a => `<ol>${a.map(x => `<li>${x}</li>`).join('')}</ol>`;
     const answer = id => { const m = g.methods[id]; return `<div class="answer">
         <div class="ahead"><h3>${m.name}</h3><span class="atag">${m.tag}</span>${picked === 'easy' ? `<span class="rec">${g.recommend}</span>` : ''}</div>
         <p class="when">${m.when}</p>
+        ${get(id)}
         <div class="two"><div class="role s"><h4>${g.secS}</h4>${list(m.s)}</div><div class="role m"><h4>${g.secM}</h4>${list(m.m)}</div></div>
         ${m.warn ? `<p class="fw warn">${m.warn}</p>` : ''}
         <div class="notes"><div class="note ok"><b>${g.secCheck}</b><p>${g.check}</p></div><div class="note"><b>${g.secFix}</b>${list(m.fix)}</div></div>
@@ -123,7 +129,6 @@
     for(const a of document.querySelectorAll('a[data-help]')) a.href = ROOT + 'help.html?lang=' + encodeURIComponent(lang);
     for(const a of document.querySelectorAll('a[data-rep]')) a.href = ROOT + 'report.html?lang=' + encodeURIComponent(lang);
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
-    const ch = document.getElementById('chooser'); if(ch) chooser(ch);
     const list = document.getElementById('csList');
     if(list) list.innerHTML = t.csList.map(s => `<li>${ic('check')}<span>${s}</span></li>`).join('');
   }
@@ -179,10 +184,15 @@
   function setLang(code){
     const l = canon(code); if(!l) return;
     try{ localStorage.setItem('hudini.lang', l); }catch{}
-    if(ROUTED && document.body.dataset.page === 'home'){ location.href = ROOT + (l === 'en' ? '?lang=en' : l + '/') + location.hash; return; }
+    if(ROUTED && document.body.dataset.page === 'home'){ go(ROOT + (l === 'en' ? '?lang=en' : l + '/') + location.hash); return; }
     lang = l;
     const u = new URL(location.href); u.searchParams.set('lang', l); history.replaceState(null, '', u);
-    render();
+    const m = document.querySelector('main') || document.querySelector('.help');
+    if(!m || still() || !m.animate){ render(); return; }
+    // the text changes under a short fade: the old text fades out, the new one slides in
+    m.animate({ opacity:[1, 0] }, { duration:110, easing:'ease-in', fill:'forwards' }).finished
+      .then(() => { render(); const a = m.animate([{ opacity:0, transform:'translateY(8px)' }, { opacity:1, transform:'none' }], { duration:220, easing:'ease-out' }); a.finished.finally(() => { m.getAnimations().forEach(x => x.cancel()); }); })
+      .catch(render);
   }
   for(const s of document.querySelectorAll('select.lang')){
     for(const [c, n] of LANGS){ const o = document.createElement('option'); o.value = c; o.textContent = n; o.selected = c === lang; s.appendChild(o); }
@@ -191,44 +201,76 @@
   document.addEventListener('click', e => {   // the crawlable language links in the footer also remember the choice
     const a = e.target.closest?.('.langlinks a'); if(a) try{ localStorage.setItem('hudini.lang', a.getAttribute('hreflang')); }catch{}
   });
+  // Closing a dialog: a short fade (class .out), then the element goes away
+  function fadeOut(back){
+    if(still() || back.classList.contains('out')){ back.remove(); return; }
+    back.classList.add('out');
+    let done = false; const end = () => { if(!done){ done = true; back.remove(); } };
+    back.addEventListener('transitionend', e => { if(e.target === back) end(); }); setTimeout(end, 260);
+  }
   // A download click opens a two-step mini guide: what else is needed (a way to connect the PCs), then the release page with the right file marked
-  function dlGuide(os){
+  function dlGuide(os, opener){
     if(document.querySelector('.lo-back')) return;
     const t = T[lang] || T.en, back = document.createElement('div'); back.className = 'lo-back';
-    const box = document.createElement('div'); box.className = 'lo-box dl-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    const box = document.createElement('div'); box.className = 'lo-box dl-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'dlTitle');
     const osName = (OSES.find(o => o[0] === os) || OSES[0])[1];
-    const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
-    const onKey = e => { if(e.key === 'Escape') close(); };
+    const from = opener || document.activeElement;
+    picked = 'easy';   // the simplest way is selected each time the guide opens
+    const close = () => { document.removeEventListener('keydown', onKey); fadeOut(back); if(from && from.focus && from.isConnected) setTimeout(() => from.focus(), 0); };
+    const focusables = () => [...box.querySelectorAll('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null);
+    const onKey = e => {
+      if(e.key === 'Escape'){ close(); return; }
+      if(e.key !== 'Tab') return;
+      const f = focusables(); if(!f.length) return;   // keep Tab inside the window
+      const i = f.indexOf(document.activeElement);
+      if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
+      else if(!e.shiftKey && (i === f.length - 1 || i < 0)){ e.preventDefault(); f[0].focus(); }
+    };
     const el = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
     const btn = (label, cls, fn) => { const b = el('button', 'lo-btn' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; return b; };
     function show(step){
+      if(box.childElementCount && !still()){   // step 1 -> 2: the old content fades out, the new one fades in
+        box.classList.add('swap');
+        setTimeout(() => { draw(step); box.classList.remove('swap'); box.querySelector('.lo-btn.main')?.focus(); }, 110);
+      } else draw(step);
+    }
+    function draw(step){
       box.replaceChildren();
+      const head = el('div', 'dl-head'), body = el('div', 'dl-body'), foot = el('div', 'dl-foot');
       const dots = el('div', 'dl-dots'); for(let i = 0; i < 2; i++) dots.appendChild(el('i', i === step ? 'on' : ''));
-      box.append(dots);
+      const x = el('button', 'dl-x', '\u2715'); x.type = 'button'; x.setAttribute('aria-label', t.dlClose || 'Close'); x.onclick = close;
+      const title = el('h2', 'lo-title', step === 0 ? t.dlG1T : t.dlG2T); title.id = 'dlTitle';
+      head.append(dots, title, x);
       if(step === 0){
-        box.append(el('div', 'lo-title', t.dlG1T), el('p', 'dl-p', t.dlG1P));
-        const ul = el('ul', 'dl-files');
-        for(const k of ['dlGo1', 'dlGo2', 'dlGo3']){ const li = el('li'); li.append(el('b', '', t[k][0]), el('span', 'dl-sub', t[k][1])); ul.appendChild(li); }
-        const how = el('a', 'dl-how', t.dlGHow); how.href = '#connect'; how.onclick = close;
-        box.append(ul, how, btn(t.dlGNext, 'main', () => show(1)));
+        const ch = el('div', 'chooser dl-chooser');
+        body.append(el('p', 'dl-p', t.dlG1P), ch); chooser(ch);
+        foot.append(btn(t.dlGNext, 'main', () => show(1)));
       } else {
-        box.append(el('div', 'lo-title', t.dlG2T));
-        const p = el('p', 'dl-p'); p.innerHTML = t.dlG2P.replace('{os}', osName); box.append(p);
-        const img = el('img', 'dl-img'); img.src = ROOT + 'img/assets-' + os + '.webp'; img.width = 760; img.height = 430; img.alt = ''; box.append(img);
-        const open = el('a', 'lo-btn main dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener'; open.onclick = () => setTimeout(close, 300);
-        box.append(open, btn(t.dlGBack, '', () => show(0)));
+        const p = el('p', 'dl-p'); p.innerHTML = t.dlG2P.replace('{os}', osName); body.append(p);
+        const img = el('img', 'dl-img'); img.src = ROOT + 'img/assets-' + os + '.webp'; img.width = 760; img.height = 430; img.alt = ''; body.append(img);
+        const open = el('a', 'lo-btn main dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.onclick = () => setTimeout(close, 300);
+        foot.append(btn(t.dlGBack, '', () => show(0)), open);
       }
+      box.append(head, body, foot);
     }
     back.addEventListener('click', e => { if(e.target === back) close(); }); document.addEventListener('keydown', onKey);
-    show(0); back.appendChild(box); document.body.appendChild(back); box.querySelector('.lo-btn')?.focus();
+    show(0); back.appendChild(box); document.body.appendChild(back); box.querySelector('.lo-btn.main')?.focus();
   }
+  // Every link to #connect on the landing page opens this guide on its first step (a link from another page lands here and opens it by the address)
+  document.addEventListener('click', e => {
+    const a = e.target.closest?.('a[href*="#connect"]');
+    if(!a || document.body.dataset.page !== 'home' || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    let u; try{ u = new URL(a.href, location.href); }catch{ return; }
+    if(u.hash !== '#connect' || u.origin !== location.origin || u.pathname !== location.pathname) return;
+    e.preventDefault(); dlGuide(myOs, a);
+  });
   document.addEventListener('click', e => {
     const a = e.target.closest?.('a[data-dl], #otherOs a'); if(!a || document.body.dataset.page === 'help') return;
-    e.preventDefault(); dlGuide(a.dataset.os || myOs);
+    e.preventDefault(); dlGuide(a.dataset.os || myOs, a);
   });
   // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
   function langOffer(){
-    if(document.body.dataset.page !== 'home') return;
+    if(document.body.dataset.page !== 'home' || document.querySelector('.lo-back')) return;
     let saved = null; try{ saved = localStorage.getItem('hudini.lang'); }catch{}
     if(saved || new URLSearchParams(location.search).get('lang')) return;
     const mine = canon((navigator.language || '').slice(0, 2).toLowerCase()) || 'en';
@@ -240,7 +282,7 @@
     box.appendChild(h);
     const close = keep => {
       try{ localStorage.setItem('hudini.lang', keep || lang); }catch{}
-      back.remove(); document.removeEventListener('keydown', onKey);
+      fadeOut(back); document.removeEventListener('keydown', onKey);
     };
     const onKey = e => { if(e.key === 'Escape') close(); };
     for(const c of order){
@@ -257,5 +299,147 @@
   }
   render();
   if(document.body.dataset.page !== 'help') landingOnce();
+  if(document.body.dataset.page === 'home' && location.hash === '#connect') dlGuide(myOs);   // an address with #connect opens the guide
   langOffer();
+})();
+
+// Page transitions. Leaving for another page of the site: the letters of the visible headings drop a little and fade (left to right),
+// the other blocks fade out with a small shift down; then the next page opens (enter.js sets html.enter from a flag in sessionStorage):
+// its blocks fade in and rise a little, and the letters of the headings settle from above. Only transform and opacity are animated.
+// Off for: reduced motion, automated browsers (navigator.webdriver), modifier/middle clicks, target=_blank, anchors on the same page,
+// other sites, downloads (a[data-dl]). Weak devices (fewer than 4 cores, Save-Data) get a plain fade without letters.
+// Any failure falls back to a normal link. To switch it off for one link: data-no-transition.
+(() => {
+  'use strict';
+  const d = document.documentElement;
+  const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || d.classList.contains('no-anim');
+  const weak = () => (navigator.hardwareConcurrency || 8) < 4 || !!navigator.connection?.saveData;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const HEAD = 'h1,h2,h3';
+  const PICK = '.pill,.sub,.cta,.free,.card,.tile,.role,.note,.answer,.rp-card,.rp-tg,.mig-steps>li,.sh-shot,.help aside,.help article>section,.chips,.band,.legend>*,.mig-foot';
+  const seg = window.Intl?.Segmenter ? new Intl.Segmenter(undefined, { granularity:'grapheme' }) : null;
+  const glyphs = t => seg ? [...seg.segment(t)].map(x => x.segment) : Array.from(t);
+  let busy = false, undo = [];
+
+  const visible = (el, vh, vw) => {
+    if(el.closest('.top,footer,.lo-back') || el.hidden) return false;
+    const r = el.getBoundingClientRect();
+    if(r.width < 20 || r.height < 12 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) return false;
+    const cs = getComputedStyle(el); return cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > .05;
+  };
+  const clips = el => { const c = getComputedStyle(el); return (c.backgroundClip || c.webkitBackgroundClip) === 'text' || c.webkitBackgroundClip === 'text'; };
+  // text of a heading -> letters (words stay unbreakable); parts painted through background-clip:text (the gradient words) stay whole
+  function split(h){
+    const saved = h.innerHTML, letters = [], units = [];
+    if(clips(h)) return { saved, letters, units:[h] };
+    const walk = node => {
+      for(const n of [...node.childNodes]){
+        if(n.nodeType === 3){
+          const frag = document.createDocumentFragment();
+          for(const part of n.nodeValue.split(/(\s+)/)){
+            if(!part) continue;
+            if(/^\s+$/.test(part)){ frag.append(part); continue; }
+            const w = document.createElement('hud-w'); w.style.cssText = 'display:inline-block;white-space:nowrap'; w.setAttribute('aria-hidden', 'true');
+            for(const g of glyphs(part)){ const s = document.createElement('hud-l'); s.style.display = 'inline-block'; s.textContent = g; w.append(s); letters.push(s); }
+            frag.append(w);
+          }
+          n.replaceWith(frag);
+        } else if(n.nodeType === 1){ if(clips(n)) units.push(n); else walk(n); }
+      }
+    };
+    const label = h.textContent.trim();
+    walk(h); h.setAttribute('aria-label', label);
+    return { saved, letters, units, label };
+  }
+  const unsplit = (h, sp) => { h.innerHTML = sp.saved; h.removeAttribute('aria-label'); };
+  const step = n => Math.min(11, 120 / Math.max(n, 1));
+
+  function cleanup(){
+    for(const f of undo) try{ f(); }catch{}
+    undo = [];
+    for(const el of document.querySelectorAll('[data-leaving]')){ el.getAnimations().forEach(a => a.cancel()); el.removeAttribute('data-leaving'); }
+    d.classList.remove('leaving'); busy = false;
+  }
+
+  function leave(){
+    const vh = innerHeight, vw = innerWidth;
+    if(weak() || !Element.prototype.animate){
+      const a = document.body.animate({ opacity:[1, 0] }, { duration:200, easing:'ease-in', fill:'forwards' });
+      undo.push(() => a.cancel());
+      return Promise.race([a.finished, new Promise(r => setTimeout(r, 320))]);
+    }
+    const anims = [], heads = [...document.querySelectorAll(HEAD)].filter(h => visible(h, vh, vw)).slice(0, 8);
+    const blocks = [];
+    for(const el of document.querySelectorAll(PICK)){
+      if(!visible(el, vh, vw) || blocks.some(b => b.contains(el) || el.contains(b))) continue;
+      blocks.push(el);
+    }
+    blocks.slice(0, 14).forEach((el, i) => {
+      el.setAttribute('data-leaving', '');
+      anims.push(el.animate([{ opacity:1, transform:'none' }, { opacity:0, transform:`translateY(${rnd(8, 12).toFixed(1)}px)` }], { duration:rnd(220, 300), delay:Math.min(i * 15, 90), easing:'ease-in', fill:'forwards' }));
+    });
+    for(const h of heads){
+      const sp = split(h); undo.push(() => unsplit(h, sp));
+      const all = [...sp.letters, ...sp.units], k = step(all.length);
+      all.forEach((l, i) => anims.push(l.animate([{ opacity:1, transform:'none' }, { opacity:0, transform:`translateY(${rnd(14, 24).toFixed(1)}px)` }], { duration:rnd(280, 300), delay:i * k, easing:'ease-in', fill:'forwards' })));
+    }
+    return Promise.race([Promise.all(anims.map(a => a.finished)), new Promise(r => setTimeout(r, 560))]);
+  }
+
+  window.HudiniGo = url => {
+    if(busy) return;
+    if(still()){ location.href = url; return; }
+    busy = true;
+    let p; try{ p = leave(); }catch{ p = Promise.resolve(); }
+    Promise.resolve(p).catch(() => {}).then(() => { try{ sessionStorage.setItem('hudini.tr', String(Date.now())); }catch{} location.href = url; });
+  };
+  addEventListener('pageshow', e => { if(e.persisted) cleanup(); });   // back button: the page comes back from the cache whole
+
+  document.addEventListener('click', e => {
+    const a = e.target.closest?.('a[href]');
+    if(!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if((a.target && a.target !== '_self') || a.hasAttribute('download') || a.matches('a[data-dl], #otherOs a, [data-no-transition]')) return;
+    let u; try{ u = new URL(a.href, location.href); }catch{ return; }
+    if(u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return;
+    if(u.pathname === location.pathname && u.search === location.search) return;   // an anchor on this page
+    if(still()) return;
+    e.preventDefault(); window.HudiniGo(u.href);
+  });
+
+  // The page was opened through a transition: the headings are held back by CSS (html.enter) until their letters are ready, then the letters settle from above
+  function land(){
+    const vh = innerHeight, vw = innerWidth, heads = [...document.querySelectorAll(HEAD)];
+    const play = heads.filter(h => visible(h, vh, vw) && !weak()).slice(0, 8);
+    for(const h of heads){
+      if(!play.includes(h)){ h.classList.add('lt'); continue; }
+      const sp = split(h), all = [...sp.letters, ...sp.units], k = Math.min(11, 110 / Math.max(all.length, 1));
+      for(const l of all) l.style.opacity = '0';
+      h.classList.add('lt');
+      let left = all.length;
+      all.forEach((l, i) => {
+        const a = l.animate([{ opacity:0, transform:`translateY(-${rnd(12, 16).toFixed(1)}px)` }, { opacity:1, transform:'none' }], { duration:rnd(330, 400), delay:i * k, easing:'cubic-bezier(.2,.8,.2,1)', fill:'backwards' });
+        l.style.opacity = '';
+        a.finished.catch(() => {}).then(() => { if(--left === 0 && h.isConnected) unsplit(h, sp); });
+      });
+    }
+  }
+  if(d.classList.contains('enter')){
+    const run = () => { try{ land(); }catch{ for(const h of document.querySelectorAll(HEAD)) h.classList.add('lt'); } };
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  }
+
+  // Steps of the report wizard (report.js): the old step fades out with a small drop, the new one fades in and slides up. The change itself is applied at once.
+  window.HudiniSwap = (el, change) => {
+    if(still() || !el || !el.animate){ change(); return; }
+    const r = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+    Object.assign(ghost.style, { position:'fixed', left:r.left + 'px', top:r.top + 'px', width:r.width + 'px', margin:'0', pointerEvents:'none', zIndex:'5' });
+    el.after(ghost);
+    change();
+    ghost.animate([{ opacity:1, transform:'none' }, { opacity:0, transform:'translateY(8px)' }], { duration:160, easing:'ease-in', fill:'forwards' });
+    setTimeout(() => ghost.remove(), 200);
+    el.animate([{ opacity:0, transform:'translateY(10px)' }, { opacity:1, transform:'none' }], { duration:200, delay:40, easing:'ease-out', fill:'backwards' });
+  };
 })();

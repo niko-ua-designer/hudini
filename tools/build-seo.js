@@ -33,7 +33,6 @@ function page(lang){
     open + keys.split(',').map(k => `<div class="card"><h3>${t[k][1]}</h3><p>${t[k][2]}</p></div>`).join('') + close);
   for(const id of ['sSteps', 'mSteps']) h = h.replace(`<ol id="${id}"></ol>`, `<ol id="${id}">${t[id].map(x => `<li>${x}</li>`).join('')}</ol>`);
   h = h.replace('<ul class="ticks" id="csList"></ul>', `<ul class="ticks" id="csList">${t.csList.map(s => `<li><span>${s}</span></li>`).join('')}</ul>`);
-  h = h.replace('<h2 id="cTitle"></h2>', `<h2 id="cTitle">${g.title}</h2>`).replace('<p class="lead" id="cLead"></p>', `<p class="lead" id="cLead">${g.lead}</p>`);
   h = h.replace(/<a class="btn ([a-z ]+)" data-dl data-os-label /g, (m, c) => `<a class="btn ${c}" href="${REL}" data-dl data-os-label `);
   h = h.replace(/<a data-sums /g, `<a href="${REL}" data-sums `);
   h = h.replace(/(data-os-label[^>]*>)(<\/a>)/g, (m, o, c) => o + `<span class="dl-l">${t.dlFor.replace('{os}', 'Windows')}</span><span class="dl-s">${t.dlShort}</span>` + c);
