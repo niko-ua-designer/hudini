@@ -21,7 +21,7 @@ window.Cursors = (function(){
   // ---------- свой курсор ----------
   const mine = () => drag && drag.id && drag.mode!=='rect' ? String(drag.id) : '';
   function send(off){
-    if(!C.on || !client?.connected) return;
+    if(!C.on || !client?.connected || !window.hudiniHost11) return;   // Host 1.0 закрывает соединение на чужой теме
     const l = C.last; if(!off && !l) return;
     C.sentAt = Date.now(); clearTimeout(C.t); C.t = null;
     const m = off ? { id:clientId, off:1 } : { id:clientId, n:C.name, x:l.x, y:l.y, s:selectedId||'', d:mine() };

@@ -75,6 +75,7 @@
   // Права пришли из программы стримера (тема perms)
   window.hudiniPanelPerms = p => {
     if(!p || typeof p !== 'object') return;
+    window.hudiniHost11 = typeof p.cam === 'boolean';   // Host 1.0 шлёт права без cam/screen/mic: на нём чужие темы (cur) рвут соединение
     perms = { av:p.av !== false, web:p.web !== false, fx:p.fx !== false, games:p.games !== false, cam:p.cam === true, screen:p.screen === true, mic:p.mic === true }; permsRoom = room;
     applyUi(); marks(); window.hudiniBroadcast?.perms();
   };

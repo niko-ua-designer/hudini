@@ -150,7 +150,7 @@ let visible=true, lastState={ visible:true, els:[], raffle:null };
 window.streamPaint=(node, el)=>{
   if(!media) return;
   const live=!el.hidden && !hostHidden();
-  media.paint(node, live ? el : { ...el, owner:'' }, { muted:!el.sound || el.kind!=='mic' || !PERMS.mic || hostHidden() || !soundOk() || el.hidden, volume:num(el.vol*masterVol(),1,0,1) });
+  media.paint(node, live ? el : { ...el, owner:'' }, { muted:!el.sound || el.kind!=='mic' || (!PERMS.mic && el.owner!=='streamer') || hostHidden() || !soundOk() || el.hidden, volume:num(el.vol*masterVol(),1,0,1) });
 };
 // Какие потоки нужны: показанные слои. Владелец и вид берутся только из экрана, подписанного модератором.
 function streamsWanted(){
