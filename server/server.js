@@ -1405,8 +1405,10 @@ let refreshing=null, lastRefresh=0;
 function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
 // Подложки радара вшиты в программу; недостающие берём с сайта и держим в кэше. Своя картинка в data/radar важнее.
 const RADAR_CACHE = path.join(CACHE, 'radar');
+const RADAR_MEM = new Map();
 async function radarImg(name){
   if(typeof name!=='string' || !/^[a-z0-9_-]{1,60}\.webp$/.test(name)) return null;
+  if(RADAR_MEM.has(name)) return RADAR_MEM.get(name);
   const dirs = [path.join(BASE, 'radar'), ...(compiled ? [] : [path.join(import.meta.dir, '..', 'web', 'shared', 'radar')]), RADAR_CACHE];
   for(const d of dirs){ try{ return fs.readFileSync(path.join(d, name)); }catch{} }
   // подложки вшиты в саму программу (tools/radar-embed.sh): работает без интернета и до выхода сайта
@@ -1417,7 +1419,8 @@ async function radarImg(name){
     if(!r.ok) return null;
     const b = Buffer.from(await r.arrayBuffer());
     if(b.length < 12 || b.length > 2*1048576 || b.subarray(0, 4).toString()!=='RIFF' || b.subarray(8, 12).toString()!=='WEBP' || b.readUInt32LE(4) + 8 !== b.length) return null;   // a real WebP: RIFF size matches the body
-    fs.mkdirSync(RADAR_CACHE, { recursive:true }); fs.writeFileSync(path.join(RADAR_CACHE, name), b);
+    if(RADAR_MEM.size >= 64) RADAR_MEM.delete(RADAR_MEM.keys().next().value);
+    RADAR_MEM.set(name, b);   // kept in memory only: nothing downloaded is written to disk
     return b;
   }catch{ return null; }
 }
