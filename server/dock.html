@@ -55,6 +55,36 @@ a{color:#b9a8ff}
 #ask button.go{background:var(--ok);border-color:var(--ok);color:#111;font-weight:600}
 #banner{margin:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
 .foot{margin:10px 8px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+/* UX polish: focus, press/disabled states, touch targets, scrollbars (looks only) */
+:root{--focus:#a78bfa}
+html{color-scheme:dark;background:var(--bg)}
+*{scrollbar-width:thin;scrollbar-color:#3a3f4c transparent}
+::selection{background:#7c5cff80;color:#fff}
+:is(button,a,summary,[tabindex]):focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
+.tabs button:focus-visible{outline-offset:-2px}
+button,a{touch-action:manipulation;-webkit-tap-highlight-color:#7c5cff30}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tabs button:hover:not(.on){color:var(--text);background:#ffffff08;border-color:transparent;border-bottom-color:transparent}
+.tabs button.on:hover{border-bottom-color:var(--acc)}
+.tabs button:active{background:#ffffff0d}
+button.danger{background:#3a1820;border-color:#6b2433;color:#ffb3bd}
+button.danger:hover{border-color:var(--bad)}
+button.danger:active{background:#4a1c27}
+button.on:active{filter:brightness(.94)}
+.sw{cursor:pointer;transition:background-color .15s}
+.sw:hover:not(.on){background:#3a3f4c}
+.sw.on:hover{filter:brightness(1.12)}
+.sw::before{content:"";position:absolute;inset:-8px -4px}
+.eye:hover{border-color:var(--acc)}
+.m,.foot,.score small{font-size:12px}
+.row:hover .n{color:#fff}
+#ask button.go:hover{filter:brightness(1.1)}
+a:hover{text-decoration:underline}
+a{text-underline-offset:2px}
+@media (pointer:coarse){button{min-height:40px}.eye{width:40px}.tog{padding:10px 0}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.001ms!important;scroll-behavior:auto!important;animation:none!important}
+}
 </style>
 </head>
 <body>

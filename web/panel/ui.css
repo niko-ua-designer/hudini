@@ -267,3 +267,16 @@ aside details>summary:hover{color:var(--text)}
 .el.s-mic .body{width:56px;height:56px;border-radius:50%;background:#171a21;outline:2px solid var(--acc);display:flex;align-items:center;justify-content:center}
 .el[data-type="stream"].s-mic .body::after{content:"🎙";font-size:26px;position:static;display:block;inset:auto;outline:0;background:none}
 .el.s-mic.nosig .body{outline-style:dashed}
+
+/* UX polish: panel chrome (menus, drawer, tour, windows) */
+#helpMenu :is(button,a){transition:background-color .15s}
+#helpMenu :is(button,a):active{background:#262b36}
+#helpMenu :is(button,a):focus-visible{background:var(--panel2)}
+#helpDrawer summary:hover{color:#fff}
+#helpDrawer summary:focus-visible{outline-offset:2px}
+#helpDrawer .hd-body{scrollbar-width:thin}
+#tourBox button.primary{background:var(--acc-btn)}
+body.free .winbar button:active{transform:scale(.94)}
+.tchips button,#uiPresets button{min-height:30px}
+@media (pointer:coarse){.tchips button,#uiPresets button,#helpMenu :is(button,a){min-height:40px;display:flex;align-items:center}}
+@media (prefers-reduced-motion:reduce){#emptyHint .arrow,#vaultWarn,#fightBar{animation:none!important}}

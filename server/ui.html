@@ -106,6 +106,49 @@ details[open] summary{margin-bottom:10px}
 .updbar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#a78bfa);transition:width .3s}
 .updbar.busy i{width:35%;animation:updSlide 1.2s ease-in-out infinite}
 @keyframes updSlide{0%{margin-left:-35%}100%{margin-left:100%}}
+/* UX polish: focus rings, press/hover/disabled states, touch targets, contrast, scrollbars (looks only) */
+:root{--focus:#a78bfa;--acc-btn:#6d4dff}
+html{color-scheme:dark}
+*{scrollbar-width:thin;scrollbar-color:#3a3f4c transparent}
+::selection{background:#7c5cff80;color:#fff}
+::placeholder{color:var(--muted);opacity:1}
+:is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
+.tgl input:focus-visible+.sw{outline:2px solid var(--focus);outline-offset:2px}
+.tgl input:focus-visible{outline:none!important}
+button,a,summary,label,select{touch-action:manipulation;-webkit-tap-highlight-color:#7c5cff30}
+button,.banner a,.rolelink,input{transition:border-color .15s,background-color .15s,color .15s,box-shadow .15s,opacity .15s,transform .1s}
+button:active:not(:disabled),.banner a:active{transform:scale(.97)}
+button:disabled{cursor:not-allowed}
+button.primary,.banner a{background:var(--acc-btn);border-color:var(--acc-btn)}
+button.primary.done{background:#1f6f45;border-color:#1f6f45}
+button.primary:hover:not(:disabled),.banner a:hover{filter:brightness(1.12)}
+button.primary:active:not(:disabled){filter:brightness(.94)}
+input:disabled{opacity:.5;cursor:not-allowed}
+input:user-invalid,input[aria-invalid=true]{border-color:var(--bad)}
+input:hover:not(:focus):not(:disabled):not([readonly]){border-color:#3a4050}
+.rolelink:hover,.rolelink:focus-visible{text-decoration:underline}
+.rolelink:active{background:var(--panel2)}
+.card{transition:border-color .2s}
+details summary:hover{color:#fff}
+details summary:hover::after{border-color:var(--text)}
+.tbl tr:hover td{background:#ffffff05}
+.tgl:hover .sw{background:#4a5060}.tgl:hover input:checked+.sw{background:#8566ff}
+.tgl input:disabled+.sw{opacity:.45}
+.tgl:has(input:disabled){cursor:not-allowed}
+.tgl .sw{box-shadow:inset 0 0 0 1px #ffffff14}
+.brand small,.light,.rolelink,.tag,.tbl th,.tbl small,.lim label,.st b,pre,.tbl button{font-size:12px}
+a{text-underline-offset:2px}
+@media (pointer:coarse){
+  button,input:not([type=checkbox]){min-height:40px}
+  .tbl button{min-height:36px}
+  .rolelink{padding:9px 12px}
+  .tgl{min-height:40px}
+  input[type=checkbox]{width:20px;height:20px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.001ms!important;scroll-behavior:auto!important}
+  *:not(.updbar.busy i){animation-duration:.001ms!important;animation-iteration-count:1!important}
+}
 </style>
 </head>
 <body>

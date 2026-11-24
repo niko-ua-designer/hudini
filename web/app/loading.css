@@ -13,3 +13,10 @@ b{font-size:18px}
 #back:hover{border-color:#7c5cff}
 .err~#back{display:inline-block}
 @keyframes go{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+
+/* UX polish */
+::selection{background:#7c5cff80;color:#fff}
+#back{transition:border-color .15s,background-color .15s}
+#back:active{background:#1d212a}
+#back:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.bar i{animation-duration:2.4s}}

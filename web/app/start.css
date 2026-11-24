@@ -63,3 +63,28 @@ h1{font-size:22px}h2{font-size:18px}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:40;max-width:80vw}
 
 @media (max-width:600px){.rail{width:64px}.rail .brand b,.tab span+span,.chk,.foot small{display:none}.tab{justify-content:center}}
+
+/* UX polish: focus, press and disabled states, contrast, touch targets */
+:root{--focus:#a78bfa}
+*{scrollbar-width:thin;scrollbar-color:#3a3f4c transparent}
+::selection{background:#7c5cff80;color:#fff}
+::placeholder{color:var(--muted);opacity:1}
+:is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
+.menu button:focus-visible,.tab:focus-visible{outline-offset:-2px}
+button,a,label{touch-action:manipulation;-webkit-tap-highlight-color:#7c5cff30}
+button{transition:border-color .15s,background-color .15s,color .15s,opacity .15s,transform .1s}
+button:active:not(:disabled){transform:scale(.97)}
+button:disabled{cursor:not-allowed}
+button.pri{background:#6d4dff;border-color:#6d4dff}
+button.pri:hover:not(:disabled){filter:brightness(1.12)}
+button.pri:active:not(:disabled){filter:brightness(.94)}
+.tab:active:not(.on){background:#171a21}
+.linkbtn:hover,.linkbtn:focus-visible{text-decoration:underline}
+.menu button:active{background:#262b36}
+.menu .bad:hover{color:#ffb3bd}
+.tab small,.net,.foot small{font-size:12px}
+.chk input{width:16px;height:16px;accent-color:var(--acc)}
+.chk:has(input:focus-visible){outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
+.err{border-left:3px solid #ff4d5e;padding-left:10px}
+@media (pointer:coarse){button,.toolbar input{min-height:40px}.chk{min-height:40px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;scroll-behavior:auto!important}}
