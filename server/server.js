@@ -375,6 +375,15 @@ function passOk(ip, pass){
 // Адрес — только из сокета: заголовкам вроде cf-connecting-ip верить нельзя
 const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 aedes.authenticate = (client, user, pass, cb) => {
+  // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор с другого адреса
+  const prev = client.id ? aedes.clients[client.id] : null;
+  if(prev && prev!==client && prev.conn && prev.connected!==false){
+    const kindOf = c => c.conn._mod ? 'mod' : c.conn._streamer ? 'streamer' : 'widget';
+    if(kindOf(prev)!==kindOf(client) || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
+      refuse(client.conn?._mod ? client.conn._ip : 'local', 'занятый clientId');
+      return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
+    }
+  }
   if(!client.conn?._mod){
     if(user==='streamer'){   // пульт стримера на этом ПК: только с сессией, полученной за одноразовый ключ
       if(!panelSessionOk(String(pass||''))){ refuse('local', 'пульт стримера: вход устарел'); return cb(Object.assign(new Error('auth'), { returnCode:4 }), false); }

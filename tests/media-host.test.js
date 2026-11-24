@@ -468,6 +468,17 @@ const subtle = globalThis.crypto.subtle;
     await host.api('/api/mods', { on: true });
   });
 
+  await step('a moderator cannot take over the clientId of a widget or the streamer panel', async () => {
+    for(const id of ['widget-1', 'streamer-1']){
+      const r = await connect(`wss://127.0.0.1:${MPORT}/mqtt`, { clientId: id, username: 'mod', password: pass }).then(c => { c.end(true); return 'in'; }, () => 'refused');
+      eq(r, 'refused', id + ' is not taken over');
+    }
+    check(!wc.disconnected && wc.connected && sc.connected, 'the widget and the streamer panel stay connected');
+    const a = await mod('same'), b = await mod('same');   // the same moderator, same address: a quick reconnect works
+    check(b.c.connected, 'a reconnect with the same clientId from the same address is allowed');
+    a.c.end(true); b.c.end(true);
+  });
+
   for(const c of [wc, sc]) c.end(true);
   await host.stop();
   process.exit(T.finish());
