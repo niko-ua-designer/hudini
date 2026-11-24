@@ -257,7 +257,7 @@
         ['📖 Справка по программе', () => openHelp()],
         ['⌨ Клавиши', () => { showTab('room'); const h = [...document.querySelectorAll('section[data-pane="room"] h2')].find(x => /Клавиши/.test(x.textContent)); if(h){ setFold(h, false); h.scrollIntoView({ behavior:'smooth', block:'start' }); } }],
         ['🎩 Как подключить стримера', () => showHostTip()],
-        ['🐞 Сообщить о проблеме', reportUrl()],
+        ['🐞 Предложить идею или сообщить о проблеме', reportUrl()],
       ];
       for(const [label, act] of items){
         const it = document.createElement(typeof act === 'string' ? 'a' : 'button');
@@ -276,7 +276,7 @@
   let helpLoad = null;
   const loadScript = src => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   async function openHelp(id){
-    if(!window.HUDINI_HELP) await (helpLoad ||= loadScript('../shared/connect-guides.js?v=1').catch(() => {}).then(() => loadScript('../shared/help-content.js?v=7'))).catch(() => {});
+    if(!window.HUDINI_HELP) await (helpLoad ||= loadScript('../shared/connect-guides.js?v=1').catch(() => {}).then(() => loadScript('../shared/help-content.js?v=8'))).catch(() => {});
     const lang = window.HudiniI18n?.lang || 'ru', H = window.HUDINI_HELP?.[lang] || window.HUDINI_HELP?.en;
     if(!H){ window.open(HELP_URL, '_blank', 'noopener'); return; }
     $('helpDrawer')?.remove();

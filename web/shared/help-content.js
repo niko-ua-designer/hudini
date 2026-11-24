@@ -162,7 +162,7 @@ ru: {
 <li><b>Пропали сессии или комнаты</b>: восстанови из бэкапа (⚙ Комната → Из бэкапа).</li>
 <li><b>Нужен журнал</b>: на первом экране Hudini кнопка «📁 Журналы». Приложи файл, когда пишешь о проблеме.</li>
 </ul>
-<p>Не помогло? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=ru" target="_blank" rel="noopener">Напиши о проблеме</a>.</p>`],
+<p>Не помогло? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=ru" target="_blank" rel="noopener">Предложи идею или сообщи о проблеме</a>.</p>`],
 ['keys', 'Клавиши', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> отменить · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> вернуть · <kbd>Del</kbd> удалить · <kbd>Esc</kbd> снять выделение</li>
@@ -334,7 +334,7 @@ en: {
 <li><b>Sessions or rooms are gone</b>: restore from a backup (⚙ Room → From backup).</li>
 <li><b>You need a log</b>: the first Hudini screen has a "📁 Logs" button. Attach the file when you report a problem.</li>
 </ul>
-<p>Still stuck? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=en" target="_blank" rel="noopener">Report a problem</a>.</p>`],
+<p>Still stuck? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=en" target="_blank" rel="noopener">Suggest an idea or report a problem</a>.</p>`],
 ['keys', 'Shortcuts', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> undo · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> redo · <kbd>Del</kbd> delete · <kbd>Esc</kbd> deselect</li>
@@ -506,7 +506,7 @@ uk: {
 <li><b>Зникли сесії чи кімнати</b>: відновлюй із бекапу (⚙ Кімната → З бекапу).</li>
 <li><b>Потрібен журнал</b>: на першому екрані Hudini є кнопка «📁 Журнали». Додай файл, коли пишеш про проблему.</li>
 </ul>
-<p>Не допомогло? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=uk" target="_blank" rel="noopener">Напиши про проблему</a>.</p>`],
+<p>Не допомогло? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=uk" target="_blank" rel="noopener">Запропонуй ідею або повідом про проблему</a>.</p>`],
 ['keys', 'Клавіші', `
 <ul>
 <li><kbd>Ctrl+Z</kbd> скасувати · <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+Shift+Z</kbd> повернути · <kbd>Del</kbd> видалити · <kbd>Esc</kbd> зняти виділення</li>
@@ -678,7 +678,7 @@ de: {
 <li><b>Sitzungen oder Räume fehlen</b>: Stelle sie aus einem Backup wieder her (⚙ Raum → Aus Backup).</li>
 <li><b>Du brauchst ein Protokoll</b>: Der erste Hudini-Bildschirm hat den Knopf „📁 Protokolle“. Hänge die Datei an, wenn du ein Problem meldest.</li>
 </ul>
-<p>Weiter nichts? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=de" target="_blank" rel="noopener">Problem melden</a>.</p>`],
+<p>Weiter nichts? <a href="https://niko-ua-designer.github.io/hudini/report.html?lang=de" target="_blank" rel="noopener">Idee vorschlagen oder Problem melden</a>.</p>`],
 ['keys', 'Tastenkürzel', `
 <ul>
 <li><kbd>Strg+Z</kbd> rückgängig · <kbd>Strg+Y</kbd> / <kbd>Strg+Umschalt+Z</kbd> wiederholen · <kbd>Entf</kbd> löschen · <kbd>Esc</kbd> Auswahl aufheben</li>

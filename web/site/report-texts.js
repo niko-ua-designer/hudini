@@ -2,10 +2,10 @@
 // {n} / {total} placeholders are filled by report.js. "opt" lists are [value sent to GitHub, label shown].
 window.HUDINI_REPORT = {
  "en": {
-  "title": "Hudini · Report a problem",
-  "badge": "Report a problem",
-  "h1": "Tell us what <span>went wrong</span>",
-  "sub": "Five short steps: we help you collect the facts, write the report and open it on GitHub. No account on this site, nothing is sent from here.",
+  "title": "Hudini · Suggest an idea or report a problem",
+  "badge": "Suggest an idea or report a problem",
+  "h1": "Share an idea or tell us <span>what went wrong</span>",
+  "sub": "A few short steps: we help you write your idea or collect the facts of a problem, and open it on GitHub. No account on this site, nothing is sent from here.",
   "stepOf": "Step {n} of {total}", "back": "← Back", "next": "Next →",
   "st": ["What happened", "What to collect", "Describe it", "Open it on GitHub", "Attach the log"],
   "types": [["bug", "Something is broken", "An error, a crash, a button that does nothing."], ["lag", "Lags or freezes", "The picture stutters, the panel is slow, the delay is big."], ["idea", "An idea", "A feature or a change you would like to see."]],
@@ -37,10 +37,10 @@ window.HUDINI_REPORT = {
   "home": "Home"
  },
  "ru": {
-  "title": "Hudini · Сообщить о проблеме",
-  "badge": "Сообщить о проблеме",
-  "h1": "Расскажи, <span>что пошло не так</span>",
-  "sub": "Пять коротких шагов: поможем собрать факты, написать отчёт и открыть его на GitHub. Аккаунт на этом сайте не нужен, отсюда ничего не отправляется.",
+  "title": "Hudini · Предложить идею или сообщить о проблеме",
+  "badge": "Предложить идею или сообщить о проблеме",
+  "h1": "Поделись идеей или расскажи, <span>что пошло не так</span>",
+  "sub": "Несколько коротких шагов: поможем описать идею или собрать факты о проблеме и открыть это на GitHub. Аккаунт на этом сайте не нужен, отсюда ничего не отправляется.",
   "stepOf": "Шаг {n} из {total}", "back": "← Назад", "next": "Далее →",
   "st": ["Что случилось", "Что собрать", "Опиши", "Открой на GitHub", "Приложи журнал"],
   "types": [["bug", "Что-то сломалось", "Ошибка, вылет, кнопка ничего не делает."], ["lag", "Лаги или зависания", "Картинка дёргается, пульт тормозит, большая задержка."], ["idea", "Идея", "Функция или изменение, которое хочется увидеть."]],
@@ -72,10 +72,10 @@ window.HUDINI_REPORT = {
   "home": "Главная"
  },
  "uk": {
-  "title": "Hudini · Повідомити про проблему",
-  "badge": "Повідомити про проблему",
-  "h1": "Розкажи, <span>що пішло не так</span>",
-  "sub": "П'ять коротких кроків: допоможемо зібрати факти, написати звіт і відкрити його на GitHub. Акаунт на цьому сайті не потрібен, звідси нічого не надсилається.",
+  "title": "Hudini · Запропонувати ідею або повідомити про проблему",
+  "badge": "Запропонувати ідею або повідомити про проблему",
+  "h1": "Поділись ідеєю або розкажи, <span>що пішло не так</span>",
+  "sub": "Кілька коротких кроків: допоможемо описати ідею або зібрати факти про проблему й відкрити це на GitHub. Акаунт на цьому сайті не потрібен, звідси нічого не надсилається.",
   "stepOf": "Крок {n} з {total}", "back": "← Назад", "next": "Далі →",
   "st": ["Що сталося", "Що зібрати", "Опиши", "Відкрий на GitHub", "Додай журнал"],
   "types": [["bug", "Щось зламалося", "Помилка, вильот, кнопка нічого не робить."], ["lag", "Лаги або зависання", "Картинка смикається, пульт гальмує, велика затримка."], ["idea", "Ідея", "Функція або зміна, яку хочеться побачити."]],
@@ -107,10 +107,10 @@ window.HUDINI_REPORT = {
   "home": "Головна"
  },
  "de": {
-  "title": "Hudini · Problem melden",
-  "badge": "Problem melden",
-  "h1": "Sag uns, <span>was schiefgelaufen ist</span>",
-  "sub": "Fünf kurze Schritte: Wir helfen dir, die Fakten zu sammeln, den Bericht zu schreiben und auf GitHub zu öffnen. Kein Konto auf dieser Seite, von hier wird nichts gesendet.",
+  "title": "Hudini · Idee vorschlagen oder Problem melden",
+  "badge": "Idee vorschlagen oder Problem melden",
+  "h1": "Teile eine Idee oder sag uns, <span>was schiefgelaufen ist</span>",
+  "sub": "Ein paar kurze Schritte: Wir helfen dir, deine Idee zu beschreiben oder die Fakten zu einem Problem zu sammeln und auf GitHub zu öffnen. Kein Konto auf dieser Seite, von hier wird nichts gesendet.",
   "stepOf": "Schritt {n} von {total}", "back": "← Zurück", "next": "Weiter →",
   "st": ["Was ist passiert", "Was zu sammeln ist", "Beschreibe es", "Auf GitHub öffnen", "Log anhängen"],
   "types": [["bug", "Etwas ist kaputt", "Ein Fehler, ein Absturz, ein Knopf ohne Wirkung."], ["lag", "Ruckeln oder Hänger", "Das Bild ruckelt, das Panel ist langsam, die Verzögerung ist groß."], ["idea", "Eine Idee", "Eine Funktion oder Änderung, die du dir wünschst."]],

@@ -4024,7 +4024,7 @@ function levelPop(anchor, lvl, name){
   const L=LEVELS[lvl], p=document.createElement('div'); p.id='lvlPop';
   const b=document.createElement('b'); b.textContent=`${L.mark} ${L.name}: ${name}`;
   const d=document.createElement('div'); d.textContent=L.say; d.style.margin='4px 0';
-  const a=document.createElement('a'); a.href=reportUrl(); a.target='_blank'; a.rel='noopener'; a.textContent='Сообщить о проблеме ↗';
+  const a=document.createElement('a'); a.href=reportUrl(); a.target='_blank'; a.rel='noopener'; a.textContent='Предложить идею или сообщить о проблеме ↗';
   p.append(b, d, a); document.body.appendChild(p);
   const r=anchor.getBoundingClientRect();
   p.style.left=Math.min(innerWidth-280, Math.max(8, r.left))+'px';
