@@ -20,6 +20,8 @@ const HOST_DL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
 // ===============================================
 
 const $ = id => document.getElementById(id);
+// time and date format follows the interface language, not the system locale
+const uiLocale=()=>({ ru:'ru-RU', en:'en-GB', uk:'uk-UA', de:'de-DE' })[window.HudiniI18n?.lang]||'en-GB';
 const stage=$('stage'), elLayer=$('elLayer'), wrap=$('wrap');
 
 function rid(n){
@@ -136,6 +138,9 @@ function homeHttp(){
 }
 // Один источник правды для индикатора связи: состояние ретранслятора + состояние MQTT
 function netName(n){ const r=(window.HudiniSessions?.NET_NAMES||{})[n] || n || ''; return window.HudiniI18n ? window.HudiniI18n.t(r) : r; }
+const NET_FAIL={ tailscale:'включи Tailscale у себя и у стримера', radmin:'включи Radmin VPN у себя и у стримера, вы должны быть в одной сети', hamachi:'включи Hamachi у себя и у стримера',
+  zerotier:'включи ZeroTier у себя и у стримера', lan:'работает только в одной локальной сети со стримером', inet:'порт стримера должен быть открыт из интернета',
+  porthole:'проверь, что в Porthole открыт порт модераторов', ext:'проверь проброс порта на роутере стримера' };
 // Модель индикатора: { cls, text, title, bars (0..4), strip: { head, why } | null }
 function statusModel(){
   const R=relayInfo, T=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
@@ -146,8 +151,13 @@ function statusModel(){
   }
   if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
     why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
-  if(R?.state==='offline') return { cls:'bad', bars:0, text:'сервер не отвечает', title:'', strip:{ head:'сервер не отвечает',
-    why:'Hudini Host не отвечает ни по одному адресу из кода. Проверь, что у тебя и у стримера включён один и тот же VPN (Tailscale, Radmin, Porthole), а программа запущена.' } };
+  if(R?.state==='offline'){
+    // what to check for every address of the code: which network failed and what it needs
+    const tried=(session?.addrs||[]).map(a=>`• ${netName(a.net)} (${a.h}:${a.port}): ${T(NET_FAIL[a.net]||'проверь, что стример в той же сети')}`);
+    return { cls:'bad', bars:0, text:'сервер не отвечает', title:'', strip:{ head:'сервер не отвечает', multiline:true,
+      why:T('Hudini Host не отвечает ни по одному адресу из кода. Проверь, что у тебя и у стримера включён один и тот же VPN (Tailscale, Radmin, Porthole), а программа запущена.')
+        +(tried.length ? '\n'+T('Что не сработало:')+'\n'+tried.join('\n') : '') } };
+  }
   if(!homeClient && hostNote){
     const bad=/пароль|Не удалось/.test(hostNote);
     return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad || /пауз/.test(hostNote) ? { head:hostNote, why:'' } : null };
@@ -167,14 +177,14 @@ function hostStatus(){
   const m=statusModel();
   setStatus(m.cls, m.text, m.bars, m.title);
   const strip=$('connStrip'); strip.hidden=!m.strip; strip.className=m.cls;
-  if(m.strip){ $('csHead').textContent=m.strip.head; $('csWhy').textContent=m.strip.why; $('csSess').hidden=!TAURI; $('csRetry').hidden=!session; }
+  if(m.strip){ $('csHead').textContent=m.strip.head; $('csWhy').textContent=m.strip.why; $('csWhy').style.whiteSpace=m.strip.multiline ? 'pre-line' : ''; $('csSess').hidden=!TAURI; $('csRetry').hidden=!session; }
   if(!$('connPop').hidden) renderConnPop();
 }
 // Подробности по клику на таблетку
 function renderConnPop(){
   const R=relayInfo, T=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t, pop=$('connPop'), m=statusModel();
   const rows=[['Адрес', R?.addr||(homeInfo?.url||'—')], ['Сеть', R?.net ? netName(R.net) : '—'], ['Задержка', R?.rtt_ms!=null ? R.rtt_ms+' ms' : '—'],
-    ['Подключён с', R?.state==='online' && R.since ? new Date(R.since).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '—'],
+    ['Подключён с', R?.state==='online' && R.since ? new Date(R.since).toLocaleTimeString(uiLocale(), { hour:'2-digit', minute:'2-digit' }) : '—'],
     ['Переподключений', String(R?.reconnects||0)], ['Последняя ошибка', R?.last_error || 'ошибок нет']];
   const h=document.createElement('h4'); h.textContent=m.text; const dl=document.createElement('dl');
   for(const [k,v] of rows){ const dt=document.createElement('dt'), dd=document.createElement('dd'); dt.textContent=k; dd.textContent=v; dl.append(dt, dd); }
@@ -1809,7 +1819,7 @@ function chatConnect(ch){
 // ---- лента чата в пульте ----
 function chatRowNode(m){
   const row=document.createElement('div'); row.className='cm'; row.dataset.id=m.id; row.title='Клик — показать на стриме';
-  const tm=document.createElement('span'); tm.className='tm'; tm.textContent=new Date(m.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  const tm=document.createElement('span'); tm.className='tm'; tm.textContent=new Date(m.t).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'});
   row.appendChild(tm);
   if(m.badge){ const b=document.createElement('span'); b.className='b'; b.textContent=BADGE[m.badge]; row.appendChild(b); }
   const u=document.createElement('span'); u.className='u'; u.style.color=m.color; u.textContent=m.user; row.append(u, document.createTextNode(': '));
@@ -2091,7 +2101,7 @@ function renderCase(el){
     r.append(l,b,d); return r; }));
   for(const r of sb.children){ const k=r.dataset.k; r.querySelector('[data-act=snd]').textContent = el.snd[k] ? '🔊 ✓' : '📁'; r.querySelector('[data-act=sdel]').hidden=!el.snd[k]; }
   const h=lsGet('hudini.caseHist', []); const hb=$('kHist'); hb.dataset.i18nSkip='';
-  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} ${x.d||'тест'} → ${x.n}`).join('\n') : '—'; hb.style.whiteSpace='pre-line';
+  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'})} ${x.d||'тест'} → ${x.n}`).join('\n') : '—'; hb.style.whiteSpace='pre-line';
 }
 // Кейс и рулетка живут на вкладке «Розыгрыши»: управляем выбранным, а если выбран не кейс, то первым на экране
 const caseEl=()=>{ const s=byId(selectedId); return s?.type==='case' ? s : state.els.find(e=>e.type==='case')||null; };
@@ -2749,7 +2759,7 @@ function rouSkip(msg, text, why){
 }
 function renderRouSkip(){
   const b=$('rouSkipLog'); b.dataset.i18nSkip=''; b.style.whiteSpace='pre-line';
-  b.textContent = rouSkipped.length ? rouSkipped.map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} ${x.u}: «${x.x}» — ${trp(x.why)}`).join('\n') : '—';
+  b.textContent = rouSkipped.length ? rouSkipped.map(x=>`${new Date(x.t).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit',second:'2-digit'})} ${x.u}: «${x.x}» — ${trp(x.why)}`).join('\n') : '—';
 }
 // какая сторона рулетки ждёт это сообщение: 'r' награда, 'c' команда, null ничего
 function rouKind(el, text, msg){
@@ -2842,7 +2852,7 @@ function renderRouTab(){
     r.querySelector('.pc').textContent = total>0 && p.w>0 ? (p.w/total*100).toFixed(p.w/total<0.1 ? 1 : 0)+'%' : '—';
   });
   const h=lsGet('hudini.rouHist', []), hb=$('rouHist'); hb.dataset.i18nSkip=''; hb.style.whiteSpace='pre-line';
-  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})} ${x.v||'тест'} → ${x.n}`).join('\n') : '—';
+  hb.textContent = h.length ? h.slice(0,30).map(x=>`${new Date(x.t).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'})} ${x.v||'тест'} → ${x.n}`).join('\n') : '—';
   rouLive();
 }
 function renderRTabs(){ showRTool(rTool); renderCaseTab(); renderRouTab(); }

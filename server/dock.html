@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-i18n-nopick>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -125,7 +125,7 @@ a{text-underline-offset:2px}
   <div class="card"><h3>CS2</h3><div id="cs2"></div></div>
 </section>
 
-<div class="foot"><span>🎩 Hudini <span id="ver" data-i18n-skip></span></span><a href="/" target="_blank" rel="noopener">⚙ Настройки</a></div>
+<div class="foot"><span>🎩 Hudini <span id="ver" data-i18n-skip></span></span><span class="m">⚙ Настройки: в окне Hudini Host</span></div>
 <script>
 const $=id=>document.getElementById(id);
 const tr=s=>window.HudiniI18n ? HudiniI18n.t(s) : s;
@@ -188,7 +188,7 @@ function renderStat(){
   const off=c.off||{};
   $('togs').replaceChildren(...TOGS.map(([k, name])=>{
     const row=el('div','tog'), b=el('button','sw'+(off[k]?'':' on'));
-    b.dataset.tog=k; b.title=off[k]?tr('Выключено на стриме: нажми, чтобы вернуть'):tr('Включено: нажми, чтобы выключить на стриме');
+    b.dataset.tog=k; b.setAttribute('role','switch'); b.setAttribute('aria-checked', String(!off[k])); b.setAttribute('aria-label', tr(name)); b.title=off[k]?tr('Выключено на стриме: нажми, чтобы вернуть'):tr('Включено: нажми, чтобы выключить на стриме');
     b.onclick=act(()=>({ action:'off', key:k, on:!off[k] }));
     row.append(el('span',null,name), b); return row;
   }));
@@ -210,7 +210,7 @@ function renderEls(){
   if(!list.length){ box.replaceChildren(el('div','empty',tr('На экране пусто'))); return; }
   box.replaceChildren(...[...list].reverse().map(x=>{
     const row=el('div','row'+(x.hidden||hid.has(x.id)?' hid':'')), off=hid.has(x.id);
-    const eye=el('button','eye'+(off?' off':''),'👁'); eye.dataset.eye=x.id;
+    const eye=el('button','eye'+(off?' off':''),'👁'); eye.dataset.eye=x.id; eye.setAttribute('aria-pressed', String(!off)); eye.setAttribute('aria-label', tr('Показывать на стриме')+': '+(x.name||tr(TYPE_NAME[x.type]||x.type)));
     eye.title=off?tr('Скрыто тобой на стриме: нажми, чтобы вернуть'):tr('Спрятать на стриме');
     eye.onclick=act(()=>({ action:'hideel', key:x.id, on:!off }));
     const n=el('span','n'); n.append((TYPE_ICO[x.type]||'•')+' ');

@@ -1764,6 +1764,23 @@ const HUDINI_DICT = {
     "Стример отклонил": "The streamer declined",
     "Слишком много запросов: попробуй позже": "Too many requests: try again later",
     "Трансляция остановлена": "The broadcast was stopped",
+    "Ждём подтверждения: стример увидит запрос в окне Hudini Host и в панели OBS": "Waiting for confirmation: the streamer sees the request in the Hudini Host window and in the OBS dock",
+    "Что не сработало:": "What did not work:",
+    "проверь, что стример в той же сети": "check that the streamer is on the same network",
+    "включи Tailscale у себя и у стримера": "turn on Tailscale on your side and the streamer's",
+    "включи Radmin VPN у себя и у стримера, вы должны быть в одной сети": "turn on Radmin VPN on your side and the streamer's, you must be in the same network",
+    "включи Hamachi у себя и у стримера": "turn on Hamachi on your side and the streamer's",
+    "включи ZeroTier у себя и у стримера": "turn on ZeroTier on your side and the streamer's",
+    "работает только в одной локальной сети со стримером": "works only on the same local network as the streamer",
+    "порт стримера должен быть открыт из интернета": "the streamer's port must be open from the internet",
+    "проверь, что в Porthole открыт порт модераторов": "check that the moderator port is open in Porthole",
+    "проверь проброс порта на роутере стримера": "check the port forwarding on the streamer's router",
+    "открой в Porthole порт": "open in Porthole: port",
+    "🎥 Модератор просит разрешение": "🎥 A moderator asks for permission",
+    "То же самое есть в панели OBS. Пока не ответишь, модератор ждёт.": "The same request is in the OBS dock. The moderator waits until you answer.",
+    "Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?": "A stream is running: OBS or moderators are connected. Changing the role stops the server and the overlay disappears. Change it?",
+    "⚙ Настройки: в окне Hudini Host": "⚙ Settings: in the Hudini Host window",
+    "Показывать на стриме": "Show on stream",
   },
   uk: {
     "Последняя проверка:": "Остання перевірка:",
@@ -3527,6 +3544,23 @@ const HUDINI_DICT = {
     "Стример отклонил": "Стрімер відхилив",
     "Слишком много запросов: попробуй позже": "Забагато запитів: спробуй пізніше",
     "Трансляция остановлена": "Трансляцію зупинено",
+    "Ждём подтверждения: стример увидит запрос в окне Hudini Host и в панели OBS": "Чекаємо на підтвердження: стрімер побачить запит у вікні Hudini Host і в панелі OBS",
+    "Что не сработало:": "Що не спрацювало:",
+    "проверь, что стример в той же сети": "перевір, що стрімер у тій самій мережі",
+    "включи Tailscale у себя и у стримера": "увімкни Tailscale у себе й у стрімера",
+    "включи Radmin VPN у себя и у стримера, вы должны быть в одной сети": "увімкни Radmin VPN у себе й у стрімера, ви маєте бути в одній мережі",
+    "включи Hamachi у себя и у стримера": "увімкни Hamachi у себе й у стрімера",
+    "включи ZeroTier у себя и у стримера": "увімкни ZeroTier у себе й у стрімера",
+    "работает только в одной локальной сети со стримером": "працює лише в одній локальній мережі зі стрімером",
+    "порт стримера должен быть открыт из интернета": "порт стрімера має бути відкритий з інтернету",
+    "проверь, что в Porthole открыт порт модераторов": "перевір, що в Porthole відкритий порт модераторів",
+    "проверь проброс порта на роутере стримера": "перевір прокидання порту на роутері стрімера",
+    "открой в Porthole порт": "відкрий у Porthole порт",
+    "🎥 Модератор просит разрешение": "🎥 Модератор просить дозвіл",
+    "То же самое есть в панели OBS. Пока не ответишь, модератор ждёт.": "Те саме є в панелі OBS. Доки не відповіш, модератор чекає.",
+    "Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?": "Зараз іде стрім: OBS або модератори підключені. Якщо змінити роль, програма зупинить сервер і оверлей зникне. Змінити?",
+    "⚙ Настройки: в окне Hudini Host": "⚙ Налаштування: у вікні Hudini Host",
+    "Показывать на стриме": "Показувати на стрімі",
   },
   de: {
     "Последняя проверка:": "Zuletzt geprüft:",
@@ -5290,6 +5324,23 @@ const HUDINI_DICT = {
     "Стример отклонил": "Der Streamer hat abgelehnt",
     "Слишком много запросов: попробуй позже": "Zu viele Anfragen: später erneut versuchen",
     "Трансляция остановлена": "Übertragung gestoppt",
+    "Ждём подтверждения: стример увидит запрос в окне Hudini Host и в панели OBS": "Warte auf Bestätigung: Der Streamer sieht die Anfrage im Hudini-Host-Fenster und im OBS-Dock",
+    "Что не сработало:": "Was nicht funktioniert hat:",
+    "проверь, что стример в той же сети": "prüf, ob der Streamer im selben Netzwerk ist",
+    "включи Tailscale у себя и у стримера": "schalte Tailscale bei dir und beim Streamer ein",
+    "включи Radmin VPN у себя и у стримера, вы должны быть в одной сети": "schalte Radmin VPN bei dir und beim Streamer ein, ihr müsst im selben Netzwerk sein",
+    "включи Hamachi у себя и у стримера": "schalte Hamachi bei dir und beim Streamer ein",
+    "включи ZeroTier у себя и у стримера": "schalte ZeroTier bei dir und beim Streamer ein",
+    "работает только в одной локальной сети со стримером": "funktioniert nur im selben lokalen Netzwerk wie der Streamer",
+    "порт стримера должен быть открыт из интернета": "der Port des Streamers muss aus dem Internet erreichbar sein",
+    "проверь, что в Porthole открыт порт модераторов": "prüf, ob der Moderatoren-Port in Porthole geöffnet ist",
+    "проверь проброс порта на роутере стримера": "prüf die Portweiterleitung am Router des Streamers",
+    "открой в Porthole порт": "öffne in Porthole den Port",
+    "🎥 Модератор просит разрешение": "🎥 Ein Moderator bittet um Erlaubnis",
+    "То же самое есть в панели OBS. Пока не ответишь, модератор ждёт.": "Dasselbe steht im OBS-Dock. Der Moderator wartet, bis du antwortest.",
+    "Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?": "Gerade läuft ein Stream: OBS oder Moderatoren sind verbunden. Beim Rollenwechsel stoppt das Programm den Server und das Overlay verschwindet. Wechseln?",
+    "⚙ Настройки: в окне Hudini Host": "⚙ Einstellungen: im Hudini-Host-Fenster",
+    "Показывать на стриме": "Im Stream zeigen",
   },
 };
 
@@ -5308,6 +5359,11 @@ const HUDINI_DICT = {
 
   let saved = null;
   try{ saved = localStorage.getItem(KEY); }catch{}
+  // ?lang=xx hands the language over from another window (the app start screen, the Host window): it is stored like a manual choice
+  try{
+    const q = new URLSearchParams(location.search).get('lang');
+    if(LANGS.some(l => l[0] === q)){ saved = q; localStorage.setItem(KEY, q); }
+  }catch{}
   if(!LANGS.some(l => l[0] === saved)) saved = null;
   const lang = saved || 'en';   // first start: English until the visitor picks a language in the offer
   const dict = lang !== 'ru' ? HUDINI_DICT[lang] || null : null;
@@ -5425,7 +5481,7 @@ const HUDINI_DICT = {
   }
   document.addEventListener('DOMContentLoaded', () => {
     for(const el of document.querySelectorAll('[data-i18n-switch]')) mountSwitch(el);
-    if(!saved) picker();
+    if(!saved && !document.documentElement.hasAttribute('data-i18n-nopick')) picker();   // the OBS dock has no picker: it takes ?lang= from its link
   });
 
   window.HudiniI18n = { lang, langs:LANGS, setLang, t:translate, picker };
