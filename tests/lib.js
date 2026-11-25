@@ -49,7 +49,7 @@ async function webServer(opts = {}){
   });
   const port = opts.port || PORTS.web;
   await new Promise(r => srv.listen(port, r));
-  return { url: `http://localhost:${port}`, close: () => new Promise(r => srv.close(r)) };
+  return { url: `http://localhost:${port}`, close: () => new Promise(r => { srv.close(r); srv.closeAllConnections(); }) };   // closeAllConnections: a browser's idle preconnect socket would hold close() until Node's 300 s requestTimeout
 }
 function startHost(env = {}){
   const dir = env.OVERLAY_HOST_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-host-'));
