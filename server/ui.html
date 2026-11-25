@@ -195,6 +195,10 @@ a{text-underline-offset:2px}
     <span><b>Cloudflare больше нет.</b> Модераторы подключаются напрямую. Скопируй новый код и отправь его модератору: старые ссылки перестали работать.</span>
     <button class="primary" id="cfOk">Понятно</button>
   </div>
+  <div class="notice" id="roomNotice" hidden>
+    <span><b>Комната обновлена.</b> Она осталась от старой версии Hudini, и модераторы не могли по ней войти. Обнови ссылку в OBS и отправь модераторам новый код.</span>
+    <button class="primary" id="roomOk">Понятно</button>
+  </div>
 
   <div class="cols">
     <div class="card first">
@@ -281,15 +285,6 @@ a{text-underline-offset:2px}
   </div>
 
   <div class="card">
-    <details>
-      <summary>⚙ Для продвинутых</summary>
-      <div class="hint" style="margin-top:0"><b>Своя комната из пульта (старый способ).</b> Если у модератора уже есть комната, вставь её ссылку «📋 Копировать» из пульта. Тогда код для модератора не будет содержать ключей: комната у него уже есть.</div>
-      <div class="row"><input id="link" placeholder="https://…/widget.html?room=…#k=…&p=…"><button id="saveLink" class="primary">Сохранить</button></div>
-      <div class="hint" id="roomInfo"></div>
-    </details>
-  </div>
-
-  <div class="card">
     <h2>📊 Состояние</h2>
     <div class="grid">
       <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
@@ -357,8 +352,6 @@ async function refresh(){
   const app=!!(s.app || TAURI);
   $('subApp').hidden=!app; $('subBrowser').hidden=app; $('roleLink').hidden=!TAURI;   // /__role: программа возвращает окно на первый экран
   $('legacyBanner').hidden=!s.standalone;
-  if(document.activeElement!==$('link') && !$('link').value && s.room) $('link').placeholder='сохранена (комната '+s.room+')';
-  $('roomInfo').textContent = s.room ? '✓ Комната: '+s.room : 'Комната создаётся…';
   if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
   const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'комната создаётся');
   const tunTxt=s.modErr?('не открылся: '+s.modErr):('порт '+s.mport+' · TLS');
@@ -400,7 +393,6 @@ async function refresh(){
   $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
   $('logs').textContent=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n'); $('logs').scrollTop=1e9;
 }
-$('saveLink').onclick=async()=>{ try{ await api('/api/link', { link:$('link').value }); $('link').value=''; toast('Сохранено ✓'); refresh(); }catch(e){ toast(e.message); } };
 $('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Комната ещё создаётся'); };
 $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
@@ -431,7 +423,7 @@ function renderConnect(s){
   $('panelCard').hidden=!s.panel; $('openPanel').disabled=!s.ownRoom;
   $('panelHint').textContent=s.ownRoom ? '' : 'Работает с комнатой, которую создал Hudini Host, а не со ссылкой из пульта модератора.';
   for(const c of document.querySelectorAll('[data-perm]')) if(document.activeElement!==c) c.checked=['cam','screen','mic'].includes(c.dataset.perm) ? s.perms?.[c.dataset.perm]===true : s.perms?.[c.dataset.perm]!==false;
-  $('cfNotice').hidden=!s.cfNotice;
+  $('cfNotice').hidden=!s.cfNotice; $('roomNotice').hidden=!s.roomNotice;
   // модераторы
   const list=s.modList||[]; $('modCnt').textContent=list.length; $('modCnt').className='tag'+(list.length?' ok':'');
   const box=$('modBox'); box.replaceChildren();
@@ -482,6 +474,7 @@ $('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнат
 $('copyCode').onclick=async()=>{ if(!lastCode) return; try{ await navigator.clipboard.writeText(lastCode); }catch{ const t=el('textarea'); t.value=lastCode; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
   const b=$('copyCode'); if(!b.dataset.html) b.dataset.html=b.innerHTML; b.textContent='Скопировано ✓'; b.classList.add('done'); clearTimeout(b._t); b._t=setTimeout(()=>{ b.innerHTML=b.dataset.html; b.classList.remove('done'); }, 1600); };
 $('cfOk').onclick=async()=>{ try{ await api('/api/notice', { id:'cf' }); }catch{} refresh(); };
+$('roomOk').onclick=async()=>{ try{ await api('/api/notice', { id:'room' }); }catch{} refresh(); };
 $('logConn').onchange=refresh;
 $('logCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('logs').textContent); toast('Журнал скопирован'); }catch{} };
 

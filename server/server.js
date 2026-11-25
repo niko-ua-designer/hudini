@@ -163,6 +163,7 @@ async function createRoom(name){
   const full = await newRoom(name);
   if(name) cfg.name = full.name;
   await setRoom(linkOf(full), full);
+  delete cfg.linkSet; saveCfg();
 }
 function kickMods(why){
   let n = 0;
@@ -1984,7 +1985,7 @@ const local = http.createServer(async (req, res) => {
         return send(res, 200, JSON.stringify({ ok:true, key, port:PORT, url:panelUrl() }), 'application/json', { 'referrer-policy':'no-referrer' });
       }
       if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
-      if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } if(id==='room'){ delete cfg.roomNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
         const { action, key, on } = JSON.parse(await readBody(req, 1024));
         if(['mediaallow', 'mediadeny', 'mediastop', 'mediaoff', 'mediaon'].includes(action)) mediaAction(action, key);
@@ -2023,10 +2024,10 @@ const local = http.createServer(async (req, res) => {
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
-        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, ownRoom:!!cfg.room?.s,
+        storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
-      if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); cfg.linkSet = true; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
       if(p==='/api/gsi/cfg') return send(res, 200, gsiCfgText(), 'application/octet-stream', { 'content-disposition':'attachment; filename="gamestate_integration_streamoverlay.cfg"' });
       return send(res, 404, 'not found');
@@ -2129,7 +2130,13 @@ if(ROLE_MOD){
     if(!APP) console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
     log('Папка настроек:', BASE);
     lastAddrs = addrKey(); log('🌐 Адреса для модераторов:', addrText());
-    if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
+    // Комната из конфига старой версии (ссылка без закрытого ключа): код для модератора вышел бы без ключей и модератор не вошёл бы.
+    // Один раз создаём обычную комнату Host и просим стримера обновить ссылку в OBS и отправить модераторам новый код.
+    if(cfg.link && !cfg.room?.s && !cfg.linkSet){
+      try{ await createRoom(); cfg.roomNotice = true; saveCfg(); log('🆕 Room from an old version had no moderator keys: created a new room. Update the OBS link and send moderators the new code'); }
+      catch(e){ log('⚠ Не удалось создать комнату:', e.message); }
+    }
+    else if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
     else { try{ await createRoom(); log('🆕 Комната создана'); }catch(e){ log('⚠ Не удалось создать комнату:', e.message); } }
     // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
     if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
