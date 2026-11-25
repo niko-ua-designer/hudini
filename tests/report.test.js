@@ -15,7 +15,7 @@ async function siteServer(){
     res.setHeader('content-type', TYPES[path.extname(f)] || 'application/octet-stream'); res.end(fs.readFileSync(f));
   });
   await new Promise(r => srv.listen(PORT, r));
-  return { url: `http://localhost:${PORT}`, close: () => new Promise(r => srv.close(r)) };
+  return { url: `http://localhost:${PORT}`, close: () => new Promise(r => { srv.close(r); srv.closeAllConnections(); }) };   // closeAllConnections: a browser's idle preconnect socket would hold close() until Node's 300 s requestTimeout
 }
 
 (async () => {
