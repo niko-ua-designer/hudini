@@ -37,5 +37,15 @@ const pages = ['server/ui.html', 'server/dock.html', 'web/panel/moderator.html',
       for(const lang of ['en', 'uk', 'de']){ const d = dicts[lang]; check(!!(d[t] || d[strip(t)] || Object.keys(d).some(k => k.length > 2 && CYR.test(k) && t.includes(k))), `${lang}: "${t.slice(0, 70)}"`); }
     }
   });
+  // User-facing error strings of the Host server (JSON errors, HttpErr, update/CS2 failures shown in the Host window and the panel): each Russian fragment needs en, uk and de.
+  await step('server/server.js: error messages shown to the user are translated', async () => {
+    const s = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
+    const lit = '(["\'`])((?:\\\\.|(?!\\1)[^\\\\\\n])*)\\1';
+    const pats = ['error\\s*:\\s*' + lit, 'HttpErr\\(\\s*\\d+\\s*,\\s*' + lit, 'throw new Error\\(\\s*' + lit, '\\bupd\\.err\\s*=\\s*' + lit].map(p => new RegExp(p, 'g'));
+    const found = new Set();
+    for(const re of pats) for(const m of s.matchAll(re)) if(CYR.test(m[2])) for(const frag of m[2].split(/\$\{[^}]*\}/)) if(frag.replace(/[^А-Яа-яЁё]/g, '').length > 3) found.add(frag.replace(/\\'/g, "'").trim());
+    check(found.size > 20, 'the scan found the server messages (' + found.size + ')');
+    for(const t of found) for(const lang of ['en', 'uk', 'de']){ const d = dicts[lang]; check(!!(d[t] || d[strip(t)] || Object.keys(d).some(k => k.length > 2 && CYR.test(k) && t.includes(k) && t.replace(k, '').replace(/[^А-Яа-яЁё]/g, '').length < 3)), `${lang}: "${t.slice(0, 80)}"`); }
+  });
   process.exit(finish());
 })().catch(e => { console.error(e); process.exit(1); });
