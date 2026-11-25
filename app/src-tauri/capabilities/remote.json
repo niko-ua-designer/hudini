@@ -15,6 +15,7 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "allow-open-logs",
-    "allow-crash-dismiss"
+    "allow-crash-dismiss",
+    "notification:allow-is-permission-granted"
   ]
 }

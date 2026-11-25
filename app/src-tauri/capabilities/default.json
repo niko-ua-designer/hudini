@@ -24,6 +24,7 @@
     "allow-browser-close",
     "allow-browser-nav",
     "allow-panel-key",
-    "allow-media-support"
+    "allow-media-support",
+    "notification:allow-is-permission-granted"
   ]
 }
