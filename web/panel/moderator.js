@@ -420,11 +420,13 @@ function sealedPublish(topic, data, opts, keys=KEYS){
   return p.then(()=>acked);
 }
 Assets.onReady=()=>renderAll();
+// Ошибка ответа файлового API: 423 = стример поставил модераторов на паузу (читать можно, менять нельзя)
+const fileErr=(r,j)=>new Error(r.status===423 ? 'Стример поставил модераторов на паузу' : (j&&j.error)||('HTTP '+r.status));
 // Файлы скачиваем из программы стримера и проверяем подпись
 Assets.fetcher=async id=>{
   const h=homeHttp(); if(!h) throw new Error('нет связи');
   const keys=KEYS, r=await fetch(`${h.base}/files/${id}`, { headers:{ authorization:h.auth } });
-  if(!r.ok) throw new Error('HTTP '+r.status);
+  if(!r.ok) throw fileErr(r);
   return openAsset(keys, new Uint8Array(await r.arrayBuffer()), id);
 };
 
@@ -739,7 +741,7 @@ async function refreshStorage(announce){
   const h=homeHttp(); if(!h) return;
   try{
     const r=await fetch(h.base+'/files', { headers:{ authorization:h.auth } });
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,j);
     setStorage(j.storage);
     if(announce && !storageToast){ storageToast=true; toast(`Место для файлов: свободно ${fmtBytes(Math.max(0, storage.limitBytes-storage.used))}, ещё ${Math.max(0, storage.maxFiles-storage.files)} файлов`, 4000); }
     return j;
@@ -779,7 +781,7 @@ async function uploadBlob(blob, name){
       const why={ file:'файл больше, чем разрешил стример', count:'файлов уже столько, сколько разрешил стример', space:'место для файлов кончилось' }[j.reason] || 'место для файлов кончилось';
       showHostTip(`«${name}» не загрузился: ${why}`, true); const e=new Error('нет места'); e.shown=true; throw e;
     }
-    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    if(!r.ok) throw fileErr(r,j);
     showUpload(`Загрузка ${name}: ${Math.round((i+1)/n*100)}%`, (i+1)/n);
   }
   Assets.add(id, blob, name);
@@ -846,7 +848,7 @@ async function cleanFiles(){
   if(!confirm(`Удалить ${unused.length} файлов (${fmtBytes(bytes)})?\n\nИх нет ни на экране, ни в сценах, библиотеке и сценариях этого пульта.\nЕсли у другого модератора свои сцены с этими файлами, у него они пропадут.`)) return;
   try{
     const r=await fetch(h.base+'/files/clean', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ keep:[...used] }) });
-    const k=await r.json(); if(!r.ok) throw new Error(k.error||r.status);
+    const k=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,k);
     setStorage(k.storage); toast(`🧹 Удалено файлов: ${k.deleted} (${fmtBytes(k.bytes)})`, 4000);
   }catch(e){ toast('Не удалилось: '+(e.message||e)); }
 }
@@ -3432,7 +3434,7 @@ async function getAssetBlob(fromRoom, id){
   const h=homeHttp(); if(!h) throw new Error('нет связи с Hudini Host');
   const src=rooms.find(r=>r.code===fromRoom); if(!src) throw new Error('комнаты, откуда этот файл, нет в списке');
   const r=await fetch(`${h.base}/files/${id}?room=${encodeURIComponent(fromRoom)}`, { headers:{ authorization:h.auth } });
-  if(!r.ok) throw new Error(r.status===404 ? 'файл лежит у другого стримера: добавь его заново' : 'HTTP '+r.status);
+  if(!r.ok) throw r.status===404 ? new Error('файл лежит у другого стримера: добавь его заново') : fileErr(r);
   const f=await openAsset(await importRoomKeys(src), new Uint8Array(await r.arrayBuffer()), id);
   if(!f) throw new Error('файл повреждён');
   return f.blob;
