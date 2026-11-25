@@ -42,7 +42,7 @@ function page(lang){
 
   // 2. links and assets relative to the language folder
   if(pre){
-    h = h.replace(/(href|src)="(?!https?:|#|\/|mailto:|data:)([^"]*)"/g, (m, a, v) => v === 'index.html' ? `${a}="./"` : `${a}="${pre}${v}"`);
+    h = h.replace(/(href|src|poster)="(?!https?:|#|\/|mailto:|data:)([^"]*)"/g, (m, a, v) => v === 'index.html' ? `${a}="./"` : `${a}="${pre}${v}"`);
   }
   h = h.replace(/(<a href="[^"]*)(" data-help)/g, `$1?lang=${lang}$2`).replace(/(<a href="[^"]*)(" data-rep)/g, `$1?lang=${lang}$2`);
 

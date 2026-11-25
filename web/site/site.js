@@ -133,8 +133,6 @@
     for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
     const other = document.getElementById('otherOs');
     if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${zipUrl(o[0])}" data-os="${o[0]}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
-    for(const a of document.querySelectorAll('a[data-help]')) a.href = ROOT + 'help.html?lang=' + encodeURIComponent(lang);
-    for(const a of document.querySelectorAll('a[data-rep]')) a.href = ROOT + 'report.html?lang=' + encodeURIComponent(lang);
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
     const list = document.getElementById('csList');
     if(list) list.innerHTML = t.csList.map(s => `<li>${ic('check')}<span>${s}</span></li>`).join('');
@@ -174,6 +172,7 @@
       const w = q.value.trim().toLowerCase(); let shown = 0;
       for(const s of art.querySelectorAll('section')){ const ok = !w || s.textContent.toLowerCase().includes(w); s.hidden = !ok; toc.querySelector(`[data-id="${s.id}"]`).hidden = !ok; if(ok) shown++; }
       none.hidden = shown > 0;
+      if(scrollY > 0) scrollTo({ top:0, behavior:'instant' });   // the shorter result list must not sit under the sticky header
     };
     // The active item is the section the reader is at: the last visible section whose top is at or above a line just under the sticky header.
     // At the very bottom of the page it is the last visible section; a click on a link makes its item active at once (until the reader scrolls on).
@@ -218,6 +217,12 @@
     const VER = VERSION;   // the build writes the program version into <html data-ver>
     for(const [k, v] of Object.entries(t)) if(typeof v === 'string') for(const el of slots.get(k) || []) el.innerHTML = v.replace(/\{ver\}/g, VER);
     for(const b of document.querySelectorAll('.menu-btn')) b.setAttribute('aria-label', t.menu || 'Menu');
+    // links between the pages carry the language, also when it came from ?lang= and is not stored
+    for(const [sel, page] of [['a[data-help]', 'help.html'], ['a[data-rep]', 'report.html']]) for(const a of document.querySelectorAll(sel)){
+      if(a.dataset.hash === undefined) a.dataset.hash = (a.getAttribute('href') || '').includes('#') ? '#' + a.getAttribute('href').split('#')[1] : '';   // an anchor in the original link stays
+      a.href = ROOT + page + '?lang=' + encodeURIComponent(lang) + a.dataset.hash;
+    }
+    if(document.body.dataset.page !== 'home') for(const a of document.querySelectorAll('header.top a[href^="index.html"]')) a.href = ROOT + 'index.html?lang=' + encodeURIComponent(lang);
     if(document.body.dataset.page === 'help') helpPage(); else landing(t);
   }
   function setLang(code){
@@ -317,7 +322,7 @@
     if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // "open in a new tab" keeps the plain link to the file
     e.preventDefault(); dlGuide(a.dataset.os || myOs, a, !a.dataset.os && !myOs);
   });
-  // Narrow screens: the header links move into a menu behind a button (below 760px CSS hides the bar; .js .top nav then shows only when open)
+  // Narrow screens: the header links move into a menu behind a button (below 1100px CSS hides the bar; .js .top nav then shows only when open)
   function navMenu(){
     const top = document.querySelector('header.top'), nav = top && top.querySelector('nav'); if(!nav) return;
     nav.id = nav.id || 'topNav';
@@ -330,7 +335,7 @@
     document.addEventListener('keydown', e => { if(e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true'){ set(false); btn.focus(); } });
     document.addEventListener('click', e => { if(btn.getAttribute('aria-expanded') === 'true' && !top.contains(e.target)) set(false); });
     nav.addEventListener('click', e => { if(e.target.closest('a')) set(false); });
-    matchMedia('(min-width:761px)').addEventListener?.('change', e => { if(e.matches) set(false); });
+    matchMedia('(min-width:1101px)').addEventListener?.('change', e => { if(e.matches) set(false); });
   }
   // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
   function langOffer(){

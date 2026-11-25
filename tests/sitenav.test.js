@@ -147,6 +147,65 @@ const REL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
     }
   });
 
+  await step('every local link, script, image and poster of the built pages exists (also in the language folders)', async () => {
+    const missing = [];
+    for(const dir of ['', 'ru/', 'uk/', 'de/']) for(const f of ['index.html', ...(dir ? [] : ['help.html', 'report.html', 'moderator.html'])]){
+      const html = fs.readFileSync(path.join(SITE, dir, f), 'utf8');
+      for(const m of html.matchAll(/\s(?:href|src|poster)="([^"#?]+)(?:[?#][^"]*)?"/g)){
+        const u = m[1]; if(/^(https?:|mailto:|data:|\/\/)/.test(u)) continue;
+        const target = path.join(SITE, dir, u);
+        if(!fs.existsSync(target) && !(u.endsWith('/') && fs.existsSync(path.join(target, 'index.html')))) missing.push(`${dir}${f}: ${u}`);
+      }
+    }
+    eq(missing, [], 'nothing is missing');
+  });
+
+  await step('header: links fit or move into the menu at every width, in every language, on every page', async () => {
+    const bad = [];
+    for(const page of ['index.html', 'help.html', 'report.html', 'moderator.html']) for(const lang of ['ru', 'de']) for(const w of [768, 1000, 1180]){
+      const p = await newPage('sn8', { app: false, lang, w, h: 700 });
+      await p.goto(`${base}/${page}?lang=${lang}`); await p.waitForTimeout(300);
+      const r = await p.evaluate(() => {
+        const t = document.querySelector('header.top'), out = [];
+        for(const k of t.children){ if(getComputedStyle(k).display === 'none') continue; const b = k.getBoundingClientRect(); if(b.right > innerWidth + .5 || b.left < -.5) out.push('off-screen ' + (k.className || k.tagName)); }
+        if(t.getBoundingClientRect().height > 70) out.push('header wraps');
+        return out;
+      });
+      if(r.length) bad.push(`${page} ${lang} ${w}: ${r}`);
+      await p.context().close();
+    }
+    eq(bad, [], 'no overflow or wrapping');
+  });
+
+  await step('links between pages carry the language and keep their anchor; a search with no results is not hidden under the header', async () => {
+    const p = await newPage('sn9', { app: false, lang: 'ru', w: 1280, h: 800 });
+    await p.goto(`${base}/help.html?lang=de`); await p.waitForSelector('#toc a');
+    eq(await p.$eval('[data-rep]', a => new URL(a.href).search), '?lang=de', 'report link has ?lang=de although the stored language is ru');
+    check((await p.$eval('header.top a[href^="index.html"]', a => a.href)).includes('?lang=de'), 'home link has the language');
+    await p.goto(`${base}/moderator.html?lang=en`); await p.waitForSelector('[data-help]');
+    eq(await p.$eval('[data-help]', a => new URL(a.href).search + new URL(a.href).hash), '?lang=en#migrate', 'help link keeps its #migrate anchor');
+    await p.goto(`${base}/help.html?lang=en`); await p.waitForSelector('#toc a');
+    await p.evaluate(() => scrollTo({ top: 5000, behavior: 'instant' })); await p.waitForTimeout(100);
+    await p.fill('#q', 'zzzzqq'); await p.waitForTimeout(200);
+    const r = await p.evaluate(() => ({ y: scrollY, top: document.querySelector('.empty').getBoundingClientRect().top, hdr: document.querySelector('header.top').getBoundingClientRect().bottom }));
+    check(r.top >= r.hdr, `the "nothing found" text is below the header (${JSON.stringify(r)})`);
+    await p.context().close();
+  });
+
+  await step('report wizard: the buttons are not cut in German at 390px', async () => {
+    const p = await newPage('sn10', { app: false, lang: 'de', w: 390, h: 844 });
+    await p.goto(`${base}/report.html?lang=de`); await p.waitForSelector('[data-type="bug"]');
+    await p.click('[data-type="bug"]');
+    for(let i = 0; i < 4; i++){
+      if(await p.$eval('#next', e => e.disabled)) await p.fill('#fWhat', 'The case does not open after I press the button twice');
+      await p.click('#next'); await p.waitForTimeout(150);
+    }
+    const r = await p.evaluate(() => [...document.querySelectorAll('.rp-nav .btn')].filter(b => getComputedStyle(b).visibility !== 'hidden').map(b => { const x = b.getBoundingClientRect(); return { t: b.textContent, h: Math.round(x.height), over: b.scrollWidth > b.clientWidth + 1, out: x.right > innerWidth }; }));
+    check(r.every(b => !b.over && !b.out), 'no clipped or overflowing button: ' + JSON.stringify(r));
+    check(r.every(b => b.h < 80), 'no tall wrapped buttons: ' + JSON.stringify(r));
+    await p.context().close();
+  });
+
   await closeBrowser(); srv.close();
   process.exit(finish());
 })().catch(e => { console.error(e); process.exit(1); });
