@@ -31,7 +31,7 @@ const { step, check, eq, until, sleep } = T;
     check(await panel.evaluate(() => nodes.get('po1').classList.contains('host-off') && !nodes.get('tx1').classList.contains('host-off')), 'the poll on the panel canvas is marked');
     const cfgFile = JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8'));
     eq(cfgFile.perms.games, false, 'kept in the Host settings');
-    check(/Права модераторов: кейсы, розыгрыши, опросы, CS2 — нельзя/.test(host.log()), 'the change is in the log');
+    check(/Moderator permissions: cases, giveaways, polls, CS2 — denied/.test(host.log()), 'the change is in the log');
   });
 
   await step('a moderator cannot publish the perms topic', async () => {
@@ -88,7 +88,7 @@ const { step, check, eq, until, sleep } = T;
     check(await until(() => panel.evaluate(() => nodes.get('ms1').classList.contains('host-off') && /выключено на стриме/.test(nodes.get('cs1').textContent))), 'the panel marks them as off on stream');
     check(/Стример выключил на стриме: чат, CS2-HUD/.test(await panel.textContent('#permNote')), 'the panel says which switches are off: ' + await panel.textContent('#permNote'));
     eq(JSON.parse(fs.readFileSync(path.join(host.dir, 'overlay-host.json'), 'utf8')).ctlOff.chat, true, 'switches survive a restart (kept in the settings)');
-    check(/Стример выключил на стриме: чат/.test(host.log()), 'logged');
+    check(/Streamer turned off on stream: chat/.test(host.log()), 'logged');
     eq((await control({ action: 'off', key: 'evil', on: true })).status, 400, 'unknown switch → 400');
     const foreign = await fetch(host.base + '/api/control', { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'off', key: 'fx', on: true }) });
     eq(foreign.status, 403, 'another site cannot flip a switch');
@@ -126,7 +126,7 @@ const { step, check, eq, until, sleep } = T;
     check(await until(async () => /OBS видит оверлей/.test(await dock.textContent('#pills'))), 'status pills: ' + await dock.textContent('#pills'));
     eq(await dock.$$eval('#togs .sw', b => b.map(x => x.dataset.tog + ':' + x.classList.contains('on'))), ['chat:true', 'cs2:true', 'sound:true', 'draw:true', 'fx:true', 'tab:true'], 'six switches (with the CS2 auto tab), all on');
     await dock.click('#togs [data-tog="tab"]');
-    check(await until(() => /Стример выключил на стриме: авто-таб CS2/.test(host.log())), 'the auto tab switch is logged by its name');
+    check(await until(() => /Streamer turned off on stream: CS2 auto-tab/.test(host.log())), 'the auto tab switch is logged by its name');
     check(await until(() => panel.evaluate(() => !$('taOffNote').hidden)), 'the panel says the auto tab is off on stream');
     await dock.click('#togs [data-tog="tab"]');
     check(await until(() => panel.evaluate(() => $('taOffNote').hidden)), 'and that it is back');
@@ -164,7 +164,7 @@ const { step, check, eq, until, sleep } = T;
     const t = await until(async () => { const t = await dock.textContent('#ppl'); return /Модератор/.test(t) && t; });
     check(/127\.x\.x\.1/.test(t) && !/127\.0\.0\.1/.test(t), 'the moderator is listed with a masked address: ' + t);
     await dock.click('#ppl .kick');
-    check(await until(() => /Стример отключил модератора/.test(host.log())), 'kick is logged');
+    check(await until(() => /Streamer disconnected a moderator/.test(host.log())), 'kick is logged');
     check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 15000), 'the moderator can come back (kick is not a ban)');
   });
 

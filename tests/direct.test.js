@@ -212,7 +212,7 @@ const dial = (url, password) => new Promise(res => {
       player: { steamid: '1', name: 'me', team: 'CT', state: { health: 100 }, match_stats: {} }, auth: { token: gsiToken } }) });
     const cs2At = Date.now();
     // the "let moderators in" line is written only when the switch changes; polling the status never writes it
-    const sw = () => count(/Модераторов (пускаю|не пускаю)/g);
+    const sw = () => count(/(Letting|Not letting) moderators in/g);
     await host.api('/api/mods', { on: true }); await host.api('/api/status'); await host.api('/api/status');
     const n0 = sw();
     await host.api('/api/mods', { on: true });
@@ -224,32 +224,32 @@ const dial = (url, password) => new Promise(res => {
     const refused2 = await dial(`wss://127.0.0.1:${MPORT}/mqtt`, pass);
     check(!refused2.ok, 'refused again');
     await sleep(300);
-    eq(count(/Отказ входа: 127\.x\.x\.1 \(Porthole\) — вход закрыт/g), 1, 'the refusal is logged once with the reason, the address masked, even when repeated at once');
+    eq(count(/Login refused: 127\.x\.x\.1 \(Porthole\) — entrance closed/g), 1, 'the refusal is logged once with the reason, the address masked, even when repeated at once');
     await host.api('/api/mods', { on: true });
     eq(sw(), n0 + 2, 'switching on writes one more line');
     // a moderator: connect and disconnect with the way of connecting and the time on line
     const m = await dial(`wss://127.0.0.1:${MPORT}/mqtt`, pass); check(m.ok, 'moderator connects');
     await sleep(300); m.c.end(true);
-    check(await until(() => /Модератор отключился: 127\.x\.x\.1 \(Porthole\) — на связи \d+ с/.test(file())), 'moderator leaving is logged with the time on line');
-    eq(count(/Модератор подключился: 127\.x\.x\.1 \(Porthole\)/g) >= 1, true, 'moderator joining is logged with the masked address and the network');
+    check(await until(() => /Moderator disconnected: 127\.x\.x\.1 \(Porthole\) — was online \d+ s/.test(file())), 'moderator leaving is logged with the time on line');
+    eq(count(/Moderator connected: 127\.x\.x\.1 \(Porthole\)/g) >= 1, true, 'moderator joining is logged with the masked address and the network');
     // the OBS widget: 0 → 1 once, a page reload (back within 5 s) does not write "dropped"
     const obs = () => new Promise(r => { const c = mqtt.connect(`ws://localhost:${PORT}/mqtt`, { reconnectPeriod: 0 }); c.on('connect', () => r(c)); });
     const o1 = await obs(); await sleep(200);
-    eq(count(/Виджет OBS подключился/g), 1, 'widget joining is logged');
+    eq(count(/OBS widget connected/g), 1, 'widget joining is logged');
     o1.end(true); await sleep(1000);
     const o2 = await obs(); await sleep(6500);
-    eq([count(/Виджет OBS подключился/g), count(/Виджет OBS отвалился/g)], [1, 0], 'a reload within 5 s writes neither "joined" nor "dropped"');
+    eq([count(/OBS widget connected/g), count(/OBS widget dropped/g)], [1, 0], 'a reload within 5 s writes neither "joined" nor "dropped"');
     o2.end(true);
-    check(await until(() => /Виджет OBS отвалился/.test(file()), 9000), 'the widget staying away is logged after 5 s');
-    eq(count(/Виджет OBS отвалился/g), 1, 'dropped once');
+    check(await until(() => /OBS widget dropped/.test(file()), 9000), 'the widget staying away is logged after 5 s');
+    eq(count(/OBS widget dropped/g), 1, 'dropped once');
     // wrong password / many attempts
     for(let i = 0; i < 3; i++) await dial(`wss://127.0.0.1:${MPORT}/mqtt`, 'wrong' + i);
-    check(/Отказ входа: 127\.x\.x\.1 \(Porthole\) — неверный пароль/.test(file()), 'a wrong password is logged as a refusal');
+    check(/Login refused: 127\.x\.x\.1 \(Porthole\) — wrong password/.test(file()), 'a wrong password is logged as a refusal');
     // pause
     await host.api('/api/control', { action: 'pause' });
     const paused = await dial(`wss://127.0.0.1:${MPORT}/mqtt`, pass); check(!paused.ok, 'refused on pause');
     await host.api('/api/control', { action: 'resume' });
-    check(/Отказ входа: .* — пауза модераторов/.test(file()), 'pause is logged as a reason');
+    check(/Login refused: .* — moderators paused/.test(file()), 'pause is logged as a reason');
     // addresses: masked everywhere, own address too
     await host.api('/api/extaddr', { addr: 'my-pc.example.com:7778' });
     await host.api('/api/extaddr', { addr: '203.0.113.45:7778' });
@@ -257,11 +257,11 @@ const dial = (url, password) => new Promise(res => {
     const text = file();
     check(!/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(text), 'no full IPv4 address in the journal: ' + (text.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/) || [''])[0]);
     check(!text.includes('my-pc') && !text.includes('203.0.113.45') && (!lan || !text.includes(lan.address)), 'the own address and the LAN address are masked');
-    check(/Свой внешний адрес: 203\.x\.x\.45:7778/.test(text) && /Адреса для модераторов: .*127\.x\.x\.1:\d+ porthole/.test(text), 'masked forms are used');
+    check(/Custom external address: 203\.x\.x\.45:7778/.test(text) && /Moderator addresses: .*127\.x\.x\.1:\d+ porthole/.test(text), 'masked forms are used');
     // CS2: appears at once, goes away 15 s without packets
-    check(/CS2 появился/.test(file()), 'CS2 appearing is logged');
-    check(await until(() => /CS2 пропал/.test(file()), Math.max(1000, 22000 - (Date.now() - cs2At)), 500), 'CS2 going silent is logged');
-    eq([count(/CS2 появился/g), count(/CS2 пропал/g)], [1, 1], 'CS2 events once each');
+    check(/CS2 appeared/.test(file()), 'CS2 appearing is logged');
+    check(await until(() => /CS2 gone/.test(file()), Math.max(1000, 22000 - (Date.now() - cs2At)), 500), 'CS2 going silent is logged');
+    eq([count(/CS2 appeared/g), count(/CS2 gone/g)], [1, 1], 'CS2 events once each');
     // no line twice in a row
     const lines = file().slice(from).split('\n').map(l => l.replace(/^\S+\s+/, '')).filter(Boolean);
     const twin = lines.find((l, i) => i > 0 && l === lines[i - 1]);
@@ -273,10 +273,10 @@ const dial = (url, password) => new Promise(res => {
     const main = files.find(f => /^host-\d{4}-\d\d-\d\d\.log$/.test(f));
     check(main, 'host-YYYY-MM-DD.log exists');
     const text = fs.readFileSync(path.join(dir, main), 'utf8');
-    check(/\[conn\].*Модератор подключился/.test(text) && /\[conn\].*Отказ входа.*неверный пароль/.test(text), 'connections and wrong passwords are logged');
+    check(/\[conn\].*Moderator connected/.test(text) && /\[conn\].*Login refused.*wrong password/.test(text), 'connections and wrong passwords are logged');
     check(!/hudini1:/.test(text) && !text.includes((await host.api('/api/code')).pass), 'no passwords or codes in the log');
     const st = await host.api('/api/status');
-    check(st.connLogs.length > 0 && st.connLogs.every(l => /Модератор|пароль|Подбор|Отключил|модератор|Отказ входа|Виджет OBS|CS2|Модераторов/i.test(l)), 'status has a connections-only log');
+    check(st.connLogs.length > 0 && st.connLogs.every(l => /moderator|password|Disconnected|Login refused|OBS widget|CS2|letting/i.test(l)), 'status has a connections-only log');
     await host.stop();
     check(!fs.readdirSync(dir).some(f => f.startsWith('crash-')), 'SIGTERM is not a crash');
   });
