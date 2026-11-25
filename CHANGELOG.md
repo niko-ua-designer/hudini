@@ -5,39 +5,55 @@ The release workflow copies the section for the tag version (the heading must be
 ## 1.1.3
 
 **EN**
-- Safer permissions: when the streamer switches off "games", a roulette already on screen is hidden and silent, and a moderator can no longer force the CS2 tab on stream.
-- "Pause moderators" also stops moderators from uploading and deleting files; a moderator can no longer take over the connection of another client with the same id.
-- The OBS dock cannot be embedded into another page, and the report page removes OBS links and invitations with keys from what you paste.
-- Home folder names no longer appear in the log and crash report.
-- More translations, the Ukrainian text uses "стрімер" everywhere, role names match the real tabs (Streamer, Moderator, Add), and the help gets the missing nick cleanup entry in English, Ukrainian and German.
-- The site: the connection guides (Radmin VPN, Tailscale, ZeroTier, Porthole) moved into the download window with links to download each tool, smooth page transitions, and the project README in four languages.
+- Moderators can join again after updating from 1.0: a room left from an old config without its private key is replaced once on start, and the Host window shows a notice with buttons to copy the new OBS link and the moderator code. The old "room from the panel" field is gone.
+- Host window: the OBS link card comes first, moderator camera, screen and microphone requests are shown there too, changing the role during a stream asks for confirmation, the Host window and the dock open in the app language, error messages stay on screen longer, the address table fits narrow windows, and there is a Porthole port hint.
+- The panel shows a connection hint for every address of the code and says what each network needs.
+- "Pause moderators" still lets moderators read files, so images keep loading; uploading and deleting are refused with a clear message. Error messages from the server are translated into English, Ukrainian and German.
+- Safer permissions: when the streamer switches off "games", a roulette already on screen is hidden and silent, and a moderator can no longer force the CS2 tab on stream. A moderator can no longer take over the connection of another client with the same id.
+- The OBS dock cannot be embedded into another page, and the report page removes OBS links and invitations with keys from what you paste. Home folder names no longer appear in the log and crash report.
+- The Host log is in English.
+- The app no longer shows a notification permission error.
+- Site: a menu on phones, a direct download of the zip, a note on phones that Hudini is for PC, a help table of contents that follows the reader, a better header on tablets, the language is kept between pages, fixes in the report wizard, the connection guides (Radmin VPN, Tailscale, ZeroTier, Porthole) in the download window with links to each tool, smooth page transitions.
+- More translations: the Ukrainian text uses "стрімер" everywhere, role names match the real tabs (Streamer, Moderator, Add), English chat command hints in the panel, and the help gets the missing nick cleanup entry in English, Ukrainian and German.
 - Calmer look of the panel, the Host window and the dock: visible keyboard focus, clearer buttons and fields, better contrast, larger touch targets.
 
 **RU**
-- Права безопаснее: когда стример выключает «игры», уже стоящая рулетка прячется и молчит, а модератор больше не может принудительно показать CS2-таб на стриме.
-- «Пауза модераторов» запрещает модераторам и загрузку, и удаление файлов; модератор больше не может занять соединение другого клиента с тем же id.
-- OBS-док нельзя встроить в чужую страницу, а страница отчёта убирает из вставленного текста ссылки OBS и приглашения с ключами.
-- Имя папки пользователя больше не попадает в журнал и отчёт о сбое.
-- Больше переводов, в украинских текстах везде «стрімер», названия ролей совпадают с настоящими вкладками (Стример, Модератор, Добавить), в справке на английском, украинском и немецком появился пункт про чистку ников.
-- Сайт: гайды подключения (Radmin VPN, Tailscale, ZeroTier, Porthole) переехали в окно скачивания со ссылками на скачивание каждого инструмента, плавные переходы между страницами, README проекта на четырёх языках.
+- Модераторы снова могут войти после обновления с 1.0: комната из старого конфига без приватного ключа один раз заменяется при запуске, а окно Host показывает уведомление с кнопками копирования новой ссылки OBS и кода модератора. Старое поле «комната из пульта» убрано.
+- Окно Host: сначала карточка со ссылкой OBS, запросы модераторов на камеру, экран и микрофон видны и там, смена роли во время стрима просит подтверждение, окно Host и док открываются на языке приложения, сообщения об ошибках висят дольше, таблица адресов помещается в узкое окно, добавлена подсказка про порт Porthole.
+- Пульт показывает подсказку подключения для каждого адреса из кода и говорит, что нужно каждой сети.
+- «Пауза модераторов» всё ещё позволяет модераторам читать файлы, так что картинки продолжают загружаться; загрузка и удаление отклоняются с понятным сообщением. Сообщения об ошибках от сервера переведены на английский, украинский и немецкий.
+- Права безопаснее: когда стример выключает «игры», уже стоящая рулетка прячется и молчит, а модератор больше не может принудительно показать CS2-таб на стриме. Модератор больше не может занять соединение другого клиента с тем же id.
+- OBS-док нельзя встроить в чужую страницу, а страница отчёта убирает из вставленного текста ссылки OBS и приглашения с ключами. Имя папки пользователя больше не попадает в журнал и отчёт о сбое.
+- Журнал Host на английском.
+- Приложение больше не показывает ошибку про разрешение на уведомления.
+- Сайт: меню на телефонах, прямая загрузка zip, пометка на телефонах, что Hudini для ПК, оглавление справки следует за читателем, лучше шапка на планшетах, язык сохраняется между страницами, исправления в мастере отчёта, гайды подключения (Radmin VPN, Tailscale, ZeroTier, Porthole) в окне скачивания со ссылками на каждый инструмент, плавные переходы между страницами.
+- Больше переводов: в украинских текстах везде «стрімер», названия ролей совпадают с настоящими вкладками (Стример, Модератор, Добавить), английские подсказки команд чата в пульте, в справке на английском, украинском и немецком появился пункт про чистку ников.
 - Спокойнее внешний вид пульта, окна Host и дока: видимый фокус с клавиатуры, понятнее кнопки и поля, лучше контраст, крупнее цели нажатия.
 
 **UK**
-- Безпечніші права: коли стрімер вимикає «ігри», рулетка, що вже стоїть, ховається й мовчить, а модератор більше не може примусово показати CS2-таб на стрімі.
-- «Пауза модераторів» забороняє модераторам і завантаження, і видалення файлів; модератор більше не може зайняти з’єднання іншого клієнта з тим самим id.
-- OBS-док не можна вбудувати в чужу сторінку, а сторінка звіту прибирає зі вставленого тексту посилання OBS і запрошення з ключами.
-- Ім’я домашньої теки більше не потрапляє в журнал і звіт про збій.
-- Більше перекладів, в українських текстах скрізь «стрімер», назви ролей збігаються зі справжніми вкладками (Стрімер, Модератор, Додати), у довідці англійською, українською та німецькою з’явився пункт про чистку ніків.
-- Сайт: гайди підключення (Radmin VPN, Tailscale, ZeroTier, Porthole) переїхали у вікно завантаження з посиланнями на завантаження кожного інструмента, плавні переходи між сторінками, README проєкту чотирма мовами.
+- Модератори знову можуть увійти після оновлення з 1.0: кімната зі старого конфігу без приватного ключа один раз замінюється під час запуску, а вікно Host показує сповіщення з кнопками копіювання нового посилання OBS і коду модератора. Старе поле «кімната з пульта» прибрано.
+- Вікно Host: спершу картка з посиланням OBS, запити модераторів на камеру, екран і мікрофон видно й там, зміна ролі під час стріму просить підтвердження, вікно Host і док відкриваються мовою застосунку, повідомлення про помилки висять довше, таблиця адрес вміщується у вузьке вікно, додано підказку про порт Porthole.
+- Пульт показує підказку підключення для кожної адреси з коду й каже, що потрібно кожній мережі.
+- «Пауза модераторів» усе ще дозволяє модераторам читати файли, тож картинки далі завантажуються; завантаження й видалення відхиляються зі зрозумілим повідомленням. Повідомлення про помилки від сервера перекладені англійською, українською та німецькою.
+- Безпечніші права: коли стрімер вимикає «ігри», рулетка, що вже стоїть, ховається й мовчить, а модератор більше не може примусово показати CS2-таб на стрімі. Модератор більше не може зайняти з’єднання іншого клієнта з тим самим id.
+- OBS-док не можна вбудувати в чужу сторінку, а сторінка звіту прибирає зі вставленого тексту посилання OBS і запрошення з ключами. Ім’я домашньої теки більше не потрапляє в журнал і звіт про збій.
+- Журнал Host англійською.
+- Застосунок більше не показує помилку про дозвіл на сповіщення.
+- Сайт: меню на телефонах, пряме завантаження zip, примітка на телефонах, що Hudini для ПК, зміст довідки йде за читачем, краща шапка на планшетах, мова зберігається між сторінками, виправлення в майстрі звіту, гайди підключення (Radmin VPN, Tailscale, ZeroTier, Porthole) у вікні завантаження з посиланнями на кожен інструмент, плавні переходи між сторінками.
+- Більше перекладів: в українських текстах скрізь «стрімер», назви ролей збігаються зі справжніми вкладками (Стрімер, Модератор, Додати), англійські підказки команд чату в пульті, у довідці англійською, українською та німецькою з’явився пункт про чистку ніків.
 - Спокійніший вигляд пульта, вікна Host і дока: видимий фокус із клавіатури, зрозуміліші кнопки й поля, кращий контраст, більші цілі натискання.
 
 **DE**
-- Sicherere Rechte: Wenn der Streamer „Spiele“ ausschaltet, wird eine bereits sichtbare Roulette ausgeblendet und stumm, und ein Mod kann den CS2-Tab nicht mehr erzwingen.
-- „Mods pausieren“ stoppt auch das Hochladen und Löschen von Dateien; ein Mod kann die Verbindung eines anderen Clients mit derselben ID nicht mehr übernehmen.
-- Das OBS-Dock lässt sich nicht in andere Seiten einbetten, und die Meldeseite entfernt OBS-Links und Einladungen mit Schlüsseln aus eingefügtem Text.
-- Der Name des Benutzerordners erscheint nicht mehr im Protokoll und im Absturzbericht.
-- Mehr Übersetzungen, im Ukrainischen überall „стрімер“, Rollennamen passen zu den echten Tabs (Streamer, Moderator, Hinzufügen), und die Hilfe hat den fehlenden Eintrag zur Nick-Bereinigung auf Englisch, Ukrainisch und Deutsch.
-- Die Website: Die Verbindungsanleitungen (Radmin VPN, Tailscale, ZeroTier, Porthole) sind ins Download-Fenster gezogen, mit Links zum Download jedes Tools, sanfte Seitenübergänge und die Projekt-README in vier Sprachen.
+- Mods können nach dem Update von 1.0 wieder beitreten: Ein Raum aus einer alten Konfiguration ohne privaten Schlüssel wird beim Start einmal ersetzt, und das Host-Fenster zeigt einen Hinweis mit Knöpfen zum Kopieren des neuen OBS-Links und des Mod-Codes. Das alte Feld „Raum aus dem Pult“ ist entfernt.
+- Host-Fenster: Zuerst die Karte mit dem OBS-Link, Anfragen der Mods für Kamera, Bildschirm und Mikrofon erscheinen auch dort, ein Rollenwechsel während des Streams fragt nach, Host-Fenster und Dock öffnen sich in der Sprache der App, Fehlermeldungen bleiben länger sichtbar, die Adresstabelle passt in schmale Fenster, und es gibt einen Porthole-Port-Hinweis.
+- Das Pult zeigt für jede Adresse des Codes einen Verbindungshinweis und sagt, was das jeweilige Netzwerk braucht.
+- „Mods pausieren“ lässt Mods weiter Dateien lesen, damit Bilder weiter laden; Hochladen und Löschen werden mit einer klaren Meldung abgelehnt. Fehlermeldungen vom Server sind auf Englisch, Ukrainisch und Deutsch übersetzt.
+- Sicherere Rechte: Wenn der Streamer „Spiele“ ausschaltet, wird eine bereits sichtbare Roulette ausgeblendet und stumm, und ein Mod kann den CS2-Tab nicht mehr erzwingen. Ein Mod kann die Verbindung eines anderen Clients mit derselben ID nicht mehr übernehmen.
+- Das OBS-Dock lässt sich nicht in andere Seiten einbetten, und die Meldeseite entfernt OBS-Links und Einladungen mit Schlüsseln aus eingefügtem Text. Der Name des Benutzerordners erscheint nicht mehr im Protokoll und im Absturzbericht.
+- Das Host-Protokoll ist auf Englisch.
+- Die App zeigt keinen Fehler zur Benachrichtigungsberechtigung mehr.
+- Die Website: ein Menü auf Handys, direkter Zip-Download, auf Handys ein Hinweis, dass Hudini für den PC ist, ein Hilfe-Inhaltsverzeichnis, das dem Leser folgt, ein besserer Kopfbereich auf Tablets, die Sprache bleibt zwischen Seiten erhalten, Korrekturen im Meldeassistenten, die Verbindungsanleitungen (Radmin VPN, Tailscale, ZeroTier, Porthole) im Download-Fenster mit Links zu jedem Tool, sanfte Seitenübergänge.
+- Mehr Übersetzungen: im Ukrainischen überall „стрімер“, Rollennamen passen zu den echten Tabs (Streamer, Moderator, Hinzufügen), englische Chat-Befehlshinweise im Pult, und die Hilfe hat den fehlenden Eintrag zur Nick-Bereinigung auf Englisch, Ukrainisch und Deutsch.
 - Ruhigeres Aussehen von Pult, Host-Fenster und Dock: sichtbarer Tastaturfokus, klarere Knöpfe und Felder, besserer Kontrast, größere Tippziele.
 
 ## 1.1.2
