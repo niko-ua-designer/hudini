@@ -73,7 +73,7 @@ async function siteServer(){
     await p.waitForSelector('#dlClean'); check((await p.textContent('#chkOut')).includes('1 room code'), 'finds the room code in a log');
     await p.setInputFiles('#logFile', { name: 'ok.log', mimeType: 'text/plain', buffer: Buffer.from('all fine\n') });
     await p.waitForSelector('.rp-good'); check(!(await p.$('#dlClean')), 'clean log passes');
-    await p.click('#next'); eq(await p.textContent('#stTitle'), 'What happened', 'restart goes to step 1');
+    await p.click('#next'); eq(await p.textContent('#stTitle'), 'What is it about?', 'restart goes to step 1');
     await p.context().close();
   });
 

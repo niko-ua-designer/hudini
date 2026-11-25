@@ -10,4 +10,6 @@
     const t = Number(sessionStorage.getItem('hudini.tr')); sessionStorage.removeItem('hudini.tr');
     if(!off && t && Date.now() - t < 6000){ d.classList.add('enter'); setTimeout(() => d.classList.remove('enter'), 900); }   // safety: nothing stays held back
   }catch{}
+  // Safety net: sections that wait for a scroll animation (.js .reveal) must never stay hidden. If site.js has not finished by then (it failed), show everything.
+  setTimeout(() => { if(!d.classList.contains('rdy')) d.classList.add('no-reveal'); }, 3000);
 })();
