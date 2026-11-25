@@ -116,6 +116,37 @@ const REL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
     await p.context().close();
   });
 
+  await step('help page: the TOC highlights the section the reader is at', async () => {
+    for(const [lang, w, h] of [['de', 1865, 911], ['de', 1280, 800], ['ru', 1865, 911], ['ru', 1280, 800]]){
+      const p = await newPage('sn7', { app: false, lang, w, h });
+      await p.goto(`${base}/help.html?lang=${lang}`); await p.waitForSelector('#toc a');
+      const on = () => p.$$eval('#toc a.on', a => a.map(x => x.dataset.id));
+      const ids = await p.$$eval('#content section', s => s.map(x => x.id));
+      // the shortest section (not the first) that can still be brought under the header by scrolling
+      const pick = await p.evaluate(() => {
+        const hb = document.querySelector('header.top').getBoundingClientRect().bottom, max = document.documentElement.scrollHeight - innerHeight;
+        const c = [...document.querySelectorAll('#content section')].slice(1).map(s => ({ id: s.id, h: s.offsetHeight, y: s.getBoundingClientRect().top + scrollY - hb - 4 })).filter(x => x.y < max - 1 && x.h < innerHeight * .5);
+        c.sort((a, b) => a.h - b.h); return c[0];
+      });
+      check(!!pick, `${lang} ${w}: a short section exists`);
+      await p.evaluate(y => scrollTo(0, y), pick.y); await p.waitForTimeout(150);
+      eq(await on(), [pick.id], `${lang} ${w}: the short section at the top is the only active item (${pick.id})`);
+      await p.screenshot({ path: path.join(ROOT, 'temp', `pkgd-help-${lang}-${w}-short.png`) });
+      const other = ids.find(i => i !== pick.id && i !== ids[0]);
+      await p.click(`#toc a[data-id="${other}"]`); await p.waitForTimeout(150);
+      eq(await on(), [other], `${lang} ${w}: a click makes the clicked item active`);
+      await p.evaluate(() => scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
+      await p.mouse.wheel(0, 10); await p.waitForTimeout(150);
+      eq(await on(), [ids[ids.length - 1]], `${lang} ${w}: at the bottom the last section is active`);
+      await p.screenshot({ path: path.join(ROOT, 'temp', `pkgd-help-${lang}-${w}-bottom.png`) });
+      await p.fill('#q', ids.length ? (await p.$eval(`#content section:last-of-type h2`, e => e.textContent)).slice(0, 8) : '');
+      await p.waitForTimeout(150);
+      const vis = await p.$$eval('#toc a:not([hidden])', a => a.map(x => x.dataset.id));
+      check(vis.length > 0 && (await on()).every(i => vis.includes(i)), `${lang} ${w}: hidden sections are never active`);
+      await p.context().close();
+    }
+  });
+
   await closeBrowser(); srv.close();
   process.exit(finish());
 })().catch(e => { console.error(e); process.exit(1); });

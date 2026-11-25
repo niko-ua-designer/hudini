@@ -126,7 +126,7 @@
     for(const el of document.querySelectorAll('[data-cards]')) el.innerHTML = el.dataset.cards.split(',').map(k => card(t[k])).join('');
     const osName = (OSES.find(o => o[0] === myOs) || ['', ''])[1];
     for(const a of document.querySelectorAll('a[data-dl]')) a.href = zipUrl(myOs);
-    for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + (PHONE ? `<span class="dl-l">${t.dlPhoneBtn}</span><span class="dl-s">${t.dlPhoneBtn}</span>` : `<span class="dl-l">${t.dlFor.replace('{os}', osName)}</span><span class="dl-s">${t.dlShort}</span>`);
+    for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + (PHONE ? `<span class="dl-l">${t.dlPhoneBtn}</span><span class="dl-s">${t.dlPhoneShort}</span>` : `<span class="dl-l">${t.dlFor.replace('{os}', osName)}</span><span class="dl-s">${t.dlShort}</span>`);
     for(const el of document.querySelectorAll('[data-t-alt]')) el.setAttribute('alt', t[el.dataset.tAlt] || '');
     for(const el of document.querySelectorAll('[data-t-label]')) el.setAttribute('aria-label', t[el.dataset.tLabel] || '');
     if(reduced) for(const v of document.querySelectorAll('video.sh-vid')){ v.removeAttribute('autoplay'); v.pause(); }   // reduced motion: the poster stays
@@ -155,6 +155,7 @@
     }, { passive:true });
   }
 
+  let helpOff = null;   // removes the scroll listeners of the previous render (the language can change)
   function helpPage(){
     const H = window.HUDINI_HELP?.[lang] || window.HUDINI_HELP?.en; if(!H) return;
     document.title = 'Hudini · ' + H.title;
@@ -174,9 +175,39 @@
       for(const s of art.querySelectorAll('section')){ const ok = !w || s.textContent.toLowerCase().includes(w); s.hidden = !ok; toc.querySelector(`[data-id="${s.id}"]`).hidden = !ok; if(ok) shown++; }
       none.hidden = shown > 0;
     };
-    const io = new IntersectionObserver(es => { for(const e of es) if(e.isIntersecting) toc.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.id === e.target.id)); }, { rootMargin:'-30% 0px -60% 0px' });
-    art.querySelectorAll('section').forEach(s => io.observe(s));
-    if(location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+    // The active item is the section the reader is at: the last visible section whose top is at or above a line just under the sticky header.
+    // At the very bottom of the page it is the last visible section; a click on a link makes its item active at once (until the reader scrolls on).
+    if(helpOff) helpOff();
+    let forced = '', queued = false;
+    const aside = toc.closest('aside');
+    const current = () => {
+      const secs = [...art.querySelectorAll('section')].filter(x => !x.hidden); if(!secs.length) return '';
+      if(forced && secs.some(x => x.id === forced)) return forced;
+      const line = (document.querySelector('header.top')?.getBoundingClientRect().bottom || 0) + 16;
+      if(innerHeight + scrollY >= document.documentElement.scrollHeight - 2) return secs[secs.length - 1].id;
+      let cur = secs[0].id;
+      for(const x of secs){ if(x.getBoundingClientRect().top <= line) cur = x.id; else break; }
+      return cur;
+    };
+    const mark = () => {
+      queued = false; const id = current();
+      for(const a of toc.querySelectorAll('a')) a.classList.toggle('on', a.dataset.id === id && !a.hidden);
+      const on = toc.querySelector('a.on');
+      if(on && aside && aside.scrollHeight > aside.clientHeight){   // keep the active item visible inside a scrolling column
+        const ar = aside.getBoundingClientRect(), r = on.getBoundingClientRect();
+        if(r.top < ar.top) aside.scrollTop += r.top - ar.top - 8; else if(r.bottom > ar.bottom) aside.scrollTop += r.bottom - ar.bottom + 8;
+      }
+    };
+    const queue = () => { if(!queued){ queued = true; requestAnimationFrame(mark); } };
+    const free = () => { forced = ''; queue(); };
+    toc.onclick = e => { const a = e.target.closest('a[data-id]'); if(a){ forced = a.dataset.id; queue(); } };
+    const prevInput = q.oninput; q.oninput = () => { prevInput(); forced = ''; queue(); };
+    addEventListener('scroll', queue, { passive:true }); addEventListener('resize', queue);
+    for(const ev of ['wheel', 'touchstart', 'keydown']) addEventListener(ev, free, { passive:true });
+    helpOff = () => { removeEventListener('scroll', queue); removeEventListener('resize', queue); for(const ev of ['wheel', 'touchstart', 'keydown']) removeEventListener(ev, free); };
+    window.__helpMark = mark;
+    queue();
+    if(location.hash){ const t0 = document.getElementById(location.hash.slice(1)); if(t0){ t0.scrollIntoView(); forced = t0.id; queue(); } }
   }
 
   function render(){
