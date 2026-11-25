@@ -148,7 +148,7 @@ async function setRoom(link, full){
   if(changed){
     // Новая комната или новые ключи: пароль модераторов меняем и всех отключаем. Так доступ теряют все, у кого старые ключи.
     cfg.modPass = rnd(18);
-    kickMods('ключи комнаты сменились');
+    kickMods('room keys changed');
     screen = null; ctl.hideIds = []; cfg.hideIds = [];   // элементы старой комнаты доку больше не нужны
     dropPanelSessions();   // пульт стримера войдёт заново с новыми ключами
   }
@@ -156,7 +156,7 @@ async function setRoom(link, full){
   if(full) cfg.room = full;
   else if(!(cfg.room && cfg.room.code===r.room && cfg.room.k===r.k)) delete cfg.room;
   AES = key; ROOM = r; cfg.link = link.trim(); saveCfg();
-  log('Комната готова');
+  log('Room ready');
   announce(); publishCtl(); publishPerms(); publishSeries(true);
 }
 async function createRoom(name){
@@ -167,7 +167,7 @@ async function createRoom(name){
 function kickMods(why){
   let n = 0;
   for(const c of Object.values(aedes.clients)) if(c.conn?._mod){ try{ c.close(); n++; }catch{} }
-  if(n) logc('👤 Отключил модераторов:', n, '—', why);
+  if(n) logc('👤 Disconnected moderators:', n, '—', why);
 }
 // Шифруем ключом комнаты (как в core.js, без подписи)
 async function sealAES(obj){
@@ -189,18 +189,18 @@ async function ensureTls(){
   try{
     const key = fs.readFileSync(kf, 'utf8'), cert = fs.readFileSync(cf, 'utf8'), x = new nodeCrypto.X509Certificate(cert);
     if(Date.parse(x.validTo) > Date.now() + 30*864e5 && x.checkPrivateKey(nodeCrypto.createPrivateKey(key))){ TLS = { key, cert, fp:fpOf(x) }; return; }
-    log('⚠ Сертификат истекает, выпускаю новый: старые коды для модераторов перестанут подходить');
+    log('⚠ Certificate is expiring, issuing a new one: old moderator codes will stop working');
   }catch{}
   const pems = await selfsigned.generate([{ name:'commonName', value:'Hudini' }], { notAfterDate:new Date(Date.now() + 3650*864e5), keySize:2048, algorithm:'sha256' });
   fs.writeFileSync(kf, pems.private, { mode:0o600 }); fs.writeFileSync(cf, pems.cert, { mode:0o600 });
   TLS = { key:pems.private, cert:pems.cert, fp:fpOf(new nodeCrypto.X509Certificate(pems.cert)) };
-  log('🔐 Сертификат для модераторов создан');
+  log('🔐 Moderator certificate created');
 }
 await ensureTls();
 
 // ---------- адреса, по которым можно подключиться ----------
 // Подпись сети по адресу: так пульт показывает, через что идёт связь
-const NET_LABEL = { tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес' };
+const NET_LABEL = { tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Local network', inet:'Internet', porthole:'Porthole', ext:'Custom address' };
 function netOf(ip, ifname=''){
   const a = String(ip).replace(/^::ffff:/, '');
   if(/^127\./.test(a) || a==='::1') return 'porthole';
@@ -223,10 +223,10 @@ function maskHost(h){
   return p.length>1 ? `${p[0].slice(0, 1)}…${p.slice(1).join('.')}` : a.slice(0, 1) + '…';
 }
 // «100.x.x.12 (Tailscale)»
-const who = ip => ip==='local' ? 'этот компьютер' : `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;   // 'local' — виджет OBS на порту стримера
+const who = ip => ip==='local' ? 'this computer' : `${maskHost(ip)} (${NET_LABEL[netOf(ip)]})`;   // 'local' — виджет OBS на порту стримера
 // «my-pc.example.com:7778» → «m…example.com:7778»
 const maskAddr = v => String(v).replace(/^(.*?)(:\d{1,5})?$/, (_, h, port) => maskHost(h) + (port || ''));
-const fmtDur = sec => sec<60 ? `${sec} с` : sec<3600 ? `${Math.floor(sec/60)} мин ${sec%60} с` : `${Math.floor(sec/3600)} ч ${Math.floor(sec%3600/60)} мин`;
+const fmtDur = sec => sec<60 ? `${sec} s` : sec<3600 ? `${Math.floor(sec/60)} min ${sec%60} s` : `${Math.floor(sec/3600)} h ${Math.floor(sec%3600/60)} min`;
 // Отказ входа с причиной. С одного адреса одна и та же причина пишется не чаще раза в 10 секунд: перебор не должен забивать журнал
 const refusedAt = new Map();
 function refuse(ip, why){
@@ -234,7 +234,7 @@ function refuse(ip, why){
   if(now - (refusedAt.get(k)||0) < 10000) return;
   refusedAt.set(k, now);
   if(refusedAt.size > 500) for(const [x, t] of refusedAt) if(now - t > 10000) refusedAt.delete(x);
-  logc('🚫 Отказ входа:', who(ip), '—', why);
+  logc('🚫 Login refused:', who(ip), '—', why);
 }
 function parseExt(v){
   const m = /^([a-z0-9.-]+):(\d{1,5})$/i.exec(String(v||'').trim());
@@ -263,7 +263,7 @@ const addrText = () => addresses().map(a => `${maskHost(a.h)}:${a.port} ${a.net}
 let lastAddrs = '';
 setInterval(() => {
   const now = addrKey();
-  if(now!==lastAddrs){ lastAddrs = now; log('🌐 Адреса для модераторов:', addrText()); }
+  if(now!==lastAddrs){ lastAddrs = now; log('🌐 Moderator addresses:', addrText()); }
 }, 30000);
 
 // ---------- брокер ----------
@@ -273,13 +273,13 @@ const status = { mods:0, obs:0, obsSeen:0, cs2Seen:0, cs2:null, gsiPath:'' };
 let cs2Up = false;
 setInterval(() => {
   const up = Date.now()-status.cs2Seen < 15000;
-  if(up!==cs2Up){ cs2Up = up; logc(up ? '🎯 CS2 появился: данные идут' : '🎯 CS2 пропал: данных нет больше 15 с'); }
+  if(up!==cs2Up){ cs2Up = up; logc(up ? '🎯 CS2 appeared: data is flowing' : '🎯 CS2 gone: no data for over 15 s'); }
 }, 5000);
 const modList = new Map();   // id клиента → { ip, net, since, rtt } для страницы управления
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
 // и быстрые выключатели «на стриме сейчас» (off: чат, CS2-HUD, звуки, рисунки, эффекты; применяет виджет, переживают перезапуск)
 const OFF_KEYS = ['chat', 'cs2', 'sound', 'draw', 'fx', 'tab'];
-const OFF_NAMES = { chat:'чат', cs2:'CS2-HUD', sound:'звуки', draw:'рисунки', fx:'эффекты', tab:'авто-таб CS2' };
+const OFF_NAMES = { chat:'chat', cs2:'CS2 HUD', sound:'sounds', draw:'drawings', fx:'effects', tab:'CS2 auto-tab' };
 const cleanOff = o => Object.fromEntries(OFF_KEYS.map(k => [k, o?.[k]===true]));
 // hideIds — элементы, которые стример спрятал глазиком в доке: их прячет только виджет, экран модераторов не меняется
 const cleanIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && x.length>0 && x.length<=40))].slice(0, 200);
@@ -294,8 +294,8 @@ async function publishCtl(){
 const PERM_KEYS = ['av', 'web', 'fx', 'games', 'cam', 'screen', 'mic'];
 const DEFAULT_OFF = ['cam', 'screen', 'mic'];
 const MEDIA_KINDS = ['cam', 'screen', 'mic'];
-const PERM_NAMES = { av:'звуки и видео', web:'сайты и файлы', fx:'чат, рисование, эффекты', games:'кейсы, розыгрыши, опросы, CS2',
-  cam:'камера модератора', screen:'экран модератора', mic:'микрофон модератора' };
+const PERM_NAMES = { av:'sounds and video', web:'sites and files', fx:'chat, drawing, effects', games:'cases, giveaways, polls, CS2',
+  cam:"moderator's camera", screen:"moderator's screen", mic:"moderator's microphone" };
 const cleanPerms = p => Object.fromEntries(PERM_KEYS.map(k => [k, DEFAULT_OFF.includes(k) ? p?.[k] === true : p?.[k] !== false]));
 cfg.perms = cleanPerms(cfg.perms);
 // Общий выключатель «все трансляции модераторов» (док): пока он стоит, камера, экран и микрофон модераторов выключены независимо от ползунков
@@ -325,12 +325,12 @@ function newPanelKey(){
 }
 // '' — ключ годен (и уже сгорел), иначе причина отказа для журнала
 function takePanelKey(key){
-  if(typeof key!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(key)) return 'нет ключа';
+  if(typeof key!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(key)) return 'no key';
   const h = sha256(key), k = panelKeys.find(x => nodeCrypto.timingSafeEqual(x.h, h));
-  if(!k) return 'неизвестный ключ';
-  if(k.used) return 'ключ уже использован';
+  if(!k) return 'unknown key';
+  if(k.used) return 'key already used';
   k.used = true;
-  return Date.now() > k.exp ? 'ключ просрочен' : '';
+  return Date.now() > k.exp ? 'key expired' : '';
 }
 const panelSessions = new Map();   // hex sha256(пароля сессии) → { since, room }
 function newPanelSession(){
@@ -362,18 +362,18 @@ function locked(ip){
 }
 function passOk(ip, pass){
   // Porthole: верный пароль пускает всегда (иначе один гость запер бы остальных на минуту); перебор 144-битного пароля бессмыслен
-  if(locked(ip) && !isLoop(ip)){ refuse(ip, 'лимит: пауза после неверных паролей'); return false; }
+  if(locked(ip) && !isLoop(ip)){ refuse(ip, 'limit: pause after wrong passwords'); return false; }
   const a = Buffer.from(String(pass||'')), b = Buffer.from(cfg.modPass);
   const ok = a.length===b.length && nodeCrypto.timingSafeEqual(a, b);
   if(ok){ fails.delete(ip); return true; }
   if(isLoop(ip)){
-    if(!locked(ip)){ loopFails.push(Date.now()); refuse(ip, 'неверный пароль'); }
-    else refuse(ip, 'лимит: 5 неверных паролей в минуту');
+    if(!locked(ip)){ loopFails.push(Date.now()); refuse(ip, 'wrong password'); }
+    else refuse(ip, 'limit: 5 wrong passwords per minute');
     return false;
   }
   const f = fails.get(ip) || { n:0, until:0, lock:30 };
-  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Подбор пароля с', who(ip), '— пауза', f.lock, 'с'); }
-  else refuse(ip, 'неверный пароль');
+  if(++f.n >= 5){ f.lock = Math.min(f.lock*2, 1800); f.until = Date.now() + f.lock*1000; f.n = 0; logc('⚠ Password guessing from', who(ip), '— pause', f.lock, 's'); }
+  else refuse(ip, 'wrong password');
   fails.set(ip, f);
   if(fails.size > 1000) for(const [k,v] of fails) if(v.until < Date.now()) fails.delete(k);
   return false;
@@ -386,21 +386,21 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(prev && prev!==client && prev.conn && prev.connected!==false){
     const kindOf = c => c.conn._mod ? 'mod' : c.conn._streamer ? 'streamer' : 'widget';
     if(kindOf(prev)!==kindOf(client) || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
-      refuse(client.conn?._mod ? client.conn._ip : 'local', 'занятый clientId');
+      refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }
   }
   if(!client.conn?._mod){
     if(user==='streamer'){   // пульт стримера на этом ПК: только с сессией, полученной за одноразовый ключ
-      if(!panelSessionOk(String(pass||''))){ refuse('local', 'пульт стримера: вход устарел'); return cb(Object.assign(new Error('auth'), { returnCode:4 }), false); }
+      if(!panelSessionOk(String(pass||''))){ refuse('local', 'streamer panel: login expired'); return cb(Object.assign(new Error('auth'), { returnCode:4 }), false); }
       client.conn._streamer = true; return cb(null, true);
     }
     // со страницы пульта без входа нельзя; другого логина на этом порту нет (виджет входит без логина)
     if(client.conn?._panel || user) return cb(Object.assign(new Error('auth'), { returnCode:4 }), false);
     return cb(null, true);   // виджет OBS без пароля: порт слушает только этот ПК, писать он может только пульс
   }
-  if(ctl.paused){ refuse(client.conn._ip, 'пауза модераторов'); return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false); }   // стример поставил модераторов на паузу
-  if(!cfg.modsOn){ refuse(client.conn._ip, 'вход закрыт'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
+  if(ctl.paused){ refuse(client.conn._ip, 'moderators paused'); return cb(Object.assign(new Error('пауза'), { returnCode:5 }), false); }   // стример поставил модераторов на паузу
+  if(!cfg.modsOn){ refuse(client.conn._ip, 'entrance closed'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
@@ -428,7 +428,7 @@ aedes.on('client', c => {
   if(!s?._mod && !s?._streamer){
     status.obs++;
     clearTimeout(obsDropTimer);
-    if(!obsUp){ obsUp = true; logc('🎬 Виджет OBS подключился'); }
+    if(!obsUp){ obsUp = true; logc('🎬 OBS widget connected'); }
     return;
   }
   const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
@@ -437,8 +437,8 @@ aedes.on('client', c => {
   m.ws?.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
   m.timer = setInterval(ping, 5000); ping();
   modList.set(c.id, m); status.mods = modCount();
-  if(me) logc('🖥 Пульт стримера подключился');
-  else logc('👤 Модератор подключился:', who(m.ip));
+  if(me) logc('🖥 Streamer panel connected');
+  else logc('👤 Moderator connected:', who(m.ip));
 });
 const modCount = () => [...modList.values()].filter(m => !m.me).length;
 aedes.on('clientDisconnect', c => {
@@ -447,13 +447,13 @@ aedes.on('clientDisconnect', c => {
     status.obs = Math.max(0, status.obs-1);
     if(!status.obs && obsUp){
       clearTimeout(obsDropTimer);
-      obsDropTimer = setTimeout(() => { if(!status.obs && obsUp){ obsUp = false; logc('🎬 Виджет OBS отвалился'); } }, OBS_DROP_MS);
+      obsDropTimer = setTimeout(() => { if(!status.obs && obsUp){ obsUp = false; logc('🎬 OBS widget dropped'); } }, OBS_DROP_MS);
     }
     return;
   }
   if(m){ clearInterval(m.timer); modList.delete(c.id);
-    if(m.me) logc('🖥 Пульт стримера отключился');
-    else logc('👤 Модератор отключился:', who(m.ip), '— на связи', fmtDur(Math.round((Date.now()-m.since)/1000))); }
+    if(m.me) logc('🖥 Streamer panel disconnected');
+    else logc('👤 Moderator disconnected:', who(m.ip), '— was online', fmtDur(Math.round((Date.now()-m.since)/1000))); }
   status.mods = modCount();
 });
 
@@ -494,8 +494,8 @@ function wsServer(mod){
     const ip = ipOf(req);
     if(mod){
       let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
-      const why = !cfg.modsOn ? 'вход закрыт' : wss.clients.size >= MOD_CONNS ? 'лимит: слишком много подключений' : pending >= PENDING ? 'лимит: слишком много ждут входа'
-        : !isLoop(ip) && (perIp.get(ip)||0) >= IP_CONNS ? 'лимит: много соединений с одного адреса' : '';
+      const why = !cfg.modsOn ? 'entrance closed' : wss.clients.size >= MOD_CONNS ? 'limit: too many connections' : pending >= PENDING ? 'limit: too many waiting to log in'
+        : !isLoop(ip) && (perIp.get(ip)||0) >= IP_CONNS ? 'limit: too many connections from one address' : '';
       if(why){ refuse(ip, why); socket.destroy(); return; }
     }
     wss.handleUpgrade(req, socket, head, ws => {
@@ -594,7 +594,7 @@ function mediaRevoke(pred, why){
   let n = 0;
   for(const s of [...sessions.values()]) if(pred(s)){ endSession(s, why); n++; }
   for(const [k, g] of [...grants]) if(pred(g)) grants.delete(k);
-  if(n) logc('🎥 Трансляций остановлено:', n, '—', why);
+  if(n) logc('🎥 Streams stopped:', n, '—', why);
 }
 function grantsSweep(){
   const now = Date.now();
@@ -617,7 +617,7 @@ function modMediaOk(client, kind){
   const pend = [...grants.values()].filter(x => x.st==='pending');
   if(pend.length >= MEDIA_ASK || pend.filter(x => x.ownerClient===cid).length >= 3){ mediaNote(cid, 'no', kind, { why:'busy' }).catch(()=>{}); return false; }
   grants.set(key, { st:'pending', at:now, kind, ownerType:'mod', ownerClient:cid, cid, ip:client.conn._ip });
-  logc('🎥 Модератор', who(client.conn._ip), 'просит показать:', PERM_NAMES[kind].replace(' модератора', ''));
+  logc('🎥 Moderator', who(client.conn._ip), 'asks to show:', PERM_NAMES[kind].replace("moderator's ", ''));
   mediaNote(cid, 'pending', kind, {}, true).catch(()=>{});
   return false;
 }
@@ -666,14 +666,14 @@ function rtcGate(client, packet){
     if(!isMod && !isStr) return null;   // виджет только отвечает
     if(!h.to || h.to===id) return false;
     let s = sessions.get(h.sid);
-    if(s && (s.owner!==id || s.kind!==h.kind)){ refuse(isMod ? client.conn._ip : 'local', 'rtc: чужой sid'); return null; }
+    if(s && (s.owner!==id || s.kind!==h.kind)){ refuse(isMod ? client.conn._ip : 'local', 'rtc: foreign sid'); return null; }
     if(isMod && !modMediaOk(client, h.kind)) return null;
     if(!s){
       const mods = [...sessions.values()].filter(x => x.ownerType==='mod');
-      if(sessions.size >= MEDIA_TOTAL || (isMod && (mods.length >= MEDIA_MOD_TOTAL || mods.filter(x => x.ownerClient===client.id).length >= MEDIA_PER_MOD))){ refuse(isMod ? client.conn._ip : 'local', 'rtc: много трансляций'); return null; }
+      if(sessions.size >= MEDIA_TOTAL || (isMod && (mods.length >= MEDIA_MOD_TOTAL || mods.filter(x => x.ownerClient===client.id).length >= MEDIA_PER_MOD))){ refuse(isMod ? client.conn._ip : 'local', 'rtc: too many streams'); return null; }
       s = { sid:h.sid, kind:h.kind, owner:id, ownerType:isMod ? 'mod' : 'streamer', ownerClient:client.id, ip:isMod ? client.conn._ip : 'local', since:Date.now(), peers:new Set(), peerAt:new Map(), tix:new Map(), recv:new Set(), sender:null, init:null };
       sessions.set(h.sid, s);
-      logc('🎥 Трансляция:', isMod ? who(s.ip) : 'стример', '—', PERM_NAMES[h.kind]);
+      logc('🎥 Stream:', isMod ? who(s.ip) : 'streamer', '—', PERM_NAMES[h.kind]);
     }
     if(!s.peers.has(h.to)){ if(s.peers.size >= MEDIA_PEERS) return null; s.peers.add(h.to); }
     peerSeen(s, h.to);
@@ -688,7 +688,7 @@ function rtcGate(client, packet){
       if(!s.peers.has(id)) return null;
       peerDrop(s, id); return true;
     }
-    setImmediate(() => endSession(s, 'завершено'));
+    setImmediate(() => endSession(s, 'finished'));
     return true;
   }
   // answer, ice
@@ -714,7 +714,7 @@ aedes.on('clientDisconnect', c => {
     s.tix.delete(c);   // билеты уходят и у виджетов: лимит MEDIA_TIX считается на живые соединения
     recvClose(s, w => w._cl===c);
     if(!priv) continue;
-    if(s.ownerClient===c.id && !replaced) endSession(s, 'владелец отключился');
+    if(s.ownerClient===c.id && !replaced) endSession(s, 'owner disconnected');
     const id = idOf(c);
     if(s.peers.has(id) && !tixHolders(id).some(x => x!==c)) peerDrop(s, id);
   }
@@ -736,8 +736,8 @@ function mediaInfo(){
 function mediaAction(action, key){
   if(action==='mediaoff' || action==='mediaon'){
     const off = action==='mediaoff';
-    if(ctl.mediaOff!==off){ ctl.mediaOff = cfg.mediaOff = off; saveCfg(); log(off ? '🎥 Стример выключил все трансляции модераторов' : '🎥 Трансляции модераторов снова разрешены (если включены ползунки)'); }
-    if(off) mediaRevoke(x => x.ownerType==='mod', 'стример выключил трансляции модераторов');
+    if(ctl.mediaOff!==off){ ctl.mediaOff = cfg.mediaOff = off; saveCfg(); log(off ? '🎥 Streamer turned off all moderator streams' : '🎥 Moderator streams allowed again (if the toggles are on)'); }
+    if(off) mediaRevoke(x => x.ownerType==='mod', 'streamer turned off moderator streams');
     publishPerms().catch(()=>{});
     return;
   }
@@ -746,14 +746,14 @@ function mediaAction(action, key){
     const s = sessions.get(key);
     if(!s) throw new HttpErr(404, 'трансляции уже нет');
     if(s.ownerType==='mod') grants.set(s.kind+'|'+s.ownerClient, { st:'no', at:Date.now(), kind:s.kind, ownerType:'mod', ownerClient:s.ownerClient, cid:s.ownerClient, ip:s.ip });   // заново — только через запрос
-    endSession(s, 'стример выключил'); log('🎥 Стример выключил трансляцию:', PERM_NAMES[s.kind]);
+    endSession(s, 'streamer turned off'); log('🎥 Streamer turned off the stream:', PERM_NAMES[s.kind]);
     return;
   }
   const g = grants.get(key);
   if(!g || g.st!=='pending') throw new HttpErr(404, 'запрос уже не актуален');
   const ok = action==='mediaallow' && effPerms()[g.kind];
   g.st = ok ? 'ok' : 'no'; g.at = Date.now();
-  logc('🎥', ok ? 'Разрешено:' : 'Отклонено:', who(g.ip), '—', PERM_NAMES[g.kind]);
+  logc('🎥', ok ? 'Allowed:' : 'Denied:', who(g.ip), '—', PERM_NAMES[g.kind]);
   mediaNote(g.cid, ok ? 'ok' : 'no', g.kind, ok ? {} : { why:'denied' }, true).catch(()=>{});
 }
 
@@ -769,7 +769,7 @@ function mediaUpgrade(mod, req, socket, head){
   if(!SID_RE.test(sid) || (!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin) && !panel)))){ socket.destroy(); return; }
   const ip = ipOf(req), loop = isLoop(ip);
   if(mod && !cfg.modsOn){ socket.destroy(); return; }
-  if(mediaWss.clients.size >= MEDIA_SOCKS || mediaPendingSocks >= MEDIA_PENDING_SOCKS || (!loop && (mediaPerIp.get(ip)||0) >= MEDIA_PER_IP)){ refuse(ip, 'лимит: слишком много медиа-соединений'); socket.destroy(); return; }
+  if(mediaWss.clients.size >= MEDIA_SOCKS || mediaPendingSocks >= MEDIA_PENDING_SOCKS || (!loop && (mediaPerIp.get(ip)||0) >= MEDIA_PER_IP)){ refuse(ip, 'limit: too many media connections'); socket.destroy(); return; }
   mediaPendingSocks++;
   let done = false;
   const unpend = () => { if(!done){ done = true; mediaPendingSocks--; } };
@@ -1322,7 +1322,7 @@ aedes.on('publish', async (packet, client) => {
   if(!(client?.conn?._mod || client?.conn?._streamer) || !inRoom(packet.topic) || !packet.topic.endsWith('/cs2cmd')) return;
   const m = await openSigned(packet.payload, 16384);
   if(!m || !(Math.abs(Date.now() - Number(m.t)) < 120000)) return;   // старую команду повторно не принимаем
-  if(seriesCmd(series, m)){ saveSeries(); log('🏆 Серия CS2:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'сброс' : 'правка вручную'); publishSeries(true); }
+  if(seriesCmd(series, m)){ saveSeries(); log('🏆 CS2 series:', m.op==='bo' ? 'BO'+series.bo : m.op==='reset' ? 'reset' : 'manual edit'); publishSeries(true); }
 });
 function gsiCfgText(){
   return `"Stream Overlay"
@@ -1390,7 +1390,7 @@ async function installGsi(){
   if(!dir) throw new Error('Не нашёл папку CS2. Скачай файл и положи его вручную в …\\Counter-Strike Global Offensive\\game\\csgo\\cfg');
   const file = path.join(dir, 'gamestate_integration_streamoverlay.cfg');
   fs.writeFileSync(file, gsiCfgText());
-  status.gsiPath = file; cfg.gsiFile = file; saveCfg(); log('✓ Файл для CS2 записан:', file);
+  status.gsiPath = file; cfg.gsiFile = file; saveCfg(); log('✓ CS2 config file written:', file);
   return file;
 }
 
@@ -1412,7 +1412,7 @@ async function refreshSite(){
     }
     if(!got['widget/widget.html'].includes('core.js')) throw new Error('странный widget.html');
     for(const [f,txt] of Object.entries(got)){ files[f]=txt; fs.writeFileSync(path.join(CACHE, cacheName(f)), txt); }
-  }catch(e){ log('⚠ Не обновил файлы виджета с сайта (', e.message, '), использую сохранённые'); }
+  }catch(e){ log('⚠ Could not update widget files from the site (', e.message, '), using saved ones'); }
 }
 refreshSite(); setInterval(refreshSite, 10*60*1000);
 // виджет перезагружается за обновлением: сначала сами берём свежие файлы с сайта
@@ -1588,7 +1588,7 @@ async function doCheck(applyIfIdle){
       const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt'), sigA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt.sig');
       if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
       if(!sigA) throw new Error('у релиза нет подписи, обновление отменено');
-      upd.state='downloading'; log('⬇ Скачиваю обновление', ver, '…');
+      upd.state='downloading'; log('⬇ Downloading update', ver, '…');
       const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
       const sig=await (await fetch(sigA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
       if(!updateSigOk(ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
@@ -1610,11 +1610,11 @@ async function doCheck(applyIfIdle){
         fs.writeFileSync(staged, unzipSingle(zip, ASSET)); fs.chmodSync(staged, 0o755);
         upd.staged={ ver, path:staged };
       }
-      log('✓ Обновление', ver, 'скачано и проверено');
+      log('✓ Update', ver, 'downloaded and verified');
     }
     upd.state='ready';
     if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
-  }catch(e){ upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Обновление:', e.message); }
+  }catch(e){ upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Update:', e.message); }
 }
 // «Простой»: OBS-виджет не подключён и модераторов нет.
 // Роль модератора простоя не знает (пульт работает в окне программы, сервер его не видит): там обновление ставит только
@@ -1642,15 +1642,15 @@ function applyAppUpdate(){
   }catch(e){
     // откатываем всё, что успели поменять
     for(const m of moved.reverse()){ try{ fs.rmSync(m.dst, { recursive:true, force:true }); }catch{} try{ if(m.old) fs.renameSync(m.old, m.dst); }catch{} }
-    upd.staged=null; upd.state='error'; upd.err='не смог заменить файлы программы: '+e.message; log('⚠ Обновление:', upd.err);
+    upd.staged=null; upd.state='error'; upd.err='не смог заменить файлы программы: '+e.message; log('⚠ Update: could not replace program files:', e.message);
     return;
   }
   try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
-  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
+  log('🔄 Restarting with version', upd.staged.ver, '…');
   stopForRestart();
   const args = ['--updated', '--wait-pid', String(APP_PID), ...(appHidden ? ['--minimized'] : [])];
   const child=spawn(APP_EXE, args, { cwd:APP_ROOT, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
-  child.on('error', e => log('⚠ Не запустилась новая версия:', e.message));
+  child.on('error', e => log('⚠ New version failed to start:', e.message));
   child.unref();
   appSay('RESTART');   // программа с окном закрывается сама
   setTimeout(()=>process.exit(0), 400);
@@ -1660,22 +1660,22 @@ async function applyUpdate(){
   if(!upd.staged) return;
   if(APP){
     try{ return applyAppUpdate(); }
-    catch(e){ upd.staged=null; upd.state='error'; upd.err='не смог поставить обновление: '+e.message; log('⚠ Обновление:', upd.err); return; }
+    catch(e){ upd.staged=null; upd.state='error'; upd.err='не смог поставить обновление: '+e.message; log('⚠ Update: could not install:', e.message); return; }
   }
   const exe=process.execPath, old=exe+'.old';
   try{ fs.rmSync(old, { force:true }); }catch{}
   try{ fs.renameSync(exe, old); }   // работающий файл можно переименовать, но не перезаписать
-  catch(e){ upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Обновление:', upd.err); return; }
+  catch(e){ upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return; }
   try{ fs.renameSync(upd.staged.path, exe); }
   catch(e){
-    try{ fs.renameSync(old, exe); }catch(e2){ log('⚠ Не вернул старую версию на место:', e2.message); }
+    try{ fs.renameSync(old, exe); }catch(e2){ log('⚠ Could not restore the old version:', e2.message); }
     try{ fs.rmSync(upd.staged.path, { force:true }); }catch{}
-    upd.staged=null; upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Обновление:', upd.err); return;
+    upd.staged=null; upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return;
   }
-  log('🔄 Перезапускаюсь с версией', upd.staged.ver, '…');
+  log('🔄 Restarting with version', upd.staged.ver, '…');
   stopForRestart();
   const child=spawn(exe, [], { cwd:BASE, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
-  child.on('error', e => log('⚠ Не запустилась новая версия:', e.message));
+  child.on('error', e => log('⚠ New version failed to start:', e.message));
   child.unref();
   setTimeout(()=>process.exit(0), 400);
 }
@@ -1759,7 +1759,7 @@ function putPart(room, id, part, last, buf){
       fileIndex.set(key, { room, id, size, at:Date.now() });
       finished.set(key, { part, lastLen:buf.length, size, at:Date.now() });
       if(finished.size>200) finished.delete(finished.keys().next().value);
-      log('📁 Файл сохранён:', (size/MB).toFixed(1), 'МБ');
+      log('📁 File saved:', (size/MB).toFixed(1), 'MB');
     }
     else uploads.set(key, { bytes:size, at:Date.now(), next:part+1, lastLen:buf.length });
   }catch(e){
@@ -1782,14 +1782,14 @@ function delFile(room, id){
 function cleanRoomFiles(room, keep){
   const k = new Set(keep.filter(okId)); let n = 0, bytes = 0;
   for(const f of [...fileIndex.values()]) if(f.room===room && !k.has(f.id)){ bytes += f.size; if(delFile(room, f.id)) n++; }
-  if(n) log('🧹 Удалено неиспользуемых файлов:', n, `(${(bytes/MB).toFixed(1)} МБ)`);
+  if(n) log('🧹 Unused files removed:', n, `(${(bytes/MB).toFixed(1)} MB)`);
   return { ok:true, deleted:n, bytes, storage:storage(room) };
 }
 function setLimits(l){
   const num = (v, lo, hi) => { const x = Math.round(Number(v)); if(!Number.isFinite(x) || x<lo || x>hi) throw new HttpErr(400, `значение ${v} вне ${lo}…${hi}`); return x; };
   cfg.limits = { fileMB:num(l.fileMB, 1, 4096), totalMB:num(l.totalMB, 10, 1024*1024), files:num(l.files, 1, 100000) };
   cfg.limitsSet = true; saveCfg();
-  log('📁 Лимиты для файлов:', cfg.limits.fileMB, 'МБ на файл,', cfg.limits.totalMB, 'МБ всего,', cfg.limits.files, 'файлов');
+  log('📁 File limits:', cfg.limits.fileMB, 'MB per file,', cfg.limits.totalMB, 'MB total,', cfg.limits.files, 'files');
 }
 
 // ---------- HTTP ----------
@@ -1842,7 +1842,7 @@ async function filesApi(req, res, url, mod){
     const ip = mod ? ipOf(req) : 'local', wait = locked(ip);
     if(!(!mod && panelSessionOk(bearer(req))) && !passOk(ip, bearer(req))){
       if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
-      return j(401, { ok:false, error:'неверный пароль' });
+      return j(401, { ok:false, error:'wrong password' });
     }
   }
   const mine = () => [...fileIndex.values()].filter(f => f.room===ROOM.room).map(f => [f.id, f.size]);
@@ -1876,7 +1876,7 @@ const errOut = (res, e, extra={}) => {
   try{
     if(res.headersSent || res.destroyed || res.writableEnded) return res.destroy();
     const code = Number.isInteger(e?.code) && e.code>=400 && e.code<=599 ? e.code : e?.code==null ? 400 : 500;
-    if(code===500) log('⚠ Ошибка запроса:', String(e?.code||''), e?.message||e);
+    if(code===500) log('⚠ Request error:', String(e?.code||''), e?.message||e);
     send(res, code, JSON.stringify({ ok:false, error:e instanceof HttpErr ? e.message : code===500 ? 'ошибка на ПК стримера' : 'некорректный запрос', ...(e?.extra||{}) }), 'application/json', extra);
   }catch{ try{ res.destroy(); }catch{} }
 };
@@ -1899,13 +1899,13 @@ async function streamerSession(req, res){
   const j = (code, obj) => send(res, code, JSON.stringify(obj), 'application/json', { ...cors, 'referrer-policy':'no-referrer' });
   if(req.method==='OPTIONS') return send(res, 204, '', 'text/plain', cors);
   if(req.method!=='POST') return j(405, { ok:false, error:'нельзя' });
-  if(!PANEL_ORIGINS.has(origin)){ refuse('local', 'пульт стримера: чужой сайт'); return j(403, { ok:false, error:'чужой сайт' }); }
+  if(!PANEL_ORIGINS.has(origin)){ refuse('local', 'streamer panel: foreign site'); return j(403, { ok:false, error:'чужой сайт' }); }
   let key = ''; try{ key = JSON.parse(await readBody(req, 1024))?.key; }catch{}
   const why = takePanelKey(key);
-  if(why){ refuse('local', 'пульт стримера: '+why); return j(403, { ok:false, error:'Ключ входа недействителен: нажми «Открыть пульт» в Hudini Host ещё раз' }); }
+  if(why){ refuse('local', 'streamer panel: '+why); return j(403, { ok:false, error:'Ключ входа недействителен: нажми «Открыть пульт» в Hudini Host ещё раз' }); }
   if(!ownRoom()) return j(409, { ok:false, error:'Пульт на этом компьютере работает с комнатой, которую создал Hudini Host' });
   const pass = newPanelSession();
-  log('🖥 Пульт стримера открыт на этом компьютере');
+  log('🖥 Streamer panel opened on this computer');
   return j(200, { ok:true, user:'streamer', pass, port:PORT, room:{ code:ROOM.room, name:cfg.room.name || cfg.name || 'Hudini', k:ROOM.k, p:ROOM.p, s:cfg.room.s } });
 }
 function obsLink(){
@@ -1955,15 +1955,15 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/extaddr'){   // свой внешний адрес для проброса порта: host:port
         const { addr } = JSON.parse(await readBody(req, 4096)), v = String(addr||'').trim();
         if(v && !parseExt(v)) throw new HttpErr(400, 'адрес должен быть вида мой-адрес:порт');
-        cfg.extAddr = v; saveCfg(); log(v ? 'Свой внешний адрес: '+maskAddr(v) : 'Свой внешний адрес убран');
+        cfg.extAddr = v; saveCfg(); log(v ? 'Custom external address: '+maskAddr(v) : 'Custom external address removed');
         return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/mods'){   // «Пускать модераторов»
         const { on } = JSON.parse(await readBody(req, 1024));
         const was = cfg.modsOn;
         cfg.modsOn = !!on; saveCfg();
-        if(cfg.modsOn!==was) logc(cfg.modsOn ? '▶ Модераторов пускаю' : '⏸ Модераторов не пускаю');   // повторный запрос с тем же значением ничего не меняет
-        if(!cfg.modsOn) kickMods('стример закрыл вход');
+        if(cfg.modsOn!==was) logc(cfg.modsOn ? '▶ Letting moderators in' : '⏸ Not letting moderators in');   // повторный запрос с тем же значением ничего не меняет
+        if(!cfg.modsOn) kickMods('streamer closed the entrance');
         return send(res, 200, JSON.stringify({ ok:true, modsOn:cfg.modsOn }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/perms'){   // права модераторов
@@ -1971,8 +1971,8 @@ const local = http.createServer(async (req, res) => {
         const next = cleanPerms({ ...cfg.perms, ...(perms && typeof perms==='object' ? perms : {}) });
         const ch = PERM_KEYS.filter(k => next[k]!==cfg.perms[k]);
         cfg.perms = next; saveCfg();
-        for(const k of ch) if(DEFAULT_OFF.includes(k) && !next[k]) mediaRevoke(x => x.kind===k && x.ownerType==='mod', 'стример выключил: '+PERM_NAMES[k]);
-        if(ch.length) log('🔒 Права модераторов:', ch.map(k => PERM_NAMES[k]+(next[k] ? ' — можно' : ' — нельзя')).join('; '));
+        for(const k of ch) if(DEFAULT_OFF.includes(k) && !next[k]) mediaRevoke(x => x.kind===k && x.ownerType==='mod', 'streamer turned off: '+PERM_NAMES[k]);
+        if(ch.length) log('🔒 Moderator permissions:', ch.map(k => PERM_NAMES[k]+(next[k] ? ' — allowed' : ' — denied')).join('; '));
         await publishPerms();
         return send(res, 200, JSON.stringify({ ok:true, perms:cfg.perms }), 'application/json');
       }
@@ -1983,14 +1983,14 @@ const local = http.createServer(async (req, res) => {
         if(!panelUrl()) throw new HttpErr(409, 'пульт открывается из приложения Hudini');
         return send(res, 200, JSON.stringify({ ok:true, key, port:PORT, url:panelUrl() }), 'application/json', { 'referrer-policy':'no-referrer' });
       }
-      if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('стример отключил всех'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/mods/kick'){ kickMods('streamer disconnected everyone'); return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/notice'){ const { id } = JSON.parse(await readBody(req, 1024)); if(id==='cf'){ delete cfg.cfNotice; saveCfg(); } return send(res, 200, JSON.stringify({ ok:true }), 'application/json'); }
       if(req.method==='POST' && p==='/api/control'){
         const { action, key, on } = JSON.parse(await readBody(req, 1024));
         if(['mediaallow', 'mediadeny', 'mediastop', 'mediaoff', 'mediaon'].includes(action)) mediaAction(action, key);
         else if(action==='off'){   // быстрый выключатель: on=true — выключить на стриме
           if(!OFF_KEYS.includes(key)) throw new HttpErr(400, 'неизвестный выключатель');
-          if(ctl.off[key]!==!!on){ log(on ? '🚫 Стример выключил на стриме: '+OFF_NAMES[key] : '✅ Стример вернул на стрим: '+OFF_NAMES[key]); }
+          if(ctl.off[key]!==!!on){ log(on ? '🚫 Streamer turned off on stream: '+OFF_NAMES[key] : '✅ Streamer turned back on on stream: '+OFF_NAMES[key]); }
           ctl.off = { ...ctl.off, [key]:!!on }; cfg.ctlOff = ctl.off; saveCfg();
         }
         else if(action==='hideel'){   // глазик в доке: спрятать элемент на стриме (только у стримера)
@@ -2004,22 +2004,22 @@ const local = http.createServer(async (req, res) => {
           if(!c?.conn?._mod) throw new HttpErr(404, 'такого модератора нет');
           const m = modList.get(key);
           try{ c.close(); }catch{}
-          logc('👤 Стример отключил модератора:', m ? who(m.ip) : '?');
+          logc('👤 Streamer disconnected a moderator:', m ? who(m.ip) : '?');
           return send(res, 200, JSON.stringify({ ok:true }), 'application/json');
         }
-        else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Стример спрятал оверлей' : '👁 Стример вернул оверлей'); }
-        else if(action==='stopsounds'){ ctl.stop++; log('⏹ Стример остановил звуки'); }
-        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('пауза модераторов'); log(ctl.paused ? '⏸ Модераторы на паузе' : '▶ Модераторы снова могут менять экран'); await announce(); }
-        else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 Авто-таб CS2 выключен на стриме' : '🎯 Авто-таб CS2 снова включён'); }   // быстрый выключатель авто-таба (док)
+        else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Streamer hid the overlay' : '👁 Streamer showed the overlay'); }
+        else if(action==='stopsounds'){ ctl.stop++; log('⏹ Streamer stopped the sounds'); }
+        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('moderators paused'); log(ctl.paused ? '⏸ Moderators paused' : '▶ Moderators can change the screen again'); await announce(); }
+        else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 CS2 auto-tab turned off on stream' : '🎯 CS2 auto-tab turned back on'); }   // быстрый выключатель авто-таба (док)
         else throw new HttpErr(400, 'неизвестное действие');
         await publishCtl();
         return send(res, 200, JSON.stringify({ ok:true, ctl }), 'application/json');
       }
       if(p==='/api/code') return send(res, 200, JSON.stringify({ ok:true, code:modCode(), fp:TLS.fp, addrs:addresses(), pass:cfg.modPass, name:cfg.name }), 'application/json');
-      if(req.method==='POST' && p==='/api/code/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('новый код для модераторов'); log('🔑 Выдан новый код для модераторов'); return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/code/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('new moderator code'); log('🔑 New moderator code issued'); return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/room/new'){   // новая комната: новые ключи, пароль и код
         const { name } = JSON.parse(await readBody(req, 1024));
-        await createRoom(name); log('🆕 Комната создана заново');
+        await createRoom(name); log('🆕 Room recreated');
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
@@ -2069,7 +2069,7 @@ const modSrv = https.createServer({ key:TLS.key, cert:TLS.cert, minVersion:'TLSv
 });
 modSrv.on('upgrade', wsServer(true));
 modSrv.on('tlsClientError', () => {});
-modSrv.on('error', e => { log('⚠ Порт для модераторов', MPORT, 'не открылся:', e.message); status.modErr = e.message; });
+modSrv.on('error', e => { log('⚠ Moderator port', MPORT, 'did not open:', e.message); status.modErr = e.message; });
 
 function openBrowser(u){
   if(NO_OPEN || APP) return;
@@ -2081,7 +2081,7 @@ function openBrowser(u){
 
 async function shutdown(){
   if(shuttingDown) return; shuttingDown = true;
-  log('Выключаюсь…');
+  log('Shutting down…');
   setTimeout(() => process.exit(0), 600);
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
@@ -2113,35 +2113,35 @@ if(APP){
 
 const AUTH_URL = () => `${ADMIN()}/auth?t=${ADMIN_TOKEN}`;
 function listenMod(){
-  modSrv.listen(MPORT, '0.0.0.0', () => { status.modErr = ''; log('🔌 Порт для модераторов:', MPORT, '(TLS, отпечаток', TLS.fp.slice(0, 16)+'…)'); });
+  modSrv.listen(MPORT, '0.0.0.0', () => { status.modErr = ''; log('🔌 Moderator port:', MPORT, '(TLS, fingerprint', TLS.fp.slice(0, 16)+'…)'); });
 }
 let modTries = 0;
 modSrv.on('error', e => { if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && modTries++ < 30) setTimeout(listenMod, 500); });   // старая версия ещё закрывается
 if(ROLE_MOD){
   // Роль модератора: ни одного порта, только проверка и установка обновлений
-  log('Роль: модератор (порты не открываю)');
+  log('Role: moderator (not opening ports)');
   appSay('READY 0');
-  if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
+  if(process.env.OVERLAY_UPDATED) log('✓ Updated to version', VERSION);
 } else {
   local.listen(PORT, '127.0.0.1', async () => {
     listenMod();
     // Программа с окном пишет stdout в краш-отчёт: ссылку входа (в ней токен) туда не выводим, окно входит само
     if(!APP) console.log(`\n  ╔══════════════════════════════════════════════╗\n  ║  Hudini ${VERSION}                                ║\n  ║  Не закрывай это окно, пока идёт стрим       ║\n  ╚══════════════════════════════════════════════╝\n  Управление (ссылка входа): ${AUTH_URL()}\n`);
-    log('Папка настроек:', BASE);
-    lastAddrs = addrKey(); log('🌐 Адреса для модераторов:', addrText());
+    log('Settings folder:', BASE);
+    lastAddrs = addrKey(); log('🌐 Moderator addresses:', addrText());
     if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
-    else { try{ await createRoom(); log('🆕 Комната создана'); }catch(e){ log('⚠ Не удалось создать комнату:', e.message); } }
+    else { try{ await createRoom(); log('🆕 Room created'); }catch(e){ log('⚠ Could not create the room:', e.message); } }
     // если файл для CS2 уже ставили — обновляем его (новые поля), CS2 подхватит при следующем запуске
-    if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ Файл для CS2 обновлён — перезапусти CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
+    if(cfg.gsiFile && path.basename(cfg.gsiFile)==='gamestate_integration_streamoverlay.cfg' && fs.existsSync(cfg.gsiFile)){ try{ if(fs.readFileSync(cfg.gsiFile,'utf8')!==gsiCfgText()){ fs.writeFileSync(cfg.gsiFile, gsiCfgText()); log('✓ CS2 config file updated — restart CS2'); } status.gsiPath=cfg.gsiFile; }catch{} }
     appSay('READY '+PORT);
-    if(process.env.OVERLAY_UPDATED) log('✓ Обновлено до версии', VERSION);
+    if(process.env.OVERLAY_UPDATED) log('✓ Updated to version', VERSION);
     else openBrowser(AUTH_URL());
   });
 }
 let portTries=0;
 local.on('error', e => {
   if(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && portTries++<30){ setTimeout(()=>local.listen(PORT, '127.0.0.1'), 500); return; }   // старая версия ещё закрывается
-  log('⚠ Не могу занять порт', PORT, '—', e.message, '(уже запущено?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
+  log('⚠ Cannot take port', PORT, '—', e.message, '(already running?)'); appSay('FAIL port '+PORT+' '+(e.code||e.message)); setTimeout(()=>process.exit(1), 4000);
 });
 
 export { detectFight, slotKey, hudSlots, seriesStep, seriesView, seriesCmd, cleanSeries, maskPath };   // для тестов (tests/cs2stats.test.js берёт их из исходника)

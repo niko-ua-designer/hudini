@@ -379,7 +379,7 @@ const C = box.C;
     check(await until(() => s.panel.evaluate(() => document.getElementById('serScore').textContent === '1 : 1'), 4000), 'panel shows 1 : 1');
     await s.panel.click('#serReset');
     check(await until(() => file().maps.length === 0, 4000), 'reset');
-    check(/Серия CS2/.test(s.host.log()), 'Host log mentions series commands');
+    check(/CS2 series/.test(s.host.log()), 'Host log mentions series commands');
   });
 
   await step('radar: a dot where the calibration puts it, theme background, dots move', async () => {

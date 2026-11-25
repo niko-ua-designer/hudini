@@ -56,7 +56,7 @@ const { step, check, eq, until, sleep } = T;
     const k2 = await newKey();
     eq((await session(k2.key, 'https://evil.example')).status, 403, 'another site with a valid key → 403');
     eq((await session(k2.key, 'null')).status, 403, 'a sandboxed page (Origin: null) → 403');
-    check(await until(() => /Отказ входа: этот компьютер — пульт стримера: чужой сайт/.test(host.log())), 'the refusal is logged with its reason');
+    check(await until(() => /Login refused: this computer — streamer panel: foreign site/.test(host.log())), 'the refusal is logged with its reason');
   });
 
   let sp = null, key1 = null;
@@ -71,8 +71,8 @@ const { step, check, eq, until, sleep } = T;
     check(!seen.some(u => u.includes(key1.key)), 'the key was never sent in a URL');
     const again = await session(key1.key);
     eq(again.status, 403, 'the same key a second time → 403');
-    check(/ключ уже использован/.test(host.log()), 'reuse is logged');
-    check(/Пульт стримера открыт на этом компьютере/.test(host.log()) && /Пульт стримера подключился/.test(host.log()), 'the login is logged (without the key)');
+    check(/key already used/.test(host.log()), 'reuse is logged');
+    check(/Streamer panel opened on this computer/.test(host.log()) && /Streamer panel connected/.test(host.log()), 'the login is logged (without the key)');
   });
 
   await step('an expired key is refused', async () => {
@@ -82,7 +82,7 @@ const { step, check, eq, until, sleep } = T;
     await sleep(700);
     const r = await fetch(`http://127.0.0.1:${PORT + 10}/api/streamer/session`, { method: 'POST', headers: { origin: web.url, 'content-type': 'application/json' }, body: JSON.stringify({ key: k.key }) });
     eq(r.status, 403, 'a key older than its lifetime → 403');
-    check(await until(() => /ключ просрочен/.test(h2.log())), 'logged as expired');
+    check(await until(() => /key expired/.test(h2.log())), 'logged as expired');
     const fresh = await newKey(h2);
     const ok = await fetch(`http://127.0.0.1:${PORT + 10}/api/streamer/session`, { method: 'POST', headers: { origin: web.url, 'content-type': 'application/json' }, body: JSON.stringify({ key: fresh.key }) }).then(r => r.json());
     if(ok.pass) secrets.push(ok.pass);

@@ -106,7 +106,7 @@ const subtle = globalThis.crypto.subtle;
     await A.pub({ sid, kind: 'cam', t: 'offer', to: 'widget' });
     await sleepMsg();
     eq([cnt(W, h => h.sid === sid), (await dock()).media.pending.length], [0, 0], 'declined: dropped, and no new request right away');
-    check(/Отклонено/.test(host.log()), 'the decision is in the log');
+    check(/Denied/.test(host.log()), 'the decision is in the log');
   });
 
   await step('approval works for the connection session only; the stream then reaches the widget and the streamer', async () => {
@@ -224,7 +224,7 @@ const subtle = globalThis.crypto.subtle;
     await A.pub({ sid: sidA2, kind: 'screen', t: 'offer', to: 'widget' });
     check(await until(async () => (await dock()).media.pending.some(p => p.key === 'screen|' + A.id)), 'it asks again');
     await ctrl('mediadeny', 'screen|' + A.id);
-    check(/Права модераторов: .*экран модератора — нельзя/.test(host.log()), 'the change is in the log');
+    check(/Moderator permissions: .*moderator.s screen — denied/.test(host.log()), 'the change is in the log');
   });
 
   await step('dock: "turn off" on a stream ends it and requires a new request; the global switch ends every moderator stream', async () => {
