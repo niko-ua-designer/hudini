@@ -133,8 +133,12 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 }
 @media (max-width:760px){
   .help{grid-template-columns:1fr} .help aside{position:static;max-height:none}
-  .top nav{display:none}
-  .top{gap:10px}
+  .js .top nav{display:none}
+  .top{gap:10px;flex-wrap:wrap}
+  .top nav{order:9;flex:1 1 100%;margin:0}
+  .js .top .menu-btn{display:grid}
+  .js .top.menu-open nav{display:flex;flex-direction:column;gap:2px;padding:6px 0 4px}
+  .top nav a{display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:calc(16px*var(--k))}
   .top .btn.small{margin-left:auto}
   .hero{padding:40px 16px 24px}
   .wrap{padding:0 16px}
@@ -143,7 +147,7 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
   .ticks{grid-template-columns:1fr}
   .band{padding:44px 18px;margin-bottom:60px}
 }
-@media (max-width:420px){ .top .btn.small{padding:7px 10px;font-size:calc(13px*var(--k))} select.lang{max-width:96px} .top .logo{font-size:calc(15px*var(--k))} }
+@media (max-width:420px){ .top{padding-inline:12px;gap:8px} .top .logo img{width:26px;height:26px} .top .btn.small{padding:7px 10px;font-size:calc(13px*var(--k))} select.lang{max-width:92px} .top .logo{font-size:calc(15px*var(--k))} }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition:none!important;animation:none!important}
   html{scroll-behavior:auto}
@@ -353,7 +357,7 @@ footer a:hover,.langlinks a:hover{color:#fff}
   .btn,.chips button,.rp-types button,.lo-btn{min-height:44px}
   .btn.small{min-height:40px}
   .top nav a,.help aside a{display:inline-flex;align-items:center;min-height:40px}
-  .langlinks a,footer .wrap>a{display:inline-flex;align-items:center;min-height:40px}
+  .langlinks a,footer .wrap>a{display:inline-flex;align-items:center;min-height:44px}
   select.lang{min-height:40px}
   .rp-f :is(input,select,textarea),.mig-f input{min-height:44px;font-size:16px}
 }
@@ -408,7 +412,7 @@ html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!impor
 .dl-tool{min-height:48px;padding:12px 22px;white-space:normal;text-align:center}
 .dl-tool span[aria-hidden]{font-size:1.1em;opacity:.9}
 .dl-body .dl-img{margin:0;max-height:46vh;object-fit:contain;object-position:top}
-.dl-foot .dl-open{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:#fff}
+.dl-foot :is(.dl-open,.dl-get){display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:#fff}
 @media (max-width:640px){
   .lo-box.dl-box{max-height:94vh;border-radius:16px}
   .dl-head{padding:16px 52px 12px}
@@ -420,3 +424,16 @@ html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!impor
   .dl-chooser .answer{padding:14px}
   .lo-back{padding:10px}
 }
+
+/* ---- header menu on narrow screens (button added by site.js), tap targets, reveal safety net ---- */
+.menu-btn{display:none;place-items:center;width:44px;height:44px;padding:0;border-radius:11px;border:1px solid var(--line2);background:#ffffff0d;color:var(--text);cursor:pointer;transition:background-color .15s,border-color .15s}
+.menu-btn:hover{background:#ffffff18;border-color:#ffffff40}
+.menu-btn .m-close,.menu-open .menu-btn .m-open{display:none}
+.menu-open .menu-btn .m-close{display:inline}
+.menu-btn:focus-visible{outline:2px solid #9b7dff;outline-offset:2px}
+/* links in the hero line and the footer are at least 44px tall */
+.sh-hero .free a,footer a,.langlinks a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+.sh-hero .free{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px}
+.dl-foot .dl-get{text-decoration:none}
+/* the page must stay readable when the script fails: enter.js sets .no-reveal if site.js has not finished */
+html.no-reveal .reveal,html.no-reveal .reveal .card{opacity:1;transform:none}

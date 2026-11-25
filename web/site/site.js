@@ -20,14 +20,21 @@
   let lang = pick();
   const REL = 'https://github.com/niko-ua-designer/hudini/releases/latest';
   const OSES = [['windows', 'Windows'], ['linux', 'Linux'], ['macos', 'macOS']];
+  // Phones and tablets cannot run Hudini Host: there the main download action says "on a PC" and the detected system is empty.
+  const UA = (navigator.userAgentData?.platform || navigator.platform || '') + ' ' + (navigator.userAgent || '');
+  const PHONE = /android|iphone|ipad|ipod|mobile/i.test(UA) || (/macintosh/i.test(UA) && navigator.maxTouchPoints > 1);   // iPadOS pretends to be a Mac
   function detectOs(){
-    const u = (navigator.userAgentData?.platform || navigator.platform || '') + ' ' + (navigator.userAgent || '');
-    if(/android|iphone|ipad/i.test(u)) return 'windows';   // phones cannot run it; show the default
-    if(/mac/i.test(u)) return 'macos';
-    if(/linux|x11|cros/i.test(u)) return 'linux';
+    if(PHONE) return '';
+    if(/mac/i.test(UA)) return 'macos';
+    if(/linux|x11|cros/i.test(UA)) return 'linux';
     return 'windows';
   }
   const myOs = detectOs();
+  // The release assets are named HudiniHost-<os>-<version>.zip; the build writes the version into <html data-ver>. Without a version the link falls back to the release page.
+  const ZIP_OS = { windows:'windows', linux:'linux', macos:'mac' };
+  const VERSION = document.documentElement.dataset.ver || '';
+  const zipName = os => ZIP_OS[os] && VERSION ? `HudiniHost-${ZIP_OS[os]}-${VERSION}.zip` : '';
+  const zipUrl = os => zipName(os) ? `${REL}/download/${zipName(os)}` : REL;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Animations are off for reduced motion and for automated test browsers (enter.js sets html.no-anim; a test can set window.__forceAnim to look at them)
   const still = () => reduced || document.documentElement.classList.contains('no-anim');
@@ -117,15 +124,15 @@
   function landing(t){
     for(const el of document.querySelectorAll('[data-t-aria]')) el.setAttribute('aria-label', t[el.dataset.tAria] || '');
     for(const el of document.querySelectorAll('[data-cards]')) el.innerHTML = el.dataset.cards.split(',').map(k => card(t[k])).join('');
-    const osName = OSES.find(o => o[0] === myOs)[1];
-    for(const a of document.querySelectorAll('a[data-dl]')) a.href = REL;
-    for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + `<span class="dl-l">${t.dlFor.replace('{os}', osName)}</span><span class="dl-s">${t.dlShort}</span>`;
+    const osName = (OSES.find(o => o[0] === myOs) || ['', ''])[1];
+    for(const a of document.querySelectorAll('a[data-dl]')) a.href = zipUrl(myOs);
+    for(const a of document.querySelectorAll('a[data-os-label]')) a.innerHTML = ic('dl') + (PHONE ? `<span class="dl-l">${t.dlPhoneBtn}</span><span class="dl-s">${t.dlPhoneBtn}</span>` : `<span class="dl-l">${t.dlFor.replace('{os}', osName)}</span><span class="dl-s">${t.dlShort}</span>`);
     for(const el of document.querySelectorAll('[data-t-alt]')) el.setAttribute('alt', t[el.dataset.tAlt] || '');
     for(const el of document.querySelectorAll('[data-t-label]')) el.setAttribute('aria-label', t[el.dataset.tLabel] || '');
     if(reduced) for(const v of document.querySelectorAll('video.sh-vid')){ v.removeAttribute('autoplay'); v.pause(); }   // reduced motion: the poster stays
     for(const a of document.querySelectorAll('a[data-sums]')) a.href = REL;
     const other = document.getElementById('otherOs');
-    if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${REL}" data-os="${o[0]}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
+    if(other) other.innerHTML = OSES.filter(o => o[0] !== myOs).map(o => `<a href="${zipUrl(o[0])}" data-os="${o[0]}" target="_blank" rel="noopener">${o[1]}</a>`).join(' · ');
     for(const a of document.querySelectorAll('a[data-help]')) a.href = ROOT + 'help.html?lang=' + encodeURIComponent(lang);
     for(const a of document.querySelectorAll('a[data-rep]')) a.href = ROOT + 'report.html?lang=' + encodeURIComponent(lang);
     for(const [id, key] of [['sSteps', 'sSteps'], ['mSteps', 'mSteps']]){ const ol = document.getElementById(id); if(ol) ol.innerHTML = t[key].map(x => `<li>${x}</li>`).join(''); }
@@ -177,8 +184,9 @@
     const t = T[lang] || T.en;
     const slots = new Map();   // text key -> elements; the HTML itself always comes from the text table below, never from the page
     for(const el of document.querySelectorAll('[data-t]')){ const k = el.dataset.t; if(!slots.has(k)) slots.set(k, []); slots.get(k).push(el); }
-    const VER = document.documentElement.dataset.ver || '';   // the build writes the program version into <html data-ver>
+    const VER = VERSION;   // the build writes the program version into <html data-ver>
     for(const [k, v] of Object.entries(t)) if(typeof v === 'string') for(const el of slots.get(k) || []) el.innerHTML = v.replace(/\{ver\}/g, VER);
+    for(const b of document.querySelectorAll('.menu-btn')) b.setAttribute('aria-label', t.menu || 'Menu');
     if(document.body.dataset.page === 'help') helpPage(); else landing(t);
   }
   function setLang(code){
@@ -208,24 +216,26 @@
     let done = false; const end = () => { if(!done){ done = true; back.remove(); } };
     back.addEventListener('transitionend', e => { if(e.target === back) end(); }); setTimeout(end, 260);
   }
+  // Keeps Tab and Shift+Tab inside a dialog box
+  function trapTab(e, box){
+    if(e.key !== 'Tab') return;
+    const f = [...box.querySelectorAll('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
+    else if(!e.shiftKey && (i === f.length - 1 || i < 0)){ e.preventDefault(); f[0].focus(); }
+  }
   // A download click opens a two-step mini guide: what else is needed (a way to connect the PCs), then the release page with the right file marked
-  function dlGuide(os, opener){
+  // os is '' on a phone: there the only thing the guide says about the program is that it is for a PC (alone = true: no connection step before it)
+  function dlGuide(os, opener, alone){
     if(document.querySelector('.lo-back')) return;
     const t = T[lang] || T.en, back = document.createElement('div'); back.className = 'lo-back';
     const box = document.createElement('div'); box.className = 'lo-box dl-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'dlTitle');
-    const osName = (OSES.find(o => o[0] === os) || OSES[0])[1];
+    const osName = (OSES.find(o => o[0] === os) || ['', ''])[1];
     const from = opener || document.activeElement;
     picked = 'easy';   // the simplest way is selected each time the guide opens
     const close = () => { document.removeEventListener('keydown', onKey); fadeOut(back); if(from && from.focus && from.isConnected) setTimeout(() => from.focus(), 0); };
-    const focusables = () => [...box.querySelectorAll('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null);
-    const onKey = e => {
-      if(e.key === 'Escape'){ close(); return; }
-      if(e.key !== 'Tab') return;
-      const f = focusables(); if(!f.length) return;   // keep Tab inside the window
-      const i = f.indexOf(document.activeElement);
-      if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
-      else if(!e.shiftKey && (i === f.length - 1 || i < 0)){ e.preventDefault(); f[0].focus(); }
-    };
+    const onKey = e => { if(e.key === 'Escape') close(); else trapTab(e, box); };
     const el = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt != null) e.textContent = txt; return e; };
     const btn = (label, cls, fn) => { const b = el('button', 'lo-btn' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; return b; };
     function show(step){
@@ -237,19 +247,26 @@
     function draw(step){
       box.replaceChildren();
       const head = el('div', 'dl-head'), body = el('div', 'dl-body'), foot = el('div', 'dl-foot');
-      const dots = el('div', 'dl-dots'); for(let i = 0; i < 2; i++) dots.appendChild(el('i', i === step ? 'on' : ''));
+      const phone = !os && (alone || step === 1);
+      const dots = el('div', 'dl-dots'); if(!alone) for(let i = 0; i < 2; i++) dots.appendChild(el('i', i === step ? 'on' : ''));
       const x = el('button', 'dl-x', '\u2715'); x.type = 'button'; x.setAttribute('aria-label', t.dlClose || 'Close'); x.onclick = close;
-      const title = el('h2', 'lo-title', step === 0 ? t.dlG1T : t.dlG2T); title.id = 'dlTitle';
+      const title = el('h2', 'lo-title', phone ? t.dlPhoneT : step === 0 ? t.dlG1T : t.dlG2T); title.id = 'dlTitle';
       head.append(dots, title, x);
-      if(step === 0){
+      if(phone){
+        body.append(el('p', 'dl-p', t.dlPhoneP));
+        const open = el('a', 'lo-btn main dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.onclick = () => setTimeout(close, 300);
+        foot.append(...(alone ? [] : [btn(t.dlGBack, '', () => show(0))]), open);
+      } else if(step === 0){
         const ch = el('div', 'chooser dl-chooser');
         body.append(el('p', 'dl-p', t.dlG1P), ch); chooser(ch);
         foot.append(btn(t.dlGNext, 'main', () => show(1)));
       } else {
-        const p = el('p', 'dl-p'); p.innerHTML = t.dlG2P.replace('{os}', osName); body.append(p);
+        const p = el('p', 'dl-p'); p.innerHTML = t.dlG2P.replace('{os}', osName).replace('{file}', zipName(os) || 'HudiniHost-*.zip'); body.append(p);
         const img = el('img', 'dl-img'); img.src = ROOT + 'img/assets-' + os + '.webp'; img.width = 760; img.height = 430; img.alt = ''; body.append(img);
-        const open = el('a', 'lo-btn main dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.onclick = () => setTimeout(close, 300);
-        foot.append(btn(t.dlGBack, '', () => show(0)), open);
+        // the file itself first; the release page stays as the fallback (and is the only link when the build has no version)
+        const get = el('a', 'lo-btn main dl-get', t.dlFor.replace('{os}', osName)); get.href = zipUrl(os); get.rel = 'noopener noreferrer'; get.onclick = () => setTimeout(close, 600);
+        const open = el('a', 'lo-btn dl-open', t.dlGOpen); open.href = REL; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.onclick = () => setTimeout(close, 300);
+        foot.append(btn(t.dlGBack, '', () => show(0)), open, get);
       }
       box.append(head, body, foot);
     }
@@ -266,15 +283,31 @@
   });
   document.addEventListener('click', e => {
     const a = e.target.closest?.('a[data-dl], #otherOs a'); if(!a || document.body.dataset.page === 'help') return;
-    e.preventDefault(); dlGuide(a.dataset.os || myOs, a);
+    if(e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // "open in a new tab" keeps the plain link to the file
+    e.preventDefault(); dlGuide(a.dataset.os || myOs, a, !a.dataset.os && !myOs);
   });
+  // Narrow screens: the header links move into a menu behind a button (below 760px CSS hides the bar; .js .top nav then shows only when open)
+  function navMenu(){
+    const top = document.querySelector('header.top'), nav = top && top.querySelector('nav'); if(!nav) return;
+    nav.id = nav.id || 'topNav';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'menu-btn';
+    btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', nav.id); btn.setAttribute('aria-label', (T[lang] || T.en).menu || 'Menu');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="m-open" d="M4 7h16M4 12h16M4 17h16"/><path class="m-close" d="M6 6l12 12M18 6 6 18"/></svg>';
+    top.appendChild(btn);
+    const set = on => { top.classList.toggle('menu-open', on); btn.setAttribute('aria-expanded', String(on)); };
+    btn.onclick = () => set(btn.getAttribute('aria-expanded') !== 'true');
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true'){ set(false); btn.focus(); } });
+    document.addEventListener('click', e => { if(btn.getAttribute('aria-expanded') === 'true' && !top.contains(e.target)) set(false); });
+    nav.addEventListener('click', e => { if(e.target.closest('a')) set(false); });
+    matchMedia('(min-width:761px)').addEventListener?.('change', e => { if(e.matches) set(false); });
+  }
   // First visit on the landing page: offer the languages at once (the browser language first). Any choice, or closing the offer, is remembered.
   function langOffer(){
     if(document.body.dataset.page !== 'home' || document.querySelector('.lo-back')) return;
     let saved = null; try{ saved = localStorage.getItem('hudini.lang'); }catch{}
     if(saved || new URLSearchParams(location.search).get('lang')) return;
     const mine = canon((navigator.language || '').slice(0, 2).toLowerCase()) || 'en';
-    const TITLE = { en:'Choose your language', ru:'Выберите язык', uk:'Оберіть мову', de:'Sprache wählen' };
+    const TITLE = { en:'Choose your language', ru:'Выбери язык', uk:'Обери мову', de:'Sprache wählen' };
     const order = [mine, ...LANGS.map(l => l[0]).filter(c => c !== mine)];
     const back = document.createElement('div'); back.className = 'lo-back';
     const box = document.createElement('div'); box.className = 'lo-box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', TITLE[mine]);
@@ -284,7 +317,7 @@
       try{ localStorage.setItem('hudini.lang', keep || lang); }catch{}
       fadeOut(back); document.removeEventListener('keydown', onKey);
     };
-    const onKey = e => { if(e.key === 'Escape') close(); };
+    const onKey = e => { if(e.key === 'Escape') close(); else trapTab(e, box); };
     for(const c of order){
       const b = document.createElement('button'); b.type = 'button'; b.className = 'lo-btn' + (c === mine ? ' main' : '');
       b.textContent = LANGS.find(l => l[0] === c)[1];
@@ -298,9 +331,11 @@
     box.querySelector('.lo-btn')?.focus();
   }
   render();
+  navMenu();
   if(document.body.dataset.page !== 'help') landingOnce();
   if(document.body.dataset.page === 'home' && location.hash === '#connect') dlGuide(myOs);   // an address with #connect opens the guide
   langOffer();
+  document.documentElement.classList.add('rdy');   // the whole script ran; enter.js reveals the page by itself if this never happens
 })();
 
 // Page transitions. Leaving for another page of the site: the letters of the visible headings drop a little and fade (left to right),
