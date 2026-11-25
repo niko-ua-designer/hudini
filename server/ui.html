@@ -81,6 +81,17 @@ details[open] summary{margin-bottom:10px}
 /* подключение модераторов */
 .notice{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:12px 16px;margin:14px 0 0}
 .notice span{flex:1;min-width:220px}
+.rmodal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:#07080bd9;backdrop-filter:blur(6px)}
+.rmodal[hidden]{display:none}
+.rbox{position:relative;width:min(560px,100%);background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,#9b7dff,#ff5c9a,#ffb36b) border-box;border:2px solid transparent;border-radius:18px;padding:28px 28px 24px;box-shadow:0 30px 90px -20px #7c5cffaa,0 0 0 1px #0006;text-align:center}
+.rico{width:64px;height:64px;margin:0 auto 10px;border-radius:18px;display:grid;place-items:center;font-size:32px;background:linear-gradient(135deg,#7c5cff,#ff5c9a);box-shadow:0 12px 30px -8px #ff5c9a99}
+.rbox h2{margin:0 0 8px;font-size:24px;background:linear-gradient(90deg,#b9a3ff,#ff8fb8,#ffc58f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rbox p{margin:0 0 16px;color:var(--text);opacity:.9}
+.rbox ol{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:10px;text-align:left;counter-reset:s}
+.rbox li{counter-increment:s;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.rbox li:before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--acc);color:#fff}
+.rbox li span{flex:1;min-width:180px}
+.rbox #roomOk{min-width:160px;font-size:15px;padding:10px 22px;justify-content:center;text-align:center}
 .cols{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--gap)}
 .cols .card{margin:var(--gap) 0 0}
 .codebox{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#8f96a8;word-break:break-all;max-height:3.1em;overflow:hidden;position:relative}
@@ -195,9 +206,17 @@ a{text-underline-offset:2px}
     <span><b>Cloudflare больше нет.</b> Модераторы подключаются напрямую. Скопируй новый код и отправь его модератору: старые ссылки перестали работать.</span>
     <button class="primary" id="cfOk">Понятно</button>
   </div>
-  <div class="notice" id="roomNotice" hidden>
-    <span><b>Комната обновлена.</b> Она осталась от старой версии Hudini, и модераторы не могли по ней войти. Обнови ссылку в OBS и отправь модераторам новый код.</span>
-    <button class="primary" id="roomOk">Понятно</button>
+  <div class="rmodal" id="roomNotice" hidden role="dialog" aria-modal="true" aria-labelledby="roomTitle">
+    <div class="rbox">
+      <div class="rico">🔑</div>
+      <h2 id="roomTitle">Комната обновлена</h2>
+      <p>Она осталась от старой версии Hudini, и модераторы не могли по ней войти. Hudini Host сделал новую комнату. Осталось два шага:</p>
+      <ol>
+        <li><span>Вставь в OBS новую ссылку (источник «Браузер»)</span><button id="roomObs">📋 Скопировать ссылку для OBS</button></li>
+        <li><span>Отправь модераторам новый код</span><button id="roomCode">📋 Скопировать код для модератора</button></li>
+      </ol>
+      <button class="primary" id="roomOk">Готово</button>
+    </div>
   </div>
 
   <div class="cols">
@@ -475,6 +494,8 @@ $('copyCode').onclick=async()=>{ if(!lastCode) return; try{ await navigator.clip
   const b=$('copyCode'); if(!b.dataset.html) b.dataset.html=b.innerHTML; b.textContent='Скопировано ✓'; b.classList.add('done'); clearTimeout(b._t); b._t=setTimeout(()=>{ b.innerHTML=b.dataset.html; b.classList.remove('done'); }, 1600); };
 $('cfOk').onclick=async()=>{ try{ await api('/api/notice', { id:'cf' }); }catch{} refresh(); };
 $('roomOk').onclick=async()=>{ try{ await api('/api/notice', { id:'room' }); }catch{} refresh(); };
+$('roomObs').onclick=()=>$('copyObs').click();
+$('roomCode').onclick=()=>$('copyCode').click();
 $('logConn').onchange=refresh;
 $('logCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('logs').textContent); toast('Журнал скопирован'); }catch{} };
 
