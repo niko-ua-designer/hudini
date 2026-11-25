@@ -165,7 +165,7 @@
     async onMedia(buf){
       const m = await unsealJSON(KEYS, buf, false); const h = ensureHub();
       if(!m || !h || typeof m !== 'object' || m.cid !== client?.options?.clientId || !M.KINDS.includes(m.kind)) return;
-      if(m.ev === 'pending'){ h.setPending(m.kind, true); toast('Ждём подтверждения стримера', 3000); }
+      if(m.ev === 'pending'){ h.setPending(m.kind, true); toast('Ждём подтверждения: стример увидит запрос в окне Hudini Host и в панели OBS', 6000); }
       else if(m.ev === 'ok'){ h.reoffer(m.kind); toast('Стример разрешил', 2500); }
       else if(m.ev === 'no' || m.ev === 'bye'){
         h.stopKind(m.kind);

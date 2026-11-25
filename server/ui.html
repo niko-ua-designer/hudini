@@ -111,6 +111,17 @@ details[open] summary{margin-bottom:10px}
 .perms{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 16px;margin-top:10px}
 .dot.on{background:var(--ok)}
 .dot.off{background:#4a5060}
+@media (max-width:560px){
+  .tbl.addr thead{display:none}
+  .tbl.addr,.tbl.addr tbody{display:block}
+  .tbl.addr tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .tbl.addr td{border:0;padding:2px 0;min-width:0}
+  .tbl.addr td:nth-child(1){grid-column:1/-1;font-weight:600}
+  .tbl.addr td:nth-child(2){grid-column:1;word-break:break-all}
+  .tbl.addr td:nth-child(3){grid-column:1/-1;grid-row:3}
+  .tbl.addr td:nth-child(4){grid-column:2;grid-row:2;text-align:right}
+  .tbl.addr tr:hover td{background:none}
+}
 @media (max-width:700px){ .cols{grid-template-columns:1fr} }
 @media (max-width:560px){ .lim{grid-template-columns:1fr} .row{flex-wrap:wrap} .row>input{flex-basis:100%} }
 .updbar{height:8px;border-radius:99px;background:var(--line,#2a2f3a);overflow:hidden;margin:10px 0 2px}
@@ -191,6 +202,22 @@ a{text-underline-offset:2px}
   <div class="sub" id="subBrowser">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
   <div class="sub" id="subApp" hidden>Сервер оверлея на этом компьютере. Если закрыть окно, программа продолжит работать в трее.</div>
 
+  <div class="card first" id="askCard" hidden role="alert">
+    <h2>🎥 Модератор просит разрешение</h2>
+    <div id="askBox"></div>
+    <div class="hint">То же самое есть в панели OBS. Пока не ответишь, модератор ждёт.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span> Ссылка для OBS</h2>
+    <div class="row"><input id="obs" readonly placeholder="Появится, когда запустится комната"><button id="copyObs">📋 Копировать</button></div>
+    <ol class="hint">
+      <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
+      <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
+      <li>Выдели источник и нажми <b>Ctrl+F</b>, чтобы растянуть его на весь экран</li>
+    </ol>
+  </div>
+
   <div class="card" id="limCard">
     <h2>📁 Место для файлов модераторов</h2>
     <div class="hint" id="limAsk">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. Сколько места им дать?</div>
@@ -255,18 +282,8 @@ a{text-underline-offset:2px}
 
   <div class="card">
     <h2>🌐 Адреса, по которым тебя можно найти</h2>
-    <table class="tbl"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
+    <table class="tbl addr"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
     <div class="warnbox">Через Porthole делись <b>только портом <span id="mpTxt">7778</span></b>. Порт <span id="lpTxt">7777</span> — это управление твоим Hudini, его не показывай никому.</div>
-  </div>
-
-  <div class="card">
-    <h2><span class="n">1</span> Ссылка для OBS</h2>
-    <div class="row"><input id="obs" readonly placeholder="Появится, когда запустится комната"><button id="copyObs">📋 Копировать</button></div>
-    <ol class="hint">
-      <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
-      <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
-      <li>Выдели источник и нажми <b>Ctrl+F</b>, чтобы растянуть его на весь экран</li>
-    </ol>
   </div>
 
   <div class="card" id="dockCard">
@@ -334,35 +351,58 @@ a{text-underline-offset:2px}
     <div class="hint" style="margin-top:12px">Спасибо тестерам: <b data-i18n-skip>Etsuitoku, SaiYeah1, 0_pelmechka_0, runorn</b></div>
   </div>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <script>
 const $=id=>document.getElementById(id);
+const tr_=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
+const uiLocale=()=>({ ru:'ru-RU', en:'en-GB', uk:'uk-UA', de:'de-DE' })[window.HudiniI18n?.lang]||'en-GB';
 const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (app/), а не в браузере
 // Rust зовёт это после загрузки страницы, если прошлый запуск упал (crash-*.log в data/logs)
 window.hudiniCrash=(name, text)=>{
   $('crashBanner').hidden=false;
-  $('crashCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(name+'\n\n'+text); toast('Скопировано'); }catch{ toast('Не удалось скопировать'); } };
+  $('crashCopy').onclick=()=>copy($('crashCopy'), name+'\n\n'+text);
   $('crashHide').onclick=()=>{ $('crashBanner').hidden=true; TAURI?.core.invoke('crash_dismiss', { name }).catch(()=>{}); };
 };
-if(TAURI){ $('logFolder').hidden=false; $('logFolder').onclick=()=>TAURI.core.invoke('open_logs').catch(e=>toast(String(e))); }
-function toast(t){ const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', 2600); }
+if(TAURI){ $('logFolder').hidden=false; $('logFolder').onclick=()=>TAURI.core.invoke('open_logs').catch(e=>toastErr(e)); }
+function toast(t, err){ const e=$('toast'); e.textContent=t; e.style.display='block'; e.style.borderColor=err?'var(--bad)':''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', err?8000:2600); }
+const toastErr=e=>toast(String(e?.message||e), true);   // errors stay on screen longer: there is time to read and copy them
 function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
 function light(id, cls, title){ const e=$(id); e.className='light '+cls; e.title=title; }
 async function api(p, body){
   const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
   const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
 }
-// Копирование с отметкой «Скопировано ✓» на самой кнопке
-async function copy(btn, input, msg){
-  const text=input.value; if(!text) return false;
-  try{ await navigator.clipboard.writeText(text); }catch{ input.select(); document.execCommand('copy'); }
+// Копирование с отметкой «Скопировано ✓» на самой кнопке. Источник: поле ввода, строка или функция, которая её вернёт
+async function copy(btn, src, msg){
+  const input=src&&src.tagName ? src : null, text=input ? input.value : typeof src==='function' ? src() : src; if(!text) return false;
+  try{ await navigator.clipboard.writeText(text); }catch{
+    const t=input||document.createElement('textarea'); if(!input){ t.value=text; document.body.append(t); } t.select();
+    const ok=document.execCommand('copy'); if(!input) t.remove(); if(!ok){ toast('Не удалось скопировать', true); return false; }
+  }
   if(!btn.dataset.html) btn.dataset.html=btn.innerHTML;
   btn.textContent='Скопировано ✓'; btn.classList.add('done');
   clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.innerHTML=btn.dataset.html; btn.classList.remove('done'); }, 1600);
   if(msg) toast(msg);
   return true;
 }
-let limFilled=false;
+let limFilled=false, lastS=null;
+// Запросы модераторов на камеру, экран и микрофон: те же, что в панели OBS. Пока стример не ответил, модератор ждёт
+const ASK_TXT={ cam:'хочет показать камеру', screen:'хочет показать экран', mic:'хочет включить микрофон' };
+const baseTitle=document.title;
+function renderAsk(s){
+  const list=s.media?.pending||[], box=$('askBox'), sig=JSON.stringify(list);
+  $('askCard').hidden=!list.length;
+  document.title=list.length ? '('+list.length+') '+baseTitle : baseTitle;
+  if(box.dataset.sig===sig) return; box.dataset.sig=sig;
+  box.replaceChildren(...list.map(q=>{
+    const row=el('div',null,'row'), n=el('span',null); n.style.flex='1';
+    const ip=el('b',q.ip); ip.setAttribute('data-i18n-skip',''); n.append(tr_('Модератор')+' ', ip, ' '+tr_(ASK_TXT[q.kind]||q.kind));
+    const go=async a=>{ try{ await api('/api/control', { action:a, key:q.key }); }catch(e){ toastErr(e); } refresh(); };
+    const ok=el('button','Разрешить показ','primary'), no=el('button','Отклонить запрос');
+    ok.onclick=()=>go('mediaallow'); no.onclick=()=>go('mediadeny');
+    row.append(n, ok, no); return row;
+  }));
+}
 const WEAP={ak47:'AK-47',m4a1:'M4A4',m4a1_silencer:'M4A1-S',awp:'AWP',deagle:'Desert Eagle',usp_silencer:'USP-S',glock:'Glock-18'};
 async function refresh(){
   let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); light('lObs','bad','программа не отвечает'); return; }
@@ -390,7 +430,7 @@ async function refresh(){
   }
   $('limAsk').hidden = !!g.limitsSet; $('limCard').classList.toggle('first', !g.limitsSet);
   $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
-  renderConnect(s);
+  lastS=s; renderConnect(s); renderAsk(s);
   st('sCs', s.cs2Online?'ok':'warn', csTxt);
   if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
   const c=s.cs2;
@@ -408,26 +448,31 @@ async function refresh(){
     u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
   { const dl=u.state==='downloading'; $('updBar').hidden=!(dl||u.state==='checking'); $('updBar').classList.toggle('busy', !(dl && u.prog?.total));
     $('updFill').style.width = dl && u.prog?.total ? Math.round(100*u.prog.done/u.prog.total)+'%' : '';
-    $('updWhen').textContent = !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(window.HudiniI18n?.lang==='ru'?'ru':window.HudiniI18n?.lang||'en', { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось'; }
+    $('updWhen').textContent = !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(uiLocale(), { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось'; }
   $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
   $('logs').textContent=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n'); $('logs').scrollTop=1e9;
 }
 $('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Комната ещё создаётся'); };
 $('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
-$('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toast(e.message); } refresh(); };
-$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toast(e.message); } };
+$('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toastErr(e); } refresh(); };
+$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toastErr(e); } };
 const reportHref=(s)=>{ const q=new URLSearchParams({ lang:window.HudiniI18n?.lang||'en', role:'streamer' }); if(s?.version) q.set('v', s.version);
   const ua=navigator.userAgent||''; q.set('os', /Windows/i.test(ua)?'windows':/Mac/i.test(ua)?'macos':/Linux|X11/i.test(ua)?'linux':'windows');
   const nets=(s?.addrs||[]).map(a=>a.net).filter(n=>['radmin','porthole','tailscale','zerotier','hamachi','ext'].includes(n)); if(nets.length===1) q.set('conn', nets[0]);
   return 'https://niko-ua-designer.github.io/hudini/report.html?'+q; };
 $('reportLink').href=reportHref();
-$('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toast(err.message); } };
+// «Сменить роль» останавливает сервер: во время стрима переспрашиваем
+$('roleLink').onclick=e=>{
+  const busy=lastS && (lastS.obsOnline || lastS.mods>0 || (lastS.media?.live||[]).length);
+  if(busy && !confirm('Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?')) e.preventDefault();
+};
+$('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toastErr(err); } };
 // the dock must open on localhost (the widget's origin): on 127.0.0.1 the status API hides everything without the admin cookie
-const DOCK_URL=`http://localhost:${location.port||'7777'}/dock`;
+const DOCK_URL=`http://localhost:${location.port||'7777'}/dock?lang=${window.HudiniI18n?.lang||'en'}`;   // the dock has no language switch: it takes the language from the link
 $('dockUrl').value=DOCK_URL; $('dockCode').textContent=DOCK_URL;
 $('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
-$('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toast(e.message); } };
+$('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toastErr(e); } };
 // ---- подключение модераторов ----
 const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес' };
 const NEED={ tailscale:'Tailscale у обоих', radmin:'Radmin VPN у обоих', hamachi:'Hamachi у обоих', zerotier:'ZeroTier у обоих', lan:'одна сеть с модератором', inet:'порт 7778 открыт из интернета', porthole:'Porthole, порт модераторов', ext:'проброс порта на роутере' };
@@ -452,59 +497,58 @@ function renderConnect(s){
     for(const m of list){
       const key=m.ip+'|'+m.since; live.add(key);
       const h=hist.get(key)||[]; if(m.rtt!=null){ h.push(m.rtt); if(h.length>10) h.shift(); } hist.set(key,h);
-      const tr=el('tr'), who=el('td',m.me?'Пульт стримера (этот компьютер)':m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})));
+      const tr=el('tr'), who=el('td',m.me?'Пульт стримера (этот компьютер)':m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'})));
       const lat=el('td', m.rtt==null?'…':m.rtt+' мс', rttCls(m.rtt)); const sp=el('div',null,'spark');
       for(const v of h){ const i=el('i'); i.style.height=Math.max(3,Math.min(18,Math.round(v/10)))+'px'; i.style.background='var(--'+(v<80?'ok':v<200?'warn':'bad')+')'; sp.append(i); } lat.append(sp);
       tr.append(who, el('td', m.me?'':NET[m.net]||m.net), lat); t.append(tr);
     }
     for(const k of [...hist.keys()]) if(!live.has(k)) hist.delete(k);
-    const kick=el('button','Отключить всех'); kick.onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toast(e.message); } };
+    const kick=el('button','Отключить всех'); kick.onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toastErr(e); } };
     box.append(t); const d=el('div'); d.style.marginTop='10px'; d.append(kick); box.append(d);
   }
   // адреса (поле «свой адрес» не трогаем, пока в нём печатают)
   const body=$('addrBody'), typing=document.activeElement?.id==='extAddr', keep=typing ? $('extAddr').value : null;
-  if(typing && body.dataset.sig===JSON.stringify(s.addrs)+s.extAddr) return;
+  if(body.dataset.sig===JSON.stringify(s.addrs)+s.extAddr) return;
   body.dataset.sig=JSON.stringify(s.addrs)+s.extAddr; body.replaceChildren();
   for(const a of (s.addrs||[])){
     const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot on'), document.createTextNode(NET[a.net]||a.net));
     const c=el('td'); c.append(el('code', a.h+':'+a.port));
-    const b=el('button','Копировать'); b.onclick=async()=>{ try{ await navigator.clipboard.writeText(a.h+':'+a.port); toast('Скопировано'); }catch{} };
-    const bt=el('td'); bt.append(b); tr.append(n, c, el('td', NEED[a.net]||'', 'hint'), bt); body.append(tr);
+    const b=el('button','Копировать'); b.onclick=()=>copy(b, a.h+':'+a.port);
+    const bt=el('td'); bt.append(b); tr.append(n, c, el('td', a.net==='porthole' ? tr_('открой в Porthole порт')+' '+a.port : NEED[a.net]||'', 'hint'), bt); body.append(tr);
   }
   const own=(s.addrs||[]).some(a=>a.net==='ext');
   const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot '+(own?'on':'off')), document.createTextNode(NET.ext));
   const inp=el('input'); inp.id='extAddr'; inp.placeholder='my-pc.example.com:7778'; inp.value=keep ?? s.extAddr ?? '';
-  const sv=el('button','Сохранить'); sv.onclick=async()=>{ try{ await api('/api/extaddr', { addr:inp.value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toast(e.message); } };
+  const sv=el('button','Сохранить'); sv.onclick=async()=>{ try{ await api('/api/extaddr', { addr:inp.value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toastErr(e); } };
   const ic=el('td'), sc=el('td'); ic.append(inp); sc.append(sv);
   tr.append(n, ic, el('td', NEED.ext, 'hint'), sc); body.append(tr);
 }
-for(const c of document.querySelectorAll('[data-perm]')) c.onchange=async()=>{ try{ await api('/api/perms', { perms:{ [c.dataset.perm]:c.checked } }); }catch(err){ toast(err.message); } c.blur(); refresh(); };
+for(const c of document.querySelectorAll('[data-perm]')) c.onchange=async()=>{ try{ await api('/api/perms', { perms:{ [c.dataset.perm]:c.checked } }); }catch(err){ toastErr(err); } c.blur(); refresh(); };
 // «Открыть пульт»: программа сама передаёт окну пульта одноразовый ключ. Без приложения (разработка) ключ идёт во фрагменте адреса.
 $('openPanel').onclick=async()=>{
   try{
     const r=await api('/api/streamer/open', {});
     if(r.app){ toast('Открываю пульт…'); return; }
     window.open(`${r.url}?streamer=1#hk=${encodeURIComponent(r.key)}&port=${r.port}`, '_blank', 'noopener,noreferrer');
-  }catch(e){ toast(e.message); }
+  }catch(e){ toastErr(e); }
 };
-$('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toast(err.message); } refresh(); };
-$('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ await api('/api/code/new', {}); toast('Новый код ✓'); refresh(); }catch(e){ toast(e.message); } };
-$('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toast(e.message); } };
-$('copyCode').onclick=async()=>{ if(!lastCode) return; try{ await navigator.clipboard.writeText(lastCode); }catch{ const t=el('textarea'); t.value=lastCode; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
-  const b=$('copyCode'); if(!b.dataset.html) b.dataset.html=b.innerHTML; b.textContent='Скопировано ✓'; b.classList.add('done'); clearTimeout(b._t); b._t=setTimeout(()=>{ b.innerHTML=b.dataset.html; b.classList.remove('done'); }, 1600); };
+$('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toastErr(err); } refresh(); };
+$('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ await api('/api/code/new', {}); toast('Новый код ✓'); refresh(); }catch(e){ toastErr(e); } };
+$('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toastErr(e); } };
+$('copyCode').onclick=()=>copy($('copyCode'), ()=>lastCode);
 $('cfOk').onclick=async()=>{ try{ await api('/api/notice', { id:'cf' }); }catch{} refresh(); };
 $('roomOk').onclick=async()=>{ try{ await api('/api/notice', { id:'room' }); }catch{} refresh(); };
 $('roomObs').onclick=()=>$('copyObs').click();
 $('roomCode').onclick=()=>$('copyCode').click();
 $('logConn').onchange=refresh;
-$('logCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('logs').textContent); toast('Журнал скопирован'); }catch{} };
+$('logCopy').onclick=()=>copy($('logCopy'), ()=>$('logs').textContent, 'Журнал скопирован');
 
 // ---- только в окне программы: автозапуск и внешние ссылки ----
 if(TAURI){
   const auto=cmd=>TAURI.core.invoke('plugin:autostart|'+cmd);
   const readAuto=async()=>{ try{ if(document.activeElement!==$('autoStart')) $('autoStart').checked=!!await auto('is_enabled'); $('autoCard').hidden=false; }catch{ $('autoCard').hidden=true; } };
   $('autoStart').onchange=async e=>{
-    try{ await auto(e.target.checked?'enable':'disable'); toast(e.target.checked?'Автозапуск включён':'Автозапуск выключен'); }catch(err){ toast(String(err?.message||err)); }
+    try{ await auto(e.target.checked?'enable':'disable'); toast(e.target.checked?'Автозапуск включён':'Автозапуск выключен'); }catch(err){ toastErr(err); }
     $('autoStart').blur(); readAuto();
   };
   readAuto();

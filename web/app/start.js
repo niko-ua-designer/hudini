@@ -148,6 +148,7 @@
     await HudiniStore.ready;
     sessions = S.cleanList(HudiniStore.get('app.sessions', []));
     try{ app = { ...app, ...(await call('app_state')) }; }catch{}
+    call('set_lang', { lang:lang() }).catch(() => {});   // the Host window opens in the same language (?lang=)
     $('ver').textContent = app.version ? 'v' + app.version : '';
     $('remember').checked = !!app.remember;
     showUpdate(app.update);

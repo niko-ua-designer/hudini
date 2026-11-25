@@ -198,7 +198,8 @@ section[data-pane][hidden]{display:none}
 .cm img{height:20px;vertical-align:middle}
 .cm.shown{background:#2ecc7122}
 .cm .tm{float:right;color:var(--muted);font-size:10px;margin-left:6px}
-#chatMore{position:sticky;bottom:0;text-align:center;background:var(--acc);color:#fff;border-radius:6px;padding:3px;margin-top:-28px;cursor:pointer;font-size:12px}
+#chatMore{display:block;width:100%;border:0;font:inherit;position:sticky;bottom:0;text-align:center;background:var(--acc);color:#fff;border-radius:6px;padding:3px;margin-top:-28px;cursor:pointer;font-size:12px}
+#chatMore[hidden]{display:none}
 /* ---------- сценарии ---------- */
 .scn{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);margin:6px 0}
 .scn.off{opacity:.5}

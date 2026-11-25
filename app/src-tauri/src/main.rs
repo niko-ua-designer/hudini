@@ -302,17 +302,20 @@ fn unseen_crash() -> Option<(String, String)> {
 struct AppCfg {
     role: String,
     remember: bool,
+    // язык интерфейса (ru/en/uk/de), выбранный на первом экране: окно Host получает его в адресе (?lang=)
+    lang: String,
 }
 
 fn load_cfg(data: &Path) -> AppCfg {
     let v: serde_json::Value = fs::read_to_string(data.join("app.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
     let remember = v.get("remember").and_then(|x| x.as_bool()).unwrap_or(false);
     let role = v.get("role").and_then(|x| x.as_str()).filter(|r| *r == ROLE_STREAMER || *r == ROLE_MOD).unwrap_or("").to_string();
-    AppCfg { role: if remember { role } else { String::new() }, remember }
+    let lang = v.get("lang").and_then(|x| x.as_str()).filter(|l| ["ru", "en", "uk", "de"].contains(l)).unwrap_or("").to_string();
+    AppCfg { role: if remember { role } else { String::new() }, remember, lang }
 }
 
 fn save_cfg(data: &Path, cfg: &AppCfg) {
-    let _ = write_atomic(&data.join("app.json"), serde_json::json!({ "role": cfg.role, "remember": cfg.remember }).to_string().as_bytes());
+    let _ = write_atomic(&data.join("app.json"), serde_json::json!({ "role": cfg.role, "remember": cfg.remember, "lang": cfg.lang }).to_string().as_bytes());
 }
 
 // Файл целиком или никак: пишем рядом, сбрасываем на диск и переименовываем (обрыв посередине или отключение
@@ -585,7 +588,9 @@ fn on_ready(app: &AppHandle, port: u16, role: &str) {
     if role != ROLE_STREAMER {
         return; // роль модератора: порта нет, окно остаётся на экране сессий
     }
-    if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}", server.token.lock().unwrap()))) {
+    let lang = app.state::<Mutex<AppCfg>>().lock().unwrap().lang.clone();
+    let lang_q = if lang.is_empty() { String::new() } else { format!("&lang={lang}") };
+    if let (Some(w), Ok(url)) = (app.get_webview(MAIN), Url::parse(&format!("http://127.0.0.1:{port}/auth?t={}{lang_q}", server.token.lock().unwrap()))) {
         // одноразовый вход: сервер выдаёт окну cookie hudini_admin и перенаправляет на страницу управления
         let _ = w.navigate(url);
     }
@@ -1207,6 +1212,20 @@ async fn start_role(app: AppHandle, role: String, remember: bool) -> Result<(), 
 }
 
 #[tauri::command]
+fn set_lang(app: AppHandle, lang: String) {
+    if !["ru", "en", "uk", "de"].contains(&lang.as_str()) {
+        return;
+    }
+    let paths = app.state::<Paths>();
+    let cfg_state = app.state::<Mutex<AppCfg>>();
+    let mut cfg = cfg_state.lock().unwrap();
+    if cfg.lang != lang {
+        cfg.lang = lang;
+        save_cfg(&paths.data, &cfg);
+    }
+}
+
+#[tauri::command]
 fn set_remember(app: AppHandle, remember: bool) {
     let paths = app.state::<Paths>();
     let running = app.state::<Server>().role.lock().unwrap().clone();
@@ -1360,7 +1379,7 @@ fn main() {
         .manage(RelayState::default())
         .manage(Browser::default())
         .manage(PanelKey::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key, media_support])
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, set_lang, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key, media_support])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;

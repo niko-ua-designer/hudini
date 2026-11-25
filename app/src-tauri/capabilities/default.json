@@ -8,6 +8,7 @@
     "allow-app-state",
     "allow-start-role",
     "allow-set-remember",
+    "allow-set-lang",
     "allow-apply-update",
     "allow-store-load",
     "allow-store-save",

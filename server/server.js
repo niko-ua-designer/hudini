@@ -1930,9 +1930,10 @@ const local = http.createServer(async (req, res) => {
       // в приложении токен одноразовый (окно открывается один раз); из консоли браузера ссылкой можно пользоваться повторно
       if(!sameStr(t, ADMIN_TOKEN) || (APP_TOKEN && adminTokenUsed)) return send(res, 403, 'ссылка недействительна: открой управление из приложения Hudini или по ссылке из консоли');
       adminTokenUsed = true;
+      const lq = url.searchParams.get('lang'), langQ = ['ru','en','uk','de'].includes(lq) ? '?lang='+lq : '';
       // не 302: WebKitGTK (Linux) не отправляет cookie SameSite=Strict после перенаправления, если переход начался со страницы
       // приложения (tauri://localhost). Переход со своей же страницы считается своим, и cookie уходит в любом движке
-      return send(res, 200, '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/"><title>Hudini</title><body bgcolor="#0f1115"></body>',
+      return send(res, 200, '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/'+langQ+'"><title>Hudini</title><body bgcolor="#0f1115"></body>',
         'text/html; charset=utf-8', { 'set-cookie':`hudini_admin=${ADMIN_COOKIE}; HttpOnly; SameSite=Strict; Path=/`,
           'x-frame-options':'DENY', 'content-security-policy':"default-src 'none'; frame-ancestors 'none'", 'referrer-policy':'no-referrer' });
     }
@@ -2025,7 +2026,7 @@ const local = http.createServer(async (req, res) => {
       }
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
-        modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
+        media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); cfg.linkSet = true; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
