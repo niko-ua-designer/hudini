@@ -146,12 +146,14 @@ code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px
 }
 @media (max-width:760px){
   .help{grid-template-columns:1fr} .help aside{position:static;max-height:none}
-  .hero{padding:40px 16px 24px}
+  .hero{padding:32px 16px 16px}
   .wrap{padding:0 16px}
-  section.block{padding:60px 16px}
+  section.block{padding:22px 16px}
+  section.block .lead{margin-bottom:20px}
+  .help{padding-top:20px;padding-bottom:40px;gap:20px}
   .cta .btn{flex:1 1 100%}
   .ticks{grid-template-columns:1fr}
-  .band{padding:44px 18px;margin-bottom:60px}
+  .band{padding:36px 18px;margin:24px 0 36px}
 }
 @media (max-width:420px){ .top{padding-inline:12px;gap:8px} .top .logo img{width:26px;height:26px} .top .btn.small{padding:7px 10px;font-size:calc(13px*var(--k))} select.lang{max-width:92px} .top .logo{font-size:calc(15px*var(--k))} }
 @media (prefers-reduced-motion:reduce){
@@ -286,7 +288,7 @@ a.flogo{text-decoration:none}
 .sh-panel{width:100%;border-radius:0 0 15px 15px}
 .sh-stream{position:absolute;right:-14px;bottom:-34px;width:56%;border-radius:12px;border:1px solid var(--line2);box-shadow:0 24px 60px -16px #000}
 @media (min-width:980px){.sh-hero{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:56px;padding-top:64px}}
-@media (max-width:760px){.sh-hero{padding:32px 16px 40px;gap:36px}.sh-stream{right:-6px;bottom:-24px;width:58%}.sh-hero .cta .btn{flex:1 1 100%}}
+@media (max-width:760px){.sh-hero{padding:24px 16px 24px;gap:28px}.sh-stream{right:-6px;bottom:-24px;width:58%}.sh-hero .cta .btn{flex:1 1 100%}}
 
 .bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
 .tile{grid-column:span 3;display:flex;flex-direction:column;justify-content:space-between;gap:16px;padding:22px;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,#161927e6,#10121be6);overflow:hidden}
@@ -453,3 +455,4 @@ footer .flinks .lic{white-space:nowrap}
 .pill>span{text-align:left}
 .rp-nav .btn{white-space:normal;text-align:center;min-width:0}
 @media (max-width:560px){.rp-nav{gap:8px}.rp-nav .btn{padding-inline:14px}.rp-nav #back{white-space:nowrap;flex:none}.rp-nav #next{flex:1 1 auto}}
+@media (max-width:760px){.mig,.rp{padding-bottom:40px}}
