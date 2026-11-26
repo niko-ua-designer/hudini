@@ -1843,7 +1843,7 @@ async function filesApi(req, res, url, mod){
     const ip = mod ? ipOf(req) : 'local', wait = locked(ip);
     if(!(!mod && panelSessionOk(bearer(req))) && !passOk(ip, bearer(req))){
       if(wait) return j(429, { ok:false, error:`слишком много неверных паролей, подожди ${wait} с` });
-      return j(401, { ok:false, error:'wrong password' });
+      return j(401, { ok:false, error:'неверный пароль' });
     }
   }
   const mine = () => [...fileIndex.values()].filter(f => f.room===ROOM.room).map(f => [f.id, f.size]);

@@ -16,6 +16,9 @@ const PNG = path.join(__dirname, 'fixtures/img.png');
       const req = (method, p, body) => new Promise((ok, no) => { const r = https.request({ host: '127.0.0.1', port: host.modPort, path: p, method, rejectUnauthorized: false, headers: { authorization: 'Bearer ' + pass, 'content-type': 'application/octet-stream' } }, res => { res.resume(); res.on('end', () => ok(res.statusCode)); }); r.on('error', no); r.end(body); });
       const A = Buffer.alloc(300, 1);
       eq(await req('PUT', '/files/pausefilesaaaaaa?part=0&last=1', A), 200, 'upload before the pause');
+      // the error text goes to the panel, which translates it by the Russian key (only the journal is English)
+      const bad = await new Promise((ok, no) => { const r = https.request({ host: '127.0.0.1', port: host.modPort, path: '/files', rejectUnauthorized: false, headers: { authorization: 'Bearer nope' } }, res => { let t = ''; res.on('data', d => t += d); res.on('end', () => ok(JSON.parse(t).error)); }); r.on('error', no); r.end(); });
+      eq(bad, 'неверный пароль', 'a wrong password is answered with the translatable text');
       await host.api('/api/control', { action: 'pause' });
       eq(await req('GET', '/files/pausefilesaaaaaa'), 200, 'GET of a file works on pause');
       eq(await req('GET', '/files'), 200, 'the listing works on pause');

@@ -3308,7 +3308,7 @@ $('kfList').addEventListener('click', e=>{
   const el=byId(selectedId), row=e.target.closest('.kf'); if(!el?.kf || !row) return;
   const i=+row.dataset.i, f=el.kf.f[i];
   if(e.target.classList.contains('n')){ act1(el, x=>{ x.kf.playing=false; x.x=num(f.x,50,0,100); x.y=num(f.y,50,0,100); x.rot=f.r; }); return; }
-  const a=e.target.dataset.a;
+  const a=e.target.closest('[data-a]')?.dataset.a;   // клик приходит на иконку внутри кнопки
   if(a==='set') act1(el, x=>Object.assign(x.kf.f[i], { x:x.x, y:x.y, r:x.rot }));
   if(a==='del') act1(el, x=>{ x.kf.f.splice(i,1); if(!x.kf.f.length) delete x.kf; });
 });
@@ -3416,7 +3416,7 @@ $('bLib').onclick=()=>{
 $('libList').addEventListener('click', async e=>{
   const row=e.target.closest('.lib'); if(!row) return;
   const it=library[+row.dataset.i]; if(!it) return;
-  if(e.target.dataset.a==='del'){ if(confirm(`Удалить «${it.name}» из библиотеки?`)){ library.splice(+row.dataset.i,1); saveLib(); renderLib(); } return; }
+  if(e.target.closest('[data-a=del]')){ if(confirm(`Удалить «${it.name}» из библиотеки?`)){ library.splice(+row.dataset.i,1); saveLib(); renderLib(); } return; }
   const el=JSON.parse(JSON.stringify(it.el)); delete el.hidden;
   const aid=assetId(el.src);
   if(aid && it.room!==room){
@@ -3610,7 +3610,7 @@ function renderScn(){
 $('scnList').addEventListener('click', e=>{
   const row=e.target.closest('.scn'); if(!row) return;
   const list=scnList(), sc=list.find(x=>x.id===row.dataset.id); if(!sc) return;
-  const a=e.target.dataset.a;
+  const a=e.target.closest('[data-a]')?.dataset.a;   // клик приходит на иконку внутри кнопки
   if(a==='on'){ sc.on=e.target.checked; saveScn(); renderScn(); }
   else if(a==='run') runScenario(sc, { user:'тест', msg:'', args:'', name:'тест', n:3 });
   else if(a==='edit') editScn(sc);
@@ -3748,7 +3748,7 @@ $('sceneSave').onclick=()=>{
 $('sceneList').addEventListener('click', e=>{
   const row=e.target.closest('.scene'); if(!row) return;
   const list=scenes[room]||[], i=+row.dataset.i, sc=list[i]; if(!sc) return;
-  const a=e.target.dataset.a;
+  const a=e.target.closest('[data-a]')?.dataset.a;   // клик приходит на иконку внутри кнопки
   if(a==='del'){ if(confirm(`Удалить сцену «${sc.name}»?`)){ list.splice(i,1); saveScenes(); renderScenes(); } return; }
   if(a==='upd'){ if(confirm(`Перезаписать «${sc.name}» текущим экраном?`)){ sc.els=snapshotEls(); saveScenes(); renderScenes(); } return; }
   applyScene(sc, e.shiftKey);
