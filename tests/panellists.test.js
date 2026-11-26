@@ -93,6 +93,22 @@ const icon = async (p, sel) => {
     eq(await p.evaluate(() => byId('k').kf.f.length), 1, 'the second frame is gone');
     await p.context().close();
   });
+  await step('drawing strokes stay unless fading is switched on', async () => {
+    const p = await open();
+    const box = () => p.evaluate(() => [document.getElementById('dFadeOn').checked, document.getElementById('dFade').disabled]);
+    // a fresh start of the panel, then the drawing tool: its strip shows the saved settings
+    const reload = async () => { await p.reload(); await p.waitForFunction(() => window.hudiniReady && window.Draw, null, { timeout: 15000 }); await p.click('[data-tab=add]'); await p.click('#addDraw'); await sleep(200); };
+    await reload();
+    eq(await box(), [false, true], 'off on a first start');
+    // what 1.1.2 saved after any change of the pen, with the box never touched
+    await p.evaluate(() => HudiniStore.set('hudini.draw', { tool: 'pen', color: '#ff3b5c', size: 8, fadeOn: true, fade: 5, mode: 'live' }));
+    await reload();
+    eq(await box(), [false, true], 'off after an update too');
+    await p.evaluate(() => { const i = document.getElementById('dFadeOn'); i.checked = true; i.dispatchEvent(new Event('change')); });
+    await reload();
+    eq(await box(), [true, false], 'switched on by hand it stays on');
+    await p.context().close();
+  });
   await web.close();
 
   await step('library after the Host made a new room: the file is copied from the previous room', async () => {

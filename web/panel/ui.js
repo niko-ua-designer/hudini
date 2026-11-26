@@ -276,7 +276,7 @@
   let helpLoad = null;
   const loadScript = src => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   async function openHelp(id){
-    if(!window.HUDINI_HELP) await (helpLoad ||= loadScript('../shared/connect-guides.js?v=2').catch(() => {}).then(() => loadScript('../shared/help-content.js?v=8'))).catch(() => {});
+    if(!window.HUDINI_HELP) await (helpLoad ||= loadScript('../shared/connect-guides.js?v=2').catch(() => {}).then(() => loadScript('../shared/help-content.js?v=9'))).catch(() => {});
     const lang = window.HudiniI18n?.lang || 'ru', H = window.HUDINI_HELP?.[lang] || window.HUDINI_HELP?.en;
     if(!H){ window.open(HELP_URL, '_blank', 'noopener'); return; }
     $('helpDrawer')?.remove();

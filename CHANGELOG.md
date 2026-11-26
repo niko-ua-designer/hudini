@@ -6,6 +6,7 @@ The release workflow copies the section for the tag version (the heading must be
 
 **EN**
 - The cross in the library deletes the item again: a click on the icon used to put the element on stream. The same is fixed for the buttons of scenes, scenarios and animation frames.
+- Drawing strokes no longer fade away by default: "Fading" is now an option you switch on.
 - Moderators can join again after updating from 1.0: a room left from an old config without its private key is replaced once on start, and the Host window shows a notice with buttons to copy the new OBS link and the moderator code. The overlay in OBS stays empty until the new link is there. The old "room from the panel" field is gone.
 - Host window: the OBS link card comes first, moderator camera, screen and microphone requests are shown there too, changing the role during a stream asks for confirmation, the Host window and the dock open in the app language, error messages stay on screen longer, the address table fits narrow windows, and there is a Porthole port hint.
 - The panel shows a connection hint for every address of the code and says what each network needs.
@@ -21,6 +22,7 @@ The release workflow copies the section for the tag version (the heading must be
 
 **RU**
 - Крестик в библиотеке снова удаляет элемент: клик по иконке выводил элемент на стрим. То же исправлено у кнопок сцен, сценариев и кадров анимации.
+- Нарисованное больше не исчезает по умолчанию: «Тают» теперь включают по желанию.
 - Модераторы снова могут войти после обновления с 1.0: комната из старого конфига без приватного ключа один раз заменяется при запуске, а окно Host показывает уведомление с кнопками копирования новой ссылки OBS и кода модератора. Пока новая ссылка не вставлена в OBS, оверлей пустой. Старое поле «комната из пульта» убрано.
 - Окно Host: сначала карточка со ссылкой OBS, запросы модераторов на камеру, экран и микрофон видны и там, смена роли во время стрима просит подтверждение, окно Host и док открываются на языке приложения, сообщения об ошибках висят дольше, таблица адресов помещается в узкое окно, добавлена подсказка про порт Porthole.
 - Пульт показывает подсказку подключения для каждого адреса из кода и говорит, что нужно каждой сети.
@@ -36,6 +38,7 @@ The release workflow copies the section for the tag version (the heading must be
 
 **UK**
 - Хрестик у бібліотеці знову видаляє елемент: клік по іконці виводив елемент на стрім. Те саме виправлено для кнопок сцен, сценаріїв і кадрів анімації.
+- Намальоване більше не зникає за замовчуванням: «Тануть» тепер вмикають за бажанням.
 - Модератори знову можуть увійти після оновлення з 1.0: кімната зі старого конфігу без приватного ключа один раз замінюється під час запуску, а вікно Host показує сповіщення з кнопками копіювання нового посилання OBS і коду модератора. Поки нове посилання не вставлено в OBS, оверлей порожній. Старе поле «кімната з пульта» прибрано.
 - Вікно Host: спершу картка з посиланням OBS, запити модераторів на камеру, екран і мікрофон видно й там, зміна ролі під час стріму просить підтвердження, вікно Host і док відкриваються мовою застосунку, повідомлення про помилки висять довше, таблиця адрес вміщується у вузьке вікно, додано підказку про порт Porthole.
 - Пульт показує підказку підключення для кожної адреси з коду й каже, що потрібно кожній мережі.
@@ -51,6 +54,7 @@ The release workflow copies the section for the tag version (the heading must be
 
 **DE**
 - Das Kreuz in der Bibliothek löscht den Eintrag wieder: Ein Klick auf das Symbol brachte das Element auf den Stream. Dasselbe ist bei den Knöpfen von Szenen, Szenarien und Animationsbildern behoben.
+- Gezeichnetes verschwindet nicht mehr von selbst: das Verblassen ist jetzt eine Option zum Einschalten.
 - Mods können nach dem Update von 1.0 wieder beitreten: Ein Raum aus einer alten Konfiguration ohne privaten Schlüssel wird beim Start einmal ersetzt, und das Host-Fenster zeigt einen Hinweis mit Knöpfen zum Kopieren des neuen OBS-Links und des Mod-Codes. Das Overlay in OBS bleibt leer, bis der neue Link eingetragen ist. Das alte Feld „Raum aus dem Pult“ ist entfernt.
 - Host-Fenster: Zuerst die Karte mit dem OBS-Link, Anfragen der Mods für Kamera, Bildschirm und Mikrofon erscheinen auch dort, ein Rollenwechsel während des Streams fragt nach, Host-Fenster und Dock öffnen sich in der Sprache der App, Fehlermeldungen bleiben länger sichtbar, die Adresstabelle passt in schmale Fenster, und es gibt einen Porthole-Port-Hinweis.
 - Das Pult zeigt für jede Adresse des Codes einen Verbindungshinweis und sagt, was das jeweilige Netzwerk braucht.

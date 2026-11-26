@@ -8,14 +8,15 @@ window.Draw = (function(){
   const BASE = ['#ffffff', '#111318', '#ff3b5c', '#ff8a00', '#ffd23f', '#2ee66b', '#3fd0ff', '#7c5cff'];
   const PEN_TOOLS = ['pen', 'marker', 'neon', 'line', 'arrow', 'circle', 'rect', 'stamp', 'tex', 'eraser'];
   const INK_MS = 33;
-  const P = { tool:'pen', color:'#ff3b5c', size:8, fadeOn:true, fade:5, mode:'live' };
+  const P = { tool:'pen', color:'#ff3b5c', size:8, fadeOn:false, fade:5, mode:'live' };
   { const v = lsGet(PREF, null);
     if(v && typeof v==='object'){
       if(PEN_TOOLS.includes(v.tool) && v.tool!=='stamp' && v.tool!=='tex') P.tool = v.tool;
       P.color = hex(v.color, P.color); P.size = Math.round(num(v.size, P.size, 2, 40));
-      P.fadeOn = v.fadeOn!==false; P.fade = Math.round(num(v.fade, 5, 1, 60)); P.mode = v.mode==='btn' ? 'btn' : 'live';
+      // melt: таяние включают сами; прежнее поле fadeOn записывалось включённым и без выбора пользователя
+      P.fadeOn = v.melt===true; P.fade = Math.round(num(v.fade, 5, 1, 60)); P.mode = v.mode==='btn' ? 'btn' : 'live';
     } }
-  const savePrefs = () => lsSet(PREF, { tool:P.tool, color:P.color, size:P.size, fadeOn:P.fadeOn, fade:P.fade, mode:P.mode });
+  const savePrefs = () => lsSet(PREF, { tool:P.tool, color:P.color, size:P.size, melt:P.fadeOn, fade:P.fade, mode:P.mode });
   const D = { on:false, id:null, cur:null, erase:null, picking:false, photo:null, inkT:null };
   const known = new Map();     // id рисунка → id штрихов, которые этот пульт последним видел или отправил
   const seenDel = new Map();   // id рисунка → id стёртых штрихов (стёртое, вернувшееся через Ctrl+Z, получает новый id)

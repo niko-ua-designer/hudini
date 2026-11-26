@@ -66,7 +66,7 @@ ru: {
 <li><b>Кисть из фото</b>: выбери картинку и один из двух режимов. «Штамп» ставит копии картинки вдоль линии, «текстура» заливает линию фотографией.</li>
 <li><b>Пипетка</b> берёт цвет с холста или из фото. <b>Палитра из фото</b> показывает 6–8 главных цветов картинки.</li>
 <li><b>«Вживую»</b>: штрих виден на стриме сразу. <b>«По кнопке»</b>: стрим увидит рисунок после «Показать».</li>
-<li><b>Штрихи тают</b>: галочка прячет линии через заданное время (по умолчанию 5 с, ползунок от 1 до 60 с).</li>
+<li><b>Штрихи тают</b>: по умолчанию выключено, линии остаются. С галочкой они прячутся через заданное время (ползунок от 1 до 60 с).</li>
 <li>Рисовать могут все модераторы сразу, штрихи не теряются. Готовый рисунок сохраняется в библиотеку, как любой элемент.</li>
 </ul>`],
 ['files', 'Файлы и место', `
@@ -239,7 +239,7 @@ en: {
 <li><b>Photo brush</b>: pick a picture and one of two modes. "Stamp" puts copies of the picture along the line, "texture" fills the line with the photo.</li>
 <li><b>Eyedropper</b> picks a colour from the canvas or from a photo. <b>Palette from a photo</b> shows the 6-8 main colours of the picture.</li>
 <li><b>"Live"</b>: a stroke shows on stream at once. <b>"On button"</b>: the stream sees the drawing after you press Show.</li>
-<li><b>Fading strokes</b>: the tick hides lines after a set time (5 s by default, slider from 1 to 60 s).</li>
+<li><b>Fading strokes</b>: off by default, lines stay. With the tick they hide after a set time (slider from 1 to 60 s).</li>
 <li>All moderators can draw at the same time and no strokes get lost. A finished drawing goes to the library like any element.</li>
 </ul>`],
 ['files', 'Files and storage', `
@@ -412,7 +412,7 @@ uk: {
 <li><b>Пензель із фото</b>: вибери картинку й один із двох режимів. «Штамп» ставить копії картинки вздовж лінії, «текстура» заливає лінію фотографією.</li>
 <li><b>Піпетка</b> бере колір з полотна або з фото. <b>Палітра з фото</b> показує 6–8 головних кольорів картинки.</li>
 <li><b>«Наживо»</b>: штрих видно на стрімі одразу. <b>«За кнопкою»</b>: стрім побачить малюнок після «Показати».</li>
-<li><b>Штрихи тануть</b>: галочка ховає лінії через заданий час (за замовчуванням 5 с, повзунок від 1 до 60 с).</li>
+<li><b>Штрихи тануть</b>: за замовчуванням вимкнено, лінії залишаються. З галочкою вони ховаються через заданий час (повзунок від 1 до 60 с).</li>
 <li>Малювати можуть усі модератори одразу, штрихи не губляться. Готовий малюнок зберігається в бібліотеку, як будь-який елемент.</li>
 </ul>`],
 ['files', 'Файли й місце', `
@@ -585,7 +585,7 @@ de: {
 <li><b>Fotopinsel</b>: Wähle ein Bild und einen von zwei Modi. „Stempel“ setzt Kopien des Bildes entlang der Linie, „Textur“ füllt die Linie mit dem Foto.</li>
 <li><b>Pipette</b> nimmt eine Farbe von der Fläche oder aus einem Foto. Die <b>Palette aus einem Foto</b> zeigt die 6–8 Hauptfarben des Bildes.</li>
 <li><b>„Live“</b>: Ein Strich ist sofort im Stream zu sehen. <b>„Per Knopf“</b>: Der Stream sieht die Zeichnung nach „Zeigen“.</li>
-<li><b>Striche verblassen</b>: Das Häkchen blendet Linien nach einer festen Zeit aus (standardmäßig 5 s, Regler von 1 bis 60 s).</li>
+<li><b>Striche verblassen</b>: standardmäßig aus, Linien bleiben. Mit dem Häkchen werden sie nach einer festen Zeit ausgeblendet (Regler von 1 bis 60 s).</li>
 <li>Alle Moderatoren können gleichzeitig zeichnen, Striche gehen nicht verloren. Eine fertige Zeichnung kommt wie jedes Element in die Bibliothek.</li>
 </ul>`],
 ['files', 'Dateien und Speicherplatz', `
