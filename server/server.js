@@ -386,7 +386,9 @@ aedes.authenticate = (client, user, pass, cb) => {
   const prev = client.id ? aedes.clients[client.id] : null;
   if(prev && prev!==client && prev.conn && prev.connected!==false){
     const kindOf = c => c.conn._mod ? 'mod' : c.conn._streamer ? 'streamer' : 'widget';
-    if(kindOf(prev)!==kindOf(client) || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
+    // новое соединение ещё не вошло: пульт стримера узнаём по логину (пароль проверяется ниже)
+    const kind = client.conn?._mod ? 'mod' : user==='streamer' ? 'streamer' : 'widget';
+    if(kindOf(prev)!==kind || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
       refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }

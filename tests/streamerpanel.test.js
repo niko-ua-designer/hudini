@@ -110,6 +110,20 @@ const { step, check, eq, until, sleep } = T;
     await host.api('/api/control', { action: 'resume' });
   });
 
+  await step('the streamer panel reconnects while its old connection is still listed; others cannot take its id', async () => {
+    check(await online(sp), 'the streamer panel is online');
+    const r = await sp.evaluate(async port => {
+      const live = homeClient.options.clientId;   // the id of the connection that is open right now
+      const tryLogin = opts => new Promise(res => { const c = mqtt.connect(`ws://127.0.0.1:${port}/mqtt`, { clientId: live, reconnectPeriod: 0, connectTimeout: 4000, ...opts });
+        c.on('connect', () => { c.end(true); res('connected'); }); c.on('error', e => { c.end(true); res(String(e.message)); }); c.on('close', () => res('closed')); });
+      const anon = await tryLogin({}), guess = await tryLogin({ username: 'streamer', password: 'guess' });
+      return [anon, guess, await tryLogin({ username: 'streamer', password: homeInfo.pass })];
+    }, PORT);
+    check(r[0] !== 'connected' && r[1] !== 'connected', 'an anonymous client and a wrong session are refused: ' + r.slice(0, 2).join(' / '));
+    eq(r[2], 'connected', 'the same panel with its session is let in');
+    check(await online(sp), 'and the open panel comes back');
+  });
+
   await step('the streamer panel changes the CS2 series format too', async () => {
     const bo = () => JSON.parse(fs.readFileSync(path.join(host.dir, 'cs2-series.json'), 'utf8')).bo;
     await sp.evaluate(() => serCmd({ op: 'bo', bo: 5 }));
