@@ -5491,10 +5491,18 @@ const HUDINI_DICT = {
 
   let saved = null;
   try{ saved = localStorage.getItem(KEY); }catch{}
-  // ?lang=xx hands the language over from another window (the app start screen, the Host window): it is stored like a manual choice
+  // ?lang=xx hands the language over from another window (the app start screen, the Host window). It stays in the address, so it
+  // applies only when nothing is chosen here yet, when the sender has changed its language since the last time, or on a page
+  // without its own switch (the OBS dock). Otherwise the choice made in this window stays.
   try{
     const q = new URLSearchParams(location.search).get('lang');
-    if(LANGS.some(l => l[0] === q)){ saved = q; localStorage.setItem(KEY, q); }
+    if(LANGS.some(l => l[0] === q)){
+      const handed = localStorage.getItem(KEY + '.handed');
+      if(!LANGS.some(l => l[0] === saved) || (handed && handed !== q) || document.documentElement.hasAttribute('data-i18n-nopick')){
+        saved = q; localStorage.setItem(KEY, q);
+      }
+      localStorage.setItem(KEY + '.handed', q);
+    }
   }catch{}
   if(!LANGS.some(l => l[0] === saved)) saved = null;
   const lang = saved || 'en';   // first start: English until the visitor picks a language in the offer
