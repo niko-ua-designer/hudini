@@ -426,6 +426,7 @@ aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub
 // Виджет OBS в журнале: «подключился» при переходе 0 → 1, «отвалился» только если за 5 секунд он не вернулся (перезагрузка страницы не считается)
 let obsUp = false, obsDropTimer = null;
 const OBS_DROP_MS = 5000;
+const PING_MS = 5000, PING_MISS = 3;   // модератор молчит 15 с — соединения больше нет
 aedes.on('client', c => {
   const s = c.conn;
   if(!s?._mod && !s?._streamer){
@@ -435,10 +436,17 @@ aedes.on('client', c => {
     return;
   }
   const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
-  const m = { ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, timer:null };
-  const ping = () => { if(m.ws?.readyState===1){ m.pingAt = Date.now(); try{ m.ws.ping(); }catch{} } };
-  m.ws?.on('pong', () => { m.rtt = Date.now() - m.pingAt; });
-  m.timer = setInterval(ping, 5000); ping();
+  const m = { ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, miss:0, timer:null };
+  // Модератор, у которого пропала сеть, не должен держать свой clientId до keepalive MQTT (~45 с): без ответа на PING_MISS пинга подряд
+  // соединение закрываем, и тот же пульт входит с нового адреса. Считаем пинги, а не время: сон ПК стримера никого не отключит.
+  const ping = () => {
+    if(m.ws?.readyState!==1) return;
+    if(!me && m.miss >= PING_MISS){ logc('👤 Moderator does not respond, closing the connection:', who(m.ip)); try{ m.ws.terminate(); c.close(); }catch{} return; }
+    m.miss++; m.pingAt = Date.now(); try{ m.ws.ping(); }catch{}
+  };
+  m.ws?.on('pong', () => { m.miss = 0; m.rtt = Date.now() - m.pingAt; });
+  m.ws?.on('message', () => { m.miss = 0; });
+  m.timer = setInterval(ping, PING_MS); ping();
   modList.set(c.id, m); status.mods = modCount();
   if(me) logc('🖥 Streamer panel connected');
   else logc('👤 Moderator connected:', who(m.ip));

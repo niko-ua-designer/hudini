@@ -301,5 +301,35 @@ const dial = (url, password) => new Promise(res => {
     await h3.stop();
   });
 
+  await step('a silent moderator connection is closed, so the same panel gets back from another address', async () => {
+    const net = require('net');
+    const h = T.startHost({ OVERLAY_PORT: String(PORT + 30), OVERLAY_MOD_PORT: String(PORT + 31), OVERLAY_SITE: 'off' });
+    await h.ready();
+    // a pass-through proxy that reaches the Host from its own address; freeze() keeps both sockets open and carries nothing, like a lost network
+    const proxy = async from => {
+      const socks = [];
+      const srv = net.createServer(c => { const up = net.connect({ host: '127.0.0.1', port: PORT + 31, localAddress: from }); socks.push(c, up); c.pipe(up); up.pipe(c); c.on('error', () => up.destroy()); up.on('error', () => c.destroy()); });
+      await new Promise(r => srv.listen(0, '127.0.0.1', r));
+      return { url: `wss://127.0.0.1:${srv.address().port}/mqtt`, freeze(){ for(let i = 0; i < socks.length; i += 2){ const [c, up] = socks.slice(i, i + 2); c.unpipe(up); up.unpipe(c); c.pause(); up.pause(); } }, close(){ socks.forEach(s => s.destroy()); srv.close(); } };
+    };
+    const { pass } = await h.api('/api/code');
+    const opts = clientId => ({ clientId, username: 'mod', password: pass, reconnectPeriod: 0, connectTimeout: 4000, keepalive: 30, rejectUnauthorized: false });
+    const open = (url, id) => new Promise(res => { const c = mqtt.connect(url, opts(id)); c.on('connect', () => res({ ok: true, c })); c.on('error', e => { c.end(true); res({ ok: false, err: String(e.message), c }); }); });
+    const A1 = await proxy('127.0.0.1'), B = await proxy('127.0.0.2');
+    const lost = await open(A1.url, 'mod_moved'), idle = await open(`wss://127.0.0.1:${PORT + 31}/mqtt`, 'mod_idle');
+    let idleDrops = 0; idle.c.on('close', () => idleDrops++);
+    check(lost.ok && idle.ok, 'two moderators are in');
+    A1.freeze(); const at = Date.now();
+    const early = await open(B.url, 'mod_moved');
+    check(!early.ok, 'while the old connection may still be alive the id is not handed over: ' + early.err);
+    const back = await until(async () => { const r = await open(B.url, 'mod_moved'); return r.ok && r; }, 28000, 2000);
+    const took = Math.round((Date.now() - at) / 1000);
+    check(back && took >= 10, 'let back in within half a minute, well before the MQTT keepalive: ' + took + ' s');
+    check(/Moderator does not respond, closing the connection/.test(h.log()), 'the journal says why');
+    eq(idleDrops, 0, 'a moderator who answers pings and sends nothing stays connected');
+    for(const x of [lost, idle, back]) x?.c?.end(true);
+    A1.close(); B.close(); await h.stop();
+  });
+
   process.exit(T.finish());
 })().catch(e => { console.error(e); process.exit(1); });

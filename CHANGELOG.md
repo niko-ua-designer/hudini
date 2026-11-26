@@ -6,7 +6,7 @@ The release workflow copies the section for the tag version (the heading must be
 
 **EN**
 - The cross in the library deletes the item again: a click on the icon used to put the element on stream. The same is fixed for the buttons of scenes, scenarios and animation frames.
-- Moderators can join again after updating from 1.0: a room left from an old config without its private key is replaced once on start, and the Host window shows a notice with buttons to copy the new OBS link and the moderator code. The old "room from the panel" field is gone.
+- Moderators can join again after updating from 1.0: a room left from an old config without its private key is replaced once on start, and the Host window shows a notice with buttons to copy the new OBS link and the moderator code. The overlay in OBS stays empty until the new link is there. The old "room from the panel" field is gone.
 - Host window: the OBS link card comes first, moderator camera, screen and microphone requests are shown there too, changing the role during a stream asks for confirmation, the Host window and the dock open in the app language, error messages stay on screen longer, the address table fits narrow windows, and there is a Porthole port hint.
 - The panel shows a connection hint for every address of the code and says what each network needs.
 - "Pause moderators" still lets moderators read files, so images keep loading; uploading and deleting are refused with a clear message. Error messages from the server are translated into English, Ukrainian and German.
@@ -17,10 +17,11 @@ The release workflow copies the section for the tag version (the heading must be
 - Site: a menu on phones, a direct download of the zip, a note on phones that Hudini is for PC, a help table of contents that follows the reader, a better header on tablets, the language is kept between pages, fixes in the report wizard, the connection guides (Radmin VPN, Tailscale, ZeroTier, Porthole) in the download window with links to each tool, smooth page transitions.
 - More translations: the Ukrainian text uses "стрімер" everywhere, role names match the real tabs (Streamer, Moderator, Add), English chat command hints in the panel, and the help gets the missing nick cleanup entry in English, Ukrainian and German.
 - Calmer look of the panel, the Host window and the dock: visible keyboard focus, clearer buttons and fields, better contrast, larger touch targets.
+- A moderator whose network changed (Wi-Fi to mobile, LAN to Tailscale) gets back in within about 20 seconds.
 
 **RU**
 - Крестик в библиотеке снова удаляет элемент: клик по иконке выводил элемент на стрим. То же исправлено у кнопок сцен, сценариев и кадров анимации.
-- Модераторы снова могут войти после обновления с 1.0: комната из старого конфига без приватного ключа один раз заменяется при запуске, а окно Host показывает уведомление с кнопками копирования новой ссылки OBS и кода модератора. Старое поле «комната из пульта» убрано.
+- Модераторы снова могут войти после обновления с 1.0: комната из старого конфига без приватного ключа один раз заменяется при запуске, а окно Host показывает уведомление с кнопками копирования новой ссылки OBS и кода модератора. Пока новая ссылка не вставлена в OBS, оверлей пустой. Старое поле «комната из пульта» убрано.
 - Окно Host: сначала карточка со ссылкой OBS, запросы модераторов на камеру, экран и микрофон видны и там, смена роли во время стрима просит подтверждение, окно Host и док открываются на языке приложения, сообщения об ошибках висят дольше, таблица адресов помещается в узкое окно, добавлена подсказка про порт Porthole.
 - Пульт показывает подсказку подключения для каждого адреса из кода и говорит, что нужно каждой сети.
 - «Пауза модераторов» всё ещё позволяет модераторам читать файлы, так что картинки продолжают загружаться; загрузка и удаление отклоняются с понятным сообщением. Сообщения об ошибках от сервера переведены на английский, украинский и немецкий.
@@ -31,10 +32,11 @@ The release workflow copies the section for the tag version (the heading must be
 - Сайт: меню на телефонах, прямая загрузка zip, пометка на телефонах, что Hudini для ПК, оглавление справки следует за читателем, лучше шапка на планшетах, язык сохраняется между страницами, исправления в мастере отчёта, гайды подключения (Radmin VPN, Tailscale, ZeroTier, Porthole) в окне скачивания со ссылками на каждый инструмент, плавные переходы между страницами.
 - Больше переводов: в украинских текстах везде «стрімер», названия ролей совпадают с настоящими вкладками (Стример, Модератор, Добавить), английские подсказки команд чата в пульте, в справке на английском, украинском и немецком появился пункт про чистку ников.
 - Спокойнее внешний вид пульта, окна Host и дока: видимый фокус с клавиатуры, понятнее кнопки и поля, лучше контраст, крупнее цели нажатия.
+- Модератор, у которого сменилась сеть (с Wi-Fi на мобильную, с LAN на Tailscale), снова входит примерно за 20 секунд.
 
 **UK**
 - Хрестик у бібліотеці знову видаляє елемент: клік по іконці виводив елемент на стрім. Те саме виправлено для кнопок сцен, сценаріїв і кадрів анімації.
-- Модератори знову можуть увійти після оновлення з 1.0: кімната зі старого конфігу без приватного ключа один раз замінюється під час запуску, а вікно Host показує сповіщення з кнопками копіювання нового посилання OBS і коду модератора. Старе поле «кімната з пульта» прибрано.
+- Модератори знову можуть увійти після оновлення з 1.0: кімната зі старого конфігу без приватного ключа один раз замінюється під час запуску, а вікно Host показує сповіщення з кнопками копіювання нового посилання OBS і коду модератора. Поки нове посилання не вставлено в OBS, оверлей порожній. Старе поле «кімната з пульта» прибрано.
 - Вікно Host: спершу картка з посиланням OBS, запити модераторів на камеру, екран і мікрофон видно й там, зміна ролі під час стріму просить підтвердження, вікно Host і док відкриваються мовою застосунку, повідомлення про помилки висять довше, таблиця адрес вміщується у вузьке вікно, додано підказку про порт Porthole.
 - Пульт показує підказку підключення для кожної адреси з коду й каже, що потрібно кожній мережі.
 - «Пауза модераторів» усе ще дозволяє модераторам читати файли, тож картинки далі завантажуються; завантаження й видалення відхиляються зі зрозумілим повідомленням. Повідомлення про помилки від сервера перекладені англійською, українською та німецькою.
@@ -45,10 +47,11 @@ The release workflow copies the section for the tag version (the heading must be
 - Сайт: меню на телефонах, пряме завантаження zip, примітка на телефонах, що Hudini для ПК, зміст довідки йде за читачем, краща шапка на планшетах, мова зберігається між сторінками, виправлення в майстрі звіту, гайди підключення (Radmin VPN, Tailscale, ZeroTier, Porthole) у вікні завантаження з посиланнями на кожен інструмент, плавні переходи між сторінками.
 - Більше перекладів: в українських текстах скрізь «стрімер», назви ролей збігаються зі справжніми вкладками (Стрімер, Модератор, Додати), англійські підказки команд чату в пульті, у довідці англійською, українською та німецькою з’явився пункт про чистку ніків.
 - Спокійніший вигляд пульта, вікна Host і дока: видимий фокус із клавіатури, зрозуміліші кнопки й поля, кращий контраст, більші цілі натискання.
+- Модератор, у якого змінилася мережа (з Wi-Fi на мобільну, з LAN на Tailscale), знову входить приблизно за 20 секунд.
 
 **DE**
 - Das Kreuz in der Bibliothek löscht den Eintrag wieder: Ein Klick auf das Symbol brachte das Element auf den Stream. Dasselbe ist bei den Knöpfen von Szenen, Szenarien und Animationsbildern behoben.
-- Mods können nach dem Update von 1.0 wieder beitreten: Ein Raum aus einer alten Konfiguration ohne privaten Schlüssel wird beim Start einmal ersetzt, und das Host-Fenster zeigt einen Hinweis mit Knöpfen zum Kopieren des neuen OBS-Links und des Mod-Codes. Das alte Feld „Raum aus dem Pult“ ist entfernt.
+- Mods können nach dem Update von 1.0 wieder beitreten: Ein Raum aus einer alten Konfiguration ohne privaten Schlüssel wird beim Start einmal ersetzt, und das Host-Fenster zeigt einen Hinweis mit Knöpfen zum Kopieren des neuen OBS-Links und des Mod-Codes. Das Overlay in OBS bleibt leer, bis der neue Link eingetragen ist. Das alte Feld „Raum aus dem Pult“ ist entfernt.
 - Host-Fenster: Zuerst die Karte mit dem OBS-Link, Anfragen der Mods für Kamera, Bildschirm und Mikrofon erscheinen auch dort, ein Rollenwechsel während des Streams fragt nach, Host-Fenster und Dock öffnen sich in der Sprache der App, Fehlermeldungen bleiben länger sichtbar, die Adresstabelle passt in schmale Fenster, und es gibt einen Porthole-Port-Hinweis.
 - Das Pult zeigt für jede Adresse des Codes einen Verbindungshinweis und sagt, was das jeweilige Netzwerk braucht.
 - „Mods pausieren“ lässt Mods weiter Dateien lesen, damit Bilder weiter laden; Hochladen und Löschen werden mit einer klaren Meldung abgelehnt. Fehlermeldungen vom Server sind auf Englisch, Ukrainisch und Deutsch übersetzt.
@@ -59,6 +62,7 @@ The release workflow copies the section for the tag version (the heading must be
 - Die Website: ein Menü auf Handys, direkter Zip-Download, auf Handys ein Hinweis, dass Hudini für den PC ist, ein Hilfe-Inhaltsverzeichnis, das dem Leser folgt, ein besserer Kopfbereich auf Tablets, die Sprache bleibt zwischen Seiten erhalten, Korrekturen im Meldeassistenten, die Verbindungsanleitungen (Radmin VPN, Tailscale, ZeroTier, Porthole) im Download-Fenster mit Links zu jedem Tool, sanfte Seitenübergänge.
 - Mehr Übersetzungen: im Ukrainischen überall „стрімер“, Rollennamen passen zu den echten Tabs (Streamer, Moderator, Hinzufügen), englische Chat-Befehlshinweise im Pult, und die Hilfe hat den fehlenden Eintrag zur Nick-Bereinigung auf Englisch, Ukrainisch und Deutsch.
 - Ruhigeres Aussehen von Pult, Host-Fenster und Dock: sichtbarer Tastaturfokus, klarere Knöpfe und Felder, besserer Kontrast, größere Tippziele.
+- Ein Mod, dessen Netzwerk gewechselt hat (WLAN zu Mobilfunk, LAN zu Tailscale), ist nach etwa 20 Sekunden wieder drin.
 
 ## 1.1.2
 
