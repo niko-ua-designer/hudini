@@ -1,8 +1,9 @@
-// What the Host window asks the server for: its own state (sounds, tour, «what is new») and the changelog.
+// What the Host window asks the server for: its own state (sounds, tour, «what is new»), the changelog and
+// the notification settings; the «NOTIFY» lines the app turns into system notifications.
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os');
 const T = require('./lib');
-const { step, check, eq } = T;
+const { step, check, eq, until, sleep } = T;
 const VERSION = /^const VERSION = '([^']+)';/m.exec(fs.readFileSync(path.join(T.ROOT, 'server/server.js'), 'utf8'))[1];
 const PORT = T.PORTS.host + 300;
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-state-'));
@@ -81,6 +82,99 @@ async function start(dir, env = {}){
     eq(parseNotes('no format here\n- x'), { main: {}, testing: {} }, 'unknown text gives nothing');
     const big = parseNotes('**EN**\n' + ('- ' + 'x'.repeat(5000) + '\n').repeat(500));
     eq([big.main.en[0].items.length, big.main.en[0].items[0].length], [60, 1000], 'sizes are limited');
+  });
+
+  const DEFAULTS = { moderators: { on: true, kinds: { join: true, leave: false } }, media: { locked: true, kinds: { cam: true, screen: true, mic: true } },
+    obs: { on: true, kinds: { widgetUp: true, widgetDown: true, dock: false } }, cs2: { on: false, kinds: { appeared: true } },
+    system: { on: true, kinds: { updateReady: true, updateError: true, modPort: true, roomNew: true } } };
+
+  await step('notification settings: groups and kinds are switched and kept; media cannot be', async () => {
+    const dir = tmp(); let h = await start(dir);
+    eq((await h.api('/api/status')).notify, { visibleOnlyMedia: true, groups: DEFAULTS }, 'defaults');
+    eq((await h.api('/api/notify', { group: 'moderators', kind: 'leave', on: true })).notify.groups.moderators, { on: true, kinds: { join: true, leave: true } }, 'one kind');
+    eq((await h.api('/api/notify', { group: 'obs', on: false })).notify.groups.obs, { on: false, kinds: DEFAULTS.obs.kinds }, 'a whole group keeps its kinds');
+    for(const bad of [{ group: 'media', on: false }, { group: 'media', kind: 'cam', on: false }, { group: 'nope', on: true }, { group: '__proto__', on: true }, { group: 'obs', kind: 'join', on: true }, { group: 'obs', kind: 'constructor', on: true }, { group: 'obs', on: 'yes' }])
+      eq((await h.api('/api/notify', bad)).ok, false, 'refused: ' + JSON.stringify(bad));
+    await h.stop(); h = await start(dir);
+    const g = (await h.api('/api/status')).notify.groups;
+    eq([g.moderators.kinds.leave, g.obs.on, g.media], [true, false, DEFAULTS.media], 'kept over a restart');
+    await h.stop();
+  });
+
+  await step('the app gets «NOTIFY» lines only for enabled events while the window is out of sight', async () => {
+    const TOKEN = 'app-line-token', dir = tmp();
+    const h = T.startHost({ OVERLAY_HOST_DIR: dir, OVERLAY_PORT: String(PORT), OVERLAY_SITE: 'off', OVERLAY_APP: '1', OVERLAY_APP_TOKEN: TOKEN });
+    process.on('exit', () => h.proc.kill('SIGKILL'));
+    const said = () => h.log().split('\n').filter(l => l.startsWith(TOKEN + ' NOTIFY ')).map(l => l.split(' ').slice(2).join(' '));
+    const kinds = () => said().map(l => l.split(' ')[0]);
+    const visible = async v => { h.proc.stdin.write(`VISIBLE ${v}\n`); await sleep(300); };
+    check(await until(() => h.log().includes(TOKEN + ' READY ')), 'ready');
+    await visible(1);
+    const code = (await h.code()).data, mqtt = require('mqtt');
+    const connect = (url, opts = {}) => new Promise((ok, no) => { const c = mqtt.connect(url, { reconnectPeriod: 0, rejectUnauthorized: false, ...opts }); c.on('connect', () => ok(c)); c.on('error', no); });
+    const widget = () => connect(`ws://localhost:${PORT}/mqtt`);
+    const mod = () => connect(`wss://127.0.0.1:${PORT + 1}/mqtt`, { username: 'mod', password: code.pass });
+    const end = c => new Promise(r => c.end(true, {}, r));
+    const newRoom = () => h.api('/api/room/new', { name: 'x' });
+    await newRoom(); let w = await widget(); await sleep(500);
+    eq(said(), [], 'window in sight: nothing about OBS or the room');
+    await end(w); await sleep(5600);
+    await visible(0);
+    await h.api('/api/notify', { group: 'moderators', kind: 'leave', on: true });
+    const code2 = (await h.code()).data; code.pass = code2.pass;
+    let m = await mod(); w = await widget();
+    check(await until(() => kinds().includes('join') && kinds().includes('widgetUp')), 'hidden: moderator and widget', said());
+    eq(said().find(l => l.startsWith('join ')), 'join {"ip":"127.x.x.1","net":"Porthole"}', 'a masked address and nothing else');   // loopback is where Porthole comes from
+    await end(m); check(await until(() => kinds().includes('leave')), 'leaving');
+    m = await mod(); await sleep(500);
+    eq(kinds().filter(k => k === 'join').length, 1, 'the same moderator coming back at once is not announced again');
+    await end(m);
+    await newRoom(); check(await until(() => kinds().includes('roomNew')), 'room recreated');
+    const dock = () => fetch(`http://localhost:${PORT}/api/status`);
+    await dock(); await sleep(400);
+    check(!kinds().includes('dock'), 'the dock is off by default');
+    await h.api('/api/notify', { group: 'cs2', on: true });
+    const gsi = JSON.parse(fs.readFileSync(path.join(dir, 'overlay-host.json'), 'utf8')).gsiToken;
+    await fetch(`http://127.0.0.1:${PORT}/gsi`, { method: 'POST', body: JSON.stringify({ auth: { token: gsi } }) });
+    check(await until(() => kinds().includes('appeared'), 8000), 'CS2 appeared');
+    await h.api('/api/notify', { group: 'obs', on: false }); await end(w); await sleep(5600);
+    check(!kinds().includes('widgetDown'), 'a switched off group says nothing');
+    const all = said().join('\n');
+    check(![code.pass, code.k, code2.k, gsi].some(x => x && all.includes(x)) && !all.includes('127.0.0.1'), 'no secrets and no full addresses');
+
+    // a request to show the camera reaches the app even with the window in sight
+    await visible(1);
+    await h.api('/api/perms', { perms: { cam: true } });
+    const now = (await h.code()).data, c = await connect(`wss://127.0.0.1:${PORT + 1}/mqtt`, { username: 'mod', password: now.pass, clientId: 'asker-1' });
+    const head = Buffer.from(JSON.stringify({ v: 1, sid: 'sid-12345678', kind: 'cam', t: 'offer', to: 'widget' })), len = Buffer.alloc(2); len.writeUInt16BE(head.length);
+    c.publish(`stream-overlay/v1/${now.room}/rtc`, Buffer.concat([len, head, Buffer.alloc(64, 1)]));
+    check(await until(() => kinds().includes('cam')), 'the camera request', said());
+    await end(c);
+    h.proc.stdin.end(); await h.stop();
+  });
+
+  await step('the dock is announced on its first poll after a gap', async () => {
+    const TOKEN = 'app-line-token', dir = tmp();
+    fs.writeFileSync(path.join(dir, 'overlay-host.json'), JSON.stringify({ notify: { obs: { on: true, kinds: { dock: true } } } }));
+    const h = T.startHost({ OVERLAY_HOST_DIR: dir, OVERLAY_PORT: String(PORT), OVERLAY_SITE: 'off', OVERLAY_APP: '1', OVERLAY_APP_TOKEN: TOKEN });
+    process.on('exit', () => h.proc.kill('SIGKILL'));
+    const count = () => h.log().split('\n').filter(l => l.startsWith(TOKEN + ' NOTIFY dock ')).length;
+    check(await until(() => h.log().includes(TOKEN + ' READY ')), 'ready');
+    h.proc.stdin.write('VISIBLE 0\n'); await sleep(300);
+    for(let i = 0; i < 4; i++){ await fetch(`http://localhost:${PORT}/api/status`); await sleep(150); }
+    await h.api('/api/status');   // the window itself is not a dock
+    eq(count(), 1, 'once for a dock that keeps polling');
+    h.proc.stdin.end(); await h.stop();
+  });
+
+  await step('a moderators port that cannot be opened is announced', async () => {
+    const TOKEN = 'app-line-token', blocker = require('net').createServer();
+    await new Promise(r => blocker.listen(PORT + 1, '0.0.0.0', r));
+    const h = T.startHost({ OVERLAY_HOST_DIR: tmp(), OVERLAY_PORT: String(PORT), OVERLAY_SITE: 'off', OVERLAY_APP: '1', OVERLAY_APP_TOKEN: TOKEN });
+    process.on('exit', () => h.proc.kill('SIGKILL'));
+    h.proc.stdin.write('VISIBLE 0\n');   // as the app does right after the start
+    check(await until(() => h.log().includes(`${TOKEN} NOTIFY modPort {"port":${PORT + 1}}`)), 'said even this early');
+    h.proc.stdin.end(); await h.stop(); blocker.close();
   });
 
   process.exit(T.finish());

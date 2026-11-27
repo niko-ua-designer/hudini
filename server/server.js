@@ -43,7 +43,7 @@ const APP_EXE = process.env.OVERLAY_APP_EXE || '';           // файл про�
 const APP_PID = Number(process.env.OVERLAY_APP_PID) || process.ppid;
 // Случайный префикс служебных строк для программы с окном (строка журнала их не подделает); он же — токен первого входа в управление
 const APP_TOKEN = process.env.OVERLAY_APP_TOKEN || ''; delete process.env.OVERLAY_APP_TOKEN;
-let appHidden = false;                                       // окно программы спрятано в трей
+let appHidden = false;                                       // окно программы свёрнуто или спрятано в трей
 
 // ---------- папка с настройками: рядом с .exe ----------
 const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes('~BUN');
@@ -282,6 +282,53 @@ setInterval(() => {
   if(now!==lastAddrs){ lastAddrs = now; log('🌐 Moderator addresses:', addrText()); }
 }, 30000);
 
+// ---------- уведомления системы ----------
+// Программа с окном показывает строки «NOTIFY <вид> <json>». Пока окно на виду, идут только запросы камеры, экрана и
+// микрофона: их выключить нельзя, модератор ждёт ответа. В json нет секретов, адреса только в маске.
+const NOTIFY = {   // группа → вид → включено по умолчанию
+  moderators:{ join:true, leave:false }, media:{ cam:true, screen:true, mic:true }, obs:{ widgetUp:true, widgetDown:true, dock:false },
+  cs2:{ appeared:true }, system:{ updateReady:true, updateError:true, modPort:true, roomNew:true } };
+const NOTIFY_OFF = ['cs2'], NOTIFY_LOCKED = 'media';
+function notifyState(){
+  return { visibleOnlyMedia:true, groups:Object.fromEntries(Object.entries(NOTIFY).map(([g, def]) => {
+    if(g===NOTIFY_LOCKED) return [g, { locked:true, kinds:{ ...def } }];
+    const set = cfg.notify?.[g], bool = (v, d) => typeof v==='boolean' ? v : d;
+    return [g, { on:bool(set?.on, !NOTIFY_OFF.includes(g)), kinds:Object.fromEntries(Object.entries(def).map(([k, d]) => [k, bool(set?.kinds?.[k], d)])) }];
+  })) };
+}
+function setNotify(group, kind, on){
+  if(!Object.hasOwn(NOTIFY, group) || group===NOTIFY_LOCKED || typeof on!=='boolean' || (kind!==undefined && !Object.hasOwn(NOTIFY[group], kind))) throw new HttpErr(400, 'неизвестная настройка уведомлений');
+  const next = notifyState().groups[group];
+  if(kind===undefined) next.on = on; else next.kinds[kind] = on;
+  cfg.notify = { ...cfg.notify, [group]:next }; saveCfg();
+}
+// Спрятано окно или нет, программа говорит сразу после запуска сервера: события до этого ждут ответа (не дольше 3 с)
+let visibleSaid;
+const visibleKnown = new Promise(r => { visibleSaid = r; if(APP) setTimeout(r, 3000); });
+const notifiedAt = new Map();
+// key и gap: повтор того же события в пределах gap мс не показывается
+function notifyApp(kind, data={}, key='', gap=60000){
+  if(!APP) return;
+  visibleKnown.then(() => {
+    if(shuttingDown) return;
+    const group = Object.keys(NOTIFY).find(g => Object.hasOwn(NOTIFY[g], kind));
+    if(group!==NOTIFY_LOCKED){ const s = notifyState().groups[group]; if(!appHidden || !s?.on || !s.kinds[kind]) return; }
+    const id = kind+'|'+key, now = Date.now();
+    if(now - (notifiedAt.get(id) ?? -Infinity) < gap) return;
+    notifiedAt.set(id, now); if(notifiedAt.size > 300) notifiedAt.delete(notifiedAt.keys().next().value);
+    appSay(`NOTIFY ${kind} ${JSON.stringify(data)}`);
+  });
+}
+const notifyWho = ip => ({ ip:maskHost(ip), net:NET_LABEL[netOf(ip)] });
+const DOCK_GAP_MS = 30000;
+let dockPollAt = 0;
+// Док в OBS «подключился»: первый опрос после перерыва
+function dockPolled(){
+  const now = Date.now();
+  if(now - dockPollAt >= DOCK_GAP_MS) notifyApp('dock', {}, '', 5*60000);
+  dockPollAt = now;
+}
+
 // ---------- брокер ----------
 const aedes = await Aedes.createBroker({ connectTimeout:10000 });   // aedes 1.x: брокер запускается асинхронно
 const status = { mods:0, obs:0, obsSeen:0, cs2Seen:0, cs2:null, gsiPath:'' };
@@ -289,7 +336,7 @@ const status = { mods:0, obs:0, obsSeen:0, cs2Seen:0, cs2:null, gsiPath:'' };
 let cs2Up = false;
 setInterval(() => {
   const up = Date.now()-status.cs2Seen < 15000;
-  if(up!==cs2Up){ cs2Up = up; logc(up ? '🎯 CS2 appeared: data is flowing' : '🎯 CS2 gone: no data for over 15 s'); }
+  if(up!==cs2Up){ cs2Up = up; logc(up ? '🎯 CS2 appeared: data is flowing' : '🎯 CS2 gone: no data for over 15 s'); if(up) notifyApp('appeared', {}, '', 5*60000); }
 }, 5000);
 const modList = new Map();   // id клиента → { ip, net, since, rtt } для страницы управления
 // Кнопки стримера (док в OBS): спрятать оверлей, остановить звуки, пауза модераторов
@@ -459,7 +506,7 @@ aedes.on('client', c => {
   if(!s?._mod && !s?._streamer){
     status.obs++;
     clearTimeout(obsDropTimer);
-    if(!obsUp){ obsUp = true; logc('🎬 OBS widget connected'); }
+    if(!obsUp){ obsUp = true; logc('🎬 OBS widget connected'); notifyApp('widgetUp'); }
     return;
   }
   const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
@@ -477,7 +524,7 @@ aedes.on('client', c => {
   m.timer = setInterval(ping, PING_MS); ping();
   modList.set(c.id, m); status.mods = modCount();
   if(me) logc('🖥 Streamer panel connected');
-  else logc('👤 Moderator connected:', who(m.ip));
+  else { logc('👤 Moderator connected:', who(m.ip)); if(!ctl.paused) notifyApp('join', notifyWho(m.ip), m.ip); }
 });
 const modCount = () => [...modList.values()].filter(m => !m.me).length;
 aedes.on('clientDisconnect', c => {
@@ -486,13 +533,13 @@ aedes.on('clientDisconnect', c => {
     status.obs = Math.max(0, status.obs-1);
     if(!status.obs && obsUp){
       clearTimeout(obsDropTimer);
-      obsDropTimer = setTimeout(() => { if(!status.obs && obsUp){ obsUp = false; logc('🎬 OBS widget dropped'); } }, OBS_DROP_MS);
+      obsDropTimer = setTimeout(() => { if(!status.obs && obsUp){ obsUp = false; logc('🎬 OBS widget dropped'); notifyApp('widgetDown'); } }, OBS_DROP_MS);
     }
     return;
   }
   if(m && m.client===c){ clearInterval(m.timer); modList.delete(c.id);   // запись нового соединения с тем же clientId не трогаем
     if(m.me) logc('🖥 Streamer panel disconnected');
-    else logc('👤 Moderator disconnected:', who(m.ip), '— was online', fmtDur(Math.round((Date.now()-m.since)/1000))); }
+    else { logc('👤 Moderator disconnected:', who(m.ip), '— was online', fmtDur(Math.round((Date.now()-m.since)/1000))); notifyApp('leave', notifyWho(m.ip), m.ip); } }
   status.mods = modCount();
 });
 
@@ -662,6 +709,7 @@ function modMediaOk(client, kind){
   grants.set(key, { st:'pending', at:now, kind, ownerType:'mod', ownerClient:cid, cid, ip:client.conn._ip });
   logc('🎥 Moderator', who(client.conn._ip), 'asks to show:', PERM_NAMES[kind].replace("moderator's ", ''));
   mediaNote(cid, 'pending', kind, {}, true).catch(()=>{});
+  notifyApp(kind, notifyWho(client.conn._ip), client.conn._ip, 15000);
   return false;
 }
 // Заголовок уходит дальше с настоящим from (чужое from затирается)
@@ -1754,7 +1802,12 @@ let jobs = Promise.resolve();
 function queued(fn){
   return jobs = jobs.then(fn)
     .catch(e => { upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Update:', e.message); })
-    .finally(() => appSay('UPDATE '+upd.state+' '+(upd.latest||'-')));
+    .finally(() => {
+      appSay('UPDATE '+upd.state+' '+(upd.latest||'-'));
+      // о каждой версии один раз за запуск, о неудачах не чаще двух раз в сутки
+      if(upd.state==='ready' || upd.state==='available') notifyApp('updateReady', { ver:upd.latest, state:upd.state }, upd.latest+' '+upd.state, Infinity);
+      else if(upd.state==='error') notifyApp('updateError', {}, '', 12*3600e3);
+    });
 }
 async function doCheck(wanted){   // wanted: скачать, даже если автозагрузка выключена (нажата кнопка)
   if(!UPDATES_ON){ upd.state='off'; return; }
@@ -2189,6 +2242,7 @@ const local = http.createServer(async (req, res) => {
       // без входа: «живой» (проверка приложения); со стороны виджета (localhost) — краткий статус и кнопки стримера для дока в OBS
       if(req.method==='GET' && p==='/api/status'){
         if(isLocalAdminHost(req)) return send(res, 200, JSON.stringify({ alive:true, version:VERSION }), 'application/json');
+        dockPolled();
         return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods,
           obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)),
           fight:fightNow(), ...dockInfo() }), 'application/json');
@@ -2227,6 +2281,11 @@ const local = http.createServer(async (req, res) => {
         if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
         saveCfg();
         return send(res, 200, JSON.stringify({ ok:true, ui:uiState() }), 'application/json');
+      }
+      if(req.method==='POST' && p==='/api/notify'){
+        const { group, kind, on } = JSON.parse(await readBody(req, 1024));
+        setNotify(group, kind, on);
+        return send(res, 200, JSON.stringify({ ok:true, notify:notifyState() }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/limits'){ setLimits(JSON.parse(await readBody(req, 4096))); return send(res, 200, JSON.stringify({ ok:true, limits:cfg.limits }), 'application/json'); }
       if(req.method==='POST' && p==='/api/extaddr'){   // свой внешний адрес для проброса порта: host:port
@@ -2297,10 +2356,10 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/code/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('new moderator code'); log('🔑 New moderator code issued'); return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/room/new'){   // новая комната: новые ключи, пароль и код
         const { name } = JSON.parse(await readBody(req, 1024));
-        await createRoom(name); log('🆕 Room recreated');
+        await createRoom(name); log('🆕 Room recreated'); notifyApp('roomNew', {}, '', 10000);
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:updStatus(req.headers['x-hudini-lang']), app:APP, standalone:compiled && !APP, ui:uiState(), room:ROOM?.room||null, obsLink:obsLink(),
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:updStatus(req.headers['x-hudini-lang']), app:APP, standalone:compiled && !APP, ui:uiState(), notify:notifyState(), room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
@@ -2347,7 +2406,10 @@ const modSrv = https.createServer({ key:TLS.key, cert:TLS.cert, minVersion:'TLSv
 });
 modSrv.on('upgrade', wsServer(true));
 modSrv.on('tlsClientError', () => {});
-modSrv.on('error', e => { log('⚠ Moderator port', MPORT, 'did not open:', e.message); status.modErr = e.message; });
+modSrv.on('error', e => {
+  log('⚠ Moderator port', MPORT, 'did not open:', e.message); status.modErr = e.message;
+  if(!(e.code==='EADDRINUSE' && process.env.OVERLAY_UPDATED && modTries < 30)) notifyApp('modPort', { port:MPORT }, '', 3600e3);   // после обновления порт ещё занят старой версией
+});
 
 function openBrowser(u){
   if(NO_OPEN || APP) return;
@@ -2365,7 +2427,8 @@ async function shutdown(){
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
-// stdout: строки «READY <порт>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>». stdin: «VISIBLE 0/1», «QUIT», «PANEL».
+// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>».
+// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL».
 // PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
@@ -2378,8 +2441,7 @@ if(APP){
     buf += d; let i;
     while((i = buf.indexOf('\n')) >= 0){
       const l = buf.slice(0, i).trim(); buf = buf.slice(i+1);
-      if(l==='VISIBLE 0') appHidden = true;
-      else if(l==='VISIBLE 1') appHidden = false;
+      if(l==='VISIBLE 0' || l==='VISIBLE 1'){ appHidden = l==='VISIBLE 0'; visibleSaid(); }
       else if(l==='QUIT') shutdown();
       else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
       else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
@@ -2410,7 +2472,7 @@ if(ROLE_MOD){
     // Комната из конфига старой версии (ссылка без закрытого ключа): код для модератора вышел бы без ключей и модератор не вошёл бы.
     // Один раз создаём обычную комнату Host и просим стримера обновить ссылку в OBS и отправить модераторам новый код.
     if(cfg.link && !cfg.room?.s && !cfg.linkSet){
-      try{ await createRoom(); cfg.roomNotice = true; saveCfg(); log('🆕 Room from an old version had no moderator keys: created a new room. Update the OBS link and send moderators the new code'); }
+      try{ await createRoom(); cfg.roomNotice = true; saveCfg(); log('🆕 Room from an old version had no moderator keys: created a new room. Update the OBS link and send moderators the new code'); notifyApp('roomNew'); }
       catch(e){ log('⚠ Could not create the room:', e.message); }
     }
     else if(cfg.link){ try{ await setRoom(cfg.link, cfg.room); }catch(e){ log('⚠', e.message); } }
