@@ -105,7 +105,16 @@ async function stubHost(port){
 
   // the streamer's layer of a kind in the widget
   const vid = (kind = 'cam', owner = 'streamer') => wid.evaluate(([k, o]) => { const n = [...nodes.values()].find(x => x._el.kind === k && x._el.owner === o); const v = n?.querySelector('video'); return v ? { w: v.videoWidth, t: v.currentTime, so: !!v.srcObject, src: (v.getAttribute('src') || '').slice(0, 5), muted: v.muted, vol: v.volume, clip: v.style.clipPath, vis: getComputedStyle(n).visibility } : null; }, [kind, owner]);
-  const alive = async (kind = 'cam', owner = 'streamer') => { const a = await vid(kind, owner); await sleep(700); const b = await vid(kind, owner); return !!a && !!b && b.w > 0 && b.t > a.t; };
+  // moving: the player goes on by 0.3 s of picture; a busy machine may stall for a moment, a dead stream never moves again
+  const alive = async (kind = 'cam', owner = 'streamer') => {
+    const a = await vid(kind, owner); if(!a) return false;
+    return !!(await until(async () => { const b = await vid(kind, owner); return !!b && b.w > 0 && b.t > a.t + 0.3; }, 5000, 200));
+  };
+  // the widget's receivers, one line each: which layer, which stream, who sends it
+  const receivers = () => wid.evaluate(() => [...media.recvs.values()].map(e => [e.key, e.sid, e.owner, e.addr].join(' ')).sort());
+  // notes every rtc message the widget has finished with: 'type:sid', or 'junk' for one without a readable header
+  const watchRtc = () => wid.evaluate(() => { window.__rtcDone = []; const real = media.onPacket; media.onPacket = async b => { const h = HudiniMedia.unwrapRtc(b)?.head; await real(b); __rtcDone.push(h ? h.t + ':' + h.sid : 'junk'); }; });
+  const rtcDone = (re, n) => until(() => wid.evaluate(([re, n]) => __rtcDone.filter(x => new RegExp(re).test(x)).length >= n, [re, n]), 10000, 50);
   const edit = (page, kind, patch, owner = 'streamer') => page.evaluate(([k, p, o]) => { const e = state.els.find(x => x.type === 'stream' && x.kind === k && x.owner === o); beginChange(); for(const key of Object.keys(p)) { if(p[key] === null) delete e[key]; else e[key] = p[key]; } commit(); }, [kind, patch, owner]);
 
   // ---------- pure functions ----------
@@ -171,7 +180,8 @@ async function stubHost(port){
     const txt = await panel.evaluate(() => document.querySelector('#bcList .bcp')?.textContent);
     check(/прямое|direct/.test(txt || ''), 'the path and latency are shown: ' + txt);
     check(await panel.evaluate(() => { const v = document.querySelector('.el[data-type="stream"] video'); return !!v && !!v.srcObject && v.muted; }), 'the panel preview shows the local picture, muted');
-    check(!stub.stats.rtc.some(b => b.includes(Buffer.from('v=0'))), 'signaling on the wire is sealed (no SDP in the clear)');
+    // an SDP in the clear, as text or inside JSON; the bare "v=0" turns up by chance in sealed bytes
+    check(!stub.stats.rtc.some(b => ['v=0\r\n', 'v=0\\r\\n', '"sdp"', 'a=fingerprint'].some(s => b.includes(Buffer.from(s)))), 'signaling on the wire is sealed (no SDP in the clear)');
     check(stub.stats.rtc.every(b => { const n = b[0] * 256 + b[1]; const h = JSON.parse(b.subarray(2, 2 + n).toString()); return h.v === 1 && /^[A-Za-z0-9_-]{8,32}$/.test(h.sid) && ['cam', 'screen', 'mic'].includes(h.kind) && n <= 300; }), 'every message carries the open header the Host reads');
     await panel.screenshot({ path: shot('media-panel') }).catch(() => {});
   });
@@ -239,7 +249,10 @@ async function stubHost(port){
   });
 
   await step('security: forged signaling does not get on stream', async () => {
-    const before = await wid.evaluate(() => media.recvs.size);
+    // the moderator's camera and microphone of the earlier steps are let go of first: only the streamer's camera is left
+    check(await until(async () => { const r = await receivers(); return r.length === 1 && r[0].startsWith('main|streamer|cam '); }, 25000), 'the receivers of the earlier steps are closed', await receivers());
+    const before = await receivers();
+    await watchRtc();
     await panel.evaluate(async () => {
       const mk = async (t, kind, extra, keys, sign, headKind, sid) => {
         const sd = sid || 'zzzzzzzzzzzz';
@@ -258,17 +271,18 @@ async function stubHost(port){
       pub(new Uint8Array(200).fill(7));                                                        // garbage
       pub(new Uint8Array([0, 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]));         // a header that is not JSON
     });
-    await sleep(1500);
-    check((await wid.evaluate(() => media.recvs.size)) === before, 'the widget receives nothing new: ' + before);
+    check(await rtcDone('^junk$|:(zzzzzzzzzzzz|qqqqqqqqqqqq)$', 8), 'the widget has read all eight forged messages');
+    eq(await receivers(), before, 'the widget receives nothing new and keeps the stream it had');
+    check(await wid.evaluate(() => ![...media.recvs.values()].some(e => /^(zzzzzzzzzzzz|qqqqqqqqqqqq)$/.test(e.sid) || e.owner === 'mod_stranger' || e.addr === 'm:mod_stranger')), 'no receiver for a forged stream or sender');
     check(await alive(), 'the real picture is not disturbed');
     // an unsigned `bye` that is not from the Host does not cut a stream; one from the Host does
-    const sid = await wid.evaluate(() => [...media.recvs.values()].find(e => e.kind === 'cam')?.sid);
+    const sid = await wid.evaluate(() => media.recvs.get('main|streamer|cam')?.sid);
     await panel.evaluate(async sid => {
       const b = await seal(KEYS, TE.encode(JSON.stringify({ t: 'bye', kind: 'cam', sid, from: 'mod_x', to: '*' })), false);
       client.publish(topics(room).base + '/rtc', HudiniMedia.wrapRtc({ v: 1, sid, kind: 'cam', t: 'bye', to: '*' }, b), { qos: 0 });
     }, sid);
-    await sleep(800);
-    check((await wid.evaluate(() => media.recvs.size)) === before, 'an unsigned bye from a non-Host does not end the stream');
+    check(!!sid && await rtcDone('^bye:' + sid + '$', 1), 'the widget has read the unsigned bye');
+    eq(await receivers(), before, 'an unsigned bye from a non-Host does not end the stream');
     // the Host's own message: published by the broker itself (a client's header is always stamped with the client's address)
     const hostBye = await panel.evaluate(async sid => {
       const b = await seal(KEYS, TE.encode(JSON.stringify({ t: 'bye', sid, kind: 'cam', from: 'host', why: 'test', ts: Date.now() })), false);
@@ -465,6 +479,28 @@ async function stubHost(port){
       }finally{ window.setInterval = si; window.clearInterval = ci; }
     });
     check(r.made >= 3 && r.left === 0, 'timers made ' + r.made + ', left after shutdown ' + r.left);
+  });
+
+  await step('a stream stopped while an offer is being made sends nothing after its bye', async () => {
+    const sent = await panel.evaluate(async () => {
+      const M = HudiniMedia, out = [], wait = ms => new Promise(r => setTimeout(r, ms));
+      const h = M.createHub({ id: 'streamer', keys: () => KEYS, sign: true, now: () => Date.now(), addr: () => 'streamer', publish: b => out.push(M.unwrapRtc(b).head.t), mediaUrl: () => '', desired: () => [] });
+      const real = RTCRtpSender.prototype.setParameters;
+      let busy = false;   // the offer is held at its last stage before it goes out
+      RTCRtpSender.prototype.setParameters = async function(p){ busy = true; await wait(500); return real.call(this, p); };
+      try{
+        const cv = document.createElement('canvas'); cv.width = 64; cv.height = 36; cv.getContext('2d').fillRect(0, 0, 8, 8);
+        const src = await h.share('cam', cv.captureStream(5));
+        const body = await seal(KEYS, TE.encode(JSON.stringify({ t: 'want', kind: 'cam', sid: 'wantsid00001', from: 'widget_x', a: 'widget', owner: 'streamer', to: '*' })), false);
+        await h.onPacket(M.wrapRtc({ v: 1, sid: 'wantsid00001', kind: 'cam', t: 'want', from: 'widget' }, body));
+        for(let i = 0; i < 100 && !busy; i++) await wait(20);
+        h.stop(src.sid);
+        await wait(1500);
+        return { busy, out };
+      }finally{ RTCRtpSender.prototype.setParameters = real; h.shutdown(); }
+    });
+    check(sent.busy && sent.out.includes('bye'), 'the stream was stopped in the middle of an offer: ' + sent.out.join());
+    eq(sent.out.slice(sent.out.indexOf('bye') + 1).filter(t => t === 'offer'), [], 'no offer follows the bye');
   });
 
   // ---------- the panel background ----------
