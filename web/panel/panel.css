@@ -411,7 +411,7 @@ input:user-invalid,textarea:user-invalid,input[aria-invalid=true]{border-color:v
 .layer:not(.sel):not(.msel):not(.folder):hover,.lib:hover,.scene:hover,.kk:hover,.scn:hover,.mx:hover{border-color:#3d4456}
 .layer,.lib,.scene,.kk,.scn{transition:border-color .15s,background-color .15s}
 summary,label.chk,.tgl,.kk{cursor:pointer}
-#helpDrawer .hd-top a:hover,#helpDrawer .hd-top a:focus-visible,#lvlPop a:hover,#connStrip a:hover{text-decoration:underline}
+#helpDrawer .help-bar a:hover,#helpDrawer .help-bar a:focus-visible,#lvlPop a:hover,#connStrip a:hover{text-decoration:underline}
 #tabs button:active{background:#1f2330}
 #tabs button.on:active{background:#2a2250}
 .kk small,.scn .nm span,.layer .num,.cm .tm,kbd,.tag,#curLayer .cur span,#curLayer .curBox span,.rou-it .pc,.foot small{font-size:12px}

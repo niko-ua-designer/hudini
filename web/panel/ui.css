@@ -68,10 +68,10 @@ body.swap #emptyHint .arrow{transform:scaleX(-1)}
 /* ---------- help drawer ---------- */
 #helpDrawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,96vw);z-index:100003;background:var(--panel);border-left:1px solid var(--line);box-shadow:-20px 0 60px #0009;display:flex;flex-direction:column;animation:slideIn .22s ease-out}
 @keyframes slideIn{from{translate:40px 0;opacity:0}to{translate:0 0;opacity:1}}
-#helpDrawer .hd-top{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
-#helpDrawer .hd-top input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text);outline:none}
-#helpDrawer .hd-top input:focus{border-color:var(--acc)}
-#helpDrawer .hd-top a{color:var(--acc2,#b9a8ff);text-decoration:none;padding:4px 8px}
+#helpDrawer .help-bar{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+#helpDrawer .help-bar input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text);outline:none}
+#helpDrawer .help-bar input:focus{border-color:var(--acc)}
+#helpDrawer .help-bar a{color:var(--acc2,#b9a8ff);text-decoration:none;padding:4px 8px}
 #helpDrawer .hd-body{overflow:auto;padding:8px 14px 40px;font-size:13px;line-height:1.55}
 #helpDrawer details{border-bottom:1px solid var(--line);padding:6px 0}
 #helpDrawer summary{cursor:pointer;font-weight:600;font-size:14px;padding:4px 0}

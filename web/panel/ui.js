@@ -291,7 +291,7 @@
     if(!H){ window.open(HELP_URL, '_blank', 'noopener'); return; }
     $('helpDrawer')?.remove();
     const d = document.createElement('div'); d.id = 'helpDrawer';
-    d.innerHTML = `<div class="hd-top"><b>📖</b><input type="search" id="hdQ"><a id="hdSite" target="_blank" rel="noopener" title="Открыть справку на сайте">↗</a><button id="hdClose" title="Закрыть">✕</button></div><div class="hd-body" data-i18n-skip></div>`;
+    d.innerHTML = `<div class="help-bar"><b>📖</b><input type="search" id="hdQ"><a id="hdSite" target="_blank" rel="noopener" title="Открыть справку на сайте">↗</a><button id="hdClose" title="Закрыть">✕</button></div><div class="hd-body" data-i18n-skip></div>`;
     document.body.appendChild(d);
     $('hdQ').placeholder = H.search; $('hdSite').href = `${HELP_URL}?lang=${lang}${id ? '#' + id : ''}`;
     const body = d.querySelector('.hd-body');
