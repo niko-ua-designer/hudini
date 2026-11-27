@@ -51,7 +51,15 @@ a{color:#b9a8ff}
 .ct{color:#8fb8ff}.t{color:#f5c463}
 .empty{color:var(--muted);padding:6px 0}
 #ask{margin:8px;border:1px solid var(--warn);border-radius:10px;background:#2a2112;padding:8px 10px}
-#ask .row{border-top:0}
+#ask .row{border-top:0;flex-wrap:wrap}
+#ask .row+.row{border-top:1px solid #ffffff1f}
+#ask .row .n{flex:1 1 100%;white-space:normal;overflow-wrap:anywhere}
+#ask .row button{flex:1 1 90px}
+/* people and broadcasts: the name wraps, the button moves to its own line when the dock is narrow */
+.row.wrap{flex-wrap:wrap}
+.row .who{flex:1 1 130px;min-width:0}
+.row .who .n,.row .who .m{display:block;white-space:normal;overflow-wrap:anywhere}
+.row.wrap>button{margin-left:auto}
 #ask button.go{background:var(--ok);border-color:var(--ok);color:#111;font-weight:600}
 #banner{margin:8px;padding:6px 8px;border-radius:7px;background:#3a1820;border:1px solid #6b2433;color:#ffb3bd;font-size:12px}
 .foot{margin:10px 8px;display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
@@ -200,8 +208,9 @@ $('stop').onclick=act(()=>({ action:'stopsounds' }));
 $('pause').onclick=act(()=>({ action:s?.ctl?.paused?'resume':'pause' }));
 
 // ---- Элементы: глазик прячет только на стриме (ctl.hideIds) ----
-const TYPE_ICO={ text:'T', image:'🖼', video:'🎞', timer:'⏱', counter:'🔢', web:'🌐', poll:'📊', cs2:'🎯', msg:'💬', chat:'💬', raffle:'🎁', case:'📦', draw:'✏' };
-const TYPE_NAME={ text:'Текст', image:'Картинка', video:'Видео', timer:'Таймер', counter:'Счётчик', web:'Сайт', poll:'Голосование', cs2:'CS2', msg:'Сообщение', chat:'Чат на стриме', raffle:'Розыгрыш', case:'Кейс', draw:'Рисунок' };
+const TYPE_ICO={ text:'T', image:'🖼', video:'🎞', timer:'⏱', counter:'🔢', web:'🌐', poll:'📊', cs2:'🎯', msg:'💬', chat:'💬', raffle:'🎁', case:'📦', draw:'✏', roulette:'🎰' };
+const STREAM_ICO={ cam:'📷', screen:'🖥', mic:'🎙' }, STREAM_NAME={ cam:'Камера', screen:'Экран', mic:'Микрофон' };
+const TYPE_NAME={ text:'Текст', image:'Картинка', video:'Видео', timer:'Таймер', counter:'Счётчик', web:'Сайт', poll:'Голосование', cs2:'CS2', msg:'Сообщение', chat:'Чат на стриме', raffle:'Розыгрыш', case:'Кейс', draw:'Рисунок', roulette:'Рулетка', stream:'Трансляция' };
 function renderEls(){
   const box=$('els'), list=s.els, hid=new Set(s.ctl?.hideIds||[]);
   if(same(box, [list, s.ctl?.hideIds])) return;
@@ -210,11 +219,11 @@ function renderEls(){
   if(!list.length){ box.replaceChildren(el('div','empty',tr('На экране пусто'))); return; }
   box.replaceChildren(...[...list].reverse().map(x=>{
     const row=el('div','row'+(x.hidden||hid.has(x.id)?' hid':'')), off=hid.has(x.id);
-    const eye=el('button','eye'+(off?' off':''),'👁'); eye.dataset.eye=x.id; eye.setAttribute('aria-pressed', String(!off)); eye.setAttribute('aria-label', tr('Показывать на стриме')+': '+(x.name||tr(TYPE_NAME[x.type]||x.type)));
+    const eye=el('button','eye'+(off?' off':''),'👁'); eye.dataset.eye=x.id; eye.setAttribute('aria-pressed', String(!off)); eye.setAttribute('aria-label', tr('Показывать на стриме')+': '+(x.name||tr((x.type==='stream' && STREAM_NAME[x.kind])||TYPE_NAME[x.type]||x.type)));
     eye.title=off?tr('Скрыто тобой на стриме: нажми, чтобы вернуть'):tr('Спрятать на стриме');
     eye.onclick=act(()=>({ action:'hideel', key:x.id, on:!off }));
-    const n=el('span','n'); n.append((TYPE_ICO[x.type]||'•')+' ');
-    const nm=el('span',null,x.name||tr(TYPE_NAME[x.type]||x.type)); if(x.name) nm.setAttribute('data-i18n-skip',''); n.append(nm);
+    const stream=x.type==='stream', n=el('span','n'); n.append(((stream ? STREAM_ICO[x.kind] : TYPE_ICO[x.type])||'•')+' ');
+    const nm=el('span',null,x.name||tr((stream && STREAM_NAME[x.kind])||TYPE_NAME[x.type]||x.type)); if(x.name) nm.setAttribute('data-i18n-skip',''); n.append(nm);
     const meta=el('span','m', x.hidden ? tr('скрыт в пульте') : tr(TYPE_NAME[x.type]||''));
     row.append(eye, n, meta); return row;
   }));
@@ -228,10 +237,11 @@ function renderPpl(){
   $('pplCnt').textContent=String(list.length);
   if(!list.length){ box.replaceChildren(el('div','empty',tr('Никого нет'))); return; }
   box.replaceChildren(...list.map(p=>{
-    const row=el('div','row'), rtt=p.rtt==null?'…':p.rtt+' '+tr('мс');
+    const row=el('div','row wrap'), who=el('span','who'), rtt=p.rtt==null?'…':p.rtt+' '+tr('мс');
     const n=el('span','n', p.me ? tr('Ты: пульт на этом компьютере') : tr('Модератор'));
     const meta=el('span','m', [p.me ? '' : p.ip, tr(NET[p.net]||p.net||''), rtt].filter(Boolean).join(' · ')); meta.setAttribute('data-i18n-skip','');
-    row.append(el('span','dot '+(p.rtt==null?'warn':p.rtt<200?'ok':'bad')), n, meta);
+    who.append(n, meta);
+    row.append(el('span','dot '+(p.rtt==null?'warn':p.rtt<200?'ok':'bad')), who);
     if(!p.me){ const k=el('button','kick',tr('Отключить')); k.dataset.kick=p.id; k.onclick=act(()=>({ action:'kick', key:p.id })); row.append(k); }
     return row;
   }));
@@ -248,7 +258,7 @@ function renderMedia(){
       const row=el('div','row'), n=el('span','n');
       const ip=el('span',null,q.ip); ip.setAttribute('data-i18n-skip','');
       n.append(tr('Модератор')+' ', ip, ' '+tr(MEDIA_ASK[q.kind]||q.kind));
-      const ok=el('button','go',tr('Разрешить показ')), no=el('button',null,tr('Отклонить запрос'));
+      const ok=el('button','go',tr('Разрешить')), no=el('button',null,tr('Отклонить'));
       ok.dataset.mok=q.key; no.dataset.mno=q.key;
       ok.onclick=act(()=>({ action:'mediaallow', key:q.key })); no.onclick=act(()=>({ action:'mediadeny', key:q.key }));
       row.append(n, ok, no); return row;
@@ -259,11 +269,11 @@ function renderMedia(){
   if(!same(live, [m.live, m.off])){
     $('liveCnt').textContent=String(m.live.length);
     live.replaceChildren(...(m.live.length ? m.live.map(x=>{
-      const row=el('div','row'), n=el('span','n');
+      const row=el('div','row wrap'), box=el('span','who'), n=el('span','n');
       const who=el('span',null,x.ip); who.setAttribute('data-i18n-skip','');
-      n.append(tr(MEDIA_LIVE[x.kind]||x.kind)+' · ', x.own==='mod' ? who : tr('Стример'));
+      n.append(tr(MEDIA_LIVE[x.kind]||x.kind)+' · ', x.own==='mod' ? who : tr('Стример')); box.append(n);
       const b=el('button','kick',tr('Выключить трансляцию')); b.dataset.mstop=x.sid; b.onclick=act(()=>({ action:'mediastop', key:x.sid }));
-      row.append(el('span','dot ok'), n, b); return row;
+      row.append(el('span','dot ok'), box, b); return row;
     }) : [el('div','empty',tr('Никто не вещает'))]));
     $('mediaoff').classList.toggle('on', !!m.off);
     $('mediaoff').textContent = m.off ? tr('✅ Разрешить трансляции модераторов') : tr('⛔ Выключить все трансляции модераторов');

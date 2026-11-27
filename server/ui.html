@@ -761,7 +761,7 @@ function renderAsk(s){
     const row=el('div',null,'askrow'), txt=el('div',null,'txt');
     txt.append(tr_('Модератор')+' ', raw('b', q.ip), ' '+tr_(ASK_TXT[q.kind]||q.kind), el('small','Пока не ответишь, модератор ждёт. То же самое есть в панели OBS.'));
     const go=a=>send('/api/control', { action:a, key:q.key });
-    const ok=el('button','Разрешить показ','primary'), no=el('button','Отклонить запрос');
+    const ok=el('button','Разрешить','primary'), no=el('button','Отклонить');
     ok.type=no.type='button'; ok.dataset.ask='ok|'+q.key; no.dataset.ask='no|'+q.key;
     ok.onclick=()=>go('mediaallow'); no.onclick=()=>go('mediadeny');
     const btns=el('div',null,'btns'); btns.append(ok, no);

@@ -159,6 +159,14 @@ const { step, check, eq, until, sleep } = T;
     await panel.evaluate(() => { state.els = state.els.filter(e => e.id !== 'big1' && !e.id.startsWith('pad')); renderAll(); publishNow(1); });
   });
 
+  await step('dock: a broadcast layer is listed by what it shows', async () => {
+    await tab('els');
+    await put([{ id: 'str1', type: 'stream', owner: 'streamer', kind: 'cam' }]);
+    const row = await until(async () => { const r = await dock.$('#els .row:has([data-eye="str1"])'); const t = r && await r.textContent(); return /Камера/.test(t) && t; });
+    check(row && /Трансляция/.test(row) && !/stream|•/.test(row), 'camera name and type: ' + row);
+    await panel.evaluate(() => { state.els = state.els.filter(e => e.id !== 'str1'); renderAll(); publishNow(1); });
+  });
+
   await step('dock: who is online, masked address, kick one moderator', async () => {
     await tab('ppl');
     const t = await until(async () => { const t = await dock.textContent('#ppl'); return /Модератор/.test(t) && t; });
