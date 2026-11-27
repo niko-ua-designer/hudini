@@ -1,6 +1,6 @@
 // Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
-// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>»;
+// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>»;
 // программа пишет в его stdin «VISIBLE 0/1», «APPLY», «PANEL».
 // Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
 // окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
@@ -67,6 +67,21 @@ struct Texts {
     open_panel: &'static str,
     panel_title: &'static str,
     panel_no_room: &'static str,
+    // уведомления о событиях сервера: {who} адрес в маске, {ver} версия, {port} порт
+    n_join: &'static str,
+    n_leave: &'static str,
+    n_cam: &'static str,
+    n_screen: &'static str,
+    n_mic: &'static str,
+    n_widget_up: &'static str,
+    n_widget_down: &'static str,
+    n_dock: &'static str,
+    n_cs2: &'static str,
+    n_update_ready: &'static str,
+    n_update_found: &'static str,
+    n_update_error: &'static str,
+    n_mod_port: &'static str,
+    n_room_new: &'static str,
 }
 
 static RU: Texts = Texts {
@@ -87,6 +102,20 @@ static RU: Texts = Texts {
     open_panel: "Открыть пульт",
     panel_title: "Hudini · пульт стримера",
     panel_no_room: "Пульт на этом компьютере работает с комнатой, которую создал Hudini Host.",
+    n_join: "Подключился модератор: {who}",
+    n_leave: "Модератор отключился: {who}",
+    n_cam: "Модератор {who} просит показать камеру",
+    n_screen: "Модератор {who} просит показать экран",
+    n_mic: "Модератор {who} просит включить микрофон",
+    n_widget_up: "Виджет OBS подключился",
+    n_widget_down: "Виджет OBS отключился",
+    n_dock: "Док OBS подключился",
+    n_cs2: "CS2 на связи: данные идут",
+    n_update_ready: "Обновление {ver} скачано. Открой Hudini, чтобы установить.",
+    n_update_found: "Вышла версия {ver}. Открой Hudini, чтобы установить.",
+    n_update_error: "Не удалось обновиться. Подробности в окне Hudini.",
+    n_mod_port: "Порт модераторов {port} не открылся",
+    n_room_new: "Комната пересоздана: обнови ссылку в OBS и отправь модераторам новый код.",
 };
 static UK: Texts = Texts {
     open: "Відкрити Hudini",
@@ -106,6 +135,20 @@ static UK: Texts = Texts {
     open_panel: "Відкрити пульт",
     panel_title: "Hudini · пульт стримера",
     panel_no_room: "Пульт на цьому комп'ютері працює з кімнатою, яку створив Hudini Host.",
+    n_join: "Підключився модератор: {who}",
+    n_leave: "Модератор відключився: {who}",
+    n_cam: "Модератор {who} просить показати камеру",
+    n_screen: "Модератор {who} просить показати екран",
+    n_mic: "Модератор {who} просить увімкнути мікрофон",
+    n_widget_up: "Віджет OBS підключився",
+    n_widget_down: "Віджет OBS відключився",
+    n_dock: "Док OBS підключився",
+    n_cs2: "CS2 на зв’язку: дані йдуть",
+    n_update_ready: "Оновлення {ver} завантажено. Відкрий Hudini, щоб встановити.",
+    n_update_found: "Вийшла версія {ver}. Відкрий Hudini, щоб встановити.",
+    n_update_error: "Не вдалося оновитися. Подробиці у вікні Hudini.",
+    n_mod_port: "Порт модераторів {port} не відкрився",
+    n_room_new: "Кімнату перестворено: онови посилання в OBS і надішли модераторам новий код.",
 };
 static DE: Texts = Texts {
     open: "Hudini öffnen",
@@ -125,6 +168,20 @@ static DE: Texts = Texts {
     open_panel: "Panel öffnen",
     panel_title: "Hudini · Streamer-Panel",
     panel_no_room: "Das Panel auf diesem Computer arbeitet mit dem Raum, den Hudini Host erstellt hat.",
+    n_join: "Moderator verbunden: {who}",
+    n_leave: "Moderator getrennt: {who}",
+    n_cam: "Moderator {who} möchte die Kamera zeigen",
+    n_screen: "Moderator {who} möchte den Bildschirm zeigen",
+    n_mic: "Moderator {who} möchte das Mikrofon einschalten",
+    n_widget_up: "OBS-Widget verbunden",
+    n_widget_down: "OBS-Widget getrennt",
+    n_dock: "OBS-Dock verbunden",
+    n_cs2: "CS2 ist da: Daten kommen an",
+    n_update_ready: "Update {ver} ist heruntergeladen. Öffne Hudini zum Installieren.",
+    n_update_found: "Version {ver} ist da. Öffne Hudini zum Installieren.",
+    n_update_error: "Das Update ist fehlgeschlagen. Details im Hudini-Fenster.",
+    n_mod_port: "Der Moderator-Port {port} ließ sich nicht öffnen",
+    n_room_new: "Der Raum wurde neu erstellt: Aktualisiere den Link in OBS und schick den Moderatoren den neuen Code.",
 };
 static EN: Texts = Texts {
     open: "Open Hudini",
@@ -144,6 +201,20 @@ static EN: Texts = Texts {
     open_panel: "Open the panel",
     panel_title: "Hudini · streamer panel",
     panel_no_room: "The panel on this computer works with the room Hudini Host created.",
+    n_join: "Moderator connected: {who}",
+    n_leave: "Moderator disconnected: {who}",
+    n_cam: "Moderator {who} asks to show the camera",
+    n_screen: "Moderator {who} asks to share the screen",
+    n_mic: "Moderator {who} asks to turn on the microphone",
+    n_widget_up: "OBS widget connected",
+    n_widget_down: "OBS widget disconnected",
+    n_dock: "OBS dock connected",
+    n_cs2: "CS2 appeared: data is flowing",
+    n_update_ready: "Update {ver} is downloaded. Open Hudini to install it.",
+    n_update_found: "Version {ver} is out. Open Hudini to install it.",
+    n_update_error: "The update failed. See the Hudini window for details.",
+    n_mod_port: "Moderator port {port} did not open",
+    n_room_new: "The room was recreated: update the link in OBS and send the moderators the new code.",
 };
 
 fn texts() -> &'static Texts {
@@ -192,6 +263,8 @@ struct Server {
     role: Mutex<String>,
     // последнее «UPDATE <состояние> <версия>» от сервера
     update: Mutex<Option<(String, String)>>,
+    // последнее сказанное серверу «VISIBLE»: окно на виду (не свёрнуто и не в трее)
+    visible: AtomicBool,
     // баннер о прошлом падении на странице управления уже показан в этом запуске
     crash_shown: AtomicBool,
     // запуск и остановка сервера по очереди: перезапуск после падения, смена роли и «Сменить роль» не должны
@@ -352,14 +425,31 @@ fn show_main(app: &AppHandle) {
         let _ = w.show();
         let _ = w.set_focus();
     }
-    say(app, "VISIBLE 1");
+    say_visible(app, true);
 }
 
 fn hide_main(app: &AppHandle) {
     if let Some(w) = app.get_window(MAIN) {
         let _ = w.hide();
     }
-    say(app, "VISIBLE 0");
+    say_visible(app, false);
+}
+
+fn say_visible(app: &AppHandle, seen: bool) {
+    app.state::<Server>().visible.store(seen, Ordering::SeqCst);
+    say(app, if seen { "VISIBLE 1" } else { "VISIBLE 0" });
+}
+
+fn window_seen(app: &AppHandle) -> bool {
+    app.get_window(MAIN).map(|w| w.is_visible().unwrap_or(true) && !w.is_minimized().unwrap_or(false)).unwrap_or(true)
+}
+
+// Свёрнутое окно для сервера так же не на виду, как спрятанное в трей: тогда события идут уведомлениями системы
+fn report_visible(app: &AppHandle) {
+    let seen = window_seen(app);
+    if app.state::<Server>().visible.load(Ordering::SeqCst) != seen {
+        say_visible(app, seen);
+    }
 }
 
 // Галочка «Запускать вместе с системой» в меню трея = то, что реально записано в системе
@@ -455,9 +545,8 @@ fn spawn_server(app: &AppHandle, role: &str) -> Result<(), String> {
     *server.stdin.lock().unwrap() = child.stdin.take();
     *server.child.lock().unwrap() = Some(child);
     *server.role.lock().unwrap() = role.to_string();
-    // окно спрятано (автозапуск) → сервер знает об этом и после обновления запустит программу тоже в трее
-    let hidden = app.get_window(MAIN).and_then(|w| w.is_visible().ok()).map(|v| !v).unwrap_or(false);
-    say(app, if hidden { "VISIBLE 0" } else { "VISIBLE 1" });
+    // окно спрятано (автозапуск) или свёрнуто → сервер знает об этом: шлёт уведомления и после обновления запустит программу в трее
+    say_visible(app, window_seen(app));
     if let Some(err) = stderr {
         // stderr только вычитываем, чтобы сервер не встал на полном канале
         thread::spawn(move || {
@@ -510,6 +599,10 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
                 notify(&app, texts().panel_no_room);
             } else {
                 open_streamer_panel(&app, key, port);
+            }
+        } else if let Some(n) = line.strip_prefix("NOTIFY ") {
+            if let Some(body) = notify_text(texts(), n) {
+                notify(&app, &body);
             }
         } else if line == "RESTART" {
             restart = true;
@@ -579,6 +672,45 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
     if let Err(e) = spawn_server(&app, ROLE_STREAMER) {
         set_loading(&app, &e, true);
     }
+}
+
+// Значение из уведомления сервера: без управляющих знаков, разметки и переворота текста, короткое
+fn notify_value(data: &serde_json::Value, key: &str) -> String {
+    let text = match data.get(key) {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Number(n)) => n.to_string(),
+        _ => String::new(),
+    };
+    text.chars()
+        .filter(|c| !c.is_control() && !matches!(c, '<' | '>' | '&' | '{' | '}' | '\u{200b}'..='\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+        .take(40)
+        .collect()
+}
+
+// «<вид> <json>» → текст уведомления на языке системы; незнакомый вид пропускаем
+fn notify_text(t: &Texts, line: &str) -> Option<String> {
+    let (kind, json) = line.split_once(' ').unwrap_or((line, ""));
+    let data: serde_json::Value = serde_json::from_str(json).unwrap_or_default();
+    let text = match kind {
+        "join" => t.n_join,
+        "leave" => t.n_leave,
+        "cam" => t.n_cam,
+        "screen" => t.n_screen,
+        "mic" => t.n_mic,
+        "widgetUp" => t.n_widget_up,
+        "widgetDown" => t.n_widget_down,
+        "dock" => t.n_dock,
+        "appeared" => t.n_cs2,
+        "updateReady" if notify_value(&data, "state") == "available" => t.n_update_found,
+        "updateReady" => t.n_update_ready,
+        "updateError" => t.n_update_error,
+        "modPort" => t.n_mod_port,
+        "roomNew" => t.n_room_new,
+        _ => return None,
+    };
+    let (ip, net) = (notify_value(&data, "ip"), notify_value(&data, "net"));
+    let who = if net.is_empty() { ip } else { format!("{ip} ({net})") };
+    Some(text.replace("{who}", &who).replace("{ver}", &notify_value(&data, "ver")).replace("{port}", &notify_value(&data, "port")))
 }
 
 fn on_ready(app: &AppHandle, port: u16, role: &str) {
@@ -1497,7 +1629,12 @@ fn main() {
                         notify(&wh, texts().in_tray);
                     }
                 }
-                WindowEvent::Focused(_) => sync_autostart(&wh),
+                WindowEvent::Focused(_) => {
+                    sync_autostart(&wh);
+                    report_visible(&wh);
+                }
+                // сворачивание и разворачивание приходят изменением размера
+                WindowEvent::Resized(_) => report_visible(&wh),
                 _ => {}
             });
 

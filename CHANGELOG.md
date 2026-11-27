@@ -1,8 +1,11 @@
 # Changelog
 
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
+Hudini Host shows this file too ("What's new"): keep the format described in `docs/RELEASING.md`.
 
 ## 1.1.3
+
+<!-- date: 2026-11-26 -->
 
 **EN**
 - The cross in the library deletes the item again: a click on the icon used to put the element on stream. The same is fixed for the buttons of scenes, scenarios and animation frames.
@@ -70,6 +73,8 @@ The release workflow copies the section for the tag version (the heading must be
 
 ## 1.1.2
 
+<!-- date: 2026-11-24 -->
+
 **EN**
 - More translations in the Hudini Host window: the connection hints (Tailscale, Radmin VPN, Hamachi, ZeroTier, Porthole, port forwarding), the empty online list, copy buttons, the port line, confirmations and update messages now follow the selected language.
 - The panel messages about connection problems and the room keys warning are translated too.
@@ -100,6 +105,8 @@ The release workflow copies the section for the tag version (the heading must be
 
 ## 1.1.1
 
+<!-- date: 2026-11-24 -->
+
 **EN**
 - Fixed missing translations in the Hudini Host window: the moderator code block, the online list, the moderators port, the address hints and the notice about the old links now follow the selected language (English, Ukrainian, German).
 - The panel no longer sends cursors to a Host older than 1.1, so a 1.1 panel does not get kicked from a 1.0 Host.
@@ -125,6 +132,8 @@ The release workflow copies the section for the tag version (the heading must be
 - Die Freigabe für Kamera, Bildschirm oder Mikrofon eines Moderators wird beim Trennen vergessen: der Streamer wird erneut gefragt.
 
 ## 1.1.0
+
+<!-- date: 2026-11-24 -->
 
 **EN**
 - Radar for CS2: a compact card in the corner of the screen with small player dots, switches for the card background and the map picture, and redrawn maps.

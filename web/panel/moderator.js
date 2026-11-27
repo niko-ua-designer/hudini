@@ -4098,7 +4098,7 @@ if(webCfg.open) requestAnimationFrame(()=>requestAnimationFrame(()=>webShow()));
 
 if(TAURI?.core){
   const showAppUpdate=u=>{
-    const on=!!(u && u.state==='ready' && u.ver), b=$('updBanner');
+    const on=!!(u && (u.state==='ready' || u.state==='available') && u.ver), b=$('updBanner');
     b.hidden=!on; if(on){ b.textContent='🆕 Обновить Hudini'; b.title='Вышла версия '+u.ver; }
   };
   $('updBanner').onclick=()=>{ if(!drag) TAURI.core.invoke('apply_update').catch(e=>toast(String(e?.message||e))); };

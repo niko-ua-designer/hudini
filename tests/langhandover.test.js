@@ -6,6 +6,7 @@ const { step, check, eq, until } = T;
 
 (async () => {
   const host = T.startHost({ OVERLAY_SITE: 'off' }); await host.ready();
+  await host.api('/api/ui', { tourDone: true });   // the tour of the Host window would cover the switch
   const browser = await chromium.launch();
   const p = await browser.newPage();   // a clean profile: unlike T.newPage nothing presets the language
   p.on('pageerror', e => T.pageErrors.push('hostui: ' + e.message));

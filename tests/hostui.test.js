@@ -27,7 +27,7 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
   }
   function newFake() {
     const f = {
-      pending: [], ready: false, kind: null, latest: '9.9.9', channel: 'stable', rollback: null,
+      pending: [], ready: false, found: false, kind: null, latest: '9.9.9', channel: 'stable', rollback: null,
       notify: { visibleOnlyMedia: true, groups: {
         moderators: { on: true, kinds: { join: true, leave: false } }, media: { locked: true, kinds: { cam: true, screen: true, mic: true } },
         obs: { on: true, kinds: { widgetUp: true, widgetDown: true, dock: false } }, cs2: { on: false, kinds: { appeared: true } },
@@ -37,7 +37,7 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
         { ver: '9.8.0', date: '2026-11-01', beta: false, sections: [{ title: 'Старое', items: ['раньше'] }], testing: [] }] },
       status(s) {
         s.media = { pending: f.pending, live: [] }; s.notify = f.notify; s.ui = f.ui; s.roomNotice = false;
-        s.upd = { state: f.ready ? 'ready' : 'latest', latest: f.latest, err: '', auto: true, ready: f.ready, compiled: true, checkedAt: Date.now(), prog: null, channel: f.channel, kind: f.kind, rollback: f.rollback,
+        s.upd = { state: f.ready ? 'ready' : f.found ? 'available' : 'latest', latest: f.latest, err: '', auto: true, ready: f.ready, compiled: true, checkedAt: Date.now(), prog: null, channel: f.channel, kind: f.kind, rollback: f.rollback,
           notes: f.ready ? { ver: f.latest, sections: [{ title: 'Обновление', items: [EVIL] }] } : undefined };
         return s;
       },
@@ -184,6 +184,18 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
     check(await until(() => p.isVisible('#updOverlay')), 'the next version is offered');
     await p.click('#ovApply');
     check(await until(async () => posts('update/apply').length === 1), '"Update and restart" applies it');
+    await p.context().close();
+  });
+
+  await step('a found update that is not downloaded: the button downloads it and restarts', async () => {
+    fake = newFake(); sent.length = 0; Object.assign(fake, { found: true, kind: 'version' });
+    const p = await open();
+    check(await until(() => p.isVisible('#tipUpd')), 'a tip on the first page');
+    eq(await hidden(p, ['updOverlay', 'navUpd']), ['navUpd'], 'a badge, no full-window offer');
+    await go(p, 'app');
+    check((await p.textContent('#updApply')).includes('Скачать и перезапустить') && (await p.textContent('#updInfo')).includes('9.9.9'), 'the button says what it does');
+    await p.click('#updApply');
+    check(await until(async () => posts('update/apply').length === 1), 'sent after a confirmation');
     await p.context().close();
   });
 
