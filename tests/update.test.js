@@ -281,7 +281,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
     check(await until(() => new RegExp(`^READY ${HPORT}$`, 'm').test(out), 10000), 'prints READY <port> for the app');
-    p.stdin.write('VISIBLE 0\n');   // window hidden in the tray
+    p.stdin.write('TRAY 1\nVISIBLE 0\n');   // window hidden in the tray
     const launched = path.join(inst, 'launched.txt');
     check(await until(() => /^UPDATE ready 1\.0\.0$/m.test(out), 30000), 'downloaded');
     await T.sleep(5000);

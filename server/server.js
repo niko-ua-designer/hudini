@@ -51,6 +51,7 @@ const APP_PID = Number(process.env.OVERLAY_APP_PID) || process.ppid;
 // Случайный префикс служебных строк для программы с окном (строка журнала их не подделает); он же — токен первого входа в управление
 const APP_TOKEN = process.env.OVERLAY_APP_TOKEN || ''; delete process.env.OVERLAY_APP_TOKEN;
 let appHidden = false;                                       // окно программы свёрнуто или спрятано в трей
+let appTray = false;                                         // именно спрятано в трей: тогда новая версия тоже запускается в трее
 
 // ---------- папка с настройками: рядом с .exe ----------
 const compiled = import.meta.dir.includes('$bunfs') || import.meta.dir.includes('~BUN');
@@ -1961,7 +1962,7 @@ function applyAppUpdate(staged){
   try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
   log('🔄 Restarting with version', staged.ver, '…');
   stopForRestart();
-  const args = ['--updated', '--wait-pid', String(APP_PID), ...(appHidden ? ['--minimized'] : [])];
+  const args = ['--updated', '--wait-pid', String(APP_PID), ...(appTray ? ['--minimized'] : [])];
   const child=spawn(APP_EXE, args, { cwd:APP_ROOT, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
   child.on('error', e => log('⚠ New version failed to start:', e.message));
   child.unref();
@@ -2484,7 +2485,7 @@ process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
 // stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>», «INFO <json>».
-// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL», «UI <json>».
+// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «TRAY 0/1» (1 — спрятано в трей), «APPLY», «QUIT», «PANEL», «UI <json>».
 // PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
@@ -2514,6 +2515,7 @@ if(APP){
     while((i = buf.indexOf('\n')) >= 0){
       const l = buf.slice(0, i).trim(); buf = buf.slice(i+1);
       if(l==='VISIBLE 0' || l==='VISIBLE 1'){ appHidden = l==='VISIBLE 0'; visibleSaid(); }
+      else if(l==='TRAY 0' || l==='TRAY 1') appTray = l==='TRAY 1';
       else if(l==='QUIT') shutdown();
       else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
       else if(l.startsWith('UI ')) appUi(l.slice(3));
