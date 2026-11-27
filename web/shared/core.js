@@ -78,6 +78,9 @@ const ROU_TXT = {
 };
 for(const l of Object.keys(ROU_TXT)) Object.assign(STREAM_TXT[l], ROU_TXT[l]);
 const st = s => STREAM_TXT[STREAM_LANG]?.[s] ?? s;
+// Default chat words of the giveaway and the roulette in the language of the stream texts. Only for new or empty fields: a saved word stays.
+const CMD_WORDS = { en:{ '!участвую':'!join', '!крутить':'!spin' }, uk:{ '!участвую':'!участь', '!крутить':'!крутити' }, de:{ '!участвую':'!mitmachen', '!крутить':'!drehen' } };
+const cmdWord = (s, lang=STREAM_LANG) => CMD_WORDS[lang]?.[s] ?? s;
 const ANIMS = ['none','pulse','wobble','float','spin','shake','rainbow'];
 const STYLES = ['flip','neon','plain'];
 const TIMER_MODES = ['countdown','stopwatch','until','clock'];
@@ -309,7 +312,7 @@ function sanitizeEl(e){
     o.win=Math.round(num(e.win,-1,-1,ROU_MAX-1)); if(o.win>=o.segs.length) o.win=-1;
     // Запуск зрителями без входа в Twitch: чат-команда (c*) и награда за баллы с вводом текста (r*). Ник в списке всегда обычный текст.
     const oneOf=(v, list, d)=>list.includes(v) ? v : d, intIn=(v, d, lo, hi)=>Math.round(num(v, d, lo, hi));
-    o.cOn=e.cOn===true; o.cWord=str(e.cWord,24).replace(/\s+/g,'') || '!крутить'; o.cWho=oneOf(e.cWho, ['all','subs','mods'], 'mods');
+    o.cOn=e.cOn===true; o.cWord=str(e.cWord,24).replace(/\s+/g,'') || cmdWord('!крутить'); o.cWho=oneOf(e.cWho, ['all','subs','mods'], 'mods');
     o.cMode=oneOf(e.cMode, ['add','spin'], 'add'); o.cCd=intIn(e.cCd, 10, 0, 3600); o.cLim=intIn(e.cLim, 1, 0, 99);
     o.rOn=e.rOn===true; o.rId=typeof e.rId==='string' && REWARD_RE.test(e.rId) ? e.rId : ''; o.rOne=e.rOne!==false; o.rWord=str(e.rWord,24).replace(/\s+/g,'');
     o.rMode=oneOf(e.rMode, ['add','spin'], 'add'); o.rCd=intIn(e.rCd, 5, 0, 3600); o.rLim=intIn(e.rLim, 0, 0, 99);
@@ -319,7 +322,7 @@ function sanitizeEl(e){
     o.fs=num(e.fs,3,0.5,100); o.font=fontOf(e.font);
     o.color=hex(e.color,'#ffffff'); o.card=hex(e.card,'#141824'); o.accent=hex(e.accent,'#7c5cff');
     o.title=str(e.title,80); o.prize=str(e.prize,120); o.pimg=safeSrc(e.pimg)||'';
-    o.entry=['word','any'].includes(e.entry)?e.entry:'word'; o.kw=str(e.kw,30).trim()||'!участвую';
+    o.entry=['word','any'].includes(e.entry)?e.entry:'word'; o.kw=str(e.kw,30).trim()||cmdWord('!участвую');
     o.subs=!!e.subs; o.subx2=e.subx2!==false; o.auto=e.auto!==false;
     o.phase=RAFFLE_PHASES.includes(e.phase)?e.phase:'idle';
     o.closeAt=num(e.closeAt,0,0,1e15); o.n=Math.round(num(e.n,0,0,1e7));
@@ -467,10 +470,12 @@ function sanitizeElSafe(e){ try{ return sanitizeEl(e); }catch{ return null; } }
 function sanitizeState(m){
   const lang = STREAM_LANGS.includes(m?.lang) ? m.lang : null, prevLang = STREAM_LANG;
   if(lang) STREAM_LANG = lang;   // тексты по умолчанию (варианты опроса) берём на языке этого экрана
-  let els;
-  try{ els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeElSafe).filter(Boolean) : []; }finally{ STREAM_LANG = prevLang; }
-  // Розыгрыш один на экран и живёт не в списке слоёв, а в state.raffle. Старый экран: первый розыгрыш из списка переезжает.
-  const raffle = sanitizeElSafe(m?.raffle && typeof m.raffle==='object' ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
+  let els, raffle;
+  try{
+    els = Array.isArray(m?.els) ? m.els.slice(0,MAX_ELS).map(sanitizeElSafe).filter(Boolean) : [];
+    // Розыгрыш один на экран и живёт не в списке слоёв, а в state.raffle. Старый экран: первый розыгрыш из списка переезжает.
+    raffle = sanitizeElSafe(m?.raffle && typeof m.raffle==='object' ? { ...m.raffle, type:'raffle' } : els.find(e => e.type==='raffle'));
+  }finally{ STREAM_LANG = prevLang; }
   els = els.filter(e => e.type!=='raffle');
   // id у каждого свой: с двумя одинаковыми экран пересобирал бы элементы при каждом обновлении. Остаётся первый.
   const ids = new Set();

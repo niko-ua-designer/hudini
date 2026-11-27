@@ -207,6 +207,34 @@ const { step, check, eq, until, sleep } = T;
     check(cnt <= 20 && cnt >= 15, `a burst of 40 commands adds at most 20 per minute (${cnt})`);
   });
 
+  await step('default chat words follow the stream language; saved words stay', async () => {
+    const r = await mod.evaluate(() => {
+      const prev = STREAM_LANG, out = {};
+      for (const lang of ['ru', 'en', 'uk', 'de']) {
+        const s = sanitizeState({ lang, els: [{ id: 'q', type: 'roulette' }], raffle: { id: 'raffle', type: 'raffle' } });
+        out[lang] = [s.els[0].cWord, s.raffle.kw];
+      }
+      const kept = sanitizeState({ lang: 'en', els: [{ id: 'q', type: 'roulette', cOn: true, cWord: '!крутить' }], raffle: { id: 'raffle', type: 'raffle', kw: '!участвую' } });
+      out.kept = [kept.els[0].cWord, kept.raffle.kw];
+      out.restored = STREAM_LANG === prev;
+      return out;
+    });
+    eq(r, { ru: ['!крутить', '!участвую'], en: ['!spin', '!join'], uk: ['!крутити', '!участь'], de: ['!drehen', '!mitmachen'], kept: ['!крутить', '!участвую'], restored: true }, 'per language, and a saved word is not rewritten');
+    for (const [lang, spin, join] of [['en', '!spin', '!join'], ['uk', '!крутити', '!участь'], ['de', '!drehen', '!mitmachen']]) {
+      const got = await mod.evaluate(([lang, spin, join]) => {
+        const room = curRoom(), keep = { els: state.els, raffle: state.raffle, slang: room.slang };
+        room.slang = lang; state.els = []; state.raffle = null;
+        addRoulette(); addRaffle();
+        const e = state.els.find(x => x.type === 'roulette'); e.cOn = true;
+        const msg = { id: 'w1', login: 'v', user: 'v', mod: false, sub: false, badge: '' };
+        const out = [e.cWord, state.raffle.kw, rouKind(e, spin.toUpperCase(), msg), rafWanted(state.raffle, join + ' hi', msg)];
+        state.els = keep.els; state.raffle = keep.raffle; if (keep.slang) room.slang = keep.slang; else delete room.slang; renderAll(); publishNow(1);
+        return out;
+      }, [lang, spin, join]);
+      eq(got, [spin, join, 'c', true], lang + ': a new roulette and giveaway use the word, and chat is matched against it');
+    }
+  });
+
   await step('chat command: spin right away', async () => {
     await mod.evaluate(() => { const e = state.els.find(x => x.type === 'roulette'); beginChange(); e.cMode = 'spin'; e.cWho = 'all'; e.cLim = 0; e.cCd = 0; e.people = []; commit(); rouLastRun.c = 0; rouRate.c.length = 0; });
     const say = (login, text, o = {}) => mod.evaluate(([login, text, o]) => { onChat(login, text, { id: 'sp' + Math.random().toString(36).slice(2, 9), login, user: o.user || login, mod: false, sub: false, badge: '' }); }, [login, text, o]);
