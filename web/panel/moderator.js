@@ -128,6 +128,10 @@ let pausedRoom=null, retryT=null;
 const PAUSE_NOTE='⏸ Стример поставил управление на паузу', RETRY_MS=20000;
 const TAURI=window.__TAURI__;
 let session=null, relayInfo=null, relayPort=0;   // сохранённая сессия приложения и последнее состояние ретранслятора
+// Секрет возобновления: только в памяти этой вкладки, уходит только программе стримера в адресе подключения (внутри TLS).
+// По нему она узнаёт тот же пульт, сменивший сеть, и сразу отдаёт ему его clientId. В пароле и логине ему не место:
+// программа старой версии сверяет их точно, а лишнее в адресе пропускает.
+const RESUME=rid(32);
 function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
@@ -271,7 +275,8 @@ function openHome(info){
   if(homeClient && homeInfo?.url===info.url && homeInfo?.pass===info.pass) return;
   if(homeClient) dropHome();
   homeInfo=info; hostNote='';
-  const c=mqttClient(info.url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
+  const url=info.user==='streamer' ? info.url : info.url+'?resume='+RESUME;
+  const c=mqttClient(url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
   homeClient=c; wire(c); hostStatus();
   c.on('connect', ()=>{
     if(homeClient!==c) return;

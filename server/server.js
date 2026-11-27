@@ -389,17 +389,25 @@ function passOk(ip, pass){
 }
 // Адрес — только из сокета: заголовкам вроде cf-connecting-ip верить нельзя
 const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
+// Секрет возобновления: пульт придумывает его при запуске и присылает в адресе подключения (внутри TLS), программа держит
+// только хэш и только пока живо соединение. По нему тот же пульт, сменивший сеть, узнаётся с нового адреса.
+const RESUME_RE = /^[A-Za-z0-9_-]{22,128}$/;
+const samePanel = (a, b) => !!(a.conn._resume && b.conn._resume) && nodeCrypto.timingSafeEqual(a.conn._resume, b.conn._resume);
 aedes.authenticate = (client, user, pass, cb) => {
   // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор с другого адреса
+  // без секрета того же пульта. Старое соединение закрывает брокер, и только после того, как новое прошло все проверки ниже
   const prev = client.id ? aedes.clients[client.id] : null;
+  let moved = null;
   if(prev && prev!==client && prev.conn && prev.connected!==false){
     const kindOf = c => c.conn._mod ? 'mod' : c.conn._streamer ? 'streamer' : 'widget';
     // новое соединение ещё не вошло: пульт стримера узнаём по логину (пароль проверяется ниже)
     const kind = client.conn?._mod ? 'mod' : user==='streamer' ? 'streamer' : 'widget';
-    if(kindOf(prev)!==kind || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
+    const away = !!client.conn?._mod && prev.conn._ip!==client.conn._ip;
+    if(kindOf(prev)!==kind || (away && !samePanel(prev, client))){
       refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }
+    if(away) moved = prev;
   }
   if(!client.conn?._mod){
     if(user==='streamer'){   // пульт стримера на этом ПК: только с сессией, полученной за одноразовый ключ
@@ -414,6 +422,7 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(!cfg.modsOn){ refuse(client.conn._ip, 'entrance closed'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
+  if(ok && moved) logc('👤 Moderator is back from another address, replacing the old connection:', who(moved.conn._ip), '→', who(client.conn._ip));
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
 // Кто что пишет: модераторы — только экран (state), эффекты (fx) живые штрихи рисунка (ink) и команды серии CS2 (cs2cmd), виджет OBS — только пульс (hb).
@@ -447,7 +456,8 @@ aedes.on('client', c => {
     return;
   }
   const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
-  const m = { ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, miss:0, timer:null };
+  clearInterval(modList.get(c.id)?.timer);
+  const m = { client:c, ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, miss:0, timer:null };
   // Модератор, у которого пропала сеть, не должен держать свой clientId до keepalive MQTT (~45 с): без ответа на PING_MISS пинга подряд
   // соединение закрываем, и тот же пульт входит с нового адреса. Считаем пинги, а не время: сон ПК стримера никого не отключит.
   const ping = () => {
@@ -473,7 +483,7 @@ aedes.on('clientDisconnect', c => {
     }
     return;
   }
-  if(m){ clearInterval(m.timer); modList.delete(c.id);
+  if(m && m.client===c){ clearInterval(m.timer); modList.delete(c.id);   // запись нового соединения с тем же clientId не трогаем
     if(m.me) logc('🖥 Streamer panel disconnected');
     else logc('👤 Moderator disconnected:', who(m.ip), '— was online', fmtDur(Math.round((Date.now()-m.since)/1000))); }
   status.mods = modCount();
@@ -514,6 +524,9 @@ function wsServer(mod){
     const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
     if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin) && !panel))){ socket.destroy(); return; }
     const ip = ipOf(req);
+    // из секрета возобновления берётся только хэш, а из запроса он убирается: дальше ему попадать некуда
+    const resume = mod ? new URL(req.url, 'http://x').searchParams.get('resume') : null;
+    req.url = pth;
     if(mod){
       let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
       const why = !cfg.modsOn ? 'entrance closed' : wss.clients.size >= MOD_CONNS ? 'limit: too many connections' : pending >= PENDING ? 'limit: too many waiting to log in'
@@ -522,6 +535,7 @@ function wsServer(mod){
     }
     wss.handleUpgrade(req, socket, head, ws => {
       const stream = createWebSocketStream(ws); stream._mod = mod; stream._panel = panel; stream._ip = ip; stream._ws = ws; ws._stream = stream;
+      stream._resume = resume && RESUME_RE.test(resume) ? sha256(resume) : null;
       stream.on('error', ()=>{});
       if(mod){
         perIp.set(ip, (perIp.get(ip)||0) + 1);
