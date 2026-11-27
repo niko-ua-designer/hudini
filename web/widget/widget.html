@@ -351,6 +351,28 @@ let calibT=null;
 function restartUrl(src, n){   // _r ставим в query, до #фрагмента: иначе страница не перезагрузится
   try{ const u=new URL(src); u.searchParams.set('_r', n); return u.href; }catch{ return src+(src.includes('?')?'&':'?')+'_r='+n; }
 }
+// Пульт новее виджета: перезагрузиться в обход кэша OBS, сразу один раз на версию. Если новый виджет так и не пришёл
+// (файлы сайта ещё не подписаны), раз в 10 минут спрашиваем программу и перезагружаемся, только когда она отдаёт виджет
+// новее: ни пустых перезагрузок посреди стрима, ни бесконечного круга.
+const UPD_RETRY_MS=10*60*1000;
+function widgetUpdater({ ver, tried, href, go, load, later }){
+  let want=0, waiting=false;
+  const link=()=>{ const u=new URL(href()); u.searchParams.set('upd', String(want)); return u; };   // по upd программа сначала берёт свежие файлы с сайта
+  const reload=()=>{ const u=link(); u.searchParams.set('v', String(Date.now())); go(u.href); };
+  const wait=()=>later(async()=>{
+    let got=0; try{ got=Number(/const WIDGET_VER\s*=\s*(\d+)/.exec(await load(link().href))?.[1]); }catch{}
+    if(got>ver) reload(); else wait();
+  }, UPD_RETRY_MS);
+  return wv=>{   // wv: версия из сообщения пульта; true: страница уже перезагружается
+    if(!(wv>ver)) return false;
+    want=Math.max(want, wv);
+    if(tried<wv){ tried=wv; reload(); return true; }
+    if(!waiting){ waiting=true; wait(); }
+    return false;
+  };
+}
+const newerPanel=widgetUpdater({ ver:WIDGET_VER, tried:Number(qs.get('upd'))||0, href:()=>location.href, go:u=>location.replace(u),
+  load:async u=>{ const r=await fetch(u, { cache:'no-store' }); return r.ok ? r.text() : ''; }, later:(f,ms)=>setTimeout(f,ms) });
 function calib(){
   const c=document.getElementById('calib'); checkSize();
   document.getElementById('calibText').innerHTML=
@@ -492,11 +514,7 @@ async function start(){
     if(topic===T.state ? !Array.isArray(msg.els) : topic===T.fx ? typeof msg.type!=='string' : true) return;
     if(topic===T.state && Number(msg.t)>Date.now()+5*60*1000) return;   // из будущего: так можно было бы заблокировать новые
     if(!packet.retain) clockSample(Number(msg.t));
-    // Пульт новее виджета: перезагрузиться в обход кэша OBS (один раз на версию)
-    if(Number(msg.wv)>WIDGET_VER && Number(qs.get('upd')||0)<Number(msg.wv)){
-      const u=new URL(location.href); u.searchParams.set('upd', String(Number(msg.wv))); u.searchParams.set('v', String(Date.now()));
-      location.replace(u.href); return;
-    }
+    if(newerPanel(Number(msg.wv))) return;           // пульт новее виджета: перезагружаемся за обновлением
     if(topic===T.state){
       const t=Number(msg.t)||0;
       if(t<lastStateT) return;                       // повтор старого сообщения

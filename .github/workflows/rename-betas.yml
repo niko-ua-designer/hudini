@@ -32,7 +32,7 @@ jobs:
             -q '.[] | [.tagName, (.isPrerelease|tostring), .name] | @tsv' | sort -V > releases.tsv
           changed=0
           while IFS=$'\t' read -r tag pre name; do
-            if [[ "$tag" =~ ^v1\.0\.0-rc\. ]] || [[ "$tag" =~ ^v([1-9][0-9]*)\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            if [ "$tag" = site-manifest ] || [[ "$tag" =~ ^v1\.0\.0-rc\. ]] || [[ "$tag" =~ ^v([1-9][0-9]*)\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
               echo "keep  $tag  ($name)"; continue
             fi
             if [[ "$tag" =~ ^host-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then

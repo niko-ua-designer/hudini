@@ -1,4 +1,4 @@
-// core.js helpers: blockedEmbed, poll defaults per language, widget restart URL, Case3D failure counter.
+// core.js helpers: blockedEmbed, poll defaults per language, widget restart URL and self-update, Case3D failure counter.
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const { step, check, eq, finish } = require('./lib');
@@ -46,6 +46,45 @@ const T = sandbox.__t;
     eq(restartUrl('https://a.com/app?_r=1', 5), 'https://a.com/app?_r=5', 'old _r replaced');
     check(/restartUrl\(src, el\.restart\)/.test(html), 'applyState uses it');
   });
+  await step('widget reloads for a newer panel at once, then waits until the Host serves a newer widget', async () => {
+    const html = fs.readFileSync(path.join(__dirname, '../web/widget/widget.html'), 'utf8');
+    const fn = /const UPD_RETRY_MS[\s\S]*?\nfunction widgetUpdater\([\s\S]*?\n\}/.exec(html);
+    check(fn && /if\(newerPanel\(Number\(msg\.wv\)\)\) return;/.test(html), 'widgetUpdater exists and the message handler uses it');
+    const make = new Function('URL', fn[0] + '; return widgetUpdater;')(URL);
+    // One loaded page: reloads, requests to the Host and the pending timer are recorded
+    const page = (href, ver = 24) => {
+      const p = { reloads: [], asked: [], timers: [], serves: ver };
+      p.announce = make({ ver, tried: Number(new URL(href).searchParams.get('upd')) || 0, href: () => href, go: u => p.reloads.push(u),
+        load: async u => { p.asked.push(u); if(p.serves === 'down') throw new Error('offline'); return p.serves ? `<script>\nconst WIDGET_VER = ${p.serves};` : ''; },
+        later: (f, ms) => p.timers.push({ f, ms }) });
+      p.tick = async () => { eq(p.timers.length, 1, 'one timer pending'); await p.timers.shift().f(); };
+      return p;
+    };
+    const first = page('http://localhost:7777/widget/widget.html?room=r1#k=abc');
+    check(!first.announce(24) && !first.announce(NaN) && !first.reloads.length && !first.timers.length, 'same or unknown version: nothing happens');
+    check(first.announce(25), 'a newer panel: reload at once');
+    const u = new URL(first.reloads[0]);
+    eq([u.searchParams.get('upd'), u.searchParams.get('room'), u.hash, u.searchParams.has('v')], ['25', 'r1', '#k=abc', true], 'reload URL: upd, cache buster, room and keys kept');
+
+    const again = page(first.reloads[0]);   // the reload brought the same widget: the new one is not signed yet
+    for(let i = 0; i < 5; i++) check(!again.announce(25), 'announced again: the screen goes on');
+    eq([again.reloads.length, again.asked.length, again.timers.map(t => t.ms)], [0, 0, [600000]], 'no reload loop, one check in 10 minutes');
+    for(const serves of [24, '', 'down']){
+      again.serves = serves; await again.tick(); again.announce(25);
+      eq([again.reloads.length, again.timers.map(t => t.ms)], [0, [600000]], `Host serves ${serves || 'an error'}: no reload, next check in 10 minutes`);
+    }
+    eq(new URL(again.asked[0]).searchParams.get('upd'), '25', 'the check makes the Host fetch fresh files');
+    again.serves = 25; await again.tick();
+    eq([again.reloads.length, again.timers.length], [1, 0], 'the newer widget arrived: one reload, checks stop');
+    again.announce(25);
+    eq([again.reloads.length, again.timers.length], [1, 0], 'nothing more while the page reloads');
+
+    const partly = page('http://localhost:7777/widget/widget.html?upd=26', 25);   // got 25, the panel is at 26
+    partly.announce(26); await partly.tick();
+    eq([partly.reloads.length, partly.timers.length], [0, 1], 'still behind but nothing newer to load: waits');
+    check(partly.announce(27) && partly.reloads.length === 1, 'an even newer panel: reload at once again');
+  });
+
   await step('widget calibration text is translated', async () => {
     const html = fs.readFileSync(path.join(__dirname, '../web/widget/widget.html'), 'utf8');
     check(!/Окно источника: <b>/.test(html) && html.includes("st('Окно источника')"), 'calib goes through st()');

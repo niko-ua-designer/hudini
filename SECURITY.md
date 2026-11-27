@@ -19,6 +19,7 @@ the moderator connects to it directly over a network both share (VPN, Porthole, 
 | A moderator changes what they should not | Moderators may publish only the screen state and effects. Game data (CS2), the host announcement and settings come only from the streamer's app. Room messages are AES-256-GCM encrypted and signed (ECDSA P-256); the widget ignores unsigned or foreign messages. |
 | A web page or another program controls the streamer's app | The management page and `/api/*` are served on `127.0.0.1` only and need the `hudini_admin` cookie (HttpOnly, SameSite=Strict, set by a one-time `/auth?t=` token) or the `X-Hudini-Token` header, with a Host check. The OBS widget is served from `localhost`, a different origin, and cannot read settings. The moderator port serves only `/ping`, `/files` and the room WebSocket, never `/api`. |
 | A forged update | Releases carry `SHA256SUMS.txt.sig`, an Ed25519 signature over the version and the checksums. The app installs nothing without a valid signature from the key built into it. |
+| Forged or unreviewed widget code from the website reaches OBS | The list of widget files and their SHA-256 sums carries an Ed25519 signature made with the same key after the owner's approval. The app takes all files or none, never goes back to an older list, and checks its saved copies again at start. |
 | Chat is used to inject code | Chat text, names and emotes are rendered as text only. |
 
 ## Where data lives
@@ -31,7 +32,7 @@ the moderator connects to it directly over a network both share (VPN, Porthole, 
 ### Outgoing requests
 
 - GitHub Releases: update check (at start and every 3 hours); updates are installed only with a valid signature and checksum.
-- GitHub Pages: the Host downloads the widget code and the radar backgrounds every 10 minutes. These files are not signed yet.
+- GitHub Pages: the Host downloads the widget code every 10 minutes and uses it only if every file matches a signed list (GitHub release `site-manifest`); otherwise it keeps the last verified or the built-in files. Radar backgrounds missing from the app also come from there; they are not signed.
 - unpkg: `mqtt.js` for the widget, loaded with Subresource Integrity (SRI).
 - Google Fonts: fonts of the widget and the panel.
 - 7TV, BTTV and FFZ: chat emotes.

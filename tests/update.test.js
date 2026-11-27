@@ -94,12 +94,12 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
   await step('legacy standalone build picks the old one-file asset', async () => {
-    list = [{ tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v0.5.0', prerelease: true, assets }, { tag_name: 'v1.1.0', draft: true, assets }];
+    list = [{ tag_name: 'site-manifest', prerelease: true, assets }, { tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v0.5.0', prerelease: true, assets }, { tag_name: 'v1.1.0', draft: true, assets }];
     fs.writeFileSync(path.join(app, 'overlay-host.json'), JSON.stringify({ modPass: 'legacy-pass-123' }));   // settings of a pre-1.0 install
     run();
     check(await until(async () => (await status())?.version === '1.0.0-rc.1', 10000) || (await status())?.version === '1.0.0', 'rc build started');
     const s = await until(async () => { const x = await status(); return x?.version === '1.0.0' && x; }, 30000);
-    check(!!s, 'restarted as 1.0.0 (old host-v1.4.0 and drafts ignored, new-style app zip ignored)');
+    check(!!s, 'restarted as 1.0.0 (site-manifest, old host-v1.4.0 and drafts ignored, new-style app zip ignored)');
     check(s && s.standalone === true && s.app === false, 'status says: standalone build without window');
     check(!fs.existsSync(path.join(app, ASSET + '.new')), 'no leftover .new file');
     const cfg = path.join(app, 'data', 'overlay-host.json');
