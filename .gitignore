@@ -4,5 +4,6 @@
 .env
 .env.*
 hudini-signing.*
+hudini-site-signing.*
 data/
 _site/

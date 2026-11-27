@@ -1439,7 +1439,7 @@ async function installGsi(){
 const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';   // обновления программы: секрет HUDINI_SIGNING_KEY
 // Файлы виджета подписываются отдельным ключом (секрет HUDINI_SITE_SIGNING_KEY, tools/signing-key.mjs site):
 // ни один из ключей не подходит вместо другого. Пока здесь пусто, с сайта виджет не берётся.
-const SITE_KEY = '';
+const SITE_KEY = 'MCowBQYDK2VwAyEALCfLtjqz13wXKnpg88T1JVDkJKgxnCOxNxoYUZilt74=';
 const KEY_OF = { 'hudini-update':UPDATE_KEY, 'hudini-site':SITE_KEY };
 function sigOk(domain, ver, body, sigB64){
   if(!KEY_OF[domain]) return false;
