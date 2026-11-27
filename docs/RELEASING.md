@@ -15,6 +15,11 @@ after they are signed. Host 1.1 and older take them unsigned, as before.
    a new version before the signature gets the new files after the OBS source is refreshed.
 4. Manual run: Actions → "Sign the site" → Run workflow on `main` (for example if an upload failed).
 
+The workflow has two jobs. "build" runs the repository's scripts without the key. "sign" holds the key and runs only the
+code written in `site-sign.yml`: it accepts the manifest only if `seq` is the commit time and every SHA-256 equals the
+file under `web/` in that commit. So `tools/build-site.sh` must copy `web/widget` and `web/shared` unchanged, or nothing
+gets signed. Before approving, look for changes to `.github/workflows/`: they are what handles the key.
+
 Rules:
 - To roll the site back, revert with a new commit and sign it. Hosts refuse a signature of an older commit.
 - Raise `WIDGET_VER` with every widget change: a Host ignores a signed widget older than its built-in one, but with an

@@ -1,6 +1,6 @@
 // Widget files from the website: Hudini Host takes them only with a valid signature over the manifest, all or nothing,
 // never an older manifest or an older widget, and checks its saved copies again at start.
-// The manifest is made by tools/site-manifest.mjs and signed by the script of .github/workflows/site-sign.yml,
+// The manifest is made by tools/site-manifest.mjs, checked and signed by the scripts of .github/workflows/site-sign.yml,
 // with a test key swapped into a temp copy of server.js; a fake HTTP site stands in for Pages and the release.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
@@ -27,13 +27,15 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
   const source = fs.readFileSync(path.join(HOST, 'server.js'), 'utf8');
   const testSource = source.replace(/^const UPDATE_KEY = '[^']*';/m, `const UPDATE_KEY = '${PUB}';`);
   fs.writeFileSync(TEST_SERVER, testSource);
-  // the sign step of the workflow, run as it is
+  // the check and sign steps of the workflow, run as they are
   const workflow = fs.readFileSync(path.join(T.ROOT, '.github/workflows/site-sign.yml'), 'utf8');
-  const signScript = /name: Sign\n[\s\S]*?node -e '\n([\s\S]*?)\n +'\n/.exec(workflow)?.[1];
+  const stepScript = name => new RegExp(`name: ${name}\\n[\\s\\S]*?node -e '\\n([\\s\\S]*?)\\n +'\\n`).exec(workflow)?.[1];
+  const checkScript = stepScript('Check the manifest'), signScript = stepScript('Sign');
+  const run = (script, root, env) => execFileSync(process.execPath, ['-e', script], { cwd: root, env: { ...process.env, ...env }, stdio: 'pipe' });
 
-  // One published state of the site: the six files with a mark, their manifest and its signature
+  // What the signing job sees: the commit in src/ and the manifest of the build job in built/
   let releases = 0;
-  function release(mark, seq, { widgetVer = VER, key = PEM } = {}){
+  function prepare(mark, seq, widgetVer = VER){
     const root = path.join(dir, 'release-' + (++releases)), site = path.join(root, '_site');
     const files = {};
     for(const f of FILES){
@@ -41,12 +43,19 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
       if(f === 'widget/widget.html') txt = txt.replace(/(const WIDGET_VER\s*=\s*)\d+/, '$1' + widgetVer) + `\n<!-- site ${mark} -->\n`;
       else txt += `\n/* site ${mark} */\n`;
       files[f] = txt;
-      fs.mkdirSync(path.dirname(path.join(site, f)), { recursive: true }); fs.writeFileSync(path.join(site, f), txt);
+      for(const d of [site, path.join(root, 'src/web')]){ fs.mkdirSync(path.dirname(path.join(d, f)), { recursive: true }); fs.writeFileSync(path.join(d, f), txt); }
     }
-    fs.mkdirSync(path.join(root, 'server'));
-    fs.writeFileSync(path.join(root, 'server/server.js'), testSource);
-    execFileSync(process.execPath, [path.join(T.ROOT, 'tools/site-manifest.mjs'), site, String(seq), path.join(root, 'site-manifest.json')], { stdio: 'pipe' });
-    execFileSync(process.execPath, ['-e', signScript], { cwd: root, env: { ...process.env, HUDINI_SIGNING_KEY: key }, stdio: 'pipe' });
+    fs.mkdirSync(path.join(root, 'src/server'));
+    fs.writeFileSync(path.join(root, 'src/server/server.js'), testSource);
+    fs.mkdirSync(path.join(root, 'built'));
+    execFileSync(process.execPath, [path.join(T.ROOT, 'tools/site-manifest.mjs'), site, String(seq), path.join(root, 'built/site-manifest.json')], { stdio: 'pipe' });
+    return { root, files };
+  }
+  // One published state of the site: the six files with a mark, their manifest and its signature
+  function release(mark, seq, { widgetVer = VER, key = PEM } = {}){
+    const { root, files } = prepare(mark, seq, widgetVer);
+    run(checkScript, root, { SEQ: String(seq) });
+    run(signScript, root, { HUDINI_SIGNING_KEY: key });
     const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     return { mark, seq, files, manifest: read('site-manifest.json'), sig: read('site-manifest.json.sig') };
   }
@@ -92,16 +101,58 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
   const main = newData();   // one install that lives through the steps below
 
   await step('manifest tool and sign step', async () => {
-    check(!!signScript, 'sign script found in the workflow');
+    check(!!checkScript && !!signScript, 'check and sign scripts found in the workflow');
     const m = JSON.parse(A.manifest);
     eq([m.seq, m.widgetVer, Object.keys(m.files)], [SEQ, VER, FILES], 'seq, widget version and exactly the files the Host serves');
     eq(m.files['shared/core.js'], crypto.createHash('sha256').update(A.files['shared/core.js']).digest('hex'), 'SHA-256 of the file');
     let refused = '';
     try{ release('X', SEQ, { key: OTHER.export({ format: 'pem', type: 'pkcs8' }) }); }catch(e){ refused = String(e.stderr); }
     check(/does not match UPDATE_KEY/.test(refused), 'a secret that does not match UPDATE_KEY is refused', refused);
-    refused = '';
+  });
+
+  await step('the signing job holds the key apart from repository code', async () => {
+    const [build, sign] = workflow.split(/^  sign:$/m);
+    check(!!sign, 'two jobs');
+    check(!/secrets\.|environment:|contents: write/.test(build.slice(build.indexOf('\njobs:'))), 'build job: no secrets, no environment, read only');
+    eq([...sign.matchAll(/uses: (\S+?)@/g)].map(m => m[1]), ['actions/checkout', 'actions/download-artifact'], 'signing job: only these actions');
+    const code = sign.replace(/(^|\s)(#|\/\/) .*$/gm, '');
+    check(!/(^|[\s;&|(])(sh|bash|source|npm|npx|bun|python3?) |\bnode (?!-e )|require\("\.|import\(/m.test(code), 'signing job: runs only the inline scripts');
+  });
+
+  await step('the signing job refuses a manifest that is not exactly what the commit holds', async () => {
+    const edit = fn => root => { const f = path.join(root, 'built/site-manifest.json'), m = JSON.parse(fs.readFileSync(f, 'utf8')); fs.writeFileSync(f, JSON.stringify(fn(m) || m) + '\n'); };
+    const raw = fn => root => { const f = path.join(root, 'built/site-manifest.json'); fs.writeFileSync(f, fn(fs.readFileSync(f, 'utf8'))); };
+    const link = file => root => { const moved = path.join(root, 'elsewhere'); fs.renameSync(path.join(root, file), moved); fs.symlinkSync(moved, path.join(root, file)); };
+    const cases = [
+      ['arbitrary text', raw(() => 'SHA256SUMS of something else\n'), /not JSON/],
+      ['an extra key', edit(m => { m.note = 'x'; }), /unexpected shape/],
+      ['another key order', edit(m => ({ widgetVer: m.widgetVer, seq: m.seq, files: m.files })), /unexpected shape/],
+      ['files as a list', edit(m => { m.files = Object.values(m.files); }), /unexpected shape/],
+      ['a duplicate key', raw(t => t.replace('{"seq":', '{"seq":"free text","seq":')), /canonical/],
+      ['extra spacing', raw(t => t + '\n'), /canonical/],
+      ['a huge file', raw(t => t + ' '.repeat(5000)), /not a plain file/],
+      ['an absurd seq', edit(m => { m.seq = Number.MAX_SAFE_INTEGER; }), /seq is not the commit time/],
+      ['a seq of another commit', edit(m => { m.seq += 1; }), /seq is not the commit time/],
+      ['a path outside the site', edit(m => { m.files['../server/server.js'] = 'a'.repeat(64); }), /unexpected file name/],
+      ['text instead of a hash', edit(m => { m.files['shared/core.js'] = 'free text'; }), /not a SHA-256/],
+      ['a hash of other content', edit(m => { m.files['shared/core.js'] = 'a'.repeat(64); }), /differs from the file in the commit: shared\/core\.js/],
+      ['a file that differs from the commit', root => fs.appendFileSync(path.join(root, 'src/web/shared/media.js'), 'x'), /differs from the file in the commit/],
+      ['a file the commit does not have', edit(m => { m.files['shared/extra.js'] = 'a'.repeat(64); }), /missing/],
+      ['no widget', edit(m => { delete m.files['widget/widget.html']; }), /unexpected list of files/],
+      ['another widget version', edit(m => { m.widgetVer += 1; }), /widgetVer differs/],
+      ['a manifest that is a link', link('built/site-manifest.json'), /not a plain file/],
+      ['a site file that is a link', link('src/web/shared/core.js'), /not a plain file/],
+    ];
+    for(const [what, spoil, re] of cases){
+      const { root } = prepare('X', SEQ);
+      spoil(root);
+      let refused = '';
+      try{ run(checkScript, root, { SEQ: String(SEQ) }); }catch(e){ refused = String(e.stderr); }
+      check(re.test(refused) && !fs.existsSync(path.join(root, 'site-manifest.json')), what + ': refused', refused);
+    }
+    let refused = '';
     try{ release('X', Math.floor(Date.now() / 1000) + 86400); }catch(e){ refused = String(e.stderr); }
-    check(/in the future/.test(refused), 'a commit time in the future is not signed', refused);
+    check(/in the future/.test(refused), 'a commit time in the future: refused', refused);
   });
 
   await step('a valid signature is applied', async () => {
