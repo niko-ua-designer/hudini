@@ -129,6 +129,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
+let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: она списков не принимает (reportKeep)
 const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur', topics(room).base+'/rtc', topics(room).base+'/media'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
@@ -203,7 +204,7 @@ function toggleConnPop(force){
 $('csRetry').onclick=()=>{ hostNote=''; relayInfo=null; dropHome(); reopenHome(); };
 function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
-  client=c; cancelOfflineWait();
+  client=c; cancelOfflineWait(); keepSent=null; keepOld=false;
   if(!c?.connected){ hostStatus(); return; }
   hostStatus();
   c.subscribe(mainTopics(), { qos:1 });
@@ -740,7 +741,7 @@ function setStorage(st){ if(st && typeof st==='object'){ storage=st; renderStora
 async function refreshStorage(announce){
   const h=homeHttp(); if(!h) return;
   try{
-    const r=await fetch(h.base+'/files', { headers:{ authorization:h.auth } });
+    const r=await fetch(`${h.base}/files?panel=${panelId()}`, { headers:{ authorization:h.auth } });
     const j=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,j);
     setStorage(j.storage);
     if(announce && !storageToast){ storageToast=true; toast(`Место для файлов: свободно ${fmtBytes(Math.max(0, storage.limitBytes-storage.used))}, ещё ${Math.max(0, storage.maxFiles-storage.files)} файлов`, 4000); }
@@ -754,8 +755,34 @@ function usedAssets(){
   for(const it of library) if(it.room===room) assetsOfEl(it.el, used);
   for(const sc of scenes[room]||[]) assetsOf(sc, used);
   for(const sc of scnStore[room]||[]) for(const a of sc.acts||[]) add(a.url);
+  add(window.Draw?.brushAsset);   // загруженная кисть из фото, которой ещё не рисовали
   return used;
 }
+// Постоянный id пульта: по нему программа стримера помнит, какие файлы нужны этому модератору
+function panelId(){
+  let v=lsGet('overlay.panelId', '');
+  if(typeof v!=='string' || !/^[a-z0-9]{12,32}$/.test(v)){ v=rid(20); lsSet('overlay.panelId', v); }
+  return v;
+}
+// Программа стримера хранит список файлов этого пульта, чтобы очистка у другого модератора их не удалила.
+// Отправляем после подключения и после изменений; проверка раз в 2 с заодно объединяет частые правки.
+let keepBusy=false;
+async function reportKeep(){
+  const h=homeHttp(), c=client; if(!h || keepBusy || keepOld) return;
+  const keep=[...usedAssets()].sort(), sig=room+'|'+keep.join();
+  if(sig===keepSent) return;
+  keepBusy=true;
+  try{
+    const r=await fetch(h.base+'/files/keep', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep }) });
+    if(c===client){
+      if(r.ok) keepSent=sig;
+      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором. До следующего подключения не спрашиваем
+      else if([400, 401, 404].includes(r.status)) keepOld=true;
+    }
+  }catch(e){ console.warn('keep', e); }
+  keepBusy=false;
+}
+setInterval(reportKeep, 2000);
 function showHostTip(why, full){
   $('hostTipWhy').textContent = why || 'Экран стримера меняется через программу Hudini Host';
   $('hostTipFull').hidden=!full; $('hostTipNoHost').hidden=!!full;
@@ -773,7 +800,7 @@ async function uploadBlob(blob, name){
   const box=await packAsset(keys, blob, id, name);
   const n=Math.max(1, Math.ceil(box.length/PART_BYTES));
   for(let i=0;i<n;i++){
-    const r=await fetch(`${h.base}/files/${id}?part=${i}${i===n-1?'&last=1':''}`, { method:'PUT',
+    const r=await fetch(`${h.base}/files/${id}?part=${i}${i===n-1?'&last=1':''}&panel=${panelId()}`, { method:'PUT',
       headers:{ authorization:h.auth, 'content-type':'application/octet-stream' }, body:box.subarray(i*PART_BYTES, (i+1)*PART_BYTES) });
     const j=await r.json().catch(()=>({}));
     if(j.storage) setStorage(j.storage);
@@ -837,17 +864,20 @@ async function uploadFiles(files, x, y){
   }
   hideUpload();
 }
-// Удалить из программы стримера файлы, которых нет ни на экране, ни в сценах, ни в библиотеке этого пульта.
-// Сама программа ничего не удаляет: так мем, приготовленный на конец стрима, не пропадёт.
+// Удалить из программы стримера файлы, которых нет ни на экране, ни в сценах, ни в библиотеке этого пульта
+// и в списках других пультов (held). Сама программа ничего не удаляет: так мем, приготовленный на конец стрима, не пропадёт.
 async function cleanFiles(){
   const h=homeHttp(); if(!h) return showHostTip('Файлы хранятся в программе Hudini Host, а она сейчас не подключена');
   const j=await refreshStorage(); if(!j) return toast('Не получилось узнать список файлов');
-  const used=usedAssets(), unused=(j.ids||[]).filter(([id])=>!used.has(id));
+  const used=usedAssets(), held=new Set(j.held||[]), unused=(j.ids||[]).filter(([id])=>!used.has(id) && !held.has(id));
   if(!unused.length) return toast('Все файлы используются: на экране, в сценах, библиотеке или сценариях', 4000);
   const bytes=unused.reduce((a,[,b])=>a+b, 0);
-  if(!confirm(`Удалить ${unused.length} файлов (${fmtBytes(bytes)})?\n\nИх нет ни на экране, ни в сценах, библиотеке и сценариях этого пульта.\nЕсли у другого модератора свои сцены с этими файлами, у него они пропадут.`)) return;
+  const note=Array.isArray(j.held)
+    ? 'Их нет на экране и в сценах, библиотеке и сценариях модераторов.\nФайлы, нужные только модераторам, которые не подключались после обновления, могут удалиться.'
+    : 'Их нет ни на экране, ни в сценах, библиотеке и сценариях этого пульта.\nЕсли у другого модератора свои сцены с этими файлами, у него они пропадут.';   // программа старой версии списков не знает
+  if(!confirm(`Удалить ${unused.length} файлов (${fmtBytes(bytes)})?\n\n${note}`)) return;
   try{
-    const r=await fetch(h.base+'/files/clean', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ keep:[...used] }) });
+    const r=await fetch(h.base+'/files/clean', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep:[...used] }) });
     const k=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,k);
     setStorage(k.storage); toast(`🧹 Удалено файлов: ${k.deleted} (${fmtBytes(k.bytes)})`, 4000);
   }catch(e){ toast('Не удалилось: '+(e.message||e)); }

@@ -150,6 +150,7 @@ async function setRoom(link, full){
     cfg.modPass = rnd(18);
     kickMods('room keys changed');
     screen = null; ctl.hideIds = []; cfg.hideIds = [];   // элементы старой комнаты доку больше не нужны
+    keepReset();   // и списки файлов, нужных модераторам
     dropPanelSessions();   // пульт стримера войдёт заново с новыми ключами
   }
   PUB = pub;
@@ -1789,7 +1790,56 @@ function delFile(room, id){
   fs.rmSync(filePath(room, id), { force:true });
   return fileIndex.delete(room+'/'+id);
 }
-// Удалить всё в комнате, кроме списка, который прислал пульт (то, что на экране, в сценах и библиотеке)
+// Какие файлы нужны каждому пульту: он присылает свой список (экран, сцены, библиотека, сценарии), и очистка не трогает
+// файлы ни из одного списка. Списки переживают перезапуск программы и сбрасываются вместе с комнатой.
+const KEEP_FILE = path.join(BASE, 'files-keep.json'), KEEP_PANELS = 64, KEEP_IDS = 5000, KEEP_BYTES = 16*MB;
+const okPanel = p => typeof p==='string' && /^[a-z0-9]{12,32}$/.test(p);
+const keepIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && okId(x)))];
+let keepRoom = '';
+const keepLists = new Map();   // id пульта → { at, ids }
+try{
+  if(fs.statSync(KEEP_FILE).size <= KEEP_BYTES){
+    const j = JSON.parse(fs.readFileSync(KEEP_FILE, 'utf8'));
+    if(j?.v===1 && typeof j.room==='string' && okRoom(j.room) && j.panels && typeof j.panels==='object'){
+      keepRoom = j.room;
+      for(const [p, x] of Object.entries(j.panels).slice(0, KEEP_PANELS)){
+        const ids = keepIds(x?.ids).slice(0, KEEP_IDS);
+        if(okPanel(p) && ids.length) keepLists.set(p, { at:Number(x.at)||0, ids });
+      }
+    }
+  }
+}catch{}
+function keepSave(){
+  try{
+    fs.writeFileSync(KEEP_FILE+'.tmp', JSON.stringify({ v:1, room:keepRoom, panels:Object.fromEntries(keepLists) }), { mode:0o600 });
+    fs.renameSync(KEEP_FILE+'.tmp', KEEP_FILE);
+  }catch(e){ log('⚠ Could not save the file lists:', e?.code || e?.message || e); }
+}
+function keepReset(){ keepLists.clear(); keepRoom = ''; keepSave(); }
+// Списки текущей комнаты
+function keepOfRoom(){
+  if(keepRoom!==ROOM.room){ keepLists.clear(); keepRoom = ROOM.room; }
+  return keepLists;
+}
+// Новый список пульта заменяет прежний. Хранятся только имена файлов, которые есть в комнате; при переполнении выбывает самый давний пульт
+function keepSet(panel, list){
+  const lists = keepOfRoom(), ids = keepIds(list).filter(id => fileIndex.has(ROOM.room+'/'+id)).slice(0, KEEP_IDS);
+  if(!ids.length){ if(lists.delete(panel)) keepSave(); return; }
+  const same = lists.get(panel)?.ids.join()===ids.join();
+  lists.set(panel, { at:Date.now(), ids });
+  while(lists.size > KEEP_PANELS){
+    let oldest = null; for(const [p, x] of lists) if(p!==panel && (!oldest || x.at < oldest[1].at)) oldest = [p, x];
+    lists.delete(oldest[0]);
+  }
+  if(!same) keepSave();
+}
+// Всё, что нужно пультам, кроме указанного
+function keepHeld(except){
+  const out = new Set();
+  for(const [p, x] of keepOfRoom()) if(p!==except) for(const id of x.ids) if(fileIndex.has(ROOM.room+'/'+id)) out.add(id);
+  return [...out];
+}
+// Удалить всё в комнате, кроме переданного списка (то, что на экране, в сценах и библиотеке этого и других пультов)
 function cleanRoomFiles(room, keep){
   const k = new Set(keep.filter(okId)); let n = 0, bytes = 0;
   for(const f of [...fileIndex.values()]) if(f.room===room && !k.has(f.id)){ bytes += f.size; if(delFile(room, f.id)) n++; }
@@ -1857,11 +1907,15 @@ async function filesApi(req, res, url, mod){
     }
   }
   const mine = () => [...fileIndex.values()].filter(f => f.room===ROOM.room).map(f => [f.id, f.size]);
-  if(req.method==='GET' && p==='/files') return j(200, { ok:true, storage:storage(ROOM.room), ids:mine() });
-  if(req.method==='POST' && p==='/files/clean'){
-    const { keep } = JSON.parse(await readBody(req, 512*1024));
-    if(!Array.isArray(keep)) throw new HttpErr(400, 'нет списка файлов');
-    return j(200, cleanRoomFiles(ROOM.room, keep));
+  const panelId = url.searchParams.get('panel');
+  // held: файлы из списков других пультов, очистка их оставит
+  if(req.method==='GET' && p==='/files') return j(200, { ok:true, storage:storage(ROOM.room), ids:mine(), held:keepHeld(panelId) });
+  if(req.method==='POST' && (p==='/files/keep' || p==='/files/clean')){
+    const { keep, id:panel } = JSON.parse(await readBody(req, 512*1024)), clean = p==='/files/clean';
+    if(!Array.isArray(keep) || !clean && !okPanel(panel)) throw new HttpErr(400, 'нет списка файлов');
+    if(okPanel(panel)) keepSet(panel, keep);
+    // пульт старой версии id не присылает: тогда бережём списки всех пультов
+    return j(200, clean ? cleanRoomFiles(ROOM.room, [...keep, ...keepHeld(panel)]) : { ok:true });
   }
   if(!okId(id) || !okRoom(room)) return j(400, { ok:false, error:'плохое имя файла' });
   // Модератор может читать и файлы прошлых комнат этого ПК: пульт так копирует файл из библиотеки в новую комнату.
@@ -1876,7 +1930,10 @@ async function filesApi(req, res, url, mod){
   if(req.method==='PUT'){
     const part = Number(url.searchParams.get('part')||0);
     if(!Number.isInteger(part) || part<0 || part>100000) return j(400, { ok:false, error:'плохой номер куска' });
-    return j(200, putPart(room, id, part, url.searchParams.get('last')==='1', await readRaw(req, PART_MAX)));
+    const last = url.searchParams.get('last')==='1', saved = putPart(room, id, part, last, await readRaw(req, PART_MAX));
+    // свежий файл числится за загрузившим пультом, пока тот не пришлёт новый список
+    if(last && okPanel(panelId)) keepSet(panelId, [id, ...(keepOfRoom().get(panelId)?.ids || [])]);
+    return j(200, saved);
   }
   if(req.method==='DELETE'){ delFile(room, id); return j(200, { ok:true, storage:storage(room) }); }
   return j(405, { ok:false, error:'нельзя' });

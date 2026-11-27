@@ -377,6 +377,7 @@ window.Draw = (function(){
   return {
     open, stop, sync, start,
     get on(){ return D.on; },
+    get brushAsset(){ return D.photo?.asset; },
     // Чужой экран: рисунки сливаются со своими. true: у нас есть штрихи или стирания, которых там нет (надо дослать)
     merge(s){
       let need = false;
