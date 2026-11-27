@@ -139,7 +139,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: она списков не принимает (reportKeep)
+let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: до следующего подключения она списков не принимает (reportKeep)
 const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur', topics(room).base+'/rtc', topics(room).base+'/media'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
@@ -914,8 +914,9 @@ async function reportKeep(){
     const r=await fetch(h.base+'/files/keep', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep }) });
     if(c===client){
       if(r.ok) keepSent=sig;
-      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором. До следующего подключения не спрашиваем
-      else if([400, 401, 404].includes(r.status)) keepOld=true;
+      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором; 423: пауза модераторов.
+      // До следующего подключения не спрашиваем
+      else if([400, 401, 404, 423].includes(r.status)) keepOld=true;
     }
   }catch(e){ console.warn('keep', e); }
   keepBusy=false;

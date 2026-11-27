@@ -126,6 +126,25 @@ const IMG = [...fs.readFileSync(path.join(__dirname, 'fixtures/img.png'))];
     await c.context().close();
   });
 
+  await step('a 423 answer to the list (pause) is not retried until the next connection', async () => {
+    const c = await T.newPage('panel-paused');
+    let asked = 0;
+    await c.context().route(/\/files\/keep$/, r => { if(r.request().method() === 'POST') asked++; return r.fulfill({ status: 423, body: '{"ok":false}', contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type' } }); });
+    await c.goto(await b.evaluate(() => inviteLink(curRoom())));
+    await c.waitForFunction(() => typeof curRoom === 'function' && curRoom());
+    await T.attach(c, host);
+    check(await until(async () => (await c.getAttribute('#status', 'class')).includes('ok'), 15000), 'online');
+    await until(() => asked > 0, 8000);
+    await c.evaluate(() => { library.push({ name: 'p', room, el: sanitizeEl({ id: 'p', type: 'text', text: 'p', x: 1, y: 1 }) }); saveLib(); });
+    await sleep(5000);
+    eq(asked, 1, 'asked once');
+    await host.api('/api/control', { action: 'pause' });
+    check(await until(async () => !(await c.evaluate(() => !!client?.connected)), 10000), 'the pause drops the panel');
+    await host.api('/api/control', { action: 'resume' });
+    check(await until(() => asked > 1, 40000), 'asks again after reconnecting');
+    await c.context().close();
+  });
+
   await step('a new room starts with empty lists', async () => {
     await b.context().close();
     check(Object.keys(lists().panels).length > 0, 'there are lists before');
