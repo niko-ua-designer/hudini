@@ -225,8 +225,9 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
           }
           await s.setParameters(p).catch(() => {});
         }
+        if(src.peers.get(m.from) !== peer) return;   // stopped or replaced while the offer was being made: nothing goes out after the `bye`
         await send({ t:'offer', to:m.from, sid:src.sid, kind:src.kind, sdp:pc.localDescription.sdp, bg:peer.bg, mime:src.mime }, m.a);
-      }catch(e){ console.warn('[media] offer', e.message); closePeer(src, m.from); }
+      }catch(e){ console.warn('[media] offer', e.message); if(src.peers.get(m.from) === peer) closePeer(src, m.from); }
     }
     // A receiver asks (discovery: any sid, names the owner) or asks for the Host road (our real sid, p2)
     function onWant(m){
