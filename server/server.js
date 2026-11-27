@@ -1028,7 +1028,7 @@ function noteScreen(buf){
       screenStrip = typeof m.cs2auto?.strip==='string' ? m.cs2auto.strip.slice(0, 200) : 'Lite, Premium';
       const list = [...m.els.slice(0, 200), ...(m.raffle && typeof m.raffle==='object' ? [m.raffle] : [])];
       screen = { t:Number(m.t)||0, els:list.filter(e => e && typeof e==='object' && typeof e.id==='string' && typeof e.type==='string')
-        .map(e => ({ id:e.id.slice(0, 40), type:e.type.slice(0, 12), name:elLabel(e), hidden:e.hidden===true })) };
+        .map(e => ({ id:e.id.slice(0, 40), type:e.type.slice(0, 12), name:elLabel(e), hidden:e.hidden===true, ...(e.type==='stream' ? { kind:line40(e.kind) } : {}) })) };
     }
     screenBusy = false;
     if(screenBuf) noteScreen(screenBuf);

@@ -55,7 +55,7 @@
   window.streamPaint = (node, el) => {
     const h = ensureHub(); if(!h) return;
     h.paint(node, el, { muted:true });
-    node.dataset.nosig = tr('нет сигнала');
+    node.querySelector('.body').dataset.nosig = tr(KIND_NAME[el.kind]) + ' · ' + tr('нет сигнала');   // the caption of an empty frame (ui.css reads it from the body)
     let tag = node.querySelector(':scope > .sinfo');
     if(!tag){ tag = document.createElement('div'); tag.className = 'sinfo'; tag.setAttribute('data-i18n-skip', ''); node.appendChild(tag); }
     const t = infoText(h.info(el.owner, el.kind), el.owner === h.id);

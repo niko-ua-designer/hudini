@@ -47,5 +47,18 @@ const pages = ['server/ui.html', 'server/dock.html', 'web/panel/moderator.html',
     check(found.size > 20, 'the scan found the server messages (' + found.size + ')');
     for(const t of found) for(const lang of ['en', 'uk', 'de']){ const d = dicts[lang]; check(!!(d[t] || d[strip(t)] || Object.keys(d).some(k => k.length > 2 && CYR.test(k) && t.includes(k) && t.replace(k, '').replace(/[^А-Яа-яЁё]/g, '').length < 3)), `${lang}: "${t.slice(0, 80)}"`); }
   });
+  await step('runtime: a key with line breaks, and the connection hint, are translated whole', async () => {
+    const code = fs.readFileSync(path.join(ROOT, 'web/shared/i18n.js'), 'utf8');
+    for(const lang of ['en', 'uk', 'de']){
+      const win = { alert(){}, confirm(){}, prompt(){} };
+      const doc = { documentElement:{ hasAttribute:() => false }, addEventListener(){} };
+      new Function('window', 'document', 'localStorage', 'location', 'MutationObserver', code)(win, doc,
+        { getItem:k => k === 'hudini.lang' ? lang : null, setItem(){} }, { search:'' }, class { observe(){} });
+      const multi = Object.keys(dicts[lang]).filter(k => k.includes('\n'));
+      check(multi.length > 0 && multi.every(k => win.HudiniI18n.t(k) === dicts[lang][k]), `${lang}: every key with line breaks (${multi.length})`);
+      const hint = 'Экран стримера меняется только через программу Hudini Host.';
+      check(!!dicts[lang][hint] && win.HudiniI18n.t(hint) === dicts[lang][hint], `${lang}: the connection hint`);
+    }
+  });
   process.exit(finish());
 })().catch(e => { console.error(e); process.exit(1); });

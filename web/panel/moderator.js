@@ -167,7 +167,7 @@ function statusModel(){
       title:'Подключено к программе стримера'+(R?.addr ? ': '+R.addr : ''), strip:null };
   }
   // пауза стримера важнее «нет связи» и «переподключение»
-  if(pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
+  if(pausedRoom && pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
   if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
     why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
   if(R?.state==='offline'){
@@ -817,7 +817,7 @@ const raf=()=>state.raffle||null;
 function addRaffle(){
   if(state.raffle) return;
   const clean=sanitizeEl({ id:'raffle', type:'raffle', x:50, y:45, fs:3, font:'montserrat', color:'#ffffff', card:'#141824', accent:'#7c5cff', rot:0, op:1, anim:'none',
-    title:sT('Розыгрыш'), prize:'', kw:'!участвую', entry:'word', subx2:true, auto:true, phase:'idle', hidden:false });
+    title:sT('Розыгрыш'), prize:'', kw:cmdWord('!участвую', streamLang()), entry:'word', subx2:true, auto:true, phase:'idle', hidden:false });
   beginChange(); state.raffle=clean; commit();
   if(!chatWs) toast('Для розыгрыша подключи чат Twitch слева', 4000);
 }
@@ -1122,7 +1122,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый', radar:'радар' }[el.view];
-  if(el.type==='stream') return gT({ cam:'Камера', screen:'Экран', mic:'Микрофон' }[el.kind])+' · '+(el.owner===clientId || (el.owner==='streamer' && document.body.classList.contains('streamer-panel')) ? gT('я') : el.owner.replace(/^[a-z]+_/,'').slice(0,6));
+  if(el.type==='stream') return gT({ cam:'Камера', screen:'Экран', mic:'Микрофон' }[el.kind])+' · '+(el.owner===clientId || (el.owner==='streamer' && document.body.classList.contains('streamer-panel')) ? gT('я') : el.owner==='streamer' ? gT('стример') : window.Cursors?.nameOf(el.owner) || gT('Модератор'));
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='draw') return 'Рисунок · '+el.strokes.length;
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');
@@ -2199,7 +2199,7 @@ function rafTick(){
   if(any){ renderAll(); publishNow(1); }
 }
 function renderRaffle(el){
-  setField(I('iRTitle'), el.title); setField(I('iRPrize'), el.prize); setField(I('iREntry'), el.entry); setField(I('iRKw'), el.kw);
+  setField(I('iRTitle'), el.title); setField(I('iRPrize'), el.prize); setField(I('iREntry'), el.entry); I('iRKw').placeholder=cmdWord('!участвую', streamLang()); setField(I('iRKw'), el.kw);
   $('iRKw').hidden = el.entry!=='word';
   I('iRSubs').checked=el.subs; I('iRSubx2').checked=el.subx2; I('iRAuto').checked=el.auto;
   setField(I('iRConfirm'), String(el.confirm)); I('iRKey').checked=el.key; setField(I('iRKc'), el.kc); setField(I('iRKsim'), String(el.ksim));
@@ -2896,7 +2896,7 @@ function bindU(id, apply, evt='input'){
 function addRoulette(){
   if(rouEl()) return;
   const prizes=[['Скин на пистолет',5],['Заказ песни',30],['Привет в чате',35],['Бан в чате на 10 минут',15],['Ещё одна попытка',15]].map(([n,w],i)=>({ n:sT(n), w, c:ROU_COLORS[i], note:'' }));
-  addEl({ type:'roulette', view:'capsule', x:50, y:46, fs:4, font:'montserrat', color:'#ffffff', accent:'#a970ff', title:'', prizes, people:[], hideAfter:10, vol:0.8 });
+  addEl({ type:'roulette', view:'capsule', x:50, y:46, fs:4, font:'montserrat', color:'#ffffff', accent:'#a970ff', title:'', prizes, people:[], hideAfter:10, vol:0.8, cWord:cmdWord('!крутить', streamLang()) });
 }
 // Крутить: приз по весам, ник из поля или из списка участников. Всё решается здесь, на стриме только показ
 function rouSpin(el, who, test){
@@ -3009,7 +3009,7 @@ function renderRouTab(){
   setField(I('iRouVol'), String(el.vol)); setField(I('iRouHide'), String(el.hideAfter)); setField(I('iRouSize'), String(el.fs)); $('vRouSize').textContent=el.fs.toFixed(1);
   I('iRouOnce').checked=el.once; I('iRouWhoOn').checked=el.who; I('iRouOdds').checked=el.odds; I('iRouShow').checked=!el.hidden;
   setField($('iRouPeople'), peopleText(el.people));
-  I('iRouCOn').checked=el.cOn; setField(I('iRouCWord'), el.cWord); setField(I('iRouCWho'), el.cWho); setField(I('iRouCMode'), el.cMode); setField(I('iRouCCd'), String(el.cCd)); setField(I('iRouCLim'), String(el.cLim));
+  I('iRouCOn').checked=el.cOn; I('iRouCWord').placeholder=cmdWord('!крутить', streamLang()); setField(I('iRouCWord'), el.cWord); setField(I('iRouCWho'), el.cWho); setField(I('iRouCMode'), el.cMode); setField(I('iRouCCd'), String(el.cCd)); setField(I('iRouCLim'), String(el.cLim));
   I('iRouROn').checked=el.rOn; setField(I('iRouRId'), el.rId); $('rouRClear').hidden=!el.rId; I('iRouROne').checked=el.rOne; setField(I('iRouRWord'), el.rWord);
   setField(I('iRouRMode'), el.rMode); setField(I('iRouRCd'), String(el.rCd)); setField(I('iRouRLim'), String(el.rLim));
   if($('rouViewers').open) renderRouSkip();
@@ -3069,7 +3069,7 @@ bindU('iRouWhoOn', (el,f)=>el.who=f.checked, 'change');
 bindU('iRouOdds', (el,f)=>el.odds=f.checked, 'change');
 bindU('iRouShow', (el,f)=>el.hidden=!f.checked, 'change');
 bindU('iRouCOn', (el,f)=>el.cOn=f.checked, 'change');
-bindU('iRouCWord', (el,f)=>el.cWord=f.value.replace(/\s+/g,'').slice(0,24) || '!крутить', 'change');
+bindU('iRouCWord', (el,f)=>el.cWord=f.value.replace(/\s+/g,'').slice(0,24) || cmdWord('!крутить', streamLang()), 'change');
 bindU('iRouCWho', (el,f)=>el.cWho=['all','subs','mods'].includes(f.value) ? f.value : 'mods', 'change');
 bindU('iRouCMode', (el,f)=>el.cMode=f.value==='spin' ? 'spin' : 'add', 'change');
 bindU('iRouCCd', (el,f)=>el.cCd=Math.round(num(f.value,10,0,3600)));

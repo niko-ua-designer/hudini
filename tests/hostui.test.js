@@ -124,6 +124,17 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
     await p.context().close();
   });
 
+  await step('three requests at once: every button is on screen in the small window, in each language', async () => {
+    for (const lang of ['ru', 'en', 'uk', 'de']) {
+      fake = newFake(); fake.pending = ['cam', 'screen', 'mic'].map((kind, i) => ({ kind, ip: '192.168.100.20' + i, key: 'k' + i }));
+      const p = await open({ w: 720, h: 520, lang });
+      await until(() => p.isVisible('#askCard'));
+      const cut = () => p.evaluate(() => { const g = document.getElementById('global').getBoundingClientRect(); return [...document.querySelectorAll('#askBox button')].filter(b => { const r = b.getBoundingClientRect(); return r.top < g.top - 1 || r.bottom > g.bottom + 1 || r.right > innerWidth + 1; }).length; });
+      eq([await p.locator('#askBox button').count(), await cut()], [6, 0], lang + ': six buttons, none cut off');
+      await p.context().close();
+    }
+  });
+
   await step('notification settings: groups and single kinds are switched; camera, screen and microphone cannot be', async () => {
     fake = newFake(); sent.length = 0;
     const p = await open();

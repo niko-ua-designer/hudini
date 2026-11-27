@@ -8,6 +8,7 @@ window.Cursors = (function(){
   const SAFE = /^[A-Za-z0-9_-]{1,40}$/;
   const C = { on:lsGet(KEY, true)!==false, name:String(lsGet(NAME, '')||'').slice(0, NAME_MAX), last:null, sentAt:0, t:null, keep:null, gc:null };
   const peers = new Map();   // id клиента → { id, n, x, y, s, d, at, el, box }
+  const nicks = new Map();   // id клиента → последний ник; живёт дольше курсора (подписи слоёв трансляции)
   const layer = document.createElement('div');
   layer.id = 'curLayer'; layer.setAttribute('data-i18n-skip', ''); layer.hidden = !C.on;
   stage.appendChild(layer);
@@ -15,7 +16,8 @@ window.Cursors = (function(){
 
   const hue = id => { let h = 0; for(let i=0;i<id.length;i++) h = (h*31 + id.charCodeAt(i)) >>> 0; return h; };
   const colorOf = id => `hsl(${hue(id)%360} 85% 62%)`;
-  const labelOf = p => p.n || `${tr('Модератор')} ${1 + hue(p.id)%99}`;
+  const numOf = id => 1 + hue(id)%99;
+  const labelOf = p => p.n || `${tr('Модератор')} ${numOf(p.id)}`;
   const clean = s => String(s).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, NAME_MAX);
 
   // ---------- свой курсор ----------
@@ -90,6 +92,7 @@ window.Cursors = (function(){
     p.n = typeof m.n==='string' ? clean(m.n) : '';
     p.s = typeof m.s==='string' && SAFE.test(m.s) ? m.s : ''; p.d = typeof m.d==='string' && SAFE.test(m.d) ? m.d : '';
     p.at = Date.now();
+    if(p.n && (nicks.size < 200 || nicks.has(id))) nicks.set(id, p.n);
     paint(p);
     if(!C.gc) C.gc = setInterval(sweep, 500);
   }
@@ -110,5 +113,8 @@ window.Cursors = (function(){
   $('curOn').checked = C.on;
   if(C.on) C.keep = setInterval(keepAlive, KEEP_MS/2);
 
-  return { msg, reset, peers, get on(){ return C.on; } };
+  // имя участника для списка слоёв: ник курсора, иначе короткое «мод N» с тем же номером, что у курсора
+  const nameOf = id => nicks.get(id) || `${tr('мод')} ${numOf(id)}`;
+
+  return { msg, reset, peers, nameOf, get on(){ return C.on; } };
 })();
