@@ -128,8 +128,8 @@
   // ---------- обновления (сервер-проверяльщик в обеих ролях) ----------
   function showUpdate(u){
     app.update = u;
-    const on = u && u.state === 'ready' && u.ver;
-    $('updBanner').hidden = !on; if(on) $('updVer').textContent = u.ver;
+    const on = u && (u.state === 'ready' || u.state === 'available') && u.ver;
+    $('updBanner').hidden = !on; if(on){ $('updVer').textContent = u.ver; $('updBtn').disabled = false; }
   }
   $('updBtn').onclick = () => { $('updBtn').disabled = true; call('apply_update').catch(e => { $('updBtn').disabled = false; toast(String(e?.message || e)); }); };
   if(tauri?.event) tauri.event.listen('hudini-update', e => showUpdate(e.payload));

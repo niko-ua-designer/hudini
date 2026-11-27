@@ -695,7 +695,8 @@ let writes=0;   // grows with every change sent to the program: a status answer 
 async function api(p, body){
   if(body) writes++;
   try{
-    const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
+    const lang={ 'x-hudini-lang':uiLang() };   // release notes come back in the language of the window
+    const r=await fetch(p, body ? { method:'POST', headers:{ ...lang, 'content-type':'application/json' }, body:JSON.stringify(body) } : { headers:lang });
     const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
   } finally { if(body) writes++; }
 }
@@ -875,16 +876,19 @@ function noteSections(box, sections){
 }
 function renderUpdate(s){
   const u=s.upd||{}, manual=u.channel!==undefined;   // a program with update channels never restarts by itself
+  const found=u.state==='available', offer=u.ready || found;   // found: a new version that is not downloaded yet
   const info = !u.compiled ? 'Запущено из исходников: обновляй через git pull' :
     u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…${u.prog?.total ? ' '+Math.round(100*u.prog.done/u.prog.total)+'%' : ''}` :
     u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
     u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
   if(manual && u.compiled && u.state==='ready') setRaw($('updInfo'), fmt('Скачана версия {v}. Перезапусти программу, когда будет удобно.', { v:u.latest }));
+  else if(u.compiled && found) setRaw($('updInfo'), fmt('Вышла версия {v}. Программа скачает её, когда нажмёшь кнопку.', { v:u.latest }));
   else setText($('updInfo'), info);
   const dl=u.state==='downloading'; $('updBar').hidden=!(dl||u.state==='checking'); $('updBar').classList.toggle('busy', !(dl && u.prog?.total));
   $('updFill').style.width = dl && u.prog?.total ? Math.round(100*u.prog.done/u.prog.total)+'%' : '';
   setText($('updWhen'), !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(uiLocale(), { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось');
-  $('updApply').hidden = !u.ready; $('navUpd').hidden = !u.ready;
+  $('updApply').hidden = !offer; $('navUpd').hidden = !offer;
+  for(const id of ['updApply', 'tipApply']) setText($(id), found ? '⬇ Скачать и перезапустить' : '🔄 Обновить сейчас');
   $('updAuto').checked = !!u.auto; $('updAutoRow').hidden = u.auto===undefined;
   setText($('updAutoTxt'), manual ? 'Скачивать обновления автоматически' : 'Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)');
   $('updAutoHint').hidden = !manual;
@@ -904,7 +908,7 @@ function renderUpdate(s){
     $('rollWait').hidden=waiting;
   }
   // home tip
-  $('tipUpd').hidden=!u.ready; if(u.ready) setRaw($('tipUpdTxt'), fmt('Скачана версия {v}.', { v:u.latest }));
+  $('tipUpd').hidden=!offer; if(offer) setRaw($('tipUpdTxt'), fmt(found ? 'Вышла версия {v}.' : 'Скачана версия {v}.', { v:u.latest }));
   // the full-window offer
   if(u.ready && kind && changed($('ovNotes'), [u.latest, u.kind, s.version, notesSig(notes)])){
     setText($('ovKind'), kind[0]); setText($('ovTitle'), kind[1]);
@@ -913,8 +917,13 @@ function renderUpdate(s){
   }
 }
 async function applyUpdate(ask){
-  if(ask && !confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return;
-  try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toastErr(e); }
+  const found=lastS?.upd?.state==='available';
+  if(ask && !confirm(found ? 'Скачать новую версию и перезапустить программу? Оверлей пропадёт со стрима на пару секунд.' : 'Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return;
+  try{
+    await api('/api/update/apply', {});
+    if(found){ toast('Скачиваю обновление…'); refresh(); return; }
+    toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000);
+  }catch(e){ toastErr(e); }
 }
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); await send('/api/update/check', {}); };
 $('updApply').onclick=$('tipApply').onclick=()=>applyUpdate(true);

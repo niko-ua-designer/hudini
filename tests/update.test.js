@@ -1,6 +1,7 @@
 // Self-update of Hudini Host: a compiled rc build updates to the stable release from a fake GitHub,
 // verifies SHA-256, ignores old host-v tags and v0.x betas, refuses a tampered download, and a stable build ignores rc releases.
 // App mode (window and tray, OVERLAY_APP): picks the new Hudini-<os>-<ver>.zip, unpacks every file and relaunches the app.
+// The program never restarts by itself: the button installs. Also: auto download off, update channels, rollback to the last stable.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
@@ -96,15 +97,25 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_OPEN: '1', OVERLAY_ADMIN_TOKEN: T.ADMIN_TOKEN, OVERLAY_SITE: 'off', OVERLAY_PORT: String(HPORT) };
   const status = async () => { try{ return await (await fetch(`http://127.0.0.1:${HPORT}/api/status`, { headers: { 'x-hudini-token': T.ADMIN_TOKEN } })).json(); }catch{ return null; } };
   const run = () => { const p = spawn(path.join(app, ASSET), [], { cwd: app, env, detached: true }); p.unref(); return p; };
+  const post = async (p, body = {}) => {
+    const r = await fetch(`http://127.0.0.1:${HPORT}${p}`, { method: 'POST', body: JSON.stringify(body), headers: { 'x-hudini-token': T.ADMIN_TOKEN, 'content-type': 'application/json', origin: `http://127.0.0.1:${HPORT}` } });
+    return { status: r.status, ...(await r.json().catch(() => ({}))) };
+  };
+  const stateIs = (state, ms = 30000) => until(async () => { const x = await status(); return x && x.upd.state === state && x; }, ms);
+  const cfgFile = path.join(app, 'data', 'overlay-host.json'), cfg = () => JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
   const stopAll = async () => { const s = await status(); if(!s) return; try{ execFileSync('pkill', ['-f', path.join(app, ASSET)]); }catch{} await until(async () => !(await status()), 5000); };
 
   await step('legacy standalone build picks the old one-file asset', async () => {
     list = [{ tag_name: 'site-manifest', prerelease: true, assets }, { tag_name: 'host-v1.4.0', assets }, { tag_name: 'v1.0.0', assets }, { tag_name: 'v0.9.0', assets }, { tag_name: 'v0.5.0', prerelease: true, assets }, { tag_name: 'v1.1.0', draft: true, assets }];
     fs.writeFileSync(path.join(app, 'overlay-host.json'), JSON.stringify({ modPass: 'legacy-pass-123' }));   // settings of a pre-1.0 install
     run();
-    check(await until(async () => (await status())?.version === '1.0.0-rc.1', 10000) || (await status())?.version === '1.0.0', 'rc build started');
+    const r = await stateIs('ready');
+    eq(r && [r.version, r.upd.latest, r.upd.ready, r.upd.channel, r.upd.kind], ['1.0.0-rc.1', '1.0.0', true, 'beta', 'version'], 'rc build downloaded 1.0.0 (site-manifest, old host-v1.4.0 and drafts ignored, new-style app zip ignored)');
+    await T.sleep(7000);   // nothing is connected: older builds restarted by themselves here
+    eq((await status())?.version, '1.0.0-rc.1', 'does not restart by itself');
+    eq((await post('/api/update/apply')).status, 200, 'the button');
     const s = await until(async () => { const x = await status(); return x?.version === '1.0.0' && x; }, 30000);
-    check(!!s, 'restarted as 1.0.0 (site-manifest, old host-v1.4.0 and drafts ignored, new-style app zip ignored)');
+    check(!!s, 'restarted as 1.0.0');
     check(s && s.standalone === true && s.app === false, 'status says: standalone build without window');
     check(!fs.existsSync(path.join(app, ASSET + '.new')), 'no leftover .new file');
     const cfg = path.join(app, 'data', 'overlay-host.json');
@@ -112,12 +123,23 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     await stopAll();
   });
 
-  await step('stable build ignores rc releases', async () => {
+  await step('channels: a beta user stays on beta, the stable channel ignores rc releases', async () => {
     list = [{ tag_name: 'v1.0.1-rc.1', prerelease: true, assets }, { tag_name: 'v1.0.0', assets }];
+    sigVer = '1.0.1-rc.1';
     run();
-    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'latest' && x; }, 15000);
-    eq(s && s.version, '1.0.0', 'still 1.0.0, rc not offered');
+    let s = await stateIs('ready');
+    eq(s && [s.version, s.upd.channel, s.upd.latest, s.upd.kind], ['1.0.0', 'beta', '1.0.1-rc.1', 'beta'], 'came from rc: still the beta channel, the next rc is offered');
+    eq((await post('/api/update/channel', { channel: 'nightly' })).status, 400, 'unknown channel refused');
+    eq((await post('/api/update/channel', { channel: 'stable' })).status, 200, 'switched to stable');
+    s = await stateIs('latest');
+    eq(s && [s.upd.channel, s.upd.ready, s.upd.kind, s.upd.rollback], ['stable', false, null, null], 'the downloaded rc is dropped, nothing to roll back to');
+    eq((await post('/api/update/apply')).status, 400, 'nothing to install');
     await stopAll();
+    run();
+    s = await stateIs('latest');
+    eq(s && [s.version, s.upd.channel], ['1.0.0', 'stable'], 'the choice is kept; rc not offered');
+    await stopAll();
+    sigVer = '1.0.0';
   });
 
   await step('release with a wrong or missing signature is refused', async () => {
@@ -155,12 +177,91 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
     const blocker = path.join(app, ASSET + '.old'); fs.mkdirSync(path.join(blocker, 'x'), { recursive: true });   // rename onto it fails
     run();
-    const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);
+    check(await stateIs('ready'), 'downloaded');
+    await post('/api/update/apply');
+    const s = await stateIs('error', 20000);
     check(s && /не смог заменить программу/.test(s.upd.err), 'error reported: ' + (s && s.upd.err));
     eq(s && s.version, '0.9.0', 'kept running the old version');
     check(fs.existsSync(path.join(app, ASSET)), 'program file still in place');
     await stopAll();
     fs.rmSync(blocker, { recursive: true, force: true });
+  });
+
+  // versions for the next steps
+  const v101 = path.join(dir, 'host-1.0.1'), v101rc = path.join(dir, 'host-1.0.1-rc.1');
+  build('1.0.1', v101); build('1.0.1-rc.1', v101rc);
+  const install = file => { fs.copyFileSync(file, path.join(app, ASSET)); fs.chmodSync(path.join(app, ASSET), 0o755); };
+  const setCfg = extra => fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg(), ...extra }));
+  const release = (ver, body, file) => {   // a release of its own: zip, sums and signature for that version
+    const zipName = ASSET + '.zip', own = zipOne(file, 'Hudini/' + ASSET);
+    fs.writeFileSync(path.join(rel, zipName), own); sums = sha(own) + '  ' + zipName + '\n'; sigVer = ver;
+    return { tag_name: 'v' + ver, prerelease: ver.includes('-'), body, assets };
+  };
+
+  await step('auto download off: the check only reports, the button downloads and installs', async () => {
+    install(path.join(rel, ASSET)); setCfg({ autoUpdate: false, channel: 'stable' });
+    const body = ['**EN:** intro', '', "## What's new", '', '**EN**', '- Fixed <b>one</b> thing', '', '**RU**', '- Исправлено', '', 'Website: https://x.y'].join('\r\n');
+    list = [release('1.0.1', body, v101)];
+    run();
+    let s = await stateIs('available');
+    eq(s && [s.upd.latest, s.upd.ready, s.upd.auto, s.upd.kind], ['1.0.1', false, false, 'hotfix'], 'reported, not downloaded');
+    check(!fs.existsSync(path.join(app, ASSET + '.new')), 'no file downloaded');
+    eq(s && s.upd.notes, { ver: '1.0.1', sections: [{ title: '', items: ['Fixed <b>one</b> thing'] }] }, 'notes from the release text');
+    const ru = await (await fetch(`http://127.0.0.1:${HPORT}/api/status`, { headers: { 'x-hudini-token': T.ADMIN_TOKEN, 'x-hudini-lang': 'ru' } })).json();
+    eq(ru.upd.notes?.sections[0].items, ['Исправлено'], 'in the language of the window');
+    await T.sleep(6000);
+    eq((await status())?.version, '1.0.0', 'waits for the button');
+    eq((await post('/api/update/apply')).status, 200, 'the button');
+    s = await until(async () => { const x = await status(); return x?.version === '1.0.1' && x; }, 30000);
+    check(!!s, 'downloaded, verified and restarted as 1.0.1');
+    await stopAll();
+    setCfg({ autoUpdate: true });
+  });
+
+  await step('rollback: offered on stable only, never installed without the request', async () => {
+    install(v101); setCfg({ channel: 'beta', ui: { sounds: true, tourDone: true, seenVer: '1.0.1' } });
+    list = [release('1.0.0', '', path.join(rel, ASSET)), { tag_name: 'v0.9.0', assets }];
+    run();
+    let s = await stateIs('latest');
+    eq(s && s.upd.rollback, null, 'beta channel: no rollback');
+    eq((await post('/api/update/rollback')).status, 400, 'and the request is refused');
+    await post('/api/update/channel', { channel: 'stable' });
+    s = await until(async () => { const x = await status(); return x?.upd.rollback && x.upd.state === 'latest' && x; }, 20000);
+    eq(s && [s.upd.rollback, s.upd.ready, s.upd.kind], [{ ver: '1.0.0' }, false, null], 'stable channel: the newest stable may be rolled back to');
+    eq((await post('/api/update/apply')).status, 400, '«update» does not install an older version');
+    await post('/api/update/check'); await T.sleep(2000);
+    eq([(await status())?.version, fs.existsSync(path.join(app, ASSET + '.new'))], ['1.0.1', false], 'checks neither download nor install it');
+
+    sigVer = '0.9.0';   // signed for another version
+    eq((await post('/api/update/rollback')).status, 200, 'requested');
+    s = await stateIs('error', 20000);
+    check(s && /подпись/.test(s.upd.err) && s.version === '1.0.1', 'a wrong signature refuses the rollback: ' + (s && s.upd.err));
+    eq(cfg().ui.seenVer, '1.0.1', 'settings unchanged');
+    sigVer = '1.0.0';
+    await post('/api/update/check'); await stateIs('latest');
+    const before = cfg(), copy = path.join(app, 'data', 'overlay-host.before-rollback-1.0.1.json');
+    fs.rmSync(copy, { force: true });
+    eq((await post('/api/update/rollback')).status, 200, 'requested again');
+    s = await until(async () => { const x = await status(); return x?.version === '1.0.0' && x; }, 30000);
+    check(!!s, 'restarted as 1.0.0 right after the click');
+    check(fs.existsSync(copy) && JSON.parse(fs.readFileSync(copy, 'utf8')).ui.seenVer === '1.0.1', 'the settings were copied first');
+    if(process.platform !== 'win32') eq(fs.statSync(copy).mode & 0o777, 0o600, 'the copy is readable by the owner only');
+    eq(s && s.ui.whatsNew, null, 'a rollback is not announced as a new version');
+    eq([cfg().modPass, cfg().room?.k], [before.modPass, before.room?.k], 'the room keys stay');
+    await stopAll();
+  });
+
+  await step('rollback after leaving the beta channel', async () => {
+    install(v101rc); setCfg({ channel: undefined });
+    list = [release('1.0.0', '', path.join(rel, ASSET))];
+    run();
+    let s = await stateIs('latest');
+    eq(s && [s.upd.channel, s.upd.rollback], ['beta', null], 'an rc build is on beta');
+    await post('/api/update/channel', { channel: 'stable' });
+    s = await until(async () => { const x = await status(); return x?.upd.rollback && x; }, 20000);
+    eq(s && s.upd.rollback, { ver: '1.0.0' }, 'stable: back to the last stable, or wait');
+    await stopAll();
+    sigVer = '1.0.0'; fs.writeFileSync(path.join(rel, ASSET + '.zip'), zip);
   });
 
   if(process.platform !== 'win32') await step('app mode: picks Hudini-<os>-<ver>.zip, unpacks all files, relaunches the app', async () => {
@@ -173,6 +274,10 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     check(await until(() => new RegExp(`^READY ${HPORT}$`, 'm').test(out), 10000), 'prints READY <port> for the app');
     p.stdin.write('VISIBLE 0\n');   // window hidden in the tray
     const launched = path.join(inst, 'launched.txt');
+    check(await until(() => /^UPDATE ready 1\.0\.0$/m.test(out), 30000), 'downloaded');
+    await T.sleep(5000);
+    check(!fs.existsSync(launched) && !/^RESTART$/m.test(out), 'hidden and idle: still no restart by itself');
+    await post('/api/update/apply');
     check(await until(() => fs.existsSync(launched), 30000), 'new app started after the update');
     eq(fs.readFileSync(launched, 'utf8').trim(), '--updated --wait-pid 4242 --minimized', 'app relaunched with wait-pid, stays in the tray');
     check(/^RESTART$/m.test(out), 'told the app to close (RESTART)');
@@ -219,6 +324,25 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     check(await until(() => fs.existsSync(launched), 10000), 'APPLY from the app installs it and relaunches');
     eq(fs.existsSync(launched) && fs.readFileSync(launched, 'utf8').trim(), '--updated --wait-pid 4343', 'relaunched with wait-pid');
     check(await until(() => p.exitCode !== null, 5000), 'old server exited');
+    fs.rmSync(launched, { force: true });
+    for(const n of fs.readdirSync(inst)) if(/\.old\d*$/.test(n)) fs.rmSync(path.join(inst, n), { recursive: true, force: true });
+  });
+
+  if(process.platform !== 'win32') await step('moderator role with auto download off: APPLY downloads, then installs', async () => {
+    const next = `HudiniHost-${APP_OS}-1.0.1.zip`;
+    list = [{ tag_name: 'v1.0.1', assets: [{ name: next, browser_download_url: url(next) }, ...assets.slice(2)] }];
+    fs.writeFileSync(path.join(inst, 'hudini-server'), newServer);
+    const f = path.join(inst, 'data', 'overlay-host.json'); fs.writeFileSync(f, JSON.stringify({ ...JSON.parse(fs.readFileSync(f, 'utf8')), autoUpdate: false }));
+    const launched = path.join(inst, 'launched.txt'); fs.rmSync(launched, { force: true });
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_ROLE: 'mod', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4444', OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = ''; p.stdout.on('data', d => { out += d; });
+    check(await until(() => /^UPDATE available 1\.0\.1$/m.test(out), 30000), 'tells the app that an update exists');
+    check(!fs.existsSync(path.join(inst, 'data', 'update', '1.0.1')), 'not downloaded');
+    p.stdin.write('APPLY\n');
+    check(await until(() => fs.existsSync(launched), 30000), 'APPLY downloads and installs it');
+    check(await until(() => p.exitCode !== null, 5000), 'old server exited');
+    fs.writeFileSync(f, JSON.stringify({ ...JSON.parse(fs.readFileSync(f, 'utf8')), autoUpdate: true }));
     fs.rmSync(launched, { force: true });
     for(const n of fs.readdirSync(inst)) if(/\.old\d*$/.test(n)) fs.rmSync(path.join(inst, n), { recursive: true, force: true });
   });

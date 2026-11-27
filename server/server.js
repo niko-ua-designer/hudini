@@ -1590,7 +1590,9 @@ function changelog(lang){
 
 // ---------- автообновление программы ----------
 // Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
-// Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
+// Сама программа не перезапускается никогда: обновление ставит только кнопка. «Скачивать автоматически» (cfg.autoUpdate)
+// качает заранее; без этого проверка только сообщает о новой версии, а кнопка качает и ставит.
+// Каналы: stable — готовые версии, beta — самая новая из всех. Старую версию ставит только явный откат (channel stable).
 // Два вида сборок:
 // • один файл без окна (запуск из исходников, разработка): HudiniHost-windows.exe.zip и т.п.;
 // • приложение Hudini с окном и треем (OVERLAY_APP): HudiniHost-<система>-<версия>.zip, внутри папка «HudiniHost/»
@@ -1603,13 +1605,17 @@ const ASSET_OS = APP_OS;   // windows | linux | mac: HudiniHost-<система>
 const APP_BUNDLE = (/^(.*?[\\/][^\\/]+\.app)[\\/]Contents[\\/]MacOS[\\/]/.exec(APP_EXE) || [])[1] || APP_EXE;
 const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, куда распакован архив
 const APP_ENTRY = APP_BUNDLE ? path.basename(APP_BUNDLE) : '';
-const startedAt = Date.now();
-const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false, checkedAt:0, prog:null };
+const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false, checkedAt:0, prog:null, body:'', rollback:null };
+const CHANNELS = ['stable', 'beta'];
+const channel = () => CHANNELS.includes(cfg.channel) ? cfg.channel : VERSION.includes('-') ? 'beta' : 'stable';
+// Канал беты запоминаем: после перехода на готовую версию бета остаётся бетой
+if(!CHANNELS.includes(cfg.channel) && VERSION.includes('-')){ cfg.channel = 'beta'; saveCfg(); }
+const UPDATES_ON = !!(compiled && !process.env.OVERLAY_NO_UPDATE && ASSET && !(APP && !APP_EXE));
 // Версия в имени файла: 1.0.0-rc.4 → 1.0rc4, 1.0.0 → 1.0, 1.0.2 → 1.0.2
 const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? `${m[1]}.${m[2]}${m[3]!=='0' ? '.'+m[3] : ''}${m[4]!=null ? 'rc'+m[4] : ''}` : v; };
-// Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
-function pickRelease(list){
-  const beta = VERSION.includes('-');
+// Предварительные версии (rc) получает только канал beta. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
+function pickRelease(list, ch){
+  const beta = ch==='beta';
   return (Array.isArray(list) ? list : [list]).filter(x => x && !x.draft && /^v\d+\.\d+\.\d+(-rc\.\d+)?$/.test(x.tag_name||'') && (beta || (!x.prerelease && !x.tag_name.includes('-'))))
     .sort((a,b) => cmpVer(b.tag_name.slice(1), a.tag_name.slice(1)))[0] || null;
 }
@@ -1701,62 +1707,117 @@ function moveSync(from, to){
   try{ fs.renameSync(from, to); }
   catch(e){ if(e.code!=='EXDEV') throw e; fs.cpSync(from, to, { recursive:true, verbatimSymlinks:true }); fs.rmSync(from, { recursive:true, force:true }); }
 }
-let checking=null;
-// Приложение читает строки «UPDATE <состояние> <версия>» (роль модератора: нет страницы управления) и может ответить «APPLY»
-function checkUpdate(applyIfIdle){ return checking ||= doCheck(applyIfIdle).finally(()=>{ checking=null; appSay('UPDATE '+upd.state+' '+(upd.latest||'-')); }); }
-async function doCheck(applyIfIdle){
-  if(!compiled || process.env.OVERLAY_NO_UPDATE || !ASSET || (APP && !APP_EXE)) { upd.state='off'; return; }
-  try{
-    upd.state='checking'; upd.err='';
-    const r=await fetch(process.env.OVERLAY_RELEASES_API || `https://api.github.com/repos/${REPO}/releases?per_page=30`, { headers:{ accept:'application/vnd.github+json', 'user-agent':'HudiniHost' }, signal:AbortSignal.timeout(15000) });
-    if(!r.ok) throw new Error('GitHub ответил '+r.status);
-    const rel=pickRelease(await r.json()), ver=rel ? rel.tag_name.slice(1) : VERSION;
-    upd.checkedAt=Date.now(); upd.latest=ver;
-    if(!rel || cmpVer(ver, VERSION)<=0){ upd.state='latest'; return; }
-    if(upd.staged?.ver!==ver){
-      const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt'), sigA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt.sig');
-      if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
-      if(!sigA) throw new Error('у релиза нет подписи, обновление отменено');
-      upd.state='downloading'; log('⬇ Downloading update', ver, '…');
-      const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
-      const sig=await (await fetch(sigA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
-      if(!sigOk('hudini-update', ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
-      const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
-      const want=(line||'').trim().split(/\s+/)[0];
-      const resp=await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) });
-      if(!resp.ok) throw new Error('GitHub ответил '+resp.status);
-      const chunks=[]; upd.prog={ done:0, total:Number(resp.headers.get('content-length')) || zipA.size || 0 };
-      for await(const c of resp.body){ chunks.push(c); upd.prog.done+=c.length; }
-      const zip=Buffer.concat(chunks); upd.prog=null;
-      const got=nodeCrypto.createHash('sha256').update(zip).digest('hex');
-      if(!want || got!==want) throw new Error('контрольная сумма не совпала, обновление отменено');
-      if(APP){
-        const dir = extractApp(zip, path.join(BASE, 'update', ver));
-        if(!fs.existsSync(path.join(dir, APP_ENTRY))) throw new Error('в архиве нет '+APP_ENTRY);
-        upd.staged={ ver, dir };
-      } else {
-        const staged=process.execPath+'.new';
-        fs.writeFileSync(staged, unzipSingle(zip, ASSET)); fs.chmodSync(staged, 0o755);
-        upd.staged={ ver, path:staged };
-      }
-      log('✓ Update', ver, 'downloaded and verified');
-    }
-    upd.state='ready';
-    if(applyIfIdle && upd.auto && isIdle()) await applyUpdate();
-  }catch(e){ upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Update:', e.message); }
+// Куда можно откатиться: только самая новая готовая версия (не ниже 1.0), и только если установленная новее неё
+function rollbackOf(list){
+  const v = channel()==='stable' ? pickRelease(list, 'stable')?.tag_name.slice(1) : null;
+  return v && cmpVer(v, '1.0.0')>=0 && cmpVer(v, VERSION)<0 ? { ver:v } : null;
 }
-// «Простой»: OBS-виджет не подключён и модераторов нет.
-// Роль модератора простоя не знает (пульт работает в окне программы, сервер его не видит): там обновление ставит только
-// кнопка в программе (APPLY), сервер лишь сообщает «UPDATE ready».
-function isIdle(){ return !ROLE_MOD && modList.size===0 && Date.now()-status.obsSeen > 2*60*1000; }   // modList: и модераторы, и пульт стримера
+async function releases(){
+  const r=await fetch(process.env.OVERLAY_RELEASES_API || `https://api.github.com/repos/${REPO}/releases?per_page=30`, { headers:{ accept:'application/vnd.github+json', 'user-agent':'HudiniHost' }, signal:AbortSignal.timeout(15000) });
+  if(!r.ok) throw new Error('GitHub ответил '+r.status);
+  return r.json();
+}
+// Скачать версию и проверить подпись и контрольную сумму; ставит её applyUpdate
+async function download(rel, ver){
+  const zipA=pickAsset(rel.assets, ver), sumA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt'), sigA=rel.assets?.find(a=>a.name==='SHA256SUMS.txt.sig');
+  if(!zipA || !sumA) throw new Error('в релизе нет файла для этой системы');
+  if(!sigA) throw new Error('у релиза нет подписи, обновление отменено');
+  upd.state='downloading'; log('⬇ Downloading update', ver, '…');
+  const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
+  const sig=await (await fetch(sigA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
+  if(!sigOk('hudini-update', ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
+  const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
+  const want=(line||'').trim().split(/\s+/)[0];
+  const resp=await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) });
+  if(!resp.ok) throw new Error('GitHub ответил '+resp.status);
+  const chunks=[]; upd.prog={ done:0, total:Number(resp.headers.get('content-length')) || zipA.size || 0 };
+  for await(const c of resp.body){ chunks.push(c); upd.prog.done+=c.length; }
+  const zip=Buffer.concat(chunks); upd.prog=null;
+  const got=nodeCrypto.createHash('sha256').update(zip).digest('hex');
+  if(!want || got!==want) throw new Error('контрольная сумма не совпала, обновление отменено');
+  let staged;
+  if(APP){
+    const dir = extractApp(zip, path.join(BASE, 'update', ver));
+    if(!fs.existsSync(path.join(dir, APP_ENTRY))) throw new Error('в архиве нет '+APP_ENTRY);
+    staged={ ver, dir };
+  } else {
+    const file=process.execPath+'.new';
+    fs.writeFileSync(file, unzipSingle(zip, ASSET)); fs.chmodSync(file, 0o755);
+    staged={ ver, path:file };
+  }
+  log('✓ Update', ver, 'downloaded and verified');
+  return staged;
+}
+// Проверки, загрузки и откат идут по очереди. Приложение читает строки «UPDATE <состояние> <версия>»
+// (роль модератора: нет страницы управления) и может ответить «APPLY»
+let jobs = Promise.resolve();
+function queued(fn){
+  return jobs = jobs.then(fn)
+    .catch(e => { upd.prog=null; upd.state='error'; upd.err=e.message; log('⚠ Update:', e.message); })
+    .finally(() => appSay('UPDATE '+upd.state+' '+(upd.latest||'-')));
+}
+async function doCheck(wanted){   // wanted: скачать, даже если автозагрузка выключена (нажата кнопка)
+  if(!UPDATES_ON){ upd.state='off'; return; }
+  upd.state='checking'; upd.err='';
+  const list=await releases(), rel=pickRelease(list, channel()), ver=rel ? rel.tag_name.slice(1) : VERSION;
+  upd.checkedAt=Date.now(); upd.latest=ver; upd.body=String(rel?.body || '').slice(0, 100000); upd.rollback=rollbackOf(list);
+  if(upd.staged?.ver!==ver) upd.staged=null;
+  if(!rel || cmpVer(ver, VERSION)<=0){ upd.staged=null; upd.state='latest'; return; }
+  if(!upd.staged){
+    if(!wanted && !upd.auto){ upd.state='available'; return; }
+    upd.staged=await download(rel, ver);
+  }
+  upd.state='ready';
+}
+let checking=null;
+function checkUpdate(){
+  if(checking) return checking;
+  const p = checking = queued(() => doCheck(false)).finally(()=>{ if(checking===p) checking=null; });
+  return p;
+}
+const recheck = () => { checking=null; return checkUpdate(); };   // настройки поменялись: идущая проверка могла их не видеть
+const newer = () => !!parseVer(upd.latest) && cmpVer(upd.latest, VERSION)>0;
+// Кнопка: не больше одной установки сразу
+let installing=false;
+function installNow(fn){
+  if(installing) return;
+  installing=true; queued(fn).finally(()=>{ installing=false; });
+}
+const updateNow = () => installNow(async () => { await doCheck(true); if(upd.state==='ready') await applyUpdate(); });
+// Откат по кнопке: копия настроек, загрузка с той же проверкой, что у обновлений, и сразу установка
+const rollbackNow = () => installNow(async () => {
+  saveCfg();
+  const copy=path.join(BASE, `overlay-host.before-rollback-${VERSION}.json`);
+  fs.copyFileSync(CFG_FILE, copy); try{ fs.chmodSync(copy, 0o600); }catch{}
+  log('⏪ Rollback requested, settings copied to', path.basename(copy));
+  upd.state='checking'; upd.err='';
+  const list=await releases();
+  upd.checkedAt=Date.now(); upd.rollback=rollbackOf(list);
+  if(!upd.rollback) throw new Error('откатываться некуда');
+  const ver=upd.rollback.ver;
+  upd.latest=ver; upd.body=''; upd.staged=null;
+  const staged=await download(pickRelease(list, 'stable'), ver);
+  if(channel()!=='stable') throw new Error('канал обновлений сменили, откат отменён');
+  // старая версия не должна объявить себя новинкой
+  const seen=cfg.ui.seenVer; cfg.ui.seenVer=ver; saveCfg();
+  if(!await applyUpdate({ ...staged, rollback:true })){ cfg.ui.seenVer=seen; saveCfg(); }
+});
+const kindOf = ver => { const a=parseVer(VERSION), b=parseVer(ver); return ver.includes('-') ? 'beta' : a[0]===b[0] && a[1]===b[1] && b[2]>a[2] ? 'hotfix' : 'version'; };
+// То, что видит окно программы; notes — заметки ещё не поставленной версии из текста релиза
+function updStatus(lang){
+  const ver = upd.staged?.ver || (upd.state==='available' ? upd.latest : null);
+  const sections = ver && ver===upd.latest ? noteLang(parseNotes(upd.body).main, lang) : [];
+  return { state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog,
+    channel:channel(), kind:ver ? kindOf(ver) : null, rollback:channel()==='stable' ? upd.rollback : null, ...(sections.length ? { notes:{ ver, sections } } : {}) };
+}
 function stopForRestart(){
   shuttingDown=true;
   try{ local.closeAllConnections?.(); local.close(); modSrv.closeAllConnections?.(); modSrv.close(); }catch{}
 }
 // Программа с окном: старые файлы → *.old (работающие файлы переименовать можно), новые на их место,
 // потом запускаем новую программу с окном. Она ждёт, пока старая закроется, и поднимает новый сервер.
-function applyAppUpdate(){
-  const src = upd.staged.dir, moved = [];
+function applyAppUpdate(staged){
+  const src = staged.dir, moved = [];
   const names = fs.readdirSync(src);
   try{
     for(const n of names){
@@ -1772,10 +1833,10 @@ function applyAppUpdate(){
     // откатываем всё, что успели поменять
     for(const m of moved.reverse()){ try{ fs.rmSync(m.dst, { recursive:true, force:true }); }catch{} try{ if(m.old) fs.renameSync(m.old, m.dst); }catch{} }
     upd.staged=null; upd.state='error'; upd.err='не смог заменить файлы программы: '+e.message; log('⚠ Update: could not replace program files:', e.message);
-    return;
+    return false;
   }
   try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
-  log('🔄 Restarting with version', upd.staged.ver, '…');
+  log('🔄 Restarting with version', staged.ver, '…');
   stopForRestart();
   const args = ['--updated', '--wait-pid', String(APP_PID), ...(appHidden ? ['--minimized'] : [])];
   const child=spawn(APP_EXE, args, { cwd:APP_ROOT, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
@@ -1783,39 +1844,41 @@ function applyAppUpdate(){
   child.unref();
   appSay('RESTART');   // программа с окном закрывается сама
   setTimeout(()=>process.exit(0), 400);
+  return true;
 }
-// Вызывается из таймеров: ошибка здесь не должна ронять сервер, а программа не должна остаться без своего файла
-async function applyUpdate(){
-  if(!upd.staged) return;
+// Только по кнопке. Ошибка здесь не должна ронять сервер, а программа не должна остаться без своего файла. true — перезапускаемся
+async function applyUpdate(staged = upd.staged){
+  if(!staged || shuttingDown) return false;
+  if(!staged.rollback && cmpVer(staged.ver, VERSION)<=0) return false;   // старая версия — только откатом
   if(APP){
-    try{ return applyAppUpdate(); }
-    catch(e){ upd.staged=null; upd.state='error'; upd.err='не смог поставить обновление: '+e.message; log('⚠ Update: could not install:', e.message); return; }
+    try{ return applyAppUpdate(staged); }
+    catch(e){ upd.staged=null; upd.state='error'; upd.err='не смог поставить обновление: '+e.message; log('⚠ Update: could not install:', e.message); return false; }
   }
   const exe=process.execPath, old=exe+'.old';
   try{ fs.rmSync(old, { force:true }); }catch{}
   try{ fs.renameSync(exe, old); }   // работающий файл можно переименовать, но не перезаписать
-  catch(e){ upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return; }
-  try{ fs.renameSync(upd.staged.path, exe); }
+  catch(e){ upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return false; }
+  try{ fs.renameSync(staged.path, exe); }
   catch(e){
     try{ fs.renameSync(old, exe); }catch(e2){ log('⚠ Could not restore the old version:', e2.message); }
-    try{ fs.rmSync(upd.staged.path, { force:true }); }catch{}
-    upd.staged=null; upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return;
+    try{ fs.rmSync(staged.path, { force:true }); }catch{}
+    upd.staged=null; upd.state='error'; upd.err='не смог заменить программу: '+e.message; log('⚠ Update: could not replace the program:', e.message); return false;
   }
-  log('🔄 Restarting with version', upd.staged.ver, '…');
+  log('🔄 Restarting with version', staged.ver, '…');
   stopForRestart();
   const child=spawn(exe, [], { cwd:BASE, detached:true, stdio:'ignore', env:{ ...process.env, OVERLAY_UPDATED:'1' } });
   child.on('error', e => log('⚠ New version failed to start:', e.message));
   child.unref();
   setTimeout(()=>process.exit(0), 400);
+  return true;
 }
 // при старте убираем старую версию, проверяем обновление; потом раз в 3 часа
 if(APP){
   try{ fs.rmSync(path.join(BASE, 'update'), { recursive:true, force:true }); }catch{}
   if(APP_ROOT) try{ for(const n of fs.readdirSync(APP_ROOT)) if(/\.old\d*$/.test(n) && fs.existsSync(path.join(APP_ROOT, n.replace(/\.old\d*$/, '')))) fs.rmSync(path.join(APP_ROOT, n), { recursive:true, force:true }); }catch{}
 } else try{ fs.rmSync(process.execPath+'.old', { force:true }); fs.rmSync(process.execPath+'.new', { force:true }); }catch{}
-setTimeout(()=>checkUpdate(true), 4000);
-setInterval(()=>checkUpdate(true), 3*60*60*1000);
-setInterval(()=>{ if(upd.state==='ready' && upd.auto && isIdle() && Date.now()-startedAt>10*60*1000) applyUpdate(); }, 5*60*1000);
+setTimeout(checkUpdate, 4000);
+setInterval(checkUpdate, 3*60*60*1000);
 
 // ---------- файлы модераторов на диске ----------
 // Пульт шифрует и подписывает файл ключами комнаты, программа хранит байты как есть и отдаёт виджету.
@@ -2134,9 +2197,29 @@ const local = http.createServer(async (req, res) => {
     }
     if(p.startsWith('/api/')){
       if(req.method==='POST' && !okOrigin(req.headers.origin)) return send(res, 403, 'bad origin');   // защита от чужих сайтов
-      if(req.method==='POST' && p==='/api/update/check'){ await checkUpdate(false); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
-      if(req.method==='POST' && p==='/api/update/apply'){ if(!upd.staged) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json'); send(res, 200, JSON.stringify({ ok:true }), 'application/json'); setTimeout(applyUpdate, 300); return; }
-      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
+      const updReply = () => send(res, 200, JSON.stringify({ ok:true, upd:updStatus(req.headers['x-hudini-lang']) }), 'application/json');
+      if(req.method==='POST' && p==='/api/update/check'){ await checkUpdate(); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/apply'){   // скачанное ставим, найденное сначала качаем
+        if(!upd.staged && !(UPDATES_ON && newer())) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json');
+        updReply(); setTimeout(() => upd.staged ? applyUpdate() : updateNow(), 300); return;
+      }
+      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); if(upd.auto && !upd.staged && newer()) recheck(); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/channel'){
+        const { channel:next } = JSON.parse(await readBody(req, 1024));
+        if(!CHANNELS.includes(next)) throw new HttpErr(400, 'неизвестный канал обновлений');
+        const changed = next!==channel();
+        cfg.channel = next; saveCfg();
+        if(changed){
+          log('Update channel:', next);
+          upd.rollback = null; if(next==='stable' && upd.staged?.ver.includes('-')) upd.staged = null;
+          recheck();
+        }
+        return updReply();
+      }
+      if(req.method==='POST' && p==='/api/update/rollback'){
+        if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
+        rollbackNow(); return updReply();
+      }
       if(req.method==='POST' && p==='/api/ui'){   // окно программы: звуки, тур, «что нового» прочитано
         const b = JSON.parse(await readBody(req, 1024));
         if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
@@ -2217,7 +2300,7 @@ const local = http.createServer(async (req, res) => {
         await createRoom(name); log('🆕 Room recreated');
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, ui:uiState(), room:ROOM?.room||null, obsLink:obsLink(),
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:updStatus(req.headers['x-hudini-lang']), app:APP, standalone:compiled && !APP, ui:uiState(), room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
@@ -2298,7 +2381,7 @@ if(APP){
       if(l==='VISIBLE 0') appHidden = true;
       else if(l==='VISIBLE 1') appHidden = false;
       else if(l==='QUIT') shutdown();
-      else if(l==='APPLY' && upd.staged) applyUpdate();
+      else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
       else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
     }
   });
