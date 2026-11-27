@@ -1,5 +1,47 @@
 # Releasing Hudini
 
+## CHANGELOG.md format
+
+The file is built into Hudini Host (`GET /api/changelog`, the "What's new" window and list), and the release workflow
+copies the section of the tag version into the release notes, which an older Host shows before it installs the update.
+Every released version needs its section **before the build**:
+
+```
+## 1.2.0-rc.1
+
+<!-- date: 2026-11-29 -->
+
+**EN**
+- One change per line. A long line may go on in the next one if that one is indented.
+
+**RU**
+- ...
+
+**UK**
+- ...
+
+**DE**
+- ...
+
+### Testing
+
+**EN**
+- What beta testers should check.
+
+**RU**
+- ...
+```
+
+- The heading is exactly `## <version>`, the same string as `VERSION` in `server/server.js`.
+- The date is a comment, so it does not show on GitHub.
+- Language blocks start with `**EN**`, `**RU**`, `**UK**`, `**DE**` on a line of their own. A missing language falls
+  back to English. Optional `#### Title` lines split a block into titled parts.
+- `### Testing` (exactly this heading) opens the list of what is being tested, with its own language blocks. It is
+  shown for beta (`-rc.N`) versions only. Everything after it in the section belongs to the testing list.
+- Any other plain text ends a language block and is not shown in the program. Only plain text is shown: bold, code and
+  link markup is removed.
+- Limits per language: 20 parts, 60 lines each, 1000 characters a line; the program shows the newest 40 versions.
+
 ## Signing the site (1.2 and later)
 
 GitHub Pages publishes `web/` right after a push to `main`, but Hudini Host 1.2+ loads the new widget files into OBS only

@@ -29,6 +29,7 @@ import CASE3D_JS from '../web/shared/case3d.js' with { type: 'text' };
 import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
+import CHANGELOG_MD from '../CHANGELOG.md' with { type: 'text' };
 
 const VERSION = '1.1.3';
 const PREFIX = 'stream-overlay/v1';
@@ -1546,6 +1547,47 @@ function widgetHtml(){
 }
 
 
+// ---------- версии ----------
+// Версии вида 1.0.0 и 1.0.0-rc.1 (rc раньше готовой версии)
+const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? [+m[1], +m[2], +m[3], m[4]==null ? Infinity : +m[4]] : null; };
+const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
+
+// ---------- список изменений: CHANGELOG.md вшит в программу ----------
+// Формат (docs/RELEASING.md): «## <версия>», «<!-- date: ГГГГ-ММ-ДД -->», блоки «**EN**» «**RU**» «**UK**» «**DE**» с пунктами «- …»,
+// внутри блока можно «#### Заголовок»; после «### Testing» такие же блоки: что проверить в бете. Тот же разбор читает заметки релиза.
+const NOTE_LANGS = ['en', 'ru', 'uk', 'de'];
+const NOTE_ITEMS = 60, NOTE_SECTIONS = 20, LOG_ENTRIES = 40;
+const noteText = s => String(s).replace(/<!--.*?-->/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*|`/g, '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 1000);
+function parseNotes(text){
+  const out = { main:{}, testing:{} };
+  let part = out.main, list = null, sec = null;
+  for(const line of String(text).split(/\r?\n/)){
+    if(/^###\s+Testing\s*$/i.test(line)){ part = out.testing; list = sec = null; continue; }
+    const l = /^\*\*(EN|RU|UK|DE)\*\*\s*$/.exec(line);
+    if(l){ list = part[l[1].toLowerCase()] ||= []; sec = null; continue; }
+    if(!list) continue;
+    const h = /^####\s+(.*)$/.exec(line), b = /^[-*]\s+(.*)$/.exec(line);
+    if(h){ sec = { title:noteText(h[1]).slice(0, 120), items:[] }; if(list.length < NOTE_SECTIONS) list.push(sec); }
+    else if(b){
+      if(!sec){ sec = { title:'', items:[] }; if(list.length < NOTE_SECTIONS) list.push(sec); }
+      const item = noteText(b[1]); if(item && sec.items.length < NOTE_ITEMS) sec.items.push(item);
+    }
+    else if(/^\s+\S/.test(line) && sec?.items.length) sec.items.push(noteText(sec.items.pop()+' '+line.trim()));   // перенос строки внутри пункта
+    else if(line.trim()) list = null;   // любой другой текст заканчивает блок языка
+  }
+  return out;
+}
+// Нужный язык, иначе английский, иначе какой есть
+const noteLang = (blocks, lang) => ([lang, 'en', ...NOTE_LANGS].filter(l => NOTE_LANGS.includes(l)).map(l => blocks[l]?.filter(s => s.items.length)).find(x => x?.length)) || [];
+const CHANGES = CHANGELOG_MD.split(/^##[ \t]+(?=\d)/m).slice(1).map(block => {
+  const ver = block.split(/\s/, 1)[0];
+  return { ver, date:/<!--\s*date:\s*(\d{4}-\d\d-\d\d)\s*-->/.exec(block)?.[1] || '', ...parseNotes(block.slice(ver.length)) };
+}).filter(e => parseVer(e.ver)).sort((a, b) => cmpVer(b.ver, a.ver)).slice(0, LOG_ENTRIES);
+function changelog(lang){
+  return { current:VERSION, entries:CHANGES.map(e => { const beta = e.ver.includes('-');
+    return { ver:e.ver, date:e.date, beta, sections:noteLang(e.main, lang), testing:beta ? noteLang(e.testing, lang).flatMap(s => s.items) : [] }; }) };
+}
+
 // ---------- автообновление программы ----------
 // Проверяет GitHub Releases, качает .zip для своей системы, сверяет SHA-256 и подменяет себя.
 // Посреди стрима не перезапускается: только при старте (пока OBS не подключился), в простое или по кнопке.
@@ -1563,9 +1605,6 @@ const APP_ROOT = APP_BUNDLE ? path.dirname(APP_BUNDLE) : '';   // папка, к
 const APP_ENTRY = APP_BUNDLE ? path.basename(APP_BUNDLE) : '';
 const startedAt = Date.now();
 const upd = { state:'idle', latest:null, err:'', staged:null, auto: cfg.autoUpdate!==false, checkedAt:0, prog:null };
-// Версии вида 1.0.0 и 1.0.0-rc.1 (rc раньше готовой версии)
-const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? [+m[1], +m[2], +m[3], m[4]==null ? Infinity : +m[4]] : null; };
-const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
 // Версия в имени файла: 1.0.0-rc.4 → 1.0rc4, 1.0.0 → 1.0, 1.0.2 → 1.0.2
 const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? `${m[1]}.${m[2]}${m[3]!=='0' ? '.'+m[3] : ''}${m[4]!=null ? 'rc'+m[4] : ''}` : v; };
 // Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
@@ -2170,6 +2209,7 @@ const local = http.createServer(async (req, res) => {
         await publishCtl();
         return send(res, 200, JSON.stringify({ ok:true, ctl }), 'application/json');
       }
+      if(p==='/api/changelog') return send(res, 200, JSON.stringify(changelog(url.searchParams.get('lang'))), 'application/json');
       if(p==='/api/code') return send(res, 200, JSON.stringify({ ok:true, code:modCode(), fp:TLS.fp, addrs:addresses(), pass:cfg.modPass, name:cfg.name }), 'application/json');
       if(req.method==='POST' && p==='/api/code/new'){ cfg.modPass = rnd(18); saveCfg(); kickMods('new moderator code'); log('🔑 New moderator code issued'); return send(res, 200, JSON.stringify({ ok:true, code:modCode() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/room/new'){   // новая комната: новые ключи, пароль и код
