@@ -16,7 +16,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 - Quiet app sounds in the Host window and the panel. The app asks whether you want them; they can be switched off in the settings, and the OBS widget never plays them.
 - The panel shows its tour once after the update and again from the settings.
 - The OBS camera as a backdrop: the streamer can show moderators the OBS Virtual Camera under the canvas instead of the screen. It arrives faster than Twitch.
-- The panel fits a small window (900x600) better: a one-line header, whole words on buttons, readable lists and fields, a fixed help drawer and many small visual fixes in the Host window and the dock.
+- The panel fits a small window (900x600) better: a more compact header, whole words on buttons, readable lists and fields, a fixed help drawer and many small visual fixes in the Host window and the dock.
 - The default chat words of giveaways and the roulette follow the language of the stream texts.
 
 #### Updates
@@ -44,7 +44,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 - Тихие звуки программы в окне Host и в пульте. Программа спросит, нужны ли они; их можно выключить в настройках, а виджет в OBS их не играет.
 - Пульт один раз показывает тур после обновления, и его можно повторить из настроек.
 - Камера OBS фоном: стример может показать модераторам под холстом виртуальную камеру OBS вместо экрана. Картинка приходит быстрее, чем с Twitch.
-- Пульт лучше помещается в маленькое окно (900x600): шапка в одну строку, целые слова на кнопках, читаемые списки и поля, исправленная панель справки и много мелких правок вида в окне Host и доке.
+- Пульт лучше помещается в маленькое окно (900x600): компактнее шапка, целые слова на кнопках, читаемые списки и поля, исправленная панель справки и много мелких правок вида в окне Host и доке.
 - Слова чата по умолчанию для розыгрышей и рулетки зависят от языка надписей на стриме.
 
 #### Обновления
@@ -72,7 +72,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 - Тихі звуки програми у вікні Host і в пульті. Програма запитає, чи потрібні вони; їх можна вимкнути в налаштуваннях, а віджет в OBS їх не грає.
 - Пульт один раз показує тур після оновлення, і його можна повторити з налаштувань.
 - Камера OBS тлом: стрімер може показати модераторам під полотном віртуальну камеру OBS замість екрана. Картинка приходить швидше, ніж із Twitch.
-- Пульт краще вміщується в маленьке вікно (900x600): шапка в один рядок, цілі слова на кнопках, читабельні списки й поля, виправлена панель довідки та багато дрібних правок вигляду у вікні Host і доці.
+- Пульт краще вміщується в маленьке вікно (900x600): компактніша шапка, цілі слова на кнопках, читабельні списки й поля, виправлена панель довідки та багато дрібних правок вигляду у вікні Host і доці.
 - Слова чату за замовчуванням для розіграшів і рулетки залежать від мови написів на стримі.
 
 #### Оновлення
@@ -100,7 +100,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 - Leise Programm-Sounds im Host-Fenster und im Pult. Die App fragt, ob du sie willst; in den Einstellungen lassen sie sich ausschalten, und das OBS-Widget spielt sie nie.
 - Das Pult zeigt seine Tour einmal nach dem Update und auf Wunsch erneut aus den Einstellungen.
 - Die OBS-Kamera als Hintergrund: Der Streamer kann den Moderatoren statt des Bildschirms die virtuelle Kamera von OBS unter der Fläche zeigen. Das Bild kommt schneller an als über Twitch.
-- Das Pult passt besser in ein kleines Fenster (900x600): Kopfzeile in einer Zeile, ganze Wörter auf Knöpfen, lesbare Listen und Felder, eine reparierte Hilfeleiste und viele kleine optische Korrekturen im Host-Fenster und im Dock.
+- Das Pult passt besser in ein kleines Fenster (900x600): kompaktere Kopfzeile, ganze Wörter auf Knöpfen, lesbare Listen und Felder, eine reparierte Hilfeleiste und viele kleine optische Korrekturen im Host-Fenster und im Dock.
 - Die Standard-Chatwörter für Gewinnspiele und Roulette richten sich nach der Sprache der Stream-Texte.
 
 #### Updates
