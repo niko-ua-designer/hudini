@@ -161,9 +161,13 @@ async function start(dir, env = {}){
     const count = () => h.log().split('\n').filter(l => l.startsWith(TOKEN + ' NOTIFY dock ')).length;
     check(await until(() => h.log().includes(TOKEN + ' READY ')), 'ready');
     h.proc.stdin.write('VISIBLE 0\n'); await sleep(300);
-    for(let i = 0; i < 4; i++){ await fetch(`http://localhost:${PORT}/api/status`); await sleep(150); }
+    for(let i = 0; i < 2; i++){ await fetch(`http://localhost:${PORT}/api/status`); await fetch(`http://localhost:${PORT}/api/status`, { headers: { referer: 'http://example.com/' } }); await sleep(150); }
+    eq(count(), 0, 'a plain request without the dock page is not a dock');
+    const dock = () => fetch(`http://localhost:${PORT}/api/status`, { headers: { 'x-hudini-dock': '1' } });
+    for(let i = 0; i < 4; i++){ await dock(); await sleep(150); }
     await h.api('/api/status');   // the window itself is not a dock
     eq(count(), 1, 'once for a dock that keeps polling');
+    check((await (await fetch(`http://localhost:${PORT}/dock`)).text()).includes("'x-hudini-dock':'1'"), 'dock.html names itself');
     h.proc.stdin.end(); await h.stop();
   });
 

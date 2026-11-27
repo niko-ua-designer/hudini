@@ -2312,7 +2312,7 @@ const local = http.createServer(async (req, res) => {
       // без входа: «живой» (проверка приложения); со стороны виджета (localhost) — краткий статус и кнопки стримера для дока в OBS
       if(req.method==='GET' && p==='/api/status'){
         if(isLocalAdminHost(req)) return send(res, 200, JSON.stringify({ alive:true, version:VERSION }), 'application/json');
-        dockPolled();
+        if(req.headers['x-hudini-dock']) dockPolled();   // так себя называет только страница дока (dock.html)
         return send(res, 200, JSON.stringify({ version:VERSION, ctl, room:ROOM?.room||'', mods:status.mods,
           obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, storage:(({ used, limitBytes }) => ({ used, limitBytes }))(storage(ROOM?.room)),
           fight:fightNow(), ...dockInfo() }), 'application/json');

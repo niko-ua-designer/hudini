@@ -132,7 +132,7 @@ const tr=s=>window.HudiniI18n ? HudiniI18n.t(s) : s;
 let s=null, tab='stat', busy=false;
 try{ const t=localStorage.getItem('hudini.dockTab'); if(['stat','els','ppl','cs2'].includes(t)) tab=t; }catch{}
 async function api(p, body){
-  const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
+  const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : { headers:{ 'x-hudini-dock':'1' } });
   const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
 }
 const el=(tag, cls, text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
