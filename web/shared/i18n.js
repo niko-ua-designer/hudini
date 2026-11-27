@@ -943,6 +943,7 @@ const HUDINI_DICT = {
     "🏠 Подключено к Hudini Host": "🏠 Connected to Hudini Host",
     "Адрес программы стримера": "Streamer's app address",
     "Экран стримера меняется только через программу Hudini Host на его компьютере.": "The streamer's screen changes only through the Hudini Host app on their computer.",
+    "Экран стримера меняется только через программу Hudini Host.": "The streamer's screen changes only through the Hudini Host app.",
     "Нажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.": "Click to see how to start it. Until then you can prepare the screen: everything is sent once it connects.",
     "Ссылка для Hudini Host:": "Link for Hudini Host:",
     "Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS": "The streamer pastes it into Hudini Host, and the app gives the link for OBS",
@@ -2920,6 +2921,7 @@ const HUDINI_DICT = {
     "🏠 Подключено к Hudini Host": "🏠 Підключено до Hudini Host",
     "Адрес программы стримера": "Адреса програми стрімера",
     "Экран стримера меняется только через программу Hudini Host на его компьютере.": "Екран стрімера змінюється лише через програму Hudini Host на його комп'ютері.",
+    "Экран стримера меняется только через программу Hudini Host.": "Екран стрімера змінюється лише через програму Hudini Host.",
     "Нажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.": "Натисни, щоб дізнатися, як її запустити. Поки програми немає, можна готувати екран: усе піде після підключення.",
     "Ссылка для Hudini Host:": "Посилання для Hudini Host:",
     "Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS": "Стрімер вставляє його в Hudini Host, а програма дає посилання для OBS",
@@ -4897,6 +4899,7 @@ const HUDINI_DICT = {
     "🏠 Подключено к Hudini Host": "🏠 Mit Hudini Host verbunden",
     "Адрес программы стримера": "Adresse des Streamer-Programms",
     "Экран стримера меняется только через программу Hudini Host на его компьютере.": "Der Bildschirm des Streamers ändert sich nur über das Programm Hudini Host auf seinem Computer.",
+    "Экран стримера меняется только через программу Hudini Host.": "Der Bildschirm des Streamers ändert sich nur über das Programm Hudini Host.",
     "Нажми, чтобы узнать, как её запустить. Пока программы нет, можно готовить экран: всё уйдёт при подключении.": "Klick, um zu sehen, wie man es startet. Bis dahin kannst du den Bildschirm vorbereiten: Alles wird beim Verbinden gesendet.",
     "Ссылка для Hudini Host:": "Link für Hudini Host:",
     "Стример вставляет её в программу Hudini Host, а программа даёт ссылку для OBS": "Der Streamer fügt ihn in Hudini Host ein, und das Programm gibt den Link für OBS",
@@ -5996,7 +5999,7 @@ const HUDINI_DICT = {
       if(typeof s !== 'string' || !CYR.test(s)) return s;
       let r = cache.get(s);
       if(r === undefined){
-        const whole = dict[s.trim().replace(/\s+/g, ' ')];   // a phrase that only wraps across lines
+        const whole = dict[s] ?? dict[s.trim().replace(/\s+/g, ' ')];   // a key with its own line breaks, or a phrase that only wraps across lines
         r = whole !== undefined ? s.match(/^\s*/)[0] + whole + s.match(/\s*$/)[0] : s.split('\n').map(line).join('\n');
         if(cache.size > 5000) cache.clear();
         cache.set(s, r);
