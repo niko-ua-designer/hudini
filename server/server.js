@@ -1870,6 +1870,24 @@ function checkUpdate(){
   return p;
 }
 const recheck = () => { checking=null; return checkUpdate(); };   // настройки поменялись: идущая проверка могла их не видеть
+function setAuto(auto){ upd.auto=cfg.autoUpdate=!!auto; saveCfg(); if(upd.auto && !upd.staged && newer()) recheck(); }
+function setChannel(next){
+  if(!CHANNELS.includes(next)) throw new HttpErr(400, 'неизвестный канал обновлений');
+  const changed = next!==channel();
+  cfg.channel = next; saveCfg();
+  if(changed){
+    log('Update channel:', next);
+    upd.rollback = null; if(next==='stable' && upd.staged?.ver.includes('-')) upd.staged = null;
+    recheck();
+  }
+}
+// окно программы: звуки, тур, «что нового» прочитано
+function setUiState(b){
+  if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
+  if(typeof b.tourDone==='boolean') cfg.ui.tourDone = b.tourDone;
+  if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
+  saveCfg();
+}
 const newer = () => !!parseVer(upd.latest) && cmpVer(upd.latest, VERSION)>0;
 // Кнопка: не больше одной установки сразу
 let installing=false;
@@ -1897,6 +1915,10 @@ const rollbackNow = () => installNow(async () => {
   if(!await applyUpdate({ ...staged, rollback:true })){ cfg.ui.seenVer=seen; saveCfg(); }
 });
 const kindOf = ver => { const a=parseVer(VERSION), b=parseVer(ver); return ver.includes('-') ? 'beta' : a[0]===b[0] && a[1]===b[1] && b[2]>a[2] ? 'hotfix' : 'version'; };
+function startRollback(){
+  if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
+  rollbackNow();
+}
 // То, что видит окно программы; notes — заметки ещё не поставленной версии из текста релиза
 function updStatus(lang){
   const ver = upd.staged?.ver || (upd.state==='available' ? upd.latest : null);
@@ -2298,29 +2320,11 @@ const local = http.createServer(async (req, res) => {
         if(!upd.staged && !(UPDATES_ON && newer())) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json');
         updReply(); setTimeout(() => upd.staged ? applyUpdate() : updateNow(), 300); return;
       }
-      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); if(upd.auto && !upd.staged && newer()) recheck(); return updReply(); }
-      if(req.method==='POST' && p==='/api/update/channel'){
-        const { channel:next } = JSON.parse(await readBody(req, 1024));
-        if(!CHANNELS.includes(next)) throw new HttpErr(400, 'неизвестный канал обновлений');
-        const changed = next!==channel();
-        cfg.channel = next; saveCfg();
-        if(changed){
-          log('Update channel:', next);
-          upd.rollback = null; if(next==='stable' && upd.staged?.ver.includes('-')) upd.staged = null;
-          recheck();
-        }
-        return updReply();
-      }
-      if(req.method==='POST' && p==='/api/update/rollback'){
-        if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
-        rollbackNow(); return updReply();
-      }
-      if(req.method==='POST' && p==='/api/ui'){   // окно программы: звуки, тур, «что нового» прочитано
-        const b = JSON.parse(await readBody(req, 1024));
-        if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
-        if(typeof b.tourDone==='boolean') cfg.ui.tourDone = b.tourDone;
-        if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
-        saveCfg();
+      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); setAuto(auto); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/channel'){ const { channel:next } = JSON.parse(await readBody(req, 1024)); setChannel(next); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/rollback'){ startRollback(); return updReply(); }
+      if(req.method==='POST' && p==='/api/ui'){
+        setUiState(JSON.parse(await readBody(req, 1024)));
         return send(res, 200, JSON.stringify({ ok:true, ui:uiState() }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/notify'){
@@ -2472,12 +2476,28 @@ async function shutdown(){
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
-// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>».
-// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL».
+// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>», «INFO <json>».
+// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL», «UI <json>».
 // PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
 function appSay(line){ if(APP) try{ process.stdout.write((APP_TOKEN ? APP_TOKEN+' ' : '')+line+'\n'); }catch{} }
+// Роль модератора без портов и страницы управления: её экраны спрашивают программу строкой «UI {op, value, lang, log}»
+// (те же действия, что у /api/update/* и /api/ui), ответ — строка «INFO <json>»
+async function appUi(text){
+  let m; try{ m = JSON.parse(text); }catch{ return; }
+  if(!ROLE_MOD || !m || typeof m!=='object') return;
+  let error;
+  try{
+    if(m.op==='check') checkUpdate();
+    else if(m.op==='auto') setAuto(m.value);
+    else if(m.op==='channel') setChannel(m.value);
+    else if(m.op==='rollback') startRollback();
+    else if(m.op==='seen') setUiState({ seenWhatsNew:true });
+  }catch(e){ error = e.message; }
+  await new Promise(r => setImmediate(r));   // начатая проверка уже показывает своё состояние
+  appSay('INFO '+JSON.stringify({ upd:updStatus(m.lang), ui:uiState(), current:VERSION, error, ...(m.log ? { entries:changelog(m.lang).entries } : {}) }));
+}
 if(APP){
   process.stdout.on?.('error', ()=>{});
   let buf = '';
@@ -2489,6 +2509,7 @@ if(APP){
       if(l==='VISIBLE 0' || l==='VISIBLE 1'){ appHidden = l==='VISIBLE 0'; visibleSaid(); }
       else if(l==='QUIT') shutdown();
       else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
+      else if(l.startsWith('UI ')) appUi(l.slice(3));
       else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
     }
   });

@@ -26,7 +26,7 @@ const pages = ['server/ui.html', 'server/dock.html', 'web/panel/moderator.html',
     }
   });
   // Russian string literals inside the scripts of the Host window and the dock (text built in JavaScript): the whole text, or a known fragment of it, must have a key.
-  const SCRIPTS = ['server/ui.html', 'server/dock.html', 'web/panel/moderator.js', 'web/panel/streamer.js', 'web/panel/broadcast.js', 'web/panel/cursors.js', 'web/panel/draw.js', 'web/panel/ui.js', 'web/shared/media.js'];
+  const SCRIPTS = ['server/ui.html', 'server/dock.html', 'web/panel/moderator.js', 'web/panel/streamer.js', 'web/panel/broadcast.js', 'web/panel/cursors.js', 'web/panel/draw.js', 'web/panel/ui.js', 'web/shared/media.js', 'web/shared/sounds.js', 'web/app/updates.js'];
   for(const f of SCRIPTS) await step(f + ': Russian strings built in JavaScript are translated', async () => {
     const raw = fs.readFileSync(path.join(ROOT, f), 'utf8');
     const js = f.endsWith('.html') ? [...raw.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n') : raw;

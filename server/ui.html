@@ -974,6 +974,7 @@ function listenSounds(on){
   if(!on){ soundFeed.close(); soundFeed=null; return; }
   soundFeed=new EventSource('/api/sounds');
   soundFeed.onmessage=e=>window.HudiniSounds?.play(e.data);
+  soundFeed.onerror=()=>{ if(soundFeed?.readyState===2) soundFeed=null; };   // refused: the next status poll opens it again
 }
 function renderSettings(s){
   $('uiCard').hidden=!s.ui;

@@ -4107,8 +4107,9 @@ if(TAURI?.core){
     const on=!!(u && (u.state==='ready' || u.state==='available') && u.ver), b=$('updBanner');
     b.hidden=!on; if(on){ b.textContent='🆕 Обновить Hudini'; b.title='Вышла версия '+u.ver; }
   };
-  $('updBanner').onclick=()=>{ if(!drag) TAURI.core.invoke('apply_update').catch(e=>toast(String(e?.message||e))); };
-  TAURI.core.invoke('app_state').then(a=>showAppUpdate(a?.update)).catch(()=>{});
+  // роль модератора: сначала окно с предложением (updates.js), без него приложение не перезапускается
+  $('updBanner').onclick=()=>{ if(drag) return; if(window.HudiniUpdates?.active()) HudiniUpdates.offer(); else TAURI.core.invoke('apply_update').catch(e=>toast(String(e?.message||e))); };
+  TAURI.core.invoke('app_state').then(a=>{ showAppUpdate(a?.update); if(a?.running==='mod'){ window.HudiniUpdates?.start(); dispatchEvent(new Event('hudini:modupdates')); } }).catch(()=>{});
   TAURI.event?.listen('hudini-update', e=>showAppUpdate(e.payload));
   $('dataDir').hidden=false; $('dataDir').onclick=()=>TAURI.core.invoke('open_data').catch(e=>toast(String(e?.message||e)));
 }else{

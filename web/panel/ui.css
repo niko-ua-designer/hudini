@@ -98,7 +98,9 @@ body.swap #emptyHint .arrow{transform:scaleX(-1)}
 /* ---------- settings section ---------- */
 .uiset .row label{flex:1}
 .uiset select{width:auto}
-#uiTour{display:block;width:100%;margin-top:8px}
+#uiTour,#uiUpdates{display:block;width:100%;margin-top:8px}
+#uiUpdates[hidden]{display:none}
+label.chk.mod-only{margin-top:10px}
 body.streamer-panel .mod-only{display:none}   /* the streamer's panel window: the Host window has these settings */
 
 /* ---------- motion: short and contextual, off with "Анимации: выкл" or the system setting ---------- */

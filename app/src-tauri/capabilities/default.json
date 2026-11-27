@@ -10,6 +10,7 @@
     "allow-set-remember",
     "allow-set-lang",
     "allow-apply-update",
+    "allow-app-ui",
     "allow-store-load",
     "allow-store-save",
     "allow-relay-open",

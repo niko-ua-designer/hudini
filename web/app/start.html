@@ -8,9 +8,11 @@
 <link rel="stylesheet" href="start.css">
 <script src="../shared/i18n.js"></script>
 <script src="../shared/icons.js"></script>
+<script src="../shared/sounds.js"></script>
 <script src="applog.js"></script>
 <script src="store.js"></script>
 <script src="sessions.js"></script>
+<script src="updates.js"></script>
 </head>
 <body>
 <aside class="rail">
@@ -22,6 +24,7 @@
   <button class="tab" id="tabMod" data-tab="mod" type="button"><span class="ti">🛡</span><span><b>Модератор</b><small>пульт и стримеры</small></span></button>
   <div class="grow"></div>
   <label class="chk"><input type="checkbox" id="remember"> Запоминать роль</label>
+  <button class="linkbtn" id="updOpen" type="button" hidden>🔄 Обновления</button>
   <button class="linkbtn" id="logsBtn" type="button" hidden>📁 Журналы</button>
   <div class="foot"><span data-i18n-switch></span><small id="ver" data-i18n-skip></small></div>
 </aside>

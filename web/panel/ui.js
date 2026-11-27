@@ -203,14 +203,15 @@
       <div class="row"><label class="hint">Анимации</label><select id="uiMotion"><option value="auto">Как в системе</option><option value="bright">Яркие</option><option value="soft">Мягкие</option><option value="min">Почти без</option></select></div>
       <label class="chk"><input type="checkbox" id="uiSwap"> Поменять колонки местами</label>
       <label class="chk"><input type="checkbox" id="uiCompact"> Компактный режим (меньше отступов)</label>
-      <label class="chk mod-only"><input type="checkbox" id="uiSounds"> Звуки программы</label>
-      <button id="uiTour">🎓 Показать обучение ещё раз</button>
       <div class="grid2">
         <button id="uiExport" title="Файл с видом пульта: можно перенести в другой браузер">⬇ Сохранить вид</button>
         <button id="uiImport">⬆ Загрузить вид</button>
         <button class="u-grid-column-span-2" id="uiReset">↺ Стандартный вид</button>
       </div>
-      <input type="file" id="uiFile" accept=".json,application/json" hidden>`;
+      <input type="file" id="uiFile" accept=".json,application/json" hidden>
+      <label class="chk mod-only"><input type="checkbox" id="uiSounds"> Звуки программы</label>
+      <button id="uiTour">🎓 Показать обучение ещё раз</button>
+      <button class="mod-only" id="uiUpdates" hidden>🔄 Обновления приложения</button>`;
     const keys = [...document.querySelectorAll('section[data-pane="room"] h2')].find(h => /Клавиши/.test(h.textContent));
     (keys ? keys.parentNode.insertBefore(box, keys) : document.querySelector('section[data-pane="room"]').appendChild(box));
     box.replaceWith(...box.childNodes);   // the heading becomes a normal section heading that folds like the others
@@ -224,6 +225,10 @@
     $('uiCompact').onchange = e => { ui.compact = e.target.checked; apply(); save(); };
     $('uiSounds').onchange = e => window.HudiniSounds?.setOn(e.target.checked);
     $('uiTour').onclick = () => tour(0);
+    // only in the app's moderator role: its updates have no other page
+    const showUpd = () => { $('uiUpdates').hidden = !window.HudiniUpdates?.active(); };
+    showUpd(); addEventListener('hudini:modupdates', showUpd);
+    $('uiUpdates').onclick = () => window.HudiniUpdates.open();
     $('uiReset').onclick = () => { const keep = { tour:ui.tour }; ui = { ...DEF, tabs:TABS.slice(), fold:{}, win:{}, ...keep }; apply(); save(); sync(); toast('↺ Вернул стандартный вид'); };
     $('uiExport').onclick = () => {
       const blob = new Blob([JSON.stringify({ hudiniUi:1, lang:window.HudiniI18n?.lang, ui }, null, 2)], { type:'application/json' });

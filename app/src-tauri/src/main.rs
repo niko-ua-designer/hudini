@@ -1,7 +1,7 @@
 // Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
-// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>»;
-// программа пишет в его stdin «VISIBLE 0/1», «APPLY», «PANEL».
+// Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>»,
+// «INFO <json>»; программа пишет в его stdin «VISIBLE 0/1», «APPLY», «PANEL», «UI <json>».
 // Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
 // окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
 // Программа закрылась или упала → stdin сервера закрывается → сервер выключается сам.
@@ -604,6 +604,11 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
         } else if let Some(n) = line.strip_prefix("NOTIFY ") {
             if let Some(body) = notify_text(texts(), n) {
                 notify(&app, &body);
+            }
+        } else if let Some(j) = line.strip_prefix("INFO ") {
+            // ответ на «UI …» (обновления в роли модератора): отдаём страницам как есть
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(j) {
+                let _ = app.emit("hudini-info", v);
             }
         } else if line == "RESTART" {
             restart = true;
@@ -1374,6 +1379,20 @@ fn apply_update(app: AppHandle) {
     say(&app, "APPLY");
 }
 
+// Обновления в роли модератора (канал, автозагрузка, откат, «что нового»): у неё нет страницы управления, поэтому
+// запрос идёт серверу строкой «UI <json>», а ответ приходит событием hudini-info
+#[tauri::command]
+fn app_ui(app: AppHandle, request: serde_json::Value) -> Result<(), String> {
+    if *app.state::<Server>().role.lock().unwrap() != ROLE_MOD {
+        return Err("not the moderator role".into());
+    }
+    if !request.is_object() {
+        return Err("bad request".into());
+    }
+    say(&app, &format!("UI {request}"));
+    Ok(())
+}
+
 // ---------- ретранслятор модератора (app/relay) ----------
 // Пульт ходит на 127.0.0.1:<порт>, ретранслятор по каждому соединению открывает TLS к серверу стримера
 // и сверяет сертификат с отпечатком из кода. Статус уходит в окно событием relay_status.
@@ -1512,7 +1531,7 @@ fn main() {
         .manage(RelayState::default())
         .manage(Browser::default())
         .manage(PanelKey::default())
-        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, set_lang, apply_update, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key, media_support])
+        .invoke_handler(tauri::generate_handler![app_state, start_role, set_remember, set_lang, apply_update, app_ui, store_load, store_save, relay_open, relay_close, relay_status, app_log, open_logs, open_data, crash_dismiss, browser_open, browser_place, browser_visible, browser_close, browser_nav, panel_key, media_support])
         .setup(move |app| {
             let handle = app.handle().clone();
             let exe = std::env::current_exe()?;

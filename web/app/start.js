@@ -21,8 +21,15 @@
     $('paneStr').hidden = t !== 'str'; $('paneMod').hidden = t !== 'mod';
     HudiniStore.set('app.tab', t);
     // Роль модератора: сервер без портов, только проверка обновлений. Запоминается, если стоит галочка.
-    if(t === 'mod' && (fromUser || app.role === 'mod' || app.role === '')) call('start_role', { role:'mod', remember:$('remember').checked }).catch(() => {});
+    if(t === 'mod' && (fromUser || app.role === 'mod' || app.role === '')) call('start_role', { role:'mod', remember:$('remember').checked }).then(() => modUpdates(tab === 'mod'), () => {});
+    if(t !== 'mod') modUpdates(false);
   }
+  // Обновления в роли модератора: окно с каналом, предложением новой версии и «что нового» (updates.js)
+  function modUpdates(on){
+    if(on) HudiniUpdates.start({ popups:true }); else HudiniUpdates.stop();
+    $('updOpen').hidden = !HudiniUpdates.active();
+  }
+  $('updOpen').onclick = () => HudiniUpdates.open();
   $('tabStr').onclick = () => setTab('str', true);
   $('tabMod').onclick = () => setTab('mod', true);
 
