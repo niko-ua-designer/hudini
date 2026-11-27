@@ -448,8 +448,10 @@ const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 const RESUME_RE = /^[A-Za-z0-9_-]{22,128}$/;
 const samePanel = (a, b) => !!(a.conn._resume && b.conn._resume) && nodeCrypto.timingSafeEqual(a.conn._resume, b.conn._resume);
 aedes.authenticate = (client, user, pass, cb) => {
-  // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор с другого адреса
-  // без секрета того же пульта. Старое соединение закрывает брокер, и только после того, как новое прошло все проверки ниже
+  // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор без секрета
+  // того же пульта, с какого бы адреса он ни пришёл (за одним NAT сидят разные люди). Пульт старой версии секрета не имеет:
+  // его заменяет только соединение с того же адреса. Старое соединение закрывает брокер, и только после того, как новое
+  // прошло все проверки ниже
   const prev = client.id ? aedes.clients[client.id] : null;
   let moved = null;
   if(prev && prev!==client && prev.conn && prev.connected!==false){
@@ -457,7 +459,8 @@ aedes.authenticate = (client, user, pass, cb) => {
     // новое соединение ещё не вошло: пульт стримера узнаём по логину (пароль проверяется ниже)
     const kind = client.conn?._mod ? 'mod' : user==='streamer' ? 'streamer' : 'widget';
     const away = !!client.conn?._mod && prev.conn._ip!==client.conn._ip;
-    if(kindOf(prev)!==kind || (away && !samePanel(prev, client))){
+    const stranger = !!client.conn?._mod && (prev.conn._resume ? !samePanel(prev, client) : away);
+    if(kindOf(prev)!==kind || stranger){
       refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }

@@ -1,5 +1,5 @@
 // A moderator who changes network: the panel proves with its resume secret that it is the same one and takes its place at once.
-// Without the matching secret, or with a wrong password, the busy clientId is refused as before.
+// Without the matching secret (from any address), or with a wrong password, the busy clientId is refused.
 'use strict';
 const fs = require('fs'), path = require('path'), net = require('net'), os = require('os');
 const mqtt = require('mqtt');
@@ -55,6 +55,21 @@ const { step, check, eq, until, sleep } = T;
     check(!now.closed && now.c.connected, 'the new connection stays');
     const m = (await host.api('/api/status')).modList.filter(x => !x.me);
     check(m.length === base + 1 && m.every(x => typeof x.rtt === 'number'), 'and is still listed and pinged: ' + JSON.stringify(m));
+    now.c.end(true);
+    check(await until(async () => (await mods()) === base, 4000), 'leaves the list when it leaves');
+  });
+
+  await step('a panel with a secret is not replaced from its own address without it', async () => {
+    const old = await open(A, 'mod_samenat', secret);
+    check(old.ok, 'in');
+    const no = await open(A, 'mod_samenat');
+    check(!no.ok && !old.closed, 'no secret from the same address: refused: ' + no.err);
+    const wrong = await open(A, 'mod_samenat', other);
+    check(!wrong.ok && !old.closed, 'a wrong secret from the same address: refused: ' + wrong.err);
+    const now = await open(A, 'mod_samenat', secret);
+    check(now.ok, 'the same panel reconnects from its address: ' + now.err);
+    check(await until(() => old.closed, 4000), 'the old connection is closed');
+    eq(await mods(), base + 1, 'listed once');
     now.c.end(true);
     check(await until(async () => (await mods()) === base, 4000), 'leaves the list when it leaves');
   });
