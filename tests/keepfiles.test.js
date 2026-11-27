@@ -49,6 +49,22 @@ const IMG = [...fs.readFileSync(path.join(__dirname, 'fixtures/img.png'))];
     check(/не подключались после обновления/.test(q), 'it warns about moderators who have not connected since the update');
   });
 
+  await step('a file that is uploaded but not on the canvas yet survives another moderator\'s cleaning', async () => {
+    const fresh = await upload(b, 'fresh.png');
+    const listOfB = async () => lists()?.panels[await b.evaluate(() => panelId())]?.ids || [];
+    // the panel's list changes for another reason before the new file is placed, so it is sent again
+    await b.evaluate(id => { library.push({ name: 'other', room, el: sanitizeEl({ id: 'o', type: 'image', src: 'asset:' + id, x: 50, y: 50, w: 20 }) }); saveLib(); }, inLib);
+    check(await until(async () => (await listOfB()).includes(inLib), 8000), 'the new list reached the Host');
+    eq((await req('POST', '/files/clean', { keep: [] })).status, 200, 'another panel cleans');
+    check((await have()).includes(fresh), 'the new file is still there');
+    await b.evaluate(id => { library.push({ name: 'fresh', room, el: sanitizeEl({ id: 'f', type: 'image', src: 'asset:' + id, x: 50, y: 50, w: 20 }) }); saveLib(); }, fresh);
+    await sleep(3000);
+    await b.evaluate(() => { library.splice(0); saveLib(); });
+    check(await until(async () => !(await listOfB()).length, 8000), 'once it was placed and removed, the panel no longer lists it');
+    await req('POST', '/files/clean', { keep: [] });
+    check(!(await have()).includes(fresh), 'and cleaning removes it');
+  });
+
   await step('the lists survive a Host restart, also for a moderator who is no longer online', async () => {
     await a.context().close();
     await host.stop();
