@@ -1,4 +1,4 @@
-// Пульт: «Трансляция» (камера, экран, микрофон), показ чужих потоков в слоях и экран стримера фоном под холстом.
+// Пульт: «Трансляция» (камера, экран, микрофон), показ чужих потоков в слоях и фон от стримера под холстом (экран или камера OBS).
 // Загружается после moderator.js (boot.js): его общие переменные (room, KEYS, client, state, nodes, topics, addEl…) берутся только при вызове.
 // Захват, WebRTC и запасной путь через Host: shared/media.js.
 (function(){
@@ -33,14 +33,14 @@
     });
     return hub;
   }
-  // Какие чужие потоки нам нужны: те, что стоят слоем (кроме запрещённых стримером), и экран стримера под холстом. Микрофоны не слушаем.
+  // Какие чужие потоки нам нужны: те, что стоят слоем (кроме запрещённых стримером), и фон от стримера под холстом. Микрофоны не слушаем.
   function desired(){
     const out = [], seen = new Set();
     for(const e of state.els){
       if(e.type !== 'stream' || e.owner === hub?.id || e.kind === 'mic' || window.hudiniPermOff?.(e)) continue;
       const k = e.owner + '|' + e.kind; if(seen.has(k)) continue; seen.add(k); out.push({ owner:e.owner, kind:e.kind, purpose:'main' });
     }
-    if(!isStreamer() && pref('bgView', true) && !out.some(d => d.kind === 'screen')) out.push({ owner:'', kind:'screen', purpose:'bg' });
+    if(!isStreamer() && pref('bgView', true) && hub?.askBackdrop(seen.has('streamer|screen')) !== false) out.push({ owner:'', kind:'screen', purpose:'bg' });
     return out;
   }
   const infoText = (info, own) => {
@@ -66,12 +66,75 @@
     for(const n of nodes.values()) if(n._el?.type === 'stream') paintNode(n, n._el, n._z);
     paintBg();
   }
-  // экран стримера подложкой под слоями (у каждого модератора своя галочка)
+  // картинка от стримера подложкой под слоями (у каждого модератора своя галочка)
   function paintBg(){
     const v = $('streamBg'); if(!v) return;
     const r = hub && pref('bgView', true) ? hub.bgFor() : null;
     if(hub) hub.bind(v, r, { muted:true });
     v.hidden = !r;
+    // пока живая картинка есть, превью Twitch (или скриншот) под ней убрано; пропала — возвращается, плеер загружается заново
+    const live = !!r && v.videoWidth > 0, stage = $('stage');
+    if(stage.classList.contains('live-bg') === live) return;
+    stage.classList.toggle('live-bg', live);
+    const f = !live && $('bgLayer').querySelector('iframe'); if(f) f.src = f.src;
+  }
+  $('streamBg').addEventListener('resize', paintBg);
+
+  // ---------- фон для модераторов: экран или камера (OBS Virtual Camera), только в пульте стримера ----------
+  const bgSource = () => lsGet('overlay.bgSource', 'screen') === 'cam' ? 'cam' : 'screen';
+  const savedCam = () => { const c = lsGet('overlay.bgCam', null); return c && typeof c === 'object' ? c : null; };
+  let cams = null, camBusy = false;   // cams: ответ M.cameras(), пока не спрашивали: null
+  async function loadCams(ask){
+    try{ cams = await M.cameras({ ask }); }
+    catch(e){ cams = { list:[], hidden:false, error:e }; }
+    paintCams(); ui();
+  }
+  function paintCams(){
+    const sel = $('bcBgCam'), list = cams?.list || [], pick = M.pickCamera(list, savedCam());
+    const opt = (v, text) => { const o = document.createElement('option'); o.value = v; o.setAttribute('data-i18n-skip', ''); o.textContent = text; return o; };
+    sel.replaceChildren(...(pick ? [] : [opt('', (!list.length && savedCam()?.label) || tr('Выбери камеру'))]), ...list.map(d => opt(d.id, d.label)));
+    sel.value = pick?.id || '';
+  }
+  async function startBackdrop(){
+    if(!isStreamer() || camBusy) return;
+    const h = ensureHub(); if(!h){ toast('Нет связи с Hudini Host'); return; }
+    camBusy = true; ui();
+    try{
+      await loadCams(true);
+      const d = cams.list.find(x => x.id === $('bcBgCam').value);
+      if(!d){ toast(cams.error ? errText(cams.error) : 'Камера не выбрана', 4500); return; }
+      const stream = await M.capture('cam', { deviceId:d.id, quality:M.QUALITY.obs });
+      // пока камера открывалась, могли смениться комната или источник
+      if(h !== hub || bgSource() !== 'cam'){ stream.getTracks().forEach(t => t.stop()); return; }
+      lsSet('overlay.bgCam', { id:d.id, label:d.label });
+      h.shareBackdrop(stream);
+    }catch(e){ toast(errText(e), 4500); }
+    finally{ camBusy = false; ui(); }
+  }
+  function bgUi(){
+    const str = isStreamer(), cam = bgSource() === 'cam', live = hub?.backdrop();
+    $('bcBack').hidden = !str;
+    $('bcBgViewRow').hidden = str;
+    $('bcBgShareRow').hidden = !str || cam;
+    $('bcBgCamBox').hidden = !cam;
+    $('bcBgSrc').value = bgSource();
+    $('bcBgShare').checked = pref('bgShare', false);
+    $('bcBgView').checked = pref('bgView', true);
+    if(!str || !cam) return;
+    if(!cams){ cams = { list:[], hidden:true, error:null }; loadCams(false); return; }   // без запроса доступа: только по клику
+    const go = $('bcBgCamGo'), label = tr(live ? '■ Остановить фон' : '▶ Показать модераторам');
+    if(go.dataset.label !== label){ go.dataset.label = label; go.textContent = label; }   // по dataset: значки заменяют эмодзи в тексте кнопки
+    go.classList.toggle('on', !!live);
+    go.disabled = !live && (camBusy || !M.supported('cam'));
+    const none = !cams.hidden && !cams.list.some(d => M.isObsCam(d.label));
+    const text = !M.supported('cam') ? tr('В этой системе это не поддерживается')
+      : live ? tr('Фон включён: на стрим эта картинка не идёт') + ' · ' + infoText(hub.backdropInfo(), true)
+      : cams.error && !cams.list.length ? tr(errText(cams.error))
+      : none ? tr('OBS Virtual Camera не найдена: нажми в OBS «Запустить виртуальную камеру» или выбери другую камеру.')
+      : tr('Сначала нажми в OBS «Запустить виртуальную камеру».');
+    const st = $('bcBgCamState');
+    if(st.textContent !== text) st.textContent = text;
+    st.classList.toggle('warn', !live && none);
   }
 
   // ---------- захват ----------
@@ -89,7 +152,7 @@
     let stream;
     try{ stream = await M.capture(kind, { deviceId }); }
     catch(e){ if(e?.name !== 'AbortError') toast(errText(e), 4500); return; }
-    await h.share(kind, stream, { bg:kind === 'screen' && isStreamer() && pref('bgShare', false) });
+    await h.share(kind, stream, { bg:kind === 'screen' && isStreamer() && bgSource() === 'screen' && pref('bgShare', false) });
     if(!state.els.some(e => e.type === 'stream' && e.owner === h.id && e.kind === kind)){
       addEl({ type:'stream', owner:h.id, kind, ...place(), w:kind === 'cam' ? 25 : kind === 'screen' ? 60 : 20, sound:kind === 'mic', vol:1 });
     }
@@ -106,7 +169,7 @@
   // ---------- интерфейс ----------
   function ui(){
     if(!$('bcCam')) return;
-    const own = hub ? [...hub.sources.values()] : [];
+    const own = hub ? [...hub.sources.values()].filter(s => !s.bgOnly) : [];
     for(const kind of M.KINDS){
       const b = $(BTN[kind]); if(!b) continue;
       const ok = canShare(kind), sup = M.supported(kind), on = own.some(s => s.kind === kind);
@@ -138,9 +201,7 @@
       const t = infoText(hub.info(hub.id, r.dataset.kind), true), p = r.querySelector('.bcp');
       if(p.textContent !== t) p.textContent = t;
     }
-    $('bcBgShareRow').hidden = !isStreamer();
-    $('bcBgShare').checked = pref('bgShare', false);
-    $('bcBgView').checked = pref('bgView', true);
+    bgUi();
     const hint = !isStreamer() && !canShare('cam') && !canShare('screen') && !canShare('mic') ? tr('Стример не разрешил модераторам камеру, экран и микрофон: включается ползунками в Hudini Host.') : '';
     if($('bcHint').textContent !== hint) $('bcHint').textContent = hint;
   }
@@ -153,6 +214,22 @@
     const s = hub?.local('screen'); if(s) hub.setBg(s.sid, $('bcBgShare').checked);
   };
   $('bcBgView').onchange = () => { lsSet('overlay.bgView', $('bcBgView').checked); hub?.refresh(); paintBg(); };
+  // источник один: выбрали камеру — экран перестаёт быть фоном (на стриме он остаётся), и наоборот
+  $('bcBgSrc').onchange = () => {
+    const cam = $('bcBgSrc').value === 'cam';
+    lsSet('overlay.bgSource', cam ? 'cam' : 'screen');
+    if(!cam) hub?.stopBackdrop();
+    const s = hub?.local('screen'); if(s) hub.setBg(s.sid, !cam && pref('bgShare', false));
+    if(cam) loadCams(true);
+    ui();
+  };
+  $('bcBgCam').onchange = () => {
+    const d = cams?.list.find(x => x.id === $('bcBgCam').value); if(!d) return;
+    lsSet('overlay.bgCam', { id:d.id, label:d.label });
+    if(hub?.backdrop()) startBackdrop(); else { paintCams(); ui(); }
+  };
+  $('bcBgCamGo').onclick = () => { if(hub?.backdrop()){ hub.stopBackdrop(); ui(); } else startBackdrop(); };
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => { if(cams && isStreamer() && bgSource() === 'cam') loadCams(false); });
   setInterval(() => {
     if(hub && hubRoom !== room){ hub.shutdown(); hub = null; hubRoom = null; listSig = ''; $('bcList').replaceChildren(); }
     ui(); if(hub){ for(const n of nodes.values()) if(n._el?.type === 'stream') window.streamPaint(n, n._el); paintBg(); }
