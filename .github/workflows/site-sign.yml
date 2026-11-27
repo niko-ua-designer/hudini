@@ -1,0 +1,82 @@
+# Signs the widget files of the published site. Hudini Host loads them into the streamer's OBS only with this signature.
+# Runs after a successful "Pages" deploy of main (or by hand) and waits for the owner's approval of the "release" environment:
+# approving is the "sign the site" button. site-manifest.json and site-manifest.json.sig go to the permanent
+# pre-release "site-manifest", which is not an app release.
+name: Sign the site
+on:
+  workflow_run:
+    workflows: [Pages]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions: {}
+defaults:
+  run:
+    shell: bash
+jobs:
+  sign:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only to upload the signature to the "site-manifest" release
+    environment: release   # the signing key lives in this environment; it requires the owner's approval
+    concurrency:
+      group: site-sign
+      cancel-in-progress: true   # only the latest deploy waits for approval
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}   # the commit that was deployed
+          persist-credentials: false
+      - name: Build the site
+        run: sh tools/build-site.sh
+      - name: Manifest
+        run: |
+          node tools/site-manifest.mjs _site "$(git log -1 --format=%ct)" site-manifest.json
+          cat site-manifest.json
+      # Ed25519 signature over "hudini-site\n<seq>\n" + site-manifest.json.
+      # The private key lives only in the HUDINI_SIGNING_KEY secret (made by tools/signing-key.mjs).
+      - name: Sign
+        env:
+          HUDINI_SIGNING_KEY: ${{ secrets.HUDINI_SIGNING_KEY }}
+        run: |
+          [ -n "$HUDINI_SIGNING_KEY" ] || { echo "secret HUDINI_SIGNING_KEY is not set"; exit 1; }
+          node -e '
+            const c = require("crypto"), fs = require("fs");
+            const body = fs.readFileSync("site-manifest.json");
+            const seq = JSON.parse(body).seq;
+            // Hudini Host never accepts a smaller seq later, so a commit dated in the future must not be signed
+            if(!(seq <= Date.now() / 1000 + 3600)){ console.error("the commit time is in the future, not signing"); process.exit(1); }
+            const msg = Buffer.concat([Buffer.from("hudini-site\n" + seq + "\n"), body]);
+            const key = c.createPrivateKey(process.env.HUDINI_SIGNING_KEY);
+            const sig = c.sign(null, msg, key);
+            if(!c.verify(null, msg, c.createPublicKey(key), sig)) process.exit(1);
+            // the secret must match the public key built into Hudini Host, or no Host would take the files
+            const pub = c.createPublicKey(key).export({ format: "der", type: "spki" }).toString("base64");
+            const want = (/^const UPDATE_KEY = .([^\x27]*)./m.exec(fs.readFileSync("server/server.js", "utf8")) || [])[1];
+            if(pub !== want){ console.error("HUDINI_SIGNING_KEY does not match UPDATE_KEY in server/server.js"); process.exit(1); }
+            fs.writeFileSync("site-manifest.json.sig", sig.toString("base64") + "\n");
+          '
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view site-manifest -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create site-manifest -R "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "Website signature" \
+              --notes "Signature of the widget files that Hudini Host loads from the website. This is not a download of the app."
+          fi
+          # an old run approved late must not replace a newer signature
+          mkdir published
+          if gh release download site-manifest -R "$GITHUB_REPOSITORY" -p site-manifest.json -D published; then
+            node -e '
+              const seq = f => JSON.parse(require("fs").readFileSync(f)).seq;
+              if(seq("published/site-manifest.json") > seq("site-manifest.json")){ console.error("a newer signature is already published"); process.exit(1); }
+            '
+          fi
+          gh release upload site-manifest site-manifest.json site-manifest.json.sig --clobber -R "$GITHUB_REPOSITORY"
