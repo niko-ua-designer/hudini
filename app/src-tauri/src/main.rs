@@ -22,6 +22,7 @@ use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, WebviewBuilder};
+use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
@@ -1546,6 +1547,8 @@ fn main() {
                 .min_inner_size(720.0, 520.0)
                 .center()
                 .visible(!start_hidden)
+                // спрятанное в трей окно не засыпает: звуки программы играет оно (на macOS иначе страница замирает)
+                .background_throttling(BackgroundThrottlingPolicy::Disabled)
                 .background_color(Color(0x0f, 0x11, 0x15, 0xff))
                 // в окне только страницы приложения и страница управления; остальные ссылки — в обычном браузере
                 .on_navigation(move |url| {

@@ -182,6 +182,7 @@ function statusModel(){
 }
 // Таблетка «палочки сигнала + сеть + задержка» и полоса с пояснением под шапкой
 function setStatus(cls, text, bars=0, title=''){
+  window.HudiniSounds?.link(!!client?.connected);
   const el=$('status'); setPill(el, 'sig '+cls, text); el.title=title; el.dataset.bars=String(bars);
   const b=document.createElement('span'); b.className='bars'; for(let i=1;i<=4;i++){ const x=document.createElement('i'); if(i<=bars) x.className='on'; b.appendChild(x); }
   el.prepend(b);
@@ -214,6 +215,11 @@ function toggleConnPop(force){
   setTimeout(()=>addEventListener('pointerdown', away, true), 0);
 }
 $('csRetry').onclick=()=>{ hostNote=''; relayInfo=null; dropHome(); reopenHome(); };
+// the streamer's answer to our request to show something is heard as well
+async function answerSound(buf){
+  const m=await unsealJSON(KEYS, buf, false);
+  if(m && m.cid===client?.options?.clientId && (m.ev==='ok' || m.ev==='no')) window.HudiniSounds?.event(m.ev==='ok' ? 'ok' : 'error');
+}
 function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
   client=c; cancelOfflineWait(); keepSent=null; keepOld=false;
@@ -353,7 +359,7 @@ async function onMessage(topic, payload, packet){
     h.at=Date.now(); widgets.set(String(h.id).slice(0,10), h); renderObs(); return;
   }
   if(topic===T.base+'/rtc'){ window.hudiniBroadcast?.onPacket(payload); return; }
-  if(topic===T.base+'/media'){ window.hudiniBroadcast?.onMedia(payload); return; }   // ответ Host на запрос показать камеру/экран   // камера, экран, микрофон: запечатанная сигнализация (broadcast.js)
+  if(topic===T.base+'/media'){ window.hudiniBroadcast?.onMedia(payload); answerSound(payload); return; }   // ответ Host на запрос показать камеру/экран   // камера, экран, микрофон: запечатанная сигнализация (broadcast.js)
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
   if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); if(c.paused && !packet.retain && keys===KEYS) pausedByStreamer(); } return; }
   if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
