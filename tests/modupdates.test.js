@@ -21,7 +21,7 @@ function fakeProgram(opts){
   window.__TAURI__.core.invoke = async (cmd, args) => {
     if(cmd === 'app_state'){ await real(cmd, args); return { role: 'mod', remember: true, running: 'mod', version: '9.9.0', update: F.upd.ready ? { state: 'ready', ver: F.upd.latest } : null }; }
     if(cmd !== 'app_ui') return real(cmd, args);
-    const r = args.request; F.sent.push([r.op, r.value]);
+    const r = args.request; F.sent.push([r.op, r.value]); (F.requests ||= []).push(r);
     if(r.op === 'channel'){ F.upd.channel = r.value; F.upd.rollback = r.value === 'stable' ? { ver: '9.8.0' } : null; }
     if(r.op === 'auto') F.upd.auto = r.value;
     if(r.op === 'seen') F.ui.whatsNew = null;
@@ -72,6 +72,8 @@ function fakeProgram(opts){
   const sent = (p, op) => p.evaluate(op => window.__prog.sent.filter(x => x[0] === op).map(x => x[1] ?? true), op);
   const calls = (p, cmd) => p.evaluate(c => window.__calls.filter(x => x[0] === c).length, cmd);
   const view = p => p.evaluate(() => document.getElementById('auModal')?.dataset.view || '');
+  const focused = p => p.evaluate(() => document.activeElement.id);
+  const applied = p => p.evaluate(() => window.__calls.filter(x => x[0] === 'apply_update').map(x => x[1]));
 
   await step('start screen: «what is new» once, then the offer of a downloaded update; «Later» keeps the app running', async () => {
     const p = await open('/app/start.html', { sounds: true, upd: { state: 'ready', ready: true, latest: '9.9.1', kind: 'hotfix', notes: { ver: '9.9.1', sections: [{ title: 'Fix', items: [EVIL] }] } }, ui: { whatsNew: { ver: '9.9.0', beta: false } } });
@@ -90,7 +92,15 @@ function fakeProgram(opts){
     await p.evaluate(() => sessionStorage.clear()); await p.reload();
     check(await until(async () => await view(p) === 'news'), 'a fresh fake program');
     await p.click('#auOk'); await until(async () => await view(p) === 'offer'); await p.click('#auNow');
-    check(await until(async () => await calls(p, 'apply_update') === 1), '«Update and restart» installs');
+    check(await p.isVisible('#auConfirm') && await p.isVisible('#auModal'), '«Update and restart» asks in a window of its own');
+    eq([await focused(p), await calls(p, 'apply_update'), await p.textContent('#auAskTitle')], ['auNo', 0, 'Перезапустить приложение?'], '«Cancel» has the focus, nothing installed yet');
+    await p.keyboard.press('Enter');
+    eq([await p.locator('#auConfirm').count(), await view(p), await calls(p, 'apply_update')], [0, 'offer', 0], 'Enter cancels');
+    await p.click('#auNow'); await p.keyboard.press('Escape');
+    eq([await p.locator('#auConfirm').count(), await calls(p, 'apply_update')], [0, 0], 'Escape cancels');
+    await p.click('#auNow'); await p.click('#auYes');
+    check(await until(async () => await calls(p, 'apply_update') === 1), 'confirmed: installs');
+    eq(await applied(p), [{ confirmed: true }], 'and says so to the program');
     check(!(await p.evaluate(() => window.__pwned)), 'no markup from the notes');
     await p.context().close();
   });
@@ -109,7 +119,16 @@ function fakeProgram(opts){
     check(await until(() => p.isVisible('#auRollNow')), 'rollback is offered');
     await p.click('#auRollWait'); check(await p.isHidden('#auRollWait') && await p.isVisible('#auRollNow'), 'or waiting');
     await p.click('#auRollNow');
+    check((await p.textContent('#auConfirm')).includes('9.8.0') && !(await p.textContent('#auConfirm')).includes('в простое'), 'the question names the version; 9.8 does not install by itself');
+    eq((await sent(p, 'rollback')).length, 0, 'not sent yet');
+    await p.click('#auYes');
     check(await until(async () => (await sent(p, 'rollback')).length === 1), 'sent after a confirmation');
+    eq(await p.evaluate(() => window.__prog.requests.find(r => r.op === 'rollback').confirm), true, 'with the confirmation');
+    await p.evaluate(() => { window.__prog.upd.rollback = { ver: '1.1.3' }; window.__emit('hudini-update', { state: 'latest', ver: '9.9.0' }); });
+    check(await until(async () => (await p.textContent('#auRollNow')).includes('1.1.3')), 'an old stable version');
+    await p.click('#auRollNow');
+    check((await p.textContent('#auConfirm')).includes('1.1.3 программа стримера снова сама ставит обновления в простое'), 'the question warns that it installs updates by itself again');
+    await p.click('#auNo');
     await p.evaluate(() => { Object.assign(window.__prog.upd, { state: 'available', latest: '9.9.2' }); window.__emit('hudini-update', { state: 'available', ver: '9.9.2' }); });
     check(await until(() => p.isVisible('#auApply')), 'a found version: download and restart');
     eq(await calls(p, 'apply_update'), 0, 'nothing installs by itself');
@@ -129,6 +148,65 @@ function fakeProgram(opts){
     await p.click('#auLater'); await p.click('[data-tab=room]'); await p.click('#uiUpdates');
     check(await until(async () => await view(p) === 'settings'), 'the updates window');
     await p.keyboard.press('Escape'); eq(await view(p), '', 'closed by Escape');
+    await p.context().close();
+  });
+
+  await step('moderator panel: the question knows the stream of the streamer, and keys stay in it', async () => {
+    const p = await open('/panel/moderator.html', { upd: { state: 'ready', ready: true, latest: '9.9.1', kind: 'version' } });
+    check(await until(() => p.isVisible('#updBanner'), 15000), 'the banner');
+    await p.waitForFunction(() => window.hudiniReady);
+    await p.evaluate(() => { widgets.set('w', { at: Date.now(), live: true }); });
+    await p.click('#updBanner'); await until(async () => await view(p) === 'offer'); await p.click('#auNow');
+    const text = await p.textContent('#auConfirm');
+    check(text.includes('Сейчас идёт стрим') && text.includes('пульт перезапустятся'), 'live: says the panel restarts', text);
+    eq(await focused(p), 'auNo', '«Cancel» has the focus');
+    await p.evaluate(() => { window.__keys = 0; document.addEventListener('keydown', () => window.__keys++); });
+    await p.keyboard.press('Delete'); await p.keyboard.press('Control+z'); await p.keyboard.press('Tab');
+    eq([await p.evaluate(() => window.__keys), await focused(p)], [0, 'auYes'], 'keys reach nothing behind the question, Tab stays inside');
+    await p.keyboard.press('Tab'); eq(await focused(p), 'auNo', 'and goes round');
+    await p.click('#auNo');
+    await p.evaluate(() => { widgets.clear(); widgets.set('w', { at: Date.now(), live: null }); });
+    await p.click('#auNow');
+    check((await p.textContent('#auAskTitle')) === 'Возможно, сейчас идёт стрим', 'a widget that does not know: softer words');
+    eq(await calls(p, 'apply_update'), 0, 'nothing installed');
+    await p.context().close();
+  });
+
+  await step('start screen in the streamer tab: the banner asks the program, then confirms', async () => {
+    const p = await T.newPage('panel', { w: 980, h: 760 });
+    await p.goto(web.url + '/app/start.html');
+    await p.waitForFunction(() => window.hudiniStartReady);
+    await p.evaluate(() => __emit('hudini-update', { state: 'ready', ver: '9.9.1' }));
+    await p.click('#updBtn');
+    eq([await applied(p), await p.isDisabled('#updBtn')], [[{ confirmed: false }], true], 'asked the program, the button waits');
+    await p.evaluate(() => __emit('hudini-confirm', { action: 'apply', live: 'on', ver: '9.9.1', download: false }));
+    check(await until(() => p.isVisible('#auConfirm')) && !(await p.isDisabled('#updBtn')), 'live: the question, the button is free again');
+    await p.click('#auYes');
+    check(await until(async () => await calls(p, 'apply_update') === 2), 'confirmed');
+    eq((await applied(p)).at(-1), { confirmed: true }, 'sent with the confirmation');
+    await p.context().close();
+  });
+
+  await step('streamer panel: the banner installs at once, and asks when the program says the stream is live', async () => {
+    const p = await T.newPage('panel', { w: 980, h: 760 });
+    await p.goto(web.url + '/panel/moderator.html');
+    await p.waitForFunction(() => window.hudiniReady);
+    await p.evaluate(() => __emit('hudini-update', { state: 'ready', ver: '9.9.1' }));
+    await p.evaluate(() => __emit('hudini-confirm', { action: 'apply', live: 'on', ver: '9.9.1', download: false }));
+    eq(await p.locator('#auConfirm').count(), 0, 'a question this page did not cause is not shown');
+    await p.click('#updBanner');
+    check(await until(async () => await calls(p, 'apply_update') === 1), 'asked the program');
+    eq(await applied(p), [{ confirmed: false }], 'without a confirmation');
+    await p.evaluate(() => __emit('hudini-confirm', { action: 'apply', live: 'on', ver: '9.9.1', download: false }));
+    check(await until(() => p.isVisible('#auConfirm')), 'live: the question');
+    check((await p.textContent('#auConfirm')).includes('оверлей пропадёт со стрима'), 'says the overlay disappears');
+    eq(await focused(p), 'auNo', '«Cancel» has the focus');
+    await p.click('#auNo');
+    check(!(await p.isDisabled('#updBanner')) && await calls(p, 'apply_update') === 1, 'cancelled: nothing more is sent, the button works');
+    await p.click('#updBanner'); await p.evaluate(() => __emit('hudini-confirm', { action: 'apply', live: 'unknown', ver: '9.9.1', download: false }));
+    await p.click('#auYes');
+    check(await until(async () => await calls(p, 'apply_update') === 3), 'confirmed');
+    eq((await applied(p)).at(-1), { confirmed: true }, 'sent with the confirmation');
     await p.context().close();
   });
 

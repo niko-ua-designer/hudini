@@ -100,6 +100,12 @@ function cancelOfflineWait(){
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
 const WIDGET_VER = 24, widgets=new Map();
+// Идёт ли стрим, по словам виджетов стримера ('on', 'unknown' или null). Нужен окну «перезапустить?» в роли модератора
+window.hudiniStreamLive=()=>{
+  const list=[...widgets.values()].filter(h=>Date.now()-h.at<=9000);
+  if(list.some(h=>h.live===true)) return 'on';
+  return list.length && !list.some(h=>h.live===false) ? 'unknown' : null;
+};
 function renderObs(){
   const now=Date.now(), pill=$('obsStatus');
   for(const [id,h] of widgets) if(now-h.at>9000) widgets.delete(id);
@@ -4017,7 +4023,7 @@ function webPlace(force){
 // то, что открыто поверх колонки (меню, справка, тур): нативный webview лежит выше страницы, поэтому его прячем
 function webBlocked(){
   const slot=$('webSlot').getBoundingClientRect();
-  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','pwDlg','lvlPop','upload','langPick'].some(id=>{
+  return ['moreMenu','connPop','helpMenu','helpDrawer','tour','lock','hostTip','vaultWarn','pwDlg','lvlPop','upload','langPick','auModal','auConfirm'].some(id=>{
     const el=$(id); if(!el || el.hidden) return false;
     const cs=getComputedStyle(el); if(cs.display==='none' || cs.visibility==='hidden') return false;
     const r=el.getBoundingClientRect();
@@ -4115,8 +4121,8 @@ if(TAURI?.core){
     const on=!!(u && (u.state==='ready' || u.state==='available') && u.ver), b=$('updBanner');
     b.hidden=!on; if(on){ b.textContent='🆕 Обновить Hudini'; b.title='Вышла версия '+u.ver; }
   };
-  // роль модератора: сначала окно с предложением (updates.js), без него приложение не перезапускается
-  $('updBanner').onclick=()=>{ if(drag) return; if(window.HudiniUpdates?.active()) HudiniUpdates.offer(); else TAURI.core.invoke('apply_update').catch(e=>toast(String(e?.message||e))); };
+  // роль модератора: сначала окно с предложением (updates.js); у стримера программа переспросит, пока идёт стрим
+  $('updBanner').onclick=()=>{ if(drag) return; if(window.HudiniUpdates?.active()) HudiniUpdates.offer(); else window.HudiniUpdates?.install({ busy:()=>{}, error:t=>toast(t) }); };
   TAURI.core.invoke('app_state').then(a=>{ showAppUpdate(a?.update); if(a?.running==='mod'){ window.HudiniUpdates?.start(); dispatchEvent(new Event('hudini:modupdates')); } }).catch(()=>{});
   TAURI.event?.listen('hudini-update', e=>showAppUpdate(e.payload));
   $('dataDir').hidden=false; $('dataDir').onclick=()=>TAURI.core.invoke('open_data').catch(e=>toast(String(e?.message||e)));

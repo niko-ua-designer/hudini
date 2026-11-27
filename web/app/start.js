@@ -1,5 +1,5 @@
 // Первый экран Hudini: роль (стример / модератор) и сохранённые сессии модератора.
-// Связь с Rust (app/src-tauri): app_state, start_role, set_remember, apply_update; данные лежат в HudiniStore.
+// Связь с Rust (app/src-tauri): app_state, start_role, set_remember; обновление ставит updates.js; данные лежат в HudiniStore.
 (function(){
   'use strict';
   const S = window.HudiniSessions, $ = id => document.getElementById(id);
@@ -138,7 +138,7 @@
     const on = u && (u.state === 'ready' || u.state === 'available') && u.ver;
     $('updBanner').hidden = !on; if(on){ $('updVer').textContent = u.ver; $('updBtn').disabled = false; }
   }
-  $('updBtn').onclick = () => { $('updBtn').disabled = true; call('apply_update').catch(e => { $('updBtn').disabled = false; toast(String(e?.message || e)); }); };
+  $('updBtn').onclick = () => HudiniUpdates.install({ busy:b => { $('updBtn').disabled = b; }, error:toast });
   if(tauri?.event) tauri.event.listen('hudini-update', e => showUpdate(e.payload));
 
   // ---------- прошлое падение и журналы ----------

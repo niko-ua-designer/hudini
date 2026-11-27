@@ -653,8 +653,34 @@ function wsServer(mod){
   };
 }
 
+// ---------- идёт ли стрим ----------
+// Виджет в OBS сообщает в своём «я жив» (тема hb) поле live: true, false или null, если неизвестно (у источника нет права
+// читать состояние OBS, виджет старый или открыт в обычном браузере). Тему hb публикует только этот компьютер:
+// модераторам она закрыта. От ответа зависит одно: спросить ли подтверждение перед перезапуском.
+const BEAT_FRESH_MS = 9000;
+const widgetBeats = new Map();   // id клиента → { at, live }
+async function widgetBeat(id, buf){
+  const b = new Uint8Array(buf);
+  if(!AES || b.length<30 || b.length>65536 || b[0]!==1 || b[1]!==0) return;
+  try{
+    const m = JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name:'AES-GCM', iv:b.subarray(2, 14) }, AES, b.subarray(14))));
+    widgetBeats.set(id, { at:Date.now(), live:typeof m?.live==='boolean' ? m.live : null });
+    if(widgetBeats.size > 32) widgetBeats.delete(widgetBeats.keys().next().value);
+  }catch{}
+}
+// 'on': виджет говорит, что идёт трансляция; 'unknown': виджет подключён, но не знает; 'off': трансляции нет
+function liveState(){
+  let off = false, unknown = false;
+  for(const [id, w] of widgetBeats){
+    if(Date.now()-w.at >= BEAT_FRESH_MS){ widgetBeats.delete(id); continue; }
+    if(w.live===true) return 'on';
+    if(w.live===false) off = true; else unknown = true;
+  }
+  return unknown && !off ? 'unknown' : 'off';
+}
+
 aedes.on('publish', (packet, client) => {
-  if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._mod) status.obsSeen = Date.now();
+  if(client && inRoom(packet.topic) && packet.topic.endsWith('/hb') && !client.conn?._mod){ status.obsSeen = Date.now(); widgetBeat(client.id, packet.payload); }
   if(client && ROOM && packet.topic===T('state') && packet.payload?.length) noteScreen(packet.payload);
 });
 
@@ -1897,15 +1923,38 @@ function setUiState(b){
   saveCfg();
 }
 const newer = () => !!parseVer(upd.latest) && cmpVer(upd.latest, VERSION)>0;
-// Кнопка: не больше одной установки сразу
-let installing=false;
-function installNow(fn){
+// Пока идёт (или может идти) стрим, перезапуск только после отдельного подтверждения. Роли модератора стрим не виден:
+// ей подтверждение нужно всегда. null: можно сразу
+const restartRisk = () => ROLE_MOD ? 'mod' : (live => live==='off' ? null : live)(liveState());
+// Что окно или пульт покажут в вопросе
+const confirmInfo = (action, live) => ({ action, live, ver:(action==='rollback' ? upd.rollback?.ver : upd.latest) || '', download:action==='rollback' || !upd.staged });
+// Кнопка: не больше одной установки сразу. restartOk: перезапуск идущей установки уже подтверждён;
+// held: скачали, но не перезапустились, потому что за время загрузки мог начаться стрим
+let installing=false, restartOk=false, held=null;
+function installNow(confirmed, fn){
+  if(confirmed) restartOk=true;
   if(installing) return;
-  installing=true; queued(fn).finally(()=>{ installing=false; });
+  installing=true; queued(fn).finally(()=>{ installing=false; restartOk=false; });
 }
-const updateNow = () => installNow(async () => { await doCheck(true); if(upd.state==='ready') await applyUpdate(); });
+function holdRestart(action){
+  const live = !restartOk && restartRisk(); if(!live) return false;
+  held = { n:Date.now(), ...confirmInfo(action, live) };   // n отличает один такой случай от другого, и после перезапуска тоже
+  log('Update: downloaded, not restarting without a confirmation: the stream may be live');
+  appSay('CONFIRM '+JSON.stringify(held));
+  return true;
+}
+const updateNow = confirmed => installNow(confirmed, async () => { await doCheck(true); if(upd.state==='ready' && !holdRestart('apply')) await applyUpdate(); });
+// «Обновить»: вернёт вопрос, на который сначала нужно ответить, или null, если установка началась (скачанное ставим,
+// найденное сначала качаем). delay: ответ окну должен уйти раньше перезапуска
+function startApply(confirmed, delay=0){
+  const live = !confirmed && restartRisk(); if(live) return confirmInfo('apply', live);
+  held=null;
+  const run = () => upd.staged ? applyUpdate() : updateNow(confirmed);
+  if(delay) setTimeout(run, delay); else run();
+  return null;
+}
 // Откат по кнопке: копия настроек, загрузка с той же проверкой, что у обновлений, и сразу установка
-const rollbackNow = () => installNow(async () => {
+const rollbackNow = confirmed => installNow(confirmed, async () => {
   saveCfg();
   const copy=path.join(BASE, `overlay-host.before-rollback-${VERSION}.json`);
   fs.copyFileSync(CFG_FILE, copy); try{ fs.chmodSync(copy, 0o600); }catch{}
@@ -1918,21 +1967,24 @@ const rollbackNow = () => installNow(async () => {
   upd.latest=ver; upd.body=''; upd.staged=null;
   const staged=await download(pickRelease(list, 'stable'), ver);
   if(channel()!=='stable') throw new Error('канал обновлений сменили, откат отменён');
+  if(holdRestart('rollback')){ upd.state='latest'; return; }
   // старая версия не должна объявить себя новинкой
   const seen=cfg.ui.seenVer; cfg.ui.seenVer=ver; saveCfg();
   if(!await applyUpdate({ ...staged, rollback:true })){ cfg.ui.seenVer=seen; saveCfg(); }
 });
 const kindOf = ver => { const a=parseVer(VERSION), b=parseVer(ver); return ver.includes('-') ? 'beta' : a[0]===b[0] && a[1]===b[1] && b[2]>a[2] ? 'hotfix' : 'version'; };
-function startRollback(){
+function startRollback(confirmed){
   if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
-  rollbackNow();
+  const live = !confirmed && restartRisk(); if(live) return confirmInfo('rollback', live);
+  held=null; rollbackNow(confirmed);
+  return null;
 }
 // То, что видит окно программы; notes — заметки ещё не поставленной версии из текста релиза
 function updStatus(lang){
   const ver = upd.staged?.ver || (upd.state==='available' ? upd.latest : null);
   const sections = ver && ver===upd.latest ? noteLang(parseNotes(upd.body).main, lang) : [];
   return { state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog,
-    channel:channel(), kind:ver ? kindOf(ver) : null, rollback:channel()==='stable' ? upd.rollback : null, ...(sections.length ? { notes:{ ver, sections } } : {}) };
+    channel:channel(), kind:ver ? kindOf(ver) : null, rollback:channel()==='stable' ? upd.rollback : null, ...(held ? { held } : {}), ...(sections.length ? { notes:{ ver, sections } } : {}) };
 }
 function stopForRestart(){
   shuttingDown=true;
@@ -2324,13 +2376,18 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && !okOrigin(req.headers.origin)) return send(res, 403, 'bad origin');   // защита от чужих сайтов
       const updReply = () => send(res, 200, JSON.stringify({ ok:true, upd:updStatus(req.headers['x-hudini-lang']) }), 'application/json');
       if(req.method==='POST' && p==='/api/update/check'){ await checkUpdate(); return updReply(); }
-      if(req.method==='POST' && p==='/api/update/apply'){   // скачанное ставим, найденное сначала качаем
+      // перезапуск во время стрима: без confirm отвечаем 409 с code «confirm», окно задаёт вопрос и повторяет запрос
+      const confirmed = async () => { try{ return JSON.parse(await readBody(req, 1024))?.confirm===true; }catch{ return false; } };
+      const askReply = ask => send(res, 409, JSON.stringify({ ok:false, error:'перезапуск во время стрима нужно подтвердить', code:'confirm', ...ask }), 'application/json');
+      if(req.method==='POST' && p==='/api/update/apply'){
+        const ok = await confirmed();
         if(!upd.staged && !(UPDATES_ON && newer())) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json');
-        updReply(); setTimeout(() => upd.staged ? applyUpdate() : updateNow(), 300); return;
+        const ask = startApply(ok, 300);
+        return ask ? askReply(ask) : updReply();
       }
       if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); setAuto(auto); return updReply(); }
       if(req.method==='POST' && p==='/api/update/channel'){ const { channel:next } = JSON.parse(await readBody(req, 1024)); setChannel(next); return updReply(); }
-      if(req.method==='POST' && p==='/api/update/rollback'){ startRollback(); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/rollback'){ const ask = startRollback(await confirmed()); return ask ? askReply(ask) : updReply(); }
       if(req.method==='POST' && p==='/api/ui'){
         setUiState(JSON.parse(await readBody(req, 1024)));
         return send(res, 200, JSON.stringify({ ok:true, ui:uiState() }), 'application/json');
@@ -2416,7 +2473,7 @@ const local = http.createServer(async (req, res) => {
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:updStatus(req.headers['x-hudini-lang']), app:APP, standalone:compiled && !APP, ui:uiState(), notify:notifyState(), room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
-        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
+        ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, live:liveState(), fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');
       if(req.method==='POST' && p==='/api/link'){ const { link } = JSON.parse(await readBody(req, 8192)); await setRoom(link); cfg.linkSet = true; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink() }), 'application/json'); }
       if(req.method==='POST' && p==='/api/gsi/install'){ const f = await installGsi(); return send(res, 200, JSON.stringify({ ok:true, file:f }), 'application/json'); }
       if(p==='/api/gsi/cfg') return send(res, 200, gsiCfgText(), 'application/octet-stream', { 'content-disposition':'attachment; filename="gamestate_integration_streamoverlay.cfg"' });
@@ -2484,8 +2541,9 @@ async function shutdown(){
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
-// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>», «INFO <json>».
-// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «TRAY 0/1» (1 — спрятано в трей), «APPLY», «QUIT», «PANEL», «UI <json>».
+// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>», «INFO <json>»,
+// «CONFIRM <json>» (перезапуск нужно подтвердить, тогда программа шлёт «APPLY confirm» или откат с confirm).
+// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «TRAY 0/1» (1 — спрятано в трей), «APPLY», «APPLY confirm», «QUIT», «PANEL», «UI <json>».
 // PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
@@ -2500,7 +2558,7 @@ async function appUi(text){
     if(m.op==='check') checkUpdate();
     else if(m.op==='auto') setAuto(m.value);
     else if(m.op==='channel') setChannel(m.value);
-    else if(m.op==='rollback') startRollback();
+    else if(m.op==='rollback'){ const ask = startRollback(m.confirm===true); if(ask) appSay('CONFIRM '+JSON.stringify(ask)); }
     else if(m.op==='seen') setUiState({ seenWhatsNew:true });
   }catch(e){ error = e.message; }
   await new Promise(r => setImmediate(r));   // начатая проверка уже показывает своё состояние
@@ -2517,7 +2575,10 @@ if(APP){
       if(l==='VISIBLE 0' || l==='VISIBLE 1'){ appHidden = l==='VISIBLE 0'; visibleSaid(); }
       else if(l==='TRAY 0' || l==='TRAY 1') appTray = l==='TRAY 1';
       else if(l==='QUIT') shutdown();
-      else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
+      else if(l==='APPLY' || l==='APPLY confirm'){
+        const ask = (upd.staged || (UPDATES_ON && newer())) && startApply(l!=='APPLY');
+        if(ask) appSay('CONFIRM '+JSON.stringify(ask));
+      }
       else if(l.startsWith('UI ')) appUi(l.slice(3));
       else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
     }

@@ -227,6 +227,52 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     setCfg({ autoUpdate: true });
   });
 
+  await step('while the stream is live: apply and rollback need confirm, also when it starts during the download', async () => {
+    install(path.join(rel, ASSET)); setCfg({ autoUpdate: false, channel: 'stable' });
+    list = [release('1.0.1', '', v101)];
+    run();
+    let s = await stateIs('available');
+    const w = T.fakeWidget(HPORT, s.obsLink, null);
+    check(await until(async () => (await status())?.live === 'unknown'), 'a widget that does not know');
+    let r = await post('/api/update/apply');
+    eq([r.status, r.code, r.action, r.live, r.download], [409, 'confirm', 'apply', 'unknown', true], 'unknown: asked');
+    w.set(true);
+    check(await until(async () => (await status())?.live === 'on'), 'live');
+    r = await post('/api/update/apply', { confirm: 'yes' });
+    eq([r.status, r.live], [409, 'on'], 'only confirm: true counts');
+    await T.sleep(1000);
+    eq((await status()).upd.state, 'available', 'nothing started');
+    w.set(false);
+    check(await until(async () => (await status())?.live === 'off'), 'the stream ended');
+    slowZip = 2500;
+    eq((await post('/api/update/apply')).status, 200, 'not streaming: as before');
+    check(await stateIs('downloading'), 'downloading');
+    w.set(true);   // the stream starts while the file is on its way
+    s = await until(async () => { const x = await status(); return x?.upd.held && x; }, 20000);
+    eq(s && [s.version, s.upd.state, s.upd.held.action, s.upd.held.live, s.upd.held.download], ['1.0.0', 'ready', 'apply', 'on', false], 'downloaded but held, not restarted');
+    await T.sleep(1500);
+    eq((await status())?.version, '1.0.0', 'still running');
+    eq((await post('/api/update/apply')).status, 409, 'asking again without confirm');
+    eq((await post('/api/update/apply', { confirm: true })).status, 200, 'confirmed');
+    check(await until(async () => (await status())?.version === '1.0.1', 30000), 'restarted as 1.0.1');
+    await stopAll(); w.stop(); slowZip = 0;
+
+    install(v101); list = [release('1.0.0', '', path.join(rel, ASSET))];
+    run();
+    s = await until(async () => { const x = await status(); return x?.upd.rollback && x.upd.state === 'latest' && x; }, 20000);
+    const w2 = T.fakeWidget(HPORT, s.obsLink, true);
+    check(await until(async () => (await status())?.live === 'on'), 'live');
+    const copy = path.join(app, 'data', 'overlay-host.before-rollback-1.0.1.json'); fs.rmSync(copy, { force: true });
+    r = await post('/api/update/rollback');
+    eq([r.status, r.code, r.action, r.live, r.ver], [409, 'confirm', 'rollback', 'on', '1.0.0'], 'rollback while live: asked');
+    await T.sleep(1000);
+    check(!fs.existsSync(copy) && (await status()).version === '1.0.1', 'nothing happened');
+    eq((await post('/api/update/rollback', { confirm: true })).status, 200, 'confirmed');
+    check(await until(async () => (await status())?.version === '1.0.0', 30000), 'rolled back');
+    await stopAll(); w2.stop();
+    setCfg({ autoUpdate: true });
+  });
+
   await step('rollback: offered on stable only, never installed without the request', async () => {
     install(v101); setCfg({ channel: 'beta', ui: { sounds: true, tourDone: true, seenVer: '1.0.1' } });
     list = [release('1.0.0', '', path.join(rel, ASSET)), { tag_name: 'v0.9.0', assets }];
@@ -312,7 +358,40 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     check(await until(() => p.exitCode !== null, 5000), 'exits when stdin closes (no orphan process)');
   });
 
-  if(process.platform !== 'win32') await step('moderator role: the update waits for APPLY from the app', async () => {
+  if(process.platform !== 'win32') await step('app mode, minimised window while live: asked first, and the new version opens normally', async () => {
+    const next = `HudiniHost-${APP_OS}-1.0.1.zip`;
+    fs.writeFileSync(path.join(rel, next), zipMany([
+      { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
+      { name: 'HudiniHost/hudini-server', data: newServer },
+    ]));
+    list = [{ tag_name: 'v1.0.1', assets: [{ name: next, browser_download_url: url(next) }, ...assets.slice(2)] }];
+    sums = sha(fs.readFileSync(path.join(rel, next))) + '  ' + next + '\n'; sigVer = '1.0.1';
+    const launched = path.join(inst, 'launched.txt'); fs.rmSync(launched, { force: true });
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4545', OVERLAY_APP_TOKEN: 'line', OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = ''; p.stdout.on('data', d => { out += d; });
+    const asked = () => out.split('\n').filter(l => l.startsWith('line CONFIRM ')).map(l => JSON.parse(l.slice(13)));
+    p.stdin.write('TRAY 0\nVISIBLE 0\n');   // minimised: out of sight, not in the tray
+    check(await until(() => /^line UPDATE ready 1\.0\.1$/m.test(out), 30000), 'downloaded');
+    const s = await until(status, 5000);
+    const w = T.fakeWidget(HPORT, s.obsLink, true);
+    check(await until(async () => (await status())?.live === 'on'), 'the widget says the stream is live');
+    p.stdin.write('APPLY\n');
+    check(await until(() => asked().length === 1, 5000), 'APPLY while live: the app is asked to confirm');
+    eq(asked()[0], { action: 'apply', live: 'on', ver: '1.0.1', download: false }, 'what the question says');
+    await T.sleep(1500);
+    check(!fs.existsSync(launched) && p.exitCode === null, 'nothing installed');
+    p.stdin.write('APPLY confirm\n');
+    check(await until(() => fs.existsSync(launched), 30000), 'APPLY confirm installs');
+    eq(fs.existsSync(launched) && fs.readFileSync(launched, 'utf8').trim(), '--updated --wait-pid 4545', 'a minimised window does not start --minimized');
+    check(await until(() => p.exitCode !== null, 5000), 'old server exited');
+    w.stop(); fs.rmSync(launched, { force: true });
+    fs.copyFileSync(path.join(app, ASSET), path.join(inst, 'hudini-server'));
+    for(const n of fs.readdirSync(inst)) if(/\.old\d*$/.test(n)) fs.rmSync(path.join(inst, n), { recursive: true, force: true });
+    fs.writeFileSync(path.join(inst, 'hudini-server'), newServer);
+  });
+
+  if(process.platform !== 'win32') await step('moderator role: the update waits for a confirmed APPLY from the app', async () => {
     const next = `HudiniHost-${APP_OS}-1.0.1.zip`;
     fs.writeFileSync(path.join(rel, next), zipMany([
       { name: 'HudiniHost/Hudini', data: Buffer.from(fakeApp), mode: 0o755 },
@@ -322,15 +401,19 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     list = [{ tag_name: 'v1.0.1', assets: [{ name: next, browser_download_url: url(next) }, ...assets.slice(2)] }];
     sums = sha(fs.readFileSync(path.join(rel, next))) + '  ' + next + '\n'; sigVer = '1.0.1';
     const launched = path.join(inst, 'launched.txt'); fs.rmSync(launched, { force: true });
-    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_ROLE: 'mod', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4343', OVERLAY_HOST_DIR: path.join(inst, 'data') };
+    const appEnv = { ...env, OVERLAY_APP: '1', OVERLAY_ROLE: 'mod', OVERLAY_APP_EXE: path.join(inst, 'Hudini'), OVERLAY_APP_PID: '4343', OVERLAY_APP_TOKEN: 'line', OVERLAY_HOST_DIR: path.join(inst, 'data') };
     const p = spawn(path.join(inst, 'hudini-server'), [], { cwd: inst, env: appEnv, stdio: ['pipe', 'pipe', 'ignore'] });
     let out = ''; p.stdout.on('data', d => { out += d; });
-    check(await until(() => /^READY 0$/m.test(out), 10000), 'moderator role ready without ports');
-    check(await until(() => /^UPDATE ready 1\.0\.1$/m.test(out), 30000), 'announces the downloaded update to the app');
+    check(await until(() => /^line READY 0$/m.test(out), 10000), 'moderator role ready without ports');
+    check(await until(() => /^line UPDATE ready 1\.0\.1$/m.test(out), 30000), 'announces the downloaded update to the app');
     await T.sleep(3000);
-    check(!fs.existsSync(launched) && p.exitCode === null && !/^RESTART$/m.test(out), 'does not restart the app on its own');
+    check(!fs.existsSync(launched) && p.exitCode === null && !/^line RESTART$/m.test(out), 'does not restart the app on its own');
     p.stdin.write('APPLY\n');
-    check(await until(() => fs.existsSync(launched), 10000), 'APPLY from the app installs it and relaunches');
+    check(await until(() => /^line CONFIRM \{"action":"apply","live":"mod"/m.test(out), 5000), 'the moderator role always asks for a confirmation');
+    await T.sleep(1500);
+    check(!fs.existsSync(launched) && p.exitCode === null, 'nothing installed without it');
+    p.stdin.write('APPLY confirm\n');
+    check(await until(() => fs.existsSync(launched), 10000), 'APPLY confirm from the app installs it and relaunches');
     eq(fs.existsSync(launched) && fs.readFileSync(launched, 'utf8').trim(), '--updated --wait-pid 4343', 'relaunched with wait-pid');
     check(await until(() => p.exitCode !== null, 5000), 'old server exited');
     fs.rmSync(launched, { force: true });
@@ -348,8 +431,8 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     let out = ''; p.stdout.on('data', d => { out += d; });
     check(await until(() => /^UPDATE available 1\.0\.1$/m.test(out), 30000), 'tells the app that an update exists');
     check(!fs.existsSync(path.join(inst, 'data', 'update', '1.0.1')), 'not downloaded');
-    p.stdin.write('APPLY\n');
-    check(await until(() => fs.existsSync(launched), 30000), 'APPLY downloads and installs it');
+    p.stdin.write('APPLY confirm\n');
+    check(await until(() => fs.existsSync(launched), 30000), 'APPLY confirm downloads and installs it');
     check(await until(() => p.exitCode !== null, 5000), 'old server exited');
     fs.writeFileSync(f, JSON.stringify({ ...JSON.parse(fs.readFileSync(f, 'utf8')), autoUpdate: true }));
     fs.rmSync(launched, { force: true });

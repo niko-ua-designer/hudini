@@ -1,7 +1,7 @@
 // Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
 // Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>»,
-// «INFO <json>»; программа пишет в его stdin «VISIBLE 0/1», «TRAY 0/1», «APPLY», «PANEL», «UI <json>».
+// «INFO <json>», «CONFIRM <json>»; программа пишет в его stdin «VISIBLE 0/1», «TRAY 0/1», «APPLY», «APPLY confirm», «PANEL», «UI <json>».
 // Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
 // окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
 // Программа закрылась или упала → stdin сервера закрывается → сервер выключается сам.
@@ -621,6 +621,11 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
             // ответ на «UI …» (обновления в роли модератора): отдаём страницам как есть
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(j) {
                 let _ = app.emit("hudini-info", v);
+            }
+        } else if let Some(j) = line.strip_prefix("CONFIRM ") {
+            // перезапуск во время стрима: вопрос задаёт страница, которая просила установить
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(j) {
+                let _ = app.emit("hudini-confirm", v);
             }
         } else if line == "RESTART" {
             restart = true;
@@ -1386,9 +1391,10 @@ fn set_remember(app: AppHandle, remember: bool) {
     save_cfg(&paths.data, &cfg);
 }
 
+// confirmed: на вопрос о перезапуске уже ответили; иначе сервер во время стрима сначала переспросит (событие hudini-confirm)
 #[tauri::command]
-fn apply_update(app: AppHandle) {
-    say(&app, "APPLY");
+fn apply_update(app: AppHandle, confirmed: Option<bool>) {
+    say(&app, if confirmed == Some(true) { "APPLY confirm" } else { "APPLY" });
 }
 
 // Обновления в роли модератора (канал, автозагрузка, откат, «что нового»): у неё нет страницы управления, поэтому

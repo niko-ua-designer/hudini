@@ -422,6 +422,17 @@ function clockSample(t){
   CLOCK_OFFSET=Math.min(CLOCK_MAX, Math.max(-CLOCK_MAX, ...offs));
 }
 
+// ================== ИДЁТ ЛИ СТРИМ ==================
+// Hudini Host переспрашивает перед перезапуском, пока идёт трансляция, а знает о ней только OBS. getStatus работает с правом
+// источника «Читать статус OBS» (стоит по умолчанию); без него остаются события. null: неизвестно. Запись не считается.
+let obsLive=null;
+function obsAsk(){ try{ window.obsstudio?.getStatus?.(s=>{ if(typeof s?.streaming==='boolean') obsLive=s.streaming; }); }catch{} }
+function obsWatch(changed){
+  for(const [name, on] of [['obsStreamingStarting', true], ['obsStreamingStarted', true], ['obsStreamingStopped', false]])
+    addEventListener(name, ()=>{ obsLive=on; changed(); });
+  obsAsk();
+}
+
 // ================== СВЯЗЬ ==================
 // Принимаем только сообщения, подписанные ключом модератора. Остальное (подделки, мусор) молча выкидываем.
 let KEYS=null, lastStateT=0, lastStop=null, media=null;
@@ -468,10 +479,12 @@ async function start(){
   };
   // Сообщаем пульту, что виджет жив (зашифровано ключом комнаты)
   const wid=Math.random().toString(36).slice(2,8);
-  setInterval(async()=>{ if(!client.connected) return;
-    client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, t:Date.now() }, false), { qos:0 });
-  }, 3000);
-  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms, T.cs2series], { qos:1 }); client.subscribe([T.ink, T.rtc], { qos:0 }); Assets.retry(); applyState(lastState); });
+  const beat=async()=>{ if(!client.connected) return;
+    client.publish(T.hb, await sealJSON(KEYS, { id:wid, ver:WIDGET_VER, w:innerWidth, h:innerHeight, bad:badRatio(), n:nodes.size, vis:visible, err:lastError, live:obsLive, t:Date.now() }, false), { qos:0 });
+  };
+  setInterval(()=>{ obsAsk(); beat(); }, 3000);
+  obsWatch(beat);   // о начале и конце трансляции программа узнаёт сразу
+  client.on('connect', ()=>{ status('онлайн, комната '+room); client.subscribe([T.state, T.fx, T.cs2, T.host, T.perms, T.cs2series], { qos:1 }); client.subscribe([T.ink, T.rtc], { qos:0 }); Assets.retry(); applyState(lastState); beat(); });
   client.on('reconnect', ()=>status('переподключение…'));
   client.on('offline', ()=>status('нет связи'));
   client.on('error', e=>status('ошибка: '+e.message));
