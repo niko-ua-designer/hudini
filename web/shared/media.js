@@ -282,8 +282,8 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
         }
         if(src.peers.get(m.from) !== peer) return;   // stopped or replaced while the offer was being made: nothing goes out after the `bye`
         await send({ t:'offer', to:m.from, sid:src.sid, kind:src.kind, sdp:pc.localDescription.sdp, bg:peer.bg, mime:src.mime }, m.a);
-        for(const c of peer.early.splice(0)){ if(src.peers.get(m.from) !== peer) return; await sendIce(c); }
-        peer.early = null;
+        const early = peer.early; peer.early = null;   // from here on a new candidate goes out at once, none is left behind
+        for(const c of early){ if(src.peers.get(m.from) !== peer) return; await sendIce(c); }
       }catch(e){ console.warn('[media] offer', e.message); if(src.peers.get(m.from) === peer) closePeer(src, m.from); }
     }
     // A receiver asks (discovery: any sid, names the owner) or asks for the Host road (our real sid, p2)
