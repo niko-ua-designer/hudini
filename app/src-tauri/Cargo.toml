@@ -1,6 +1,6 @@
 [package]
 name = "hudini"
-version = "1.1.3"
+version = "1.2.0"
 description = "Hudini: stream overlay for OBS and moderator panel, one app with a window and a tray icon"
 authors = ["niko-ua-designer"]
 license = "MIT"

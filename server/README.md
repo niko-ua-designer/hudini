@@ -34,7 +34,7 @@ The app writes `gamestate_integration_streamoverlay.cfg` into the CS2 `cfg` fold
 
 ### Updates
 
-The app checks GitHub Releases at start and every 3 hours, downloads the zip for your system and installs it only if the **Ed25519 signature** of the release and the file's **SHA-256** match. It never restarts in the middle of a stream: the streamer's app updates on start, when idle (no OBS widget and no moderators) or on **🔄 Update now**; the moderator's app only when you click **Update** on the start screen. Release candidates (`-rc`) are offered only to rc builds.
+The app checks GitHub Releases at start and every 3 hours, downloads the zip for your system and installs it only if the **Ed25519 signature** of the release and the file's **SHA-256** match. It never restarts by itself: the streamer installs an update with **🔄 Update now**, the moderator with **Update and restart**, and during a stream a separate window asks to confirm. With "Download updates automatically" off the app only reports a new version. The **Beta** channel gets release candidates (`-rc`) and finished releases; it is the default for rc builds. On the stable channel, a version newer than the latest stable release can be rolled back to it with a button (a copy of the settings is saved first).
 
 On macOS, 1.0.0 can't update itself to 1.1 (the app is now one universal `Hudini.app`): download the 1.1 zip once and replace the old app by hand, keeping the `data/` folder.
 
@@ -84,7 +84,7 @@ Releases: [docs/RELEASING.md](../docs/RELEASING.md). Environment variables: `OVE
 
 ### Обновления
 
-Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает архив для твоей системы и ставит его, только если совпали **подпись Ed25519** релиза и **SHA-256** файла. Сама программа не перезапускается никогда: у стримера обновление ставит кнопка **🔄 Обновить сейчас**, у модератора кнопка **Обновить** на первом экране. С выключенной галочкой «Скачивать обновления автоматически» программа только сообщает о новой версии, а кнопка качает и ставит её. Канал **Бета** получает и предварительные версии (`-rc`), и готовые; по умолчанию он стоит у тех, у кого установлена rc. На стабильном канале, если установленная версия новее последней стабильной, можно по кнопке откатиться на неё (перед этим сохраняется копия настроек).
+Программа проверяет GitHub Releases при запуске и раз в 3 часа, скачивает архив для твоей системы и ставит его, только если совпали **подпись Ed25519** релиза и **SHA-256** файла. Сама программа не перезапускается никогда: у стримера обновление ставит кнопка **🔄 Обновить сейчас**, у модератора кнопка **Обновить и перезапустить**. С выключенной галочкой «Скачивать обновления автоматически» программа только сообщает о новой версии, а кнопка качает и ставит её. Канал **Бета** получает и предварительные версии (`-rc`), и готовые; по умолчанию он стоит у тех, у кого установлена rc. На стабильном канале, если установленная версия новее последней стабильной, можно по кнопке откатиться на неё (перед этим сохраняется копия настроек).
 
 На macOS версия 1.0.0 не обновится до 1.1 сама (программа теперь одна универсальная `Hudini.app`): один раз скачай архив 1.1 и замени старую программу вручную, папку `data/` оставь.
 

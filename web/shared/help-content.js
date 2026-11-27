@@ -127,6 +127,13 @@ ru: {
 <p><b>Док OBS</b> теперь показывает статусы, список элементов на экране с глазками (стример сам прячет лишнее), блок «Кто на связи» (модераторы, пинг, способ связи, кнопка «отключить») и блок CS2 со счётом, наблюдаемым игроком и крупной подсказкой «файт».</p>
 <p><b>Стример сам себе модератор.</b> Кнопка <b>«Открыть пульт»</b> в Hudini открывает полный пульт на этом же ПК без кода и пароля. Модераторы могут работать параллельно.</p>
 <p><b>Журнал и «О программе».</b> В окне Hudini есть журнал подключений (адреса модераторов записаны частично, например <code>100.x.x.12 (Tailscale)</code>) и раздел «О программе» с версией и благодарностями тестерам.</p>`],
+['updates', 'Обновления и уведомления', `
+<ul>
+<li><b>Обновления</b> (у стримера: раздел «Запуск и обновления»). Программа сама не перезапускается никогда: новую версию ставит только твой клик по кнопке обновления. Если в это время идёт стрим, отдельное окно переспросит.</li>
+<li><b>Канал обновлений.</b> «Стабильная» получает готовые версии, «Бета» получает новое раньше, но в ней возможны ошибки. Если после бета-версии вернуться на стабильный канал, можно откатиться на последнюю стабильную или дождаться новой.</li>
+<li><b>Уведомления</b> (раздел «Уведомления» у стримера): модераторы, OBS, CS2 и сама программа. Каждую группу можно раскрыть и выключить отдельные события. Пока окно на виду, системными уведомлениями приходят только запросы камеры, экрана и микрофона.</li>
+<li><b>Звуки программы</b> включаются и выключаются в настройках. Виджет в OBS их не играет.</li>
+</ul>`],
 ['labels', 'Что значат β и α', `
 <p>Всё без меток стабильное. <b>β (бета)</b> работает, но мало проверено на разных компьютерах. <b>α (альфа)</b> — эксперимент, может ломаться и меняться. Нажми на метку в пульте, чтобы сообщить о проблеме.</p>`],
 ['layout', 'Вид пульта и обучение', `
@@ -300,6 +307,13 @@ en: {
 <p><b>The OBS dock</b> now shows the status, a list of elements on screen with eyes (the streamer hides extras on their own), a "Who is online" block (moderators, ping, connection method, a "disconnect" button) and a CS2 block with the score, the watched player and a big "fight" hint.</p>
 <p><b>Streamer as their own moderator.</b> The <b>"Open panel"</b> button in Hudini opens the full panel on the same PC with no code and no password. Moderators can work at the same time.</p>
 <p><b>Log and "About".</b> Hudini's window has a connection log (moderator addresses are partly hidden, for example <code>100.x.x.12 (Tailscale)</code>) and an "About" section with the version and thanks to the testers.</p>`],
+['updates', 'Updates and notifications', `
+<ul>
+<li><b>Updates</b> (for the streamer: the “Startup & updates” section). The app never restarts by itself: a new version is installed only when you click the update button. If a stream is running, a separate window asks again.</li>
+<li><b>Update channel.</b> “Stable” gets finished versions, “Beta” gets new things earlier but may have bugs. If you return from a beta to the stable channel, you can roll back to the latest stable version or wait for the next one.</li>
+<li><b>Notifications</b> (the streamer's “Notifications” section): moderators, OBS, CS2 and the app itself. Open a group to switch off single events. While the window is in sight, only camera, screen and microphone requests arrive as system notifications.</li>
+<li><b>App sounds</b> are switched on and off in the settings. The OBS widget does not play them.</li>
+</ul>`],
 ['labels', 'What β and α mean', `
 <p>Everything without a mark is stable. <b>β (beta)</b> works but hasn't been tested on many computers yet. <b>α (alpha)</b> is an experiment and may break or change. Click a mark in the panel to report a problem.</p>`],
 ['layout', 'Panel look and tour', `
@@ -473,6 +487,13 @@ uk: {
 <p><b>Док OBS</b> тепер показує статуси, список елементів на екрані з очками (стрімер сам ховає зайве), блок «Хто на зв'язку» (модератори, пінг, спосіб зв'язку, кнопка «відключити») і блок CS2 з рахунком, гравцем, за яким стежать, і великою підказкою «файт».</p>
 <p><b>Стрімер сам собі модератор.</b> Кнопка <b>«Відкрити пульт»</b> у Hudini відкриває повний пульт на цьому ж ПК без коду й пароля. Модератори можуть працювати паралельно.</p>
 <p><b>Журнал і «Про програму».</b> У вікні Hudini є журнал підключень (адреси модераторів записано частково, наприклад <code>100.x.x.12 (Tailscale)</code>) і розділ «Про програму» з версією та подяками тестерам.</p>`],
+['updates', 'Оновлення та сповіщення', `
+<ul>
+<li><b>Оновлення</b> (у стрімера: розділ «Запуск і оновлення»). Програма ніколи не перезапускається сама: нову версію ставить лише твій клік по кнопці оновлення. Якщо в цей час іде стрим, окреме вікно перепитає.</li>
+<li><b>Канал оновлень.</b> «Стабільна» отримує готові версії, «Бета» отримує нове раніше, але в ній можливі помилки. Якщо після бета-версії повернутися на стабільний канал, можна відкотитися на останню стабільну або дочекатися нової.</li>
+<li><b>Сповіщення</b> (розділ «Сповіщення» у стрімера): модератори, OBS, CS2 і сама програма. Кожну групу можна розгорнути й вимкнути окремі події. Поки вікно на видноті, системними сповіщеннями приходять лише запити камери, екрана та мікрофона.</li>
+<li><b>Звуки програми</b> вмикаються й вимикаються в налаштуваннях. Віджет в OBS їх не грає.</li>
+</ul>`],
 ['labels', 'Що означають β і α', `
 <p>Усе без позначок стабільне. <b>β (бета)</b> працює, але мало перевірене на різних комп'ютерах. <b>α (альфа)</b> — експеримент, може ламатися й змінюватися. Натисни на позначку в пульті, щоб повідомити про проблему.</p>`],
 ['layout', 'Вигляд пульта й навчання', `
@@ -646,6 +667,13 @@ de: {
 <p><b>Das OBS-Dock</b> zeigt jetzt den Status, eine Liste der Elemente auf dem Bildschirm mit Augen (der Streamer blendet Überflüssiges selbst aus), einen Block „Wer ist online“ (Moderatoren, Ping, Verbindungsart, Knopf „trennen“) und einen CS2-Block mit Spielstand, beobachtetem Spieler und einem großen „Fight“-Hinweis.</p>
 <p><b>Streamer als eigener Moderator.</b> Die Taste <b>„Pult öffnen“</b> in Hudini öffnet das volle Pult auf demselben PC ohne Code und Passwort. Moderatoren können gleichzeitig arbeiten.</p>
 <p><b>Protokoll und „Über das Programm“.</b> Das Hudini-Fenster hat ein Verbindungsprotokoll (Moderator-Adressen sind teilweise verdeckt, zum Beispiel <code>100.x.x.12 (Tailscale)</code>) und einen Bereich „Über das Programm“ mit Version und Dank an die Tester.</p>`],
+['updates', 'Updates und Mitteilungen', `
+<ul>
+<li><b>Updates</b> (beim Streamer: Bereich „Start & Updates“). Die App startet nie von selbst neu: Eine neue Version wird erst installiert, wenn du auf den Update-Knopf klickst. Läuft gerade ein Stream, fragt ein eigenes Fenster noch einmal nach.</li>
+<li><b>Update-Kanal.</b> „Stabil“ bekommt fertige Versionen, „Beta“ bekommt Neues früher, kann aber Fehler haben. Wer von einer Beta auf den stabilen Kanal zurückkehrt, kann auf die letzte stabile Version zurückgehen oder auf die nächste warten.</li>
+<li><b>Mitteilungen</b> (Bereich „Mitteilungen“ beim Streamer): Moderatoren, OBS, CS2 und die App selbst. Jede Gruppe lässt sich öffnen, einzelne Ereignisse lassen sich ausschalten. Solange das Fenster sichtbar ist, kommen nur Anfragen für Kamera, Bildschirm und Mikrofon als Systemmitteilungen.</li>
+<li><b>Programm-Sounds</b> schaltest du in den Einstellungen ein und aus. Das Widget in OBS spielt sie nicht.</li>
+</ul>`],
 ['labels', 'Was β und α bedeuten', `
 <p>Alles ohne Markierung ist stabil. <b>β (Beta)</b> funktioniert, ist aber noch auf wenigen Computern getestet. <b>α (Alpha)</b> ist ein Experiment und kann kaputtgehen oder sich ändern. Klicke im Pult auf eine Markierung, um ein Problem zu melden.</p>`],
 ['layout', 'Aussehen des Pults und Tour', `

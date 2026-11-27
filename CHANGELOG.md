@@ -3,6 +3,122 @@
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
 Hudini Host shows this file too ("What's new"): keep the format described in `docs/RELEASING.md`.
 
+## 1.2.0
+
+<!-- date: 2026-11-28 -->
+
+**EN**
+
+#### Hudini Host window and panel
+
+- The Host window is new: sections in a sidebar instead of one long page, with a short tour. Moderator requests for camera, screen and microphone stay on top of every section.
+- System notifications for moderators, OBS, CS2 and the app itself. Open a group to switch off single events. While the window is in sight, only camera, screen and microphone requests arrive this way.
+- Quiet app sounds in the Host window and the panel. The app asks whether you want them; they can be switched off in the settings, and the OBS widget never plays them.
+- The panel shows its tour once after the update and again from the settings.
+- The OBS camera as a backdrop: the streamer can show moderators the OBS Virtual Camera under the canvas instead of the screen. It arrives faster than Twitch.
+- The panel fits a small window (900x600) better: a one-line header, whole words on buttons, readable lists and fields, a fixed help drawer and many small visual fixes in the Host window and the dock.
+- The default chat words of giveaways and the roulette follow the language of the stream texts.
+
+#### Updates
+
+- The app never restarts by itself: a new version is installed only when you press the button. If a stream is running, a separate window asks to confirm.
+- Stable and Beta channels, the list of changes inside the app, and a rollback from a beta to the latest stable version with a copy of the settings. Moderators have the same in their app.
+- Updating from 1.1: the old version may still update itself while idle; from 1.2 on this no longer happens.
+
+#### Fixes and security
+
+- Widget files from the website are used only with a valid signature. Hudini Host 1.1 and older still take them unsigned until they are updated.
+- "Delete unused files" keeps the files that other moderators use.
+- A paused moderator sees "paused" instead of "no connection".
+- A moderator whose network changes gets back in at once.
+- Edits made by several moderators at the same moment no longer overwrite each other.
+- Camera and screen connections are more reliable.
+- After the update, refresh the OBS browser source once.
+
+**RU**
+
+#### Окно Hudini Host и пульт
+
+- Новое окно Host: разделы в боковом меню вместо одной длинной страницы и короткий тур. Запросы модераторов на камеру, экран и микрофон видны поверх любого раздела.
+- Системные уведомления о модераторах, OBS, CS2 и самой программе. Группу можно раскрыть и выключить отдельные события. Пока окно на виду, так приходят только запросы камеры, экрана и микрофона.
+- Тихие звуки программы в окне Host и в пульте. Программа спросит, нужны ли они; их можно выключить в настройках, а виджет в OBS их не играет.
+- Пульт один раз показывает тур после обновления, и его можно повторить из настроек.
+- Камера OBS фоном: стример может показать модераторам под холстом виртуальную камеру OBS вместо экрана. Картинка приходит быстрее, чем с Twitch.
+- Пульт лучше помещается в маленькое окно (900x600): шапка в одну строку, целые слова на кнопках, читаемые списки и поля, исправленная панель справки и много мелких правок вида в окне Host и доке.
+- Слова чата по умолчанию для розыгрышей и рулетки зависят от языка надписей на стриме.
+
+#### Обновления
+
+- Программа никогда не перезапускается сама: новая версия ставится только по кнопке. Если идёт стрим, отдельное окно просит подтверждение.
+- Каналы «Стабильная» и «Бета», список изменений прямо в программе и откат с беты на последнюю стабильную версию с копией настроек. У модераторов в их программе то же самое.
+- Обновление с 1.1: старая версия ещё может обновиться сама в простое; начиная с 1.2 такого нет.
+
+#### Исправления и безопасность
+
+- Файлы виджета с сайта принимаются только с верной подписью. Hudini Host 1.1 и старше, пока не обновится, берёт их без подписи.
+- «Удалить неиспользуемые файлы» не трогает файлы, которыми пользуются другие модераторы.
+- Модератор на паузе видит «пауза», а не «нет связи».
+- Модератор, у которого сменилась сеть, входит снова сразу.
+- Одновременные правки нескольких модераторов больше не затирают друг друга.
+- Соединения камеры и экрана стали надёжнее.
+- После обновления один раз обнови источник «Браузер» в OBS.
+
+**UK**
+
+#### Вікно Hudini Host і пульт
+
+- Нове вікно Host: розділи в боковому меню замість однієї довгої сторінки та короткий тур. Запити модераторів на камеру, екран і мікрофон видно поверх будь-якого розділу.
+- Системні сповіщення про модераторів, OBS, CS2 і саму програму. Групу можна розгорнути й вимкнути окремі події. Поки вікно на видноті, так приходять лише запити камери, екрана та мікрофона.
+- Тихі звуки програми у вікні Host і в пульті. Програма запитає, чи потрібні вони; їх можна вимкнути в налаштуваннях, а віджет в OBS їх не грає.
+- Пульт один раз показує тур після оновлення, і його можна повторити з налаштувань.
+- Камера OBS тлом: стрімер може показати модераторам під полотном віртуальну камеру OBS замість екрана. Картинка приходить швидше, ніж із Twitch.
+- Пульт краще вміщується в маленьке вікно (900x600): шапка в один рядок, цілі слова на кнопках, читабельні списки й поля, виправлена панель довідки та багато дрібних правок вигляду у вікні Host і доці.
+- Слова чату за замовчуванням для розіграшів і рулетки залежать від мови написів на стримі.
+
+#### Оновлення
+
+- Програма ніколи не перезапускається сама: нова версія ставиться лише по кнопці. Якщо йде стрим, окреме вікно просить підтвердження.
+- Канали «Стабільна» і «Бета», список змін прямо в програмі та відкат із бети на останню стабільну версію з копією налаштувань. У модераторів у їхній програмі те саме.
+- Оновлення з 1.1: стара версія ще може оновитися сама в простої; починаючи з 1.2 такого немає.
+
+#### Виправлення та безпека
+
+- Файли віджета із сайту приймаються лише з правильним підписом. Hudini Host 1.1 і старіший, доки не оновиться, бере їх без підпису.
+- «Видалити невикористані файли» не чіпає файли, якими користуються інші модератори.
+- Модератор на паузі бачить «пауза», а не «немає зв'язку».
+- Модератор, у якого змінилася мережа, входить знову одразу.
+- Одночасні правки кількох модераторів більше не затирають одна одну.
+- З'єднання камери та екрана стали надійнішими.
+- Після оновлення один раз онови джерело «Браузер» в OBS.
+
+**DE**
+
+#### Hudini-Host-Fenster und Pult
+
+- Das Host-Fenster ist neu: Bereiche in einer Seitenleiste statt einer langen Seite, mit einer kurzen Tour. Anfragen der Moderatoren für Kamera, Bildschirm und Mikrofon bleiben über jedem Bereich sichtbar.
+- Systemmitteilungen zu Moderatoren, OBS, CS2 und der App selbst. Jede Gruppe lässt sich öffnen, einzelne Ereignisse lassen sich ausschalten. Solange das Fenster sichtbar ist, kommen so nur Anfragen für Kamera, Bildschirm und Mikrofon.
+- Leise Programm-Sounds im Host-Fenster und im Pult. Die App fragt, ob du sie willst; in den Einstellungen lassen sie sich ausschalten, und das OBS-Widget spielt sie nie.
+- Das Pult zeigt seine Tour einmal nach dem Update und auf Wunsch erneut aus den Einstellungen.
+- Die OBS-Kamera als Hintergrund: Der Streamer kann den Moderatoren statt des Bildschirms die virtuelle Kamera von OBS unter der Fläche zeigen. Das Bild kommt schneller an als über Twitch.
+- Das Pult passt besser in ein kleines Fenster (900x600): Kopfzeile in einer Zeile, ganze Wörter auf Knöpfen, lesbare Listen und Felder, eine reparierte Hilfeleiste und viele kleine optische Korrekturen im Host-Fenster und im Dock.
+- Die Standard-Chatwörter für Gewinnspiele und Roulette richten sich nach der Sprache der Stream-Texte.
+
+#### Updates
+
+- Die App startet nie von selbst neu: Eine neue Version wird nur per Knopfdruck installiert. Läuft ein Stream, fragt ein eigenes Fenster nach einer Bestätigung.
+- Kanäle „Stabil“ und „Beta“, die Liste der Änderungen in der App und eine Rückkehr von einer Beta zur letzten stabilen Version mit einer Kopie der Einstellungen. Moderatoren haben in ihrer App dasselbe.
+- Update von 1.1: Die alte Version kann sich im Leerlauf noch selbst aktualisieren; ab 1.2 passiert das nicht mehr.
+
+#### Korrekturen und Sicherheit
+
+- Widget-Dateien von der Website werden nur mit gültiger Signatur übernommen. Hudini Host 1.1 und älter nimmt sie bis zum Update ohne Signatur.
+- „Unbenutzte Dateien löschen“ behält Dateien, die andere Moderatoren verwenden.
+- Ein pausierter Moderator sieht „Pause“ statt „keine Verbindung“.
+- Ein Moderator, dessen Netzwerk wechselt, kommt sofort wieder hinein.
+- Gleichzeitige Änderungen mehrerer Moderatoren überschreiben sich nicht mehr.
+- Kamera- und Bildschirmverbindungen sind zuverlässiger.
+- Aktualisiere nach dem Update einmal die Browser-Quelle in OBS.
+
 ## 1.1.3
 
 <!-- date: 2026-11-26 -->

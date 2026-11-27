@@ -38,7 +38,7 @@ import SND_JOIN from '../web/shared/sounds/join.wav' with { type: 'file' };
 import SND_LEAVE from '../web/shared/sounds/leave.wav' with { type: 'file' };
 import SND_OK from '../web/shared/sounds/ok.wav' with { type: 'file' };
 
-const VERSION = '1.1.3';
+const VERSION = '1.2.0';
 const PREFIX = 'stream-overlay/v1';
 const SITE = 'https://niko-ua-designer.github.io/hudini/';
 // Роль модератора: сервер не открывает портов, только проверяет и ставит обновления

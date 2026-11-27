@@ -99,7 +99,7 @@ function cancelOfflineWait(){
   clearTimeout(offlineWait.timer); pendingOffline=offlineWait.room; offlineWait=null;
 }
 // Виджеты (OBS), которые сейчас подключены к комнате
-const WIDGET_VER = 24, widgets=new Map();
+const WIDGET_VER = 25, widgets=new Map();
 // Идёт ли стрим, по словам виджетов стримера ('on', 'unknown' или null). Нужен окну «перезапустить?» в роли модератора
 window.hudiniStreamLive=()=>{
   const list=[...widgets.values()].filter(h=>Date.now()-h.at<=9000);
