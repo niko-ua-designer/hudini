@@ -138,7 +138,7 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
     const snooze = Date.now() + 864e5;
     if(app){ const s = JSON.parse(localStorage.getItem('fake.store') || '{}'); if(!s['overlay.vaultWarn']){ s['overlay.vaultWarn'] = snooze; localStorage.setItem('fake.store', JSON.stringify(s)); } }
     else if(!localStorage.getItem('store:overlay.vaultWarn')) localStorage.setItem('store:overlay.vaultWarn', String(snooze));
-    if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:1 }));
+    if(!tour && !localStorage.getItem('hudini.ui')) localStorage.setItem('hudini.ui', JSON.stringify({ v:1, tour:2 }));
   }catch{} }, [lang, tour, app]);
   await ctx.route(/jtvnw\.net/, r => r.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/img.png')), contentType: 'image/png' }));
   // Twitch chat without the network: window.__irc(line) feeds a raw IRC line to the panel

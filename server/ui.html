@@ -5,6 +5,7 @@
 <title>Hudini Host</title>
 <script src="/shared/i18n.js"></script>
 <script src="/shared/icons.js"></script>
+<script src="/shared/sounds.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <style>
@@ -965,11 +966,24 @@ function renderChangelog(j){
 }
 
 // ---------- settings: sounds and tour ----------
+// The program says when to play (moderator requests and other events): the stream is open only while sounds are on
+// and keeps working when the window is hidden in the tray
+let soundFeed=null;
+function listenSounds(on){
+  if(on===!!soundFeed) return;
+  if(!on){ soundFeed.close(); soundFeed=null; return; }
+  soundFeed=new EventSource('/api/sounds');
+  soundFeed.onmessage=e=>window.HudiniSounds?.play(e.data);
+  soundFeed.onerror=()=>{ if(soundFeed?.readyState===2) soundFeed=null; };   // refused: the next status poll opens it again
+}
 function renderSettings(s){
   $('uiCard').hidden=!s.ui;
   $('soundsRow').hidden=!s.ui || s.ui.sounds===undefined; $('soundsOn').checked=s.ui?.sounds===true;
+  listenSounds(s.ui?.sounds===true);
 }
-$('soundsOn').onchange=e=>send('/api/ui', { sounds:e.target.checked });
+// switching sounds on plays one as a preview
+const soundPreview=on=>{ if(on) window.HudiniSounds?.play('ok'); };
+$('soundsOn').onchange=e=>{ soundPreview(e.target.checked); send('/api/ui', { sounds:e.target.checked }); };
 
 // ---------- notifications ----------
 const NGROUPS=[
@@ -1108,7 +1122,7 @@ function placeTour(){
 $('tourNext').onclick=()=>{ if(tour.i>=tour.steps.length-1) endTour(); else goTour(tour.i+1); };
 $('tourBack').onclick=()=>{ if(tour.i>0) goTour(tour.i-1); };
 $('tourSkip').onclick=skipTour;
-$('tourSoundOn').onclick=()=>endTour(true);
+$('tourSoundOn').onclick=()=>{ soundPreview(true); endTour(true); };
 $('tourMute').onclick=()=>endTour(false);
 $('tourReplay').onclick=()=>{ startTour(); syncModals(); };
 

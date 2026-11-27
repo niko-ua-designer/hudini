@@ -30,6 +30,13 @@ import MEDIA_JS from '../web/shared/media.js' with { type: 'text' };
 import RADAR_EMBED from './radar-embed.js';
 import THREE_JS from '../web/shared/vendor/three.module.min.js' with { type: 'text' };
 import CHANGELOG_MD from '../CHANGELOG.md' with { type: 'text' };
+import SOUNDS_JS from '../web/shared/sounds.js' with { type: 'text' };
+import SND_REQUEST from '../web/shared/sounds/request.wav' with { type: 'file' };
+import SND_ERROR from '../web/shared/sounds/error.wav' with { type: 'file' };
+import SND_UPDATE from '../web/shared/sounds/update.wav' with { type: 'file' };
+import SND_JOIN from '../web/shared/sounds/join.wav' with { type: 'file' };
+import SND_LEAVE from '../web/shared/sounds/leave.wav' with { type: 'file' };
+import SND_OK from '../web/shared/sounds/ok.wav' with { type: 'file' };
 
 const VERSION = '1.1.3';
 const PREFIX = 'stream-overlay/v1';
@@ -306,16 +313,48 @@ function setNotify(group, kind, on){
 let visibleSaid;
 const visibleKnown = new Promise(r => { visibleSaid = r; if(APP) setTimeout(r, 3000); });
 const notifiedAt = new Map();
+// Повтор того же события (вид и key) в пределах gap мс: true — пропустить, иначе запомнить это
+function repeated(map, id, gap){
+  const now = Date.now();
+  if(now - (map.get(id) ?? -Infinity) < gap) return true;
+  map.set(id, now); if(map.size > 300) map.delete(map.keys().next().value);
+  return false;
+}
+const notifyGroupOf = kind => Object.keys(NOTIFY).find(g => Object.hasOwn(NOTIFY[g], kind));
+// выключенное событие молчит и не показывается; запросы камеры, экрана и микрофона выключить нельзя
+function notifyOn(kind){
+  const group = notifyGroupOf(kind); if(group===NOTIFY_LOCKED) return true;
+  const s = notifyState().groups[group]; return !!(s?.on && s.kinds[kind]);
+}
+// ---------- звуки программы ----------
+// Звук играет окно программы (и когда оно спрятано в трей): оно держит открытым GET /api/sounds. Этот поток есть только
+// у окна управления, виджет OBS звуков программы не получает. Видно окно или нет, неважно: решают настройка
+// «Звуки программы» и переключатели событий.
+const SOUND_OF = { cam:'request', screen:'request', mic:'request', join:'join', leave:'leave', widgetUp:'ok',
+  updateReady:'update', updateError:'error', modPort:'error' };
+const SOUND_FILES = { request:SND_REQUEST, error:SND_ERROR, update:SND_UPDATE, join:SND_JOIN, leave:SND_LEAVE, ok:SND_OK };
+const soundFeeds = new Set(), soundedAt = new Map();
+function soundEvent(kind, key, gap){
+  const name = SOUND_OF[kind];
+  if(!name || !soundFeeds.size || cfg.ui.sounds!==true || !notifyOn(kind) || repeated(soundedAt, kind+'|'+key, gap)) return;
+  for(const res of soundFeeds) try{ res.write(`data: ${name}\n\n`); }catch{ soundFeeds.delete(res); }
+}
+function soundFeed(res){
+  if(soundFeeds.size >= 8){ const old = soundFeeds.values().next().value; soundFeeds.delete(old); old.end(); }
+  res.writeHead(200, { 'content-type':'text/event-stream', 'cache-control':'no-store', 'x-content-type-options':'nosniff' });
+  res.write('retry: 3000\n\n');
+  const beat = setInterval(() => { try{ res.write(': \n\n'); }catch{} }, 5000);   // долгая тишина закрыла бы соединение
+  soundFeeds.add(res);
+  res.on('close', () => { clearInterval(beat); soundFeeds.delete(res); });
+}
 // key и gap: повтор того же события в пределах gap мс не показывается
 function notifyApp(kind, data={}, key='', gap=60000){
+  soundEvent(kind, key, gap);
   if(!APP) return;
   visibleKnown.then(() => {
     if(shuttingDown) return;
-    const group = Object.keys(NOTIFY).find(g => Object.hasOwn(NOTIFY[g], kind));
-    if(group!==NOTIFY_LOCKED){ const s = notifyState().groups[group]; if(!appHidden || !s?.on || !s.kinds[kind]) return; }
-    const id = kind+'|'+key, now = Date.now();
-    if(now - (notifiedAt.get(id) ?? -Infinity) < gap) return;
-    notifiedAt.set(id, now); if(notifiedAt.size > 300) notifiedAt.delete(notifiedAt.keys().next().value);
+    if(notifyGroupOf(kind)!==NOTIFY_LOCKED && (!appHidden || !notifyOn(kind))) return;
+    if(repeated(notifiedAt, kind+'|'+key, gap)) return;
     appSay(`NOTIFY ${kind} ${JSON.stringify(data)}`);
   });
 }
@@ -1838,6 +1877,24 @@ function checkUpdate(){
   return p;
 }
 const recheck = () => { checking=null; return checkUpdate(); };   // настройки поменялись: идущая проверка могла их не видеть
+function setAuto(auto){ upd.auto=cfg.autoUpdate=!!auto; saveCfg(); if(upd.auto && !upd.staged && newer()) recheck(); }
+function setChannel(next){
+  if(!CHANNELS.includes(next)) throw new HttpErr(400, 'неизвестный канал обновлений');
+  const changed = next!==channel();
+  cfg.channel = next; saveCfg();
+  if(changed){
+    log('Update channel:', next);
+    upd.rollback = null; if(next==='stable' && upd.staged?.ver.includes('-')) upd.staged = null;
+    recheck();
+  }
+}
+// окно программы: звуки, тур, «что нового» прочитано
+function setUiState(b){
+  if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
+  if(typeof b.tourDone==='boolean') cfg.ui.tourDone = b.tourDone;
+  if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
+  saveCfg();
+}
 const newer = () => !!parseVer(upd.latest) && cmpVer(upd.latest, VERSION)>0;
 // Кнопка: не больше одной установки сразу
 let installing=false;
@@ -1865,6 +1922,10 @@ const rollbackNow = () => installNow(async () => {
   if(!await applyUpdate({ ...staged, rollback:true })){ cfg.ui.seenVer=seen; saveCfg(); }
 });
 const kindOf = ver => { const a=parseVer(VERSION), b=parseVer(ver); return ver.includes('-') ? 'beta' : a[0]===b[0] && a[1]===b[1] && b[2]>a[2] ? 'hotfix' : 'version'; };
+function startRollback(){
+  if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
+  rollbackNow();
+}
 // То, что видит окно программы; notes — заметки ещё не поставленной версии из текста релиза
 function updStatus(lang){
   const ver = upd.staged?.ver || (upd.state==='available' ? upd.latest : null);
@@ -2266,29 +2327,11 @@ const local = http.createServer(async (req, res) => {
         if(!upd.staged && !(UPDATES_ON && newer())) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json');
         updReply(); setTimeout(() => upd.staged ? applyUpdate() : updateNow(), 300); return;
       }
-      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); if(upd.auto && !upd.staged && newer()) recheck(); return updReply(); }
-      if(req.method==='POST' && p==='/api/update/channel'){
-        const { channel:next } = JSON.parse(await readBody(req, 1024));
-        if(!CHANNELS.includes(next)) throw new HttpErr(400, 'неизвестный канал обновлений');
-        const changed = next!==channel();
-        cfg.channel = next; saveCfg();
-        if(changed){
-          log('Update channel:', next);
-          upd.rollback = null; if(next==='stable' && upd.staged?.ver.includes('-')) upd.staged = null;
-          recheck();
-        }
-        return updReply();
-      }
-      if(req.method==='POST' && p==='/api/update/rollback'){
-        if(!UPDATES_ON || channel()!=='stable' || !upd.rollback) throw new HttpErr(400, 'откатываться некуда');
-        rollbackNow(); return updReply();
-      }
-      if(req.method==='POST' && p==='/api/ui'){   // окно программы: звуки, тур, «что нового» прочитано
-        const b = JSON.parse(await readBody(req, 1024));
-        if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
-        if(typeof b.tourDone==='boolean') cfg.ui.tourDone = b.tourDone;
-        if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
-        saveCfg();
+      if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); setAuto(auto); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/channel'){ const { channel:next } = JSON.parse(await readBody(req, 1024)); setChannel(next); return updReply(); }
+      if(req.method==='POST' && p==='/api/update/rollback'){ startRollback(); return updReply(); }
+      if(req.method==='POST' && p==='/api/ui'){
+        setUiState(JSON.parse(await readBody(req, 1024)));
         return send(res, 200, JSON.stringify({ ok:true, ui:uiState() }), 'application/json');
       }
       if(req.method==='POST' && p==='/api/notify'){
@@ -2368,6 +2411,7 @@ const local = http.createServer(async (req, res) => {
         await createRoom(name); log('🆕 Room recreated'); notifyApp('roomNew', {}, '', 10000);
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
+      if(req.method==='GET' && p==='/api/sounds') return soundFeed(res);
       if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:updStatus(req.headers['x-hudini-lang']), app:APP, standalone:compiled && !APP, ui:uiState(), notify:notifyState(), room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
@@ -2392,6 +2436,9 @@ const local = http.createServer(async (req, res) => {
     if(p==='/shared/vendor/three.module.min.js') return send(res, 200, THREE_JS, 'application/javascript; charset=utf-8', { 'cache-control':'max-age=604800' });
     if(p==='/shared/i18n.js') return send(res, 200, I18N_JS, 'application/javascript; charset=utf-8');
     if(p==='/shared/icons.js') return send(res, 200, ICONS_JS, 'application/javascript; charset=utf-8');
+    if(p==='/shared/sounds.js') return send(res, 200, SOUNDS_JS, 'application/javascript; charset=utf-8');
+    if(p.startsWith('/shared/sounds/') && p.endsWith('.wav') && Object.hasOwn(SOUND_FILES, p.slice(15, -4)))
+      return send(res, 200, Buffer.from(await Bun.file(SOUND_FILES[p.slice(15, -4)]).arrayBuffer()), 'audio/wav', { 'cache-control':'max-age=3600' });
     if(p==='/shared/cs2-maps.js') return send(res, 200, files['shared/cs2-maps.js'], 'application/javascript; charset=utf-8');
     // подложка радара CS2 (shared/radar/<карта>-<тема>.webp): своя из data/radar, иначе из исходников, иначе с сайта (кэш в data/cache/radar)
     if(/^\/shared\/radar\/[a-z0-9_]{2,40}-(classic|glass|ko)\.webp$/.test(p)){
@@ -2436,12 +2483,28 @@ async function shutdown(){
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 // ---------- связь с программой с окном (app/) ----------
-// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>».
-// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL».
+// stdout: строки «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL <причина>», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>», «INFO <json>».
+// stdin: «VISIBLE 0/1» (0 — окно свёрнуто или в трее), «APPLY», «QUIT», «PANEL», «UI <json>».
 // PANEL: одноразовый ключ пульта стримера идёт только окну программы; эти строки с префиксом программа в журнал не пишет.
 // Программа закрылась или упала → stdin закрывается → выключаемся сами (без брошенного процесса в Windows).
 // Служебные строки для программы с окном идут с её случайным префиксом: строка журнала их не подделает
 function appSay(line){ if(APP) try{ process.stdout.write((APP_TOKEN ? APP_TOKEN+' ' : '')+line+'\n'); }catch{} }
+// Роль модератора без портов и страницы управления: её экраны спрашивают программу строкой «UI {op, value, lang, log}»
+// (те же действия, что у /api/update/* и /api/ui), ответ — строка «INFO <json>»
+async function appUi(text){
+  let m; try{ m = JSON.parse(text); }catch{ return; }
+  if(!ROLE_MOD || !m || typeof m!=='object') return;
+  let error;
+  try{
+    if(m.op==='check') checkUpdate();
+    else if(m.op==='auto') setAuto(m.value);
+    else if(m.op==='channel') setChannel(m.value);
+    else if(m.op==='rollback') startRollback();
+    else if(m.op==='seen') setUiState({ seenWhatsNew:true });
+  }catch(e){ error = e.message; }
+  await new Promise(r => setImmediate(r));   // начатая проверка уже показывает своё состояние
+  appSay('INFO '+JSON.stringify({ upd:updStatus(m.lang), ui:uiState(), current:VERSION, error, ...(m.log ? { entries:changelog(m.lang).entries } : {}) }));
+}
 if(APP){
   process.stdout.on?.('error', ()=>{});
   let buf = '';
@@ -2453,6 +2516,7 @@ if(APP){
       if(l==='VISIBLE 0' || l==='VISIBLE 1'){ appHidden = l==='VISIBLE 0'; visibleSaid(); }
       else if(l==='QUIT') shutdown();
       else if(l==='APPLY'){ if(upd.staged) applyUpdate(); else if(UPDATES_ON && newer()) updateNow(); }
+      else if(l.startsWith('UI ')) appUi(l.slice(3));
       else if(l==='PANEL' && APP_TOKEN) appSay(ROOM && ownRoom() ? `PANEL ${newPanelKey()} ${PORT}` : 'PANEL - 0');   // «Открыть пульт» в меню трея
     }
   });
