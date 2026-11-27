@@ -8,164 +8,355 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <style>
-:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--acc2:#a78bfa;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e;--gap:12px}
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ee;--muted:#8b91a1;--acc:#7c5cff;--acc2:#a78bfa;--acc-btn:#6d4dff;--focus:#a78bfa;--ok:#2ecc71;--warn:#f5a623;--bad:#ff4d5e;--gap:12px;--askh:0px}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:0 20px 48px}
-/* шапка */
-.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin:0 -20px 4px;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
-.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,#2a2150,#171a21);border:1px solid #3a3160;display:flex;align-items:center;justify-content:center;flex:none}
-.brand b{display:block;font-size:16px;line-height:1.2}
+html{background:var(--bg);color-scheme:dark;height:100%}
+body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+/* раскладка: боковое меню и прокручиваемая страница */
+.shell{display:flex;height:100vh;min-height:0}
+body.modal .shell{padding-top:var(--askh)}
+.side{width:224px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px 10px 10px;gap:8px;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;flex:none;padding:0 4px 4px}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--acc);display:grid;place-items:center;flex:none}
+.brand b{display:block;font-size:16px;line-height:1.2;white-space:nowrap}
 .brand small{display:block;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.lights{display:flex;gap:6px;flex-wrap:wrap}
-.light{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap}
-.light i{width:8px;height:8px;border-radius:50%;background:#4a5060;flex:none}
-.light.ok{color:var(--text)}.light.ok i{background:var(--ok);box-shadow:0 0 6px #2ecc7188}
-.light.warn i{background:var(--warn)}.light.bad i{background:var(--bad)}
-.rolelink{color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;white-space:nowrap}
-.rolelink:hover{color:var(--text);border-color:var(--acc)}
-.sub{color:var(--muted);margin:14px 0 4px;font-size:13px}
-.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:12px 16px;margin:14px 0 0}
-.banner span{flex:1;min-width:220px}
-.banner a{color:#fff;background:var(--acc);border-radius:8px;padding:7px 14px;text-decoration:none;white-space:nowrap}
-/* карточки */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:var(--gap) 0}
+nav{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;overflow:auto}
+nav h6{margin:9px 0 2px 10px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7b8192}
+nav button{position:relative;justify-content:flex-start;gap:10px;background:none;border-color:transparent;color:#b6bbc8;padding:6px 10px;font-size:13.5px;flex:none;min-width:0}
+nav button .lbl{overflow:hidden;text-overflow:ellipsis}
+nav button:hover{background:var(--panel2);color:var(--text);border-color:transparent}
+nav button[aria-current=page]{background:#7c5cff2e;border-color:#7c5cff80;color:#fff}
+nav button[aria-current=page] .ico{color:var(--acc2)}
+nav em{font-style:normal;font-size:11px;background:var(--acc);color:#fff;border-radius:99px;padding:0 6px;line-height:17px;margin-left:auto}
+nav .sdot{position:absolute;right:5px;top:calc(50% - 4px)}
+.panelbtn{flex:none;display:flex}
+.panelbtn button{flex:1;min-width:0}
+.panelbtn .lbl{overflow:hidden;text-overflow:ellipsis}
+.status{display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:4px;flex:none}
+.stat{justify-content:flex-start;gap:8px;background:none;border-color:transparent;padding:2px 6px;font-size:12px;min-width:0}
+.stat i,.sdot{width:8px;height:8px;border-radius:50%;background:#4a5060;flex:none;display:inline-block}
+.stat.ok i,.sdot.ok{background:var(--ok);box-shadow:0 0 6px #2ecc7188}
+.stat.warn i,.sdot.warn{background:var(--warn)}.stat.bad i{background:var(--bad)}
+.stat .nm{flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.stat .sh{display:none}
+.stat small{margin-left:auto;min-width:0;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.stat.bad small{color:var(--bad)}
+.foot{display:flex;gap:6px;flex:none;min-width:0}
+.foot>[data-i18n-switch]{flex:1;display:flex;min-width:0}
+.foot select{flex:1;width:100%;min-width:0}
+.rolelink{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.rolelink:hover,.rolelink:focus-visible{color:var(--text);border-color:var(--acc);text-decoration:underline}
+.rolelink:active{background:var(--panel2)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.scroll{flex:1;overflow:auto;min-height:0;min-width:0}
+.page{max-width:860px;min-height:100%;margin:0 auto;padding:14px 20px 22px;display:flex;flex-direction:column;gap:var(--gap)}
+.page>*{flex:none}
+.sec{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+.page>.sec[data-page=log]{flex:1 0 auto}
+.slot{display:contents}
+.sec h1{margin:0;font-size:19px;line-height:1.3}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:var(--gap);align-items:start}
+.stack{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+/* запросы модераторов: закреплены сверху в любом разделе и поверх окон */
+.global{flex:none;max-height:50vh;overflow:auto;padding:10px 20px 4px}
+body.modal .global{position:fixed;left:0;right:0;top:0;z-index:1500;max-height:45vh;background:var(--bg);padding-bottom:10px;border-bottom:1px solid var(--line)}
+.ask{max-width:820px;margin:0 auto;background:linear-gradient(90deg,#33216f,#2a1c4f);border:1px solid var(--acc);box-shadow:0 0 0 1px var(--acc),0 8px 26px -10px #7c5cffaa;border-radius:12px;padding:10px 14px}
+.askrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.askrow+.askrow{margin-top:8px;padding-top:8px;border-top:1px solid #ffffff1f}
+.askrow .ico{width:34px;height:34px;border-radius:10px;background:var(--acc);display:grid;place-items:center;font-size:16px;flex:none;animation:pulse 1.6s ease-in-out infinite}
+.askrow .txt{flex:1;min-width:200px}
+.askrow .txt small{display:block;color:#c4bbe8;font-size:12px}
+.askrow .btns{display:flex;gap:8px;margin-left:auto}
+@keyframes pulse{50%{box-shadow:0 0 0 6px #7c5cff33}}
+/* баннеры */
+.banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:9px 14px;font-size:13px}
+.banner>span{flex:1;min-width:150px}
+.banner a{color:#fff;background:var(--acc-btn);border:1px solid var(--acc-btn);border-radius:8px;padding:7px 14px;text-decoration:none;white-space:nowrap}
+.banner.warn{background:#2b2210;border-color:#6b5420;color:#f3d28a}
+.banner .btns{display:flex;gap:8px;flex-wrap:wrap}
+/* карточки и элементы */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0;transition:border-color .2s;scroll-margin-top:10px}
 .card.first{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
-.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
-.card h2 svg.ic{color:var(--acc2)}
-.n{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:12px;flex:none}
-input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font:inherit;font-size:13px;min-width:0}
+.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;line-height:1.3}
+.card h2>.ico{color:var(--acc2);display:inline-flex;flex:none}
+.card h2>span:nth-child(2){min-width:0}
+.card h2 .right{margin-left:auto;font-weight:400}
+input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font:inherit;font-size:13px;min-width:0;text-overflow:ellipsis}
 input:focus{outline:none;border-color:var(--acc)}
 input[readonly]{color:#c9cdd8}
-button{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--text);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+button{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--text);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--acc)}
-button:disabled{opacity:.5;cursor:default}
-button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:var(--acc-btn);border-color:var(--acc-btn);color:#fff}
 button.done{border-color:var(--ok);color:var(--ok)}
 button.primary.done{background:#1f6f45;border-color:#1f6f45;color:#fff}
+button.sm{padding:3px 10px;font-size:12px;border-radius:6px}
 .row{display:flex;gap:8px;align-items:center;margin-top:10px}
 .row>input{flex:1}
+.row.wrap{flex-wrap:wrap}
+.row.top{margin-top:0}
+.grow{flex:1;min-width:180px}
 .hint{color:var(--muted);font-size:13px;margin-top:6px}
-.card>.hint:first-of-type{margin-top:0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
-.st{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-.st b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:2px}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted)}
-.ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.bad .dot{background:var(--bad)}
-pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin:0;color:#b9bfcc}
+.hint.tight{margin:0}
+.hint b{color:#c3c7d3;font-weight:600}
+.small{font-size:12px}
+.wrapany{overflow-wrap:anywhere}
 ol{margin:8px 0 0 18px;padding:0}li{margin:3px 0}
-code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12.5px}
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:10}
-.cs2{display:flex;gap:16px;flex-wrap:wrap;font-variant-numeric:tabular-nums;margin-top:8px;color:var(--muted);font-size:13px}
-.cs2 span b{color:var(--text)}
-.lim{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
-.lim label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
-details summary{cursor:pointer;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;list-style:none}
-details summary::-webkit-details-marker{display:none}
-details summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
-details[open] summary::after{transform:rotate(-135deg)}
-details[open] summary{margin-bottom:10px}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12.5px;overflow-wrap:anywhere}
+.codebox{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:#8f96a8;word-break:break-all;height:3.9em;overflow:hidden;position:relative}
+.codebox::after{content:'';position:absolute;inset:auto 0 0 0;height:1.4em;background:linear-gradient(transparent,#0b0d11)}
+#codeCard .row .tgl{flex-basis:100%;margin-top:4px}
+#codeCard.short .full,#obsCard.short .full{display:none}
+#codeCard.short .row .tgl{flex-basis:auto;margin:0 0 0 auto}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-weight:500;white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:#2ecc7155}
+.tag.warn{color:var(--warn);border-color:#f5a62355}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.tbl th{color:var(--muted);font-weight:500;font-size:12px;padding-top:0}
+.tbl td:first-child,.tbl th:first-child{padding-left:0}
+.tbl td:last-child,.tbl th:last-child{padding-right:0}
+.tbl tr:last-child td{border-bottom:0}
+.tbl small{display:block;color:var(--muted);font-size:12px}
+.tbl button{padding:3px 10px;font-size:12px}
+.tbl input{padding:3px 8px}
+.tbl tr:hover td{background:#ffffff05}
+.tbl.addr code{white-space:nowrap}
+.tbl.addr td:last-child{text-align:right}
+.tbl.addr td:nth-child(2){min-width:150px}
+.spark{display:inline-flex;gap:2px;align-items:flex-end;height:18px;margin-left:8px;vertical-align:-3px}
+.spark i{width:4px;border-radius:1px;display:block}
+.good{color:var(--ok)}.mid{color:var(--warn)}.slow{color:var(--bad)}
+.lat{white-space:nowrap;font-variant-numeric:tabular-nums}
+.warnbox{background:#2b2210;border:1px solid #6b5420;border-radius:10px;padding:9px 13px;color:#f3d28a;font-size:13px;margin-top:10px}
+.warnbox code{background:#0003;color:inherit}
+.perms{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px 16px;margin-top:12px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted);flex:none}
+.dot.on,.ok>.dot{background:var(--ok)}.dot.off{background:#4a5060}.warn>.dot{background:var(--warn)}.bad>.dot{background:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.st{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13px;overflow-wrap:anywhere}
+.st b{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:2px}
+.logcard{flex:1 0 auto;display:flex;flex-direction:column}
+pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;line-height:1.55;overflow:auto;white-space:pre-wrap;margin:10px 0 0;color:#b9bfcc;height:0;min-height:200px;flex:1}
+.cs2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-variant-numeric:tabular-nums;margin-top:10px}
+.cs2:empty{display:none}
+.cs2 span.v{display:block;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--muted);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs2 span.v b{display:block;color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis}
+.cs2home h2{margin-bottom:0}
+.cs2home .hint{margin-top:8px}
+@media (min-width:861px){.cs2home .cs2{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.lim{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.lim label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;justify-content:flex-end;gap:4px}
+.meter{height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:10px}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7c5cff,#a78bfa)}
 /* переключатель */
 .tgl{display:flex;gap:12px;align-items:center;cursor:pointer;user-select:none}
 .tgl input{position:absolute;opacity:0;width:1px;height:1px}
-.tgl .sw{position:relative;width:38px;height:22px;border-radius:11px;background:#3a3f4c;transition:background .15s;flex:none}
+.tgl .sw{position:relative;width:38px;height:22px;border-radius:11px;background:#3a3f4c;transition:background .15s;flex:none;box-shadow:inset 0 0 0 1px #ffffff14}
 .tgl .sw::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
 .tgl input:checked+.sw{background:var(--acc)}
 .tgl input:checked+.sw::after{transform:translateX(16px)}
-.tgl input:focus-visible+.sw{outline:2px solid var(--acc2);outline-offset:2px}
+.tgl:hover .sw{background:#4a5060}.tgl:hover input:checked+.sw{background:#8566ff}
+.tgl input:disabled+.sw{opacity:.45}
+.tgl:has(input:disabled){cursor:not-allowed}
 .check{display:flex;gap:8px;align-items:center;cursor:pointer}
-.check input{width:auto}
-/* подключение модераторов */
-.notice{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#221b3f;border:1px solid #4b3aa3;border-radius:12px;padding:12px 16px;margin:14px 0 0}
-.notice span{flex:1;min-width:220px}
-.rmodal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:#07080bd9;backdrop-filter:blur(6px)}
-.rmodal[hidden]{display:none}
-.rbox{position:relative;width:min(560px,100%);background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,#9b7dff,#ff5c9a,#ffb36b) border-box;border:2px solid transparent;border-radius:18px;padding:28px 28px 24px;box-shadow:0 30px 90px -20px #7c5cffaa,0 0 0 1px #0006;text-align:center}
-.rico{width:64px;height:64px;margin:0 auto 10px;border-radius:18px;display:grid;place-items:center;font-size:32px;background:linear-gradient(135deg,#7c5cff,#ff5c9a);box-shadow:0 12px 30px -8px #ff5c9a99}
-.rbox h2{margin:0 0 8px;font-size:24px;background:linear-gradient(90deg,#b9a3ff,#ff8fb8,#ffc58f);-webkit-background-clip:text;background-clip:text;color:transparent}
-.rbox p{margin:0 0 16px;color:var(--text);opacity:.9}
-.rbox ol{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:10px;text-align:left;counter-reset:s}
-.rbox li{counter-increment:s;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.rbox li:before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--acc);color:#fff}
-.rbox li span{flex:1;min-width:180px}
-.rbox #roomOk{min-width:160px;font-size:15px;padding:10px 22px;justify-content:center;text-align:center}
-.cols{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--gap)}
-.cols .card{margin:var(--gap) 0 0}
-.codebox{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#8f96a8;word-break:break-all;max-height:3.1em;overflow:hidden;position:relative}
-.codebox::after{content:'';position:absolute;inset:auto 0 0 0;height:1.4em;background:linear-gradient(transparent,#0b0d11)}
-.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
-.tag.ok{color:var(--ok);border-color:#2ecc7155}
-.tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
-.tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-.tbl th{color:var(--muted);font-weight:500;font-size:12px}
-.tbl button{padding:3px 10px;font-size:12px}
-.tbl input{padding:3px 8px}
-.tbl small{display:block;color:var(--muted);font-size:12px}
-.spark{display:inline-flex;gap:2px;align-items:flex-end;height:18px}
-.spark i{width:4px;border-radius:1px;display:block}
-.good{color:var(--ok)}.mid{color:var(--warn)}.slow{color:var(--bad)}
-.warnbox{background:#2b2210;border:1px solid #6b5420;border-radius:10px;padding:10px 14px;color:#f3d28a;font-size:13px;margin-top:10px}
-.perms{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 16px;margin-top:10px}
-.dot.on{background:var(--ok)}
-.dot.off{background:#4a5060}
-@media (max-width:560px){
-  .tbl.addr thead{display:none}
-  .tbl.addr,.tbl.addr tbody{display:block}
-  .tbl.addr tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}
-  .tbl.addr td{border:0;padding:2px 0;min-width:0}
-  .tbl.addr td:nth-child(1){grid-column:1/-1;font-weight:600}
-  .tbl.addr td:nth-child(2){grid-column:1;word-break:break-all}
-  .tbl.addr td:nth-child(3){grid-column:1/-1;grid-row:3}
-  .tbl.addr td:nth-child(4){grid-column:2;grid-row:2;text-align:right}
-  .tbl.addr tr:hover td{background:none}
-}
-@media (max-width:700px){ .cols{grid-template-columns:1fr} }
-@media (max-width:560px){ .lim{grid-template-columns:1fr} .row{flex-wrap:wrap} .row>input{flex-basis:100%} }
-.updbar{height:8px;border-radius:99px;background:var(--line,#2a2f3a);overflow:hidden;margin:10px 0 2px}
+.check input{width:auto;accent-color:var(--acc)}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* уведомления */
+.note{display:flex;gap:10px;align-items:flex-start;background:#221b3f;border:1px solid #4b3aa3;border-radius:10px;padding:9px 13px;font-size:13px}
+.note .ico{color:var(--acc2)}
+.list{padding:4px 16px}
+.list:empty{display:none}
+.ng{min-width:0;padding:11px 0;border-bottom:1px solid var(--line)}
+.ng:last-child{border-bottom:0}
+.ng-head{display:flex;align-items:center;gap:10px}
+.ng-open{flex:1;min-width:0;gap:10px;background:none;border:0;padding:0;text-align:left;justify-content:flex-start;white-space:normal;border-radius:6px}
+.ng-open:active:not(:disabled){transform:none}
+.ng-ico{width:32px;height:32px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;color:var(--acc2);flex:none;font-size:15px}
+.ng-title{min-width:0;flex:1}
+.ng-title b{display:block;font-size:14px;line-height:1.3}
+.ng-title small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+.chev{width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);flex:none;margin:0 4px 4px}
+.ng-open[aria-expanded=true] .chev{transform:rotate(225deg);margin-bottom:-2px}
+.ng-body{margin:9px 0 0 15px;padding-left:26px;border-left:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px 28px}
+.ng-body .hint{grid-column:1/-1;margin:0;font-size:12px}
+.ng-body .tgl{justify-content:space-between;font-size:13px;min-height:24px}
+.ng-body.off .tgl .name{color:var(--muted)}
+.tgl.mini .sw{width:32px;height:18px}
+.tgl.mini .sw::after{width:12px;height:12px}
+.tgl.mini input:checked+.sw::after{transform:translateX(14px)}
+.lockrow{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;min-height:24px}
+.lockrow .ico{color:var(--acc2);margin:0 9px}
+.locked{display:inline-flex;align-items:center;justify-content:center;color:var(--acc2);font-size:12px;border:1px solid #4b3aa3;border-radius:999px;width:38px;height:22px;flex:none}
+/* обновления и список изменений */
+.updbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0 2px}
 .updbar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#a78bfa);transition:width .3s}
 .updbar.busy i{width:35%;animation:updSlide 1.2s ease-in-out infinite}
 @keyframes updSlide{0%{margin-left:-35%}100%{margin-left:100%}}
+.setrow{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg span{display:block;padding:4px 14px;border-radius:6px;font-size:13px;color:var(--muted)}
+.seg label:hover span{color:var(--text)}
+.seg input:checked+span{background:var(--acc-btn);color:#fff}
+#updAutoRow{margin-top:12px}
+.rollbox{margin-top:12px;background:#2b2210;border:1px solid #6b5420;border-radius:10px;padding:10px 14px;font-size:13px;color:#f3d28a}
+.rollbox b{display:block;margin-bottom:2px}
+.notes{margin-top:10px;font-size:13px}
+.notes h3{font-size:13px;margin:12px 0 4px;color:var(--acc2)}
+.notes h4{font-size:13px;margin:8px 0 2px}
+.notes ul{margin:2px 0 0 18px;padding:0;color:#c3c7d3}
+.notes>:first-child{margin-top:0}
+.notes li{overflow-wrap:anywhere}
+.ver{border-top:1px solid var(--line);padding:8px 0}
+.ver:first-child{border-top:0;padding-top:0}
+.ver:last-child{padding-bottom:0}
+.ver summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;list-style:none;font-weight:600;border-radius:6px}
+.ver summary::-webkit-details-marker{display:none}
+.ver summary .when{color:var(--muted);font-weight:400;font-size:12px}
+.ver summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-right:4px}
+.ver[open] summary::after{transform:rotate(225deg)}
+.ver .notes{margin-top:6px}
+/* сводка состояния */
+.hero{display:flex;align-items:center;gap:14px;border-radius:12px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);min-width:0}
+.hero.ok{background:linear-gradient(100deg,#13291f,var(--panel) 60%);border-color:#2ecc7144}
+.hero.warn{background:linear-gradient(100deg,#2b2210,var(--panel) 60%);border-color:#f5a62366}
+.hero.bad{background:linear-gradient(100deg,#2f1419,var(--panel) 60%);border-color:#ff4d5e66}
+.hero .big{width:14px;height:14px;border-radius:50%;background:var(--muted);flex:none;margin:0 4px}
+.hero.ok .big{background:var(--ok);box-shadow:0 0 0 6px #2ecc7122,0 0 14px #2ecc71}
+.hero.warn .big{background:var(--warn);box-shadow:0 0 0 6px #f5a62322}
+.hero.bad .big{background:var(--bad);box-shadow:0 0 0 6px #ff4d5e22}
+.hero .txt{flex:1;min-width:0}
+.hero .txt b{display:block;font-size:17px;line-height:1.3}
+.hero .txt>span{display:block;color:var(--muted);font-size:13px}
+/* окна поверх программы */
+.rmodal{position:fixed;left:0;right:0;bottom:0;top:var(--askh);z-index:1000;display:flex;padding:14px;overflow:auto;background:#07080be6;backdrop-filter:blur(6px)}
+.rbox{margin:auto;width:min(560px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,#9b7dff,#ff5c9a,#ffb36b) border-box;border:2px solid transparent;border-radius:18px;padding:22px 26px;box-shadow:0 30px 90px -20px #7c5cffaa,0 0 0 1px #0006;text-align:center}
+.rbox>*{flex:none}
+.rico{width:56px;height:56px;margin:0 auto 8px;border-radius:16px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,#7c5cff,#ff5c9a);box-shadow:0 12px 30px -8px #ff5c9a99;color:#fff}
+.rbox h2{margin:0 0 6px;font-size:22px;line-height:1.3;background:linear-gradient(90deg,#b9a3ff,#ff8fb8,#ffc58f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rbox p{margin:0 0 14px;color:var(--text);opacity:.9}
+.rbox ol{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px;text-align:left;counter-reset:s}
+.rbox ol li{counter-increment:s;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0}
+.rbox ol li:before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--acc);color:#fff}
+.rbox ol li span{flex:1;min-width:180px}
+.rbox #roomOk{align-self:center;min-width:160px;font-size:15px;padding:10px 22px}
+.rbox .mscroll{flex:0 1 auto;min-height:90px;overflow:auto;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px}
+.rbox .vers{color:var(--muted);font-size:13px;margin-bottom:10px;font-variant-numeric:tabular-nums}
+.rbox .tag{align-self:center;margin-bottom:6px;color:var(--acc2);border-color:#4b3aa3}
+.mbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.mbtns button{padding:9px 18px}
+/* тур по окну */
+.tour{position:fixed;inset:0;top:var(--askh);z-index:1100}
+.spot{position:fixed;border:2px solid var(--acc2);border-radius:12px;box-shadow:0 0 0 200vmax #07080bc9,0 0 24px #7c5cffaa;pointer-events:none}
+.spot.none{border:0}
+.tourbox{position:fixed;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--askh) - 16px);overflow:auto;background:var(--panel);border:1px solid var(--acc);border-radius:14px;padding:14px 16px;box-shadow:0 20px 60px -10px #000c}
+.tourbox small{display:block;color:var(--muted);font-size:12px}
+.tourbox b{display:block;font-size:16px;margin:2px 0 4px}
+.tourbox p{margin:0 0 12px;font-size:13px;color:#c9cdd8}
+.tourbox .mbtns{justify-content:flex-end}
+.tourbox .mbtns button{padding:6px 12px}
+.tourbox .mbtns+.mbtns{margin-top:8px}
+.tourbox #tourSound:not([hidden])+.mbtns{justify-content:flex-start}
+.tourbox #tourSkip{margin-right:auto;background:none;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000e;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:3000;font-size:13px;width:max-content;max-width:90vw}
 /* UX polish: focus rings, press/hover/disabled states, touch targets, contrast, scrollbars (looks only) */
-:root{--focus:#a78bfa;--acc-btn:#6d4dff}
-html{color-scheme:dark}
 *{scrollbar-width:thin;scrollbar-color:#3a3f4c transparent}
 ::selection{background:#7c5cff80;color:#fff}
 ::placeholder{color:var(--muted);opacity:1}
 :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
-.tgl input:focus-visible+.sw{outline:2px solid var(--focus);outline-offset:2px}
-.tgl input:focus-visible{outline:none!important}
+nav button:focus-visible,.stat:focus-visible{outline-offset:-2px!important}
+.tgl input:focus-visible+.sw,.seg input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.tgl input:focus-visible,.seg input:focus-visible{outline:none!important}
 button,a,summary,label,select{touch-action:manipulation;-webkit-tap-highlight-color:#7c5cff30}
 button,.banner a,.rolelink,input{transition:border-color .15s,background-color .15s,color .15s,box-shadow .15s,opacity .15s,transform .1s}
 button:active:not(:disabled),.banner a:active{transform:scale(.97)}
-button:disabled{cursor:not-allowed}
-button.primary,.banner a{background:var(--acc-btn);border-color:var(--acc-btn)}
-button.primary.done{background:#1f6f45;border-color:#1f6f45}
 button.primary:hover:not(:disabled),.banner a:hover{filter:brightness(1.12)}
 button.primary:active:not(:disabled){filter:brightness(.94)}
 input:disabled{opacity:.5;cursor:not-allowed}
 input:user-invalid,input[aria-invalid=true]{border-color:var(--bad)}
 input:hover:not(:focus):not(:disabled):not([readonly]){border-color:#3a4050}
-.rolelink:hover,.rolelink:focus-visible{text-decoration:underline}
-.rolelink:active{background:var(--panel2)}
-.card{transition:border-color .2s}
-details summary:hover{color:#fff}
-details summary:hover::after{border-color:var(--text)}
-.tbl tr:hover td{background:#ffffff05}
-.tgl:hover .sw{background:#4a5060}.tgl:hover input:checked+.sw{background:#8566ff}
-.tgl input:disabled+.sw{opacity:.45}
-.tgl:has(input:disabled){cursor:not-allowed}
-.tgl .sw{box-shadow:inset 0 0 0 1px #ffffff14}
-.brand small,.light,.rolelink,.tag,.tbl th,.tbl small,.lim label,.st b,pre,.tbl button{font-size:12px}
 a{text-underline-offset:2px}
+@media (max-width:860px){
+  .side{width:204px;padding:10px 8px 8px}
+  nav button{gap:8px;padding-left:8px;padding-right:8px}
+  .stat small{display:none}
+  .stat .nm{flex:1;text-align:left}
+  .global{padding-left:14px;padding-right:14px}
+  .askrow .txt{min-width:140px}
+  .askrow button{padding:6px 10px}
+  .page{padding:12px 14px 18px;--gap:10px}
+}
+@media (max-width:720px){
+  .lim{grid-template-columns:1fr}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-height:600px){
+  .side{gap:5px;padding-top:8px}
+  .brand{padding-bottom:0}
+  .brand small{display:none}
+  .logo{width:28px;height:28px}
+  nav{gap:1px}
+  nav h6{margin-top:3px;margin-bottom:0;font-size:10px}
+  nav button{padding-top:2px;padding-bottom:2px;font-size:13px}
+  .panelbtn button{padding:5px 8px}
+  .status{display:grid;grid-template-columns:1fr 1fr}
+  .stat .nm,.stat small{display:none}
+  .stat .sh{display:inline;overflow:hidden;text-overflow:ellipsis}
+  .foot select,.foot .rolelink{padding-top:2px!important;padding-bottom:2px!important}
+  .page{padding-top:10px}
+  .hero{padding:8px 14px}
+  .card{padding:10px 14px}
+  .card h2{margin-bottom:6px}
+  .codebox{height:auto;white-space:nowrap;text-overflow:ellipsis;padding-top:7px;padding-bottom:7px}
+  .codebox::after{display:none}
+  .tbl td{padding-top:3px;padding-bottom:3px}
+  .tbl th{padding-bottom:3px}
+  #modBox .tbl small{display:inline;margin-left:8px}
+  .global{padding-top:7px}
+  .ask,.banner{padding-top:6px;padding-bottom:6px}
+  .askrow .txt small{display:none}
+  .rbox{padding:14px 20px}
+  .rico{display:none}
+  .rbox ol li{padding:6px 10px}
+}
+@media (max-width:620px){
+  .side{width:60px;padding:8px 3px}
+  .brand div,nav h6,nav .lbl,.panelbtn .lbl,.rl{display:none}
+  .brand{justify-content:center;padding:0}
+  nav button,.panelbtn button{justify-content:center;padding:7px 0}
+  nav h6+button{margin-top:4px}
+  nav em{position:absolute;right:1px;top:1px;padding:0 4px;line-height:14px;font-size:10px}
+  nav .sdot{right:6px;top:5px}
+  .status{display:flex;flex-direction:column;align-items:center}
+  .stat .nm,.stat .sh,.stat small{display:none}
+  .stat{padding:5px}
+  .foot{flex-direction:column}
+  .foot select{padding:3px 1px!important;font-size:9px!important;background-image:none!important;text-align:center}
+  .foot .rolelink{justify-content:center;padding-left:0;padding-right:0}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .global{padding-left:12px;padding-right:12px}
+  .page{padding-left:12px;padding-right:12px}
+}
+@media (max-width:700px){
+  .tbl.addr thead{display:none}
+  .tbl.addr,.tbl.addr tbody{display:block}
+  .tbl.addr tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .tbl.addr tr:last-child{border-bottom:0}
+  .tbl.addr td{border:0;padding:0;min-width:0}
+  .tbl.addr td:nth-child(1){grid-column:1/-1;font-weight:600}
+  .tbl.addr td:nth-child(2){grid-column:1;min-width:0}
+  .tbl.addr td:nth-child(3){grid-column:1/-1;grid-row:3}
+  .tbl.addr td:nth-child(4){grid-column:2;grid-row:2}
+  .tbl.addr tr:hover td{background:none}
+}
 @media (pointer:coarse){
-  button,input:not([type=checkbox]){min-height:40px}
-  .tbl button{min-height:36px}
-  .rolelink{padding:9px 12px}
-  .tgl{min-height:40px}
-  input[type=checkbox]{width:20px;height:20px}
+  .page button,.page input:not([type=checkbox]):not([type=radio]){min-height:36px}
+  .page .tgl{min-height:36px}
+  .page button.sm,.page .tbl button{min-height:32px}
+  .page .ng-open{min-height:40px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.001ms!important;scroll-behavior:auto!important}
@@ -174,187 +365,302 @@ a{text-underline-offset:2px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
+<div class="shell">
+  <aside class="side" id="side">
     <div class="brand">
-      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#a78bfa" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l-1 11H8z"/><path d="M8 11h8"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z"/></svg></div>
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l-1 11H8z" fill="#fff"/><path d="M8 11h8" stroke="#1d1840" stroke-width="2.2"/><path d="M2 17.5c0-1.4 4.5-2.5 10-2.5s10 1.1 10 2.5S17.5 20 12 20 2 18.9 2 17.5z" fill="#fff"/></svg></div>
       <div><b>Hudini Host</b><small id="ver" data-i18n-skip>—</small></div>
     </div>
-    <div class="lights">
-      <span class="light" id="lRoom"><i></i>Комната</span>
-      <span class="light" id="lObs"><i></i>OBS</span>
-      <span class="light" id="lTun"><i></i>Порт модераторов</span>
-      <span class="light" id="lCs"><i></i>CS2</span>
+    <nav id="nav" aria-label="Разделы программы">
+      <button type="button" data-go="home" title="Обзор"><span class="ico" aria-hidden="true">🏠</span><span class="lbl">Обзор</span></button>
+      <h6>Стрим</h6>
+      <button type="button" data-go="obs" title="OBS и CS2"><span class="ico" aria-hidden="true">📺</span><span class="lbl">OBS и CS2</span></button>
+      <h6>Модераторы</h6>
+      <button type="button" data-go="code" title="Код и адреса"><span class="ico" aria-hidden="true">🔑</span><span class="lbl">Код и адреса</span><em id="navMods" data-i18n-skip hidden></em></button>
+      <button type="button" data-go="rights" title="Права и файлы"><span class="ico" aria-hidden="true">🔒</span><span class="lbl">Права и файлы</span></button>
+      <h6>Программа</h6>
+      <button type="button" data-go="notify" id="navNotify" title="Уведомления" hidden><span class="ico" aria-hidden="true">🔔</span><span class="lbl">Уведомления</span></button>
+      <button type="button" data-go="app" title="Запуск и обновления"><span class="ico" aria-hidden="true">⚙</span><span class="lbl">Запуск и обновления</span><i class="sdot warn" id="navUpd" title="Обновление готово" hidden></i></button>
+      <button type="button" data-go="log" title="Состояние и журнал"><span class="ico" aria-hidden="true">📊</span><span class="lbl">Состояние и журнал</span></button>
+    </nav>
+    <div class="panelbtn" id="panelCard" hidden><button type="button" id="openPanel" class="primary" title="Пульт на этом компьютере: без кода и пароля"><span class="ico" aria-hidden="true">🎛</span><span class="lbl">Открыть пульт</span></button></div>
+    <div class="status" id="lights">
+      <button type="button" class="stat" id="lRoom" data-go="code"><i></i><span class="nm">Комната</span><span class="sh">Комната</span><small></small></button>
+      <button type="button" class="stat" id="lObs" data-go="obs"><i></i><span class="nm" data-i18n-skip>OBS</span><span class="sh" data-i18n-skip>OBS</span><small></small></button>
+      <button type="button" class="stat" id="lTun" data-go="code"><i></i><span class="nm">Порт модераторов</span><span class="sh">Порт</span><small></small></button>
+      <button type="button" class="stat" id="lCs" data-go="obs"><i></i><span class="nm" data-i18n-skip>CS2</span><span class="sh" data-i18n-skip>CS2</span><small></small></button>
     </div>
-    <a href="/__role" id="roleLink" class="rolelink" hidden>Сменить роль</a>
-    <span data-i18n-switch></span>
-  </header>
-
-  <div class="banner" id="crashBanner" hidden>
-    <span>Прошлый запуск завершился ошибкой. Если это повторяется, скопируй отчёт и пришли разработчику.</span>
-    <button id="crashCopy" type="button">Скопировать</button>
-    <button id="crashHide" type="button">Скрыть</button>
-  </div>
-  <div class="banner" id="legacyBanner" hidden>
-    <span>Новая версия Hudini Host работает в своём окне и сворачивается в трей.</span>
-    <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">⬇ Скачать новую версию</a>
-  </div>
-  <div class="sub" id="subBrowser">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
-  <div class="sub" id="subApp" hidden>Сервер оверлея на этом компьютере. Если закрыть окно, программа продолжит работать в трее.</div>
-
-  <div class="card first" id="askCard" hidden role="alert">
-    <h2>🎥 Модератор просит разрешение</h2>
-    <div id="askBox"></div>
-    <div class="hint">То же самое есть в панели OBS. Пока не ответишь, модератор ждёт.</div>
-  </div>
-
-  <div class="card">
-    <h2><span class="n">1</span> Ссылка для OBS</h2>
-    <div class="row"><input id="obs" readonly placeholder="Появится, когда запустится комната"><button id="copyObs">📋 Копировать</button></div>
-    <ol class="hint">
-      <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
-      <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
-      <li>Выдели источник и нажми <b>Ctrl+F</b>, чтобы растянуть его на весь экран</li>
-    </ol>
-  </div>
-
-  <div class="card" id="limCard">
-    <h2>📁 Место для файлов модераторов</h2>
-    <div class="hint" id="limAsk">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. Сколько места им дать?</div>
-    <div class="lim">
-      <label>Один файл до, МБ<input type="number" id="limFile" min="1" max="4096"></label>
-      <label>Всего места, МБ<input type="number" id="limTotal" min="10"></label>
-      <label>Файлов не больше<input type="number" id="limFiles" min="1" max="100000"></label>
+    <div class="foot">
+      <span data-i18n-switch></span>
+      <a href="/__role" id="roleLink" class="rolelink" title="Сменить роль" hidden><span class="ico" aria-hidden="true">🔁</span><span class="rl">Роль</span></a>
     </div>
-    <div class="row"><button id="limSave" class="primary">Сохранить</button><span class="hint" id="limUsed" style="margin:0"></span></div>
-  </div>
+  </aside>
 
-  <div class="notice" id="cfNotice" hidden>
-    <span><b>Cloudflare больше нет.</b> Модераторы подключаются напрямую. Скопируй новый код и отправь его модератору: старые ссылки перестали работать.</span>
-    <button class="primary" id="cfOk">Понятно</button>
-  </div>
-  <div class="rmodal" id="roomNotice" hidden role="dialog" aria-modal="true" aria-labelledby="roomTitle">
-    <div class="rbox">
-      <div class="rico">🔑</div>
-      <h2 id="roomTitle">Комната обновлена</h2>
-      <p>Она осталась от старой версии Hudini, и модераторы не могли по ней войти. Hudini Host сделал новую комнату. Осталось два шага:</p>
-      <ol>
-        <li><span>Вставь в OBS новую ссылку (источник «Браузер»)</span><button id="roomObs">📋 Скопировать ссылку для OBS</button></li>
-        <li><span>Отправь модераторам новый код</span><button id="roomCode">📋 Скопировать код для модератора</button></li>
-      </ol>
-      <button class="primary" id="roomOk">Готово</button>
+  <div class="main">
+    <div class="global" id="global" hidden>
+      <div class="ask" id="askCard" hidden role="alert" aria-label="Модератор просит разрешение"><div id="askBox"></div></div>
     </div>
-  </div>
+    <main class="scroll" id="scroll">
+      <div class="page">
+        <div class="banner warn" id="crashBanner" hidden>
+          <span>Прошлый запуск завершился ошибкой. Если это повторяется, скопируй отчёт и пришли разработчику.</span>
+          <button id="crashCopy" type="button">Скопировать</button>
+          <button id="crashHide" type="button">Скрыть</button>
+        </div>
+        <div class="banner" id="legacyBanner" hidden>
+          <span>Новая версия Hudini Host работает в своём окне и сворачивается в трей.</span>
+          <a href="https://github.com/niko-ua-designer/hudini/releases/latest" target="_blank" rel="noopener">⬇ Скачать новую версию</a>
+        </div>
+        <div class="banner" id="cfNotice" hidden>
+          <span><b>Cloudflare больше нет.</b> Модераторы подключаются напрямую. Скопируй новый код и отправь его модератору: старые ссылки перестали работать.</span>
+          <div class="btns"><button id="cfCopy" type="button">Скопировать код</button><button class="primary" id="cfOk" type="button">Понятно</button></div>
+        </div>
 
-  <div class="cols">
-    <div class="card first">
-      <h2>🔑 Код для модератора</h2>
-      <div class="codebox" id="codeBox">—</div>
-      <div class="row"><button id="copyCode" class="primary">Скопировать код</button><button id="newPass">Новый код</button><button id="newRoom">Пересоздать комнату</button></div>
-      <label class="tgl" style="margin-top:12px"><input type="checkbox" id="modsOn"><span class="sw"></span><span>Пускать модераторов</span></label>
-      <div class="hint">Модератор вставляет код в Hudini (вкладка «Модератор» → вставь код → «Добавить»). Показывай его только модератору. Отпечаток сертификата: <code id="fpTxt">—</code></div>
-    </div>
-    <div class="card">
-      <h2>👥 На связи <span class="tag" id="modCnt">0</span></h2>
-      <div id="modBox"></div>
-    </div>
-  </div>
+        <!-- Overview -->
+        <section class="sec" data-page="home" aria-label="Обзор">
+          <div class="banner warn" id="tipPanel" hidden><span><b>Пульт на этом компьютере недоступен.</b> <span id="panelHint"></span></span></div>
+          <div class="banner" id="tipLimits" hidden><span>Сколько места дать файлам модераторов? Настрой один раз.</span><button type="button" class="primary" data-go="rights">Настроить</button></div>
+          <div class="banner" id="tipUpd" hidden><span id="tipUpdTxt"></span><div class="btns"><button type="button" class="primary" id="tipApply">🔄 Обновить сейчас</button><button type="button" data-go="app">Подробнее</button></div></div>
+          <div class="hero" id="hero"><i class="big"></i><div class="txt"><b id="heroTitle">—</b><span id="heroSub"></span></div></div>
+          <div class="slot" data-slot="codeCard" data-in="home">
+            <div class="card first short" id="codeCard">
+              <h2><span class="ico" aria-hidden="true">🔑</span><span>Код для модератора</span><span class="right tag warn" id="modsClosed" hidden>вход закрыт</span></h2>
+              <div class="codebox" id="codeBox" data-i18n-skip>—</div>
+              <div class="row wrap"><button type="button" id="copyCode" class="primary">📋 Скопировать код</button><button type="button" id="newPass" class="full">↻ Новый код</button><button type="button" id="newRoom" class="full">♻ Пересоздать комнату</button><label class="tgl"><input type="checkbox" id="modsOn"><span class="sw"></span><span>Пускать модераторов</span></label></div>
+              <div class="hint full">Модератор вставляет код в Hudini (вкладка «Модератор» → вставь код → «Добавить»). Показывай его только модератору. Отпечаток сертификата: <code id="fpTxt" data-i18n-skip>—</code></div>
+            </div>
+          </div>
+          <div class="slot" data-slot="obsCard" data-in="home">
+            <div class="card short" id="obsCard">
+              <h2><span class="ico" aria-hidden="true">🔗</span><span>Ссылка для OBS</span><span class="right tag" id="obsTag">—</span></h2>
+              <div class="row top"><input id="obs" readonly placeholder="Появится, когда запустится комната" aria-label="Ссылка для OBS"><button type="button" id="copyObs" class="primary">📋 Копировать</button></div>
+              <ol class="hint full">
+                <li>OBS → Источники → <b>+</b> → <b>Браузер</b> (или открой уже созданный)</li>
+                <li>В поле <b>URL</b> вставь эту ссылку, ширина и высота = разрешению холста (обычно 1920×1080)</li>
+                <li>Выдели источник и нажми <b>Ctrl+F</b>, чтобы растянуть его на весь экран</li>
+              </ol>
+            </div>
+          </div>
+          <div class="card" id="onlineCard">
+            <h2><span class="ico" aria-hidden="true">👥</span><span>На связи</span><span class="tag" id="modCnt" data-i18n-skip>0</span><button type="button" class="sm right" id="kickAll" hidden>⛔ Отключить всех</button></h2>
+            <div id="modBox"></div>
+          </div>
+          <div class="card cs2home" id="cs2HomeCard">
+            <h2><span class="ico" aria-hidden="true">🎯</span><span data-i18n-skip>CS2</span><button type="button" class="sm right" data-go="obs">Настроить</button></h2>
+            <div class="cs2" id="cs2Home"></div>
+            <div class="hint" id="cs2None">Данных из игры пока нет.</div>
+          </div>
+        </section>
 
-  <div class="card" id="panelCard" hidden>
-    <h2>🎛 Пульт на этом компьютере</h2>
-    <div class="hint">Полный пульт в отдельном окне, без кода и пароля. Модераторы могут работать одновременно с тобой.</div>
-    <div class="row"><button id="openPanel" class="primary">🎛 Открыть пульт</button><span class="hint" id="panelHint" style="margin:0"></span></div>
-  </div>
+        <!-- OBS & CS2 -->
+        <section class="sec" data-page="obs" hidden>
+          <h1>OBS и CS2</h1>
+          <div class="two">
+            <div class="stack">
+              <div class="slot" data-slot="obsCard" data-in="obs"></div>
+              <div class="card" id="dockCard">
+                <h2><span class="ico" aria-hidden="true">🎛</span><span>Панель в OBS (по желанию)</span></h2>
+                <div class="hint tight">Маленькая панель прямо в OBS: статус, быстрые выключатели, элементы на экране с глазиками, кто на связи и CS2 с подсказкой «файт».</div>
+                <ol class="hint">
+                  <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
+                  <li>Имя: <code data-i18n-skip>Hudini</code>, адрес: <code id="dockCode" data-i18n-skip>http://localhost:7777/dock</code> → <b>Применить</b></li>
+                  <li>Перетащи появившуюся панель, куда удобно</li>
+                </ol>
+                <div class="row"><input id="dockUrl" readonly aria-label="Панель в OBS (по желанию)"><button type="button" id="copyDock">📋 Копировать</button></div>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="card" id="csCard">
+                <h2><span class="ico" aria-hidden="true">🎯</span><span>CS2 на оверлее (по желанию)</span><span class="right tag" id="csTag">нет данных</span></h2>
+                <div class="hint tight">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
+                <div class="row wrap"><button type="button" id="gsiInstall" class="primary">🎯 Подключить CS2</button><button type="button" id="gsiDl">⬇ Скачать файл вручную</button></div>
+                <div class="hint small wrapany" id="gsiInfo"></div>
+                <div class="cs2" id="cs2"></div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-  <div class="card" id="permCard">
-    <h2>🔒 Что можно модераторам</h2>
-    <div class="hint">Выключенное пропадает из пульта модераторов и не попадает на стрим, даже если его уже добавили.</div>
-    <div class="perms">
-      <label class="tgl"><input type="checkbox" id="perm_av" data-perm="av"><span class="sw"></span><span>Звуки и видео</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_web" data-perm="web"><span class="sw"></span><span>Сайты и файлы</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_fx" data-perm="fx"><span class="sw"></span><span>Чат, рисование, эффекты</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_games" data-perm="games"><span class="sw"></span><span>Кейсы, розыгрыши, опросы, CS2</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_cam" data-perm="cam"><span class="sw"></span><span>Модераторы могут показывать камеру</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_screen" data-perm="screen"><span class="sw"></span><span>Модераторы могут показывать экран</span></label>
-      <label class="tgl"><input type="checkbox" id="perm_mic" data-perm="mic"><span class="sw"></span><span>Модераторы могут говорить в микрофон</span></label>
-    </div>
-  </div>
+        <!-- Code & addresses -->
+        <section class="sec" data-page="code" hidden>
+          <h1>Код и адреса</h1>
+          <div class="slot" data-slot="codeCard" data-in="code"></div>
+          <div class="card" id="addrCard">
+            <h2><span class="ico" aria-hidden="true">🌐</span><span>Адреса, по которым тебя можно найти</span></h2>
+            <table class="tbl addr"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
+            <div class="warnbox">Через Porthole делись <b>только портом <span id="mpTxt" data-i18n-skip>7778</span></b>. Порт <span id="lpTxt" data-i18n-skip>7777</span> — это управление твоим Hudini, его не показывай никому.</div>
+          </div>
+        </section>
 
-  <div class="card">
-    <h2>🌐 Адреса, по которым тебя можно найти</h2>
-    <table class="tbl addr"><thead><tr><th>Сеть</th><th>Адрес</th><th>Что нужно</th><th></th></tr></thead><tbody id="addrBody"></tbody></table>
-    <div class="warnbox">Через Porthole делись <b>только портом <span id="mpTxt">7778</span></b>. Порт <span id="lpTxt">7777</span> — это управление твоим Hudini, его не показывай никому.</div>
-  </div>
+        <!-- Permissions & files -->
+        <section class="sec" data-page="rights" hidden>
+          <h1>Права и файлы</h1>
+          <div class="card" id="permCard">
+            <h2><span class="ico" aria-hidden="true">🔒</span><span>Что можно модераторам</span></h2>
+            <div class="hint tight">Выключенное пропадает из пульта модераторов и не попадает на стрим, даже если его уже добавили.</div>
+            <div class="perms">
+              <label class="tgl"><input type="checkbox" id="perm_av" data-perm="av"><span class="sw"></span><span>Звуки и видео</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_web" data-perm="web"><span class="sw"></span><span>Сайты и файлы</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_fx" data-perm="fx"><span class="sw"></span><span>Чат, рисование, эффекты</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_games" data-perm="games"><span class="sw"></span><span>Кейсы, розыгрыши, опросы, CS2</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_cam" data-perm="cam"><span class="sw"></span><span>Модераторы могут показывать камеру</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_screen" data-perm="screen"><span class="sw"></span><span>Модераторы могут показывать экран</span></label>
+              <label class="tgl"><input type="checkbox" id="perm_mic" data-perm="mic"><span class="sw"></span><span>Модераторы могут говорить в микрофон</span></label>
+            </div>
+          </div>
+          <div class="card" id="limCard">
+            <h2><span class="ico" aria-hidden="true">📁</span><span>Место для файлов модераторов</span></h2>
+            <div class="hint tight">Модераторы загружают картинки, GIF и видео. Они хранятся на этом компьютере в папке программы, зашифрованными. <b id="limAsk">Сколько места им дать?</b></div>
+            <div class="lim">
+              <label>Один файл до, МБ<input type="number" id="limFile" min="1" max="4096"></label>
+              <label>Всего места, МБ<input type="number" id="limTotal" min="10"></label>
+              <label>Файлов не больше<input type="number" id="limFiles" min="1" max="100000"></label>
+            </div>
+            <div class="meter" aria-hidden="true"><i id="limMeter"></i></div>
+            <div class="row wrap"><button type="button" id="limSave" class="primary">Сохранить</button><span class="hint tight" id="limUsed"></span></div>
+          </div>
+        </section>
 
-  <div class="card" id="dockCard">
-    <h2><span class="n">2</span> 🎛 Панель в OBS (по желанию)</h2>
-    <div class="hint">Маленькая панель прямо в OBS: статус, быстрые выключатели, элементы на экране с глазиками, кто на связи и CS2 с подсказкой «файт».</div>
-    <ol class="hint">
-      <li>В OBS: меню <b>Доки</b> → <b>Пользовательские доки браузера…</b></li>
-      <li>Имя: <code>Hudini</code>, адрес: <code id="dockCode">http://localhost:7777/dock</code> → <b>Применить</b></li>
-      <li>Перетащи появившуюся панель, куда удобно</li>
-    </ol>
-    <div class="row"><input id="dockUrl" readonly><button id="copyDock">📋 Копировать</button></div>
-  </div>
+        <!-- Notifications: filled from /api/status -->
+        <section class="sec" data-page="notify" hidden>
+          <h1>Уведомления</h1>
+          <div class="note" id="notifyNote" hidden><span class="ico" aria-hidden="true">🔔</span><span>Пока окно Hudini Host на виду, системными уведомлениями приходят <b>только запросы камеры, экрана и микрофона</b>. Остальные — когда окно свёрнуто или спрятано в трей.</span></div>
+          <div class="card list" id="notifyList"></div>
+        </section>
 
-  <div class="card" id="csCard">
-    <h2><span class="n">3</span> CS2 на оверлее (по желанию)</h2>
-    <div class="hint">Чтобы на оверлее были твои K/D/A, HP, деньги, счёт и т.д. Нажми кнопку и перезапусти CS2.</div>
-    <div class="row"><button id="gsiInstall" class="primary">🎯 Подключить CS2</button><button id="gsiDl">⬇ Скачать файл вручную</button></div>
-    <div class="hint" id="gsiInfo"></div>
-    <div class="cs2" id="cs2"></div>
-  </div>
+        <!-- Startup & updates -->
+        <section class="sec" data-page="app" hidden>
+          <h1>Запуск и обновления</h1>
+          <div class="card" id="updCard">
+            <h2><span class="ico" aria-hidden="true">🔄</span><span>Обновления</span><span class="right tag warn" id="updKind" hidden></span></h2>
+            <div class="row wrap top"><span id="updInfo" class="hint tight grow">—</span>
+              <button type="button" id="updCheck">Проверить</button><button type="button" id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
+            <div class="updbar" id="updBar" hidden><i id="updFill"></i></div>
+            <div class="hint small" id="updWhen"></div>
+            <div class="notes" id="updNotes" data-i18n-skip hidden></div>
+            <div class="rollbox" id="rollBox" hidden>
+              <b>Твоя версия новее последней стабильной</b>
+              <span id="rollTxt"></span>
+              <div class="row wrap"><button type="button" id="rollNow"></button><button type="button" id="rollWait">Ждать новую стабильную</button></div>
+            </div>
+            <div class="setrow" id="chanRow" hidden>
+              <span id="chanName">Канал обновлений</span>
+              <div class="seg" role="radiogroup" aria-labelledby="chanName">
+                <label><input type="radio" name="channel" value="stable"><span>Стабильная</span></label>
+                <label><input type="radio" name="channel" value="beta"><span>Бета</span></label>
+              </div>
+              <span class="hint tight small grow">Бета получает новое раньше, но в ней возможны ошибки.</span>
+            </div>
+            <label class="tgl" id="updAutoRow"><input type="checkbox" id="updAuto"><span class="sw"></span><span id="updAutoTxt">Скачивать обновления автоматически</span></label>
+            <div class="hint small" id="updAutoHint" hidden>Программа не перезапускается сама: когда обновление скачано, она спросит.</div>
+          </div>
+          <div class="card" id="autoCard" hidden>
+            <h2><span class="ico" aria-hidden="true">🚀</span><span>Автозапуск</span></h2>
+            <label class="tgl"><input type="checkbox" id="autoStart"><span class="sw"></span><span>Запускать вместе с системой</span></label>
+            <div class="hint">Программа запустится свёрнутой в трей, когда ты включишь компьютер.</div>
+          </div>
+          <div class="card" id="uiCard" hidden>
+            <h2><span class="ico" aria-hidden="true">🔊</span><span>Звуки и тур</span></h2>
+            <label class="tgl" id="soundsRow"><input type="checkbox" id="soundsOn"><span class="sw"></span><span>Звуки программы</span></label>
+            <div class="row wrap"><button type="button" id="tourReplay">🧭 Показать тур по окну</button></div>
+          </div>
+          <div class="card" id="newsCard" hidden>
+            <h2><span class="ico" aria-hidden="true">✨</span><span>Что нового</span></h2>
+            <div id="newsList" data-i18n-skip></div>
+          </div>
+          <div class="card" id="aboutCard">
+            <h2><span class="ico" aria-hidden="true">❓</span><span>О программе</span></h2>
+            <div class="hint tight">Оверлей для стрима с пультом модератора. Бесплатно, с открытым кодом.</div>
+            <div class="hint" id="subBrowser">Сервер оверлея на этом компьютере. Не закрывай чёрное окно программы, пока идёт стрим.</div>
+            <div class="hint" id="subApp" hidden>Сервер оверлея на этом компьютере. Если закрыть окно, программа продолжит работать в трее.</div>
+            <div class="hint">Версия <b id="aboutVer" data-i18n-skip>—</b> · AGPL-3.0 / MIT</div>
+            <div class="links">
+              <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/" target="_blank" rel="noopener">Сайт</a>
+              <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/help.html" target="_blank" rel="noopener">Справка</a>
+              <a class="rolelink" href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">Исходный код</a>
+              <a class="rolelink" id="reportLink" href="https://niko-ua-designer.github.io/hudini/report.html?lang=en" target="_blank" rel="noopener">Предложить идею или сообщить о проблеме</a>
+              <a class="rolelink" href="https://t.me/Hudini_DEV?direct" target="_blank" rel="noopener" data-i18n-skip>Telegram</a>
+              <a class="rolelink" href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener">Лицензия</a>
+            </div>
+            <div class="hint">Спасибо тестерам: <b data-i18n-skip>Etsuitoku, SaiYeah1, 0_pelmechka_0, runorn</b></div>
+          </div>
+        </section>
 
-  <div class="card" id="autoCard" hidden>
-    <h2>🚀 Автозапуск</h2>
-    <label class="tgl"><input type="checkbox" id="autoStart"><span class="sw"></span><span>Запускать вместе с системой</span></label>
-    <div class="hint">Программа запустится свёрнутой в трей, когда ты включишь компьютер.</div>
-  </div>
-
-  <div class="card">
-    <h2>🔄 Обновления</h2>
-    <div class="row" style="margin-top:0"><span id="updInfo" class="hint" style="flex:1;margin:0">—</span>
-      <button id="updCheck">Проверить</button><button id="updApply" class="primary" hidden>🔄 Обновить сейчас</button></div>
-    <div class="updbar" id="updBar" hidden><i id="updFill"></i></div>
-    <div class="hint" id="updWhen" style="margin:6px 0 0"></div>
-    <label class="hint check" style="margin-top:10px"><input type="checkbox" id="updAuto"> Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)</label>
-  </div>
-
-  <div class="card">
-    <h2>📊 Состояние</h2>
-    <div class="grid">
-      <div class="st" id="sObs"><b>OBS</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sTun"><b>Порт для модераторов</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sMods"><b>Модераторы напрямую</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sFiles"><b>Файлы</b><span class="dot"></span><span class="v">—</span></div>
-      <div class="st" id="sCs"><b>CS2</b><span class="dot"></span><span class="v">—</span></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>📝 Журнал</h2>
-    <div class="row" style="margin:0 0 8px"><label class="check hint" style="margin:0"><input type="checkbox" id="logConn"> только подключения</label><button id="logFolder" type="button" hidden style="margin-left:auto">📁 Открыть папку</button><button id="logCopy" style="margin-left:6px">Скопировать</button></div>
-    <pre id="logs" data-i18n-skip></pre>
-  </div>
-  <div class="card" id="aboutCard">
-    <h2>ℹ О программе</h2>
-    <div class="hint">Оверлей для стрима с пультом модератора. Бесплатно, с открытым кодом.</div>
-    <div class="hint">Версия <b id="aboutVer" data-i18n-skip>—</b> · AGPL-3.0 / MIT</div>
-    <div class="row" style="flex-wrap:wrap">
-      <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/" target="_blank" rel="noopener">Сайт</a>
-      <a class="rolelink" href="https://niko-ua-designer.github.io/hudini/help.html" target="_blank" rel="noopener">Справка</a>
-      <a class="rolelink" href="https://github.com/niko-ua-designer/hudini" target="_blank" rel="noopener">Исходный код</a>
-      <a class="rolelink" id="reportLink" href="https://niko-ua-designer.github.io/hudini/report.html?lang=en" target="_blank" rel="noopener">Предложить идею или сообщить о проблеме</a>
-      <a class="rolelink" href="https://t.me/Hudini_DEV?direct" target="_blank" rel="noopener" data-i18n-skip>Telegram</a>
-      <a class="rolelink" href="https://github.com/niko-ua-designer/hudini/blob/main/LICENSE" target="_blank" rel="noopener">Лицензия</a>
-    </div>
-    <div class="hint" style="margin-top:12px">Спасибо тестерам: <b data-i18n-skip>Etsuitoku, SaiYeah1, 0_pelmechka_0, runorn</b></div>
+        <!-- Status & log -->
+        <section class="sec" data-page="log" hidden>
+          <h1>Состояние и журнал</h1>
+          <div class="card">
+            <h2><span class="ico" aria-hidden="true">📊</span><span>Состояние</span></h2>
+            <div class="grid">
+              <div class="st" id="sObs"><b data-i18n-skip>OBS</b><span class="dot"></span><span class="v">—</span></div>
+              <div class="st" id="sTun"><b>Порт для модераторов</b><span class="dot"></span><span class="v">—</span></div>
+              <div class="st" id="sMods"><b>Модераторы напрямую</b><span class="dot"></span><span class="v">—</span></div>
+              <div class="st" id="sFiles"><b>Файлы</b><span class="dot"></span><span class="v">—</span></div>
+              <div class="st" id="sCs"><b data-i18n-skip>CS2</b><span class="dot"></span><span class="v">—</span></div>
+              <div class="st" id="sRoom"><b>Комната</b><span class="dot"></span><span class="v">—</span></div>
+            </div>
+          </div>
+          <div class="card logcard">
+            <h2><span class="ico" aria-hidden="true">📝</span><span>Журнал</span></h2>
+            <div class="row wrap top"><label class="check hint tight grow"><input type="checkbox" id="logConn"><span>только подключения</span></label><button id="logFolder" type="button" hidden>📁 Открыть папку</button><button type="button" id="logCopy">📋 Скопировать</button></div>
+            <pre id="logs" data-i18n-skip tabindex="0"></pre>
+          </div>
+        </section>
+      </div>
+    </main>
   </div>
 </div>
+
+<div class="rmodal" id="roomNotice" hidden role="dialog" aria-modal="true" aria-labelledby="roomTitle">
+  <div class="rbox">
+    <div class="rico" aria-hidden="true">🔑</div>
+    <h2 id="roomTitle">Комната обновлена</h2>
+    <p>Она осталась от старой версии Hudini, и модераторы не могли по ней войти. Hudini Host сделал новую комнату. Осталось два шага:</p>
+    <ol>
+      <li><span>Вставь в OBS новую ссылку (источник «Браузер»)</span><button type="button" id="roomObs">📋 Скопировать ссылку для OBS</button></li>
+      <li><span>Отправь модераторам новый код</span><button type="button" id="roomCode">📋 Скопировать код для модератора</button></li>
+    </ol>
+    <button type="button" class="primary" id="roomOk">Готово</button>
+  </div>
+</div>
+
+<div class="rmodal" id="newsModal" hidden role="dialog" aria-modal="true" aria-labelledby="nwTitle">
+  <div class="rbox">
+    <div class="rico" aria-hidden="true">✨</div>
+    <h2 id="nwTitle"></h2>
+    <div class="mscroll notes" id="nwBody" tabindex="0" data-i18n-skip></div>
+    <div class="mbtns"><button type="button" id="nwAll">Все изменения</button><button type="button" class="primary" id="nwOk">Понятно</button></div>
+  </div>
+</div>
+
+<div class="rmodal" id="updOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="rbox">
+    <div class="rico" aria-hidden="true">🔄</div>
+    <span class="tag" id="ovKind"></span>
+    <h2 id="ovTitle">Вышла новая версия</h2>
+    <div class="vers" id="ovVers" data-i18n-skip></div>
+    <div class="mscroll notes" id="ovNotes" tabindex="0" data-i18n-skip></div>
+    <p>Оверлей пропадёт со стрима на пару секунд.</p>
+    <div class="mbtns"><button type="button" id="ovLater">Позже</button><button type="button" class="primary" id="ovApply">🔄 Обновить и перезапустить</button></div>
+  </div>
+</div>
+
+<div class="tour" id="tour" hidden>
+  <div class="spot" id="tourSpot"></div>
+  <div class="tourbox" id="tourBox" role="dialog" aria-modal="true" aria-labelledby="tourTitle" aria-describedby="tourText">
+    <small id="tourCount" data-i18n-skip></small>
+    <b id="tourTitle"></b>
+    <p id="tourText" aria-live="polite"></p>
+    <div class="mbtns" id="tourSound" hidden><button type="button" id="tourMute">🔇 Без звуков</button><button type="button" class="primary" id="tourSoundOn">🔊 Включить звуки</button></div>
+    <div class="mbtns" id="tourNav"><button type="button" id="tourSkip">Пропустить тур</button><button type="button" id="tourBack">Назад</button><button type="button" class="primary" id="tourNext">Далее</button></div>
+  </div>
+</div>
+
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
 const $=id=>document.getElementById(id);
 const tr_=t=>window.HudiniI18n ? window.HudiniI18n.t(t) : t;
+const uiLang=()=>window.HudiniI18n?.lang||'ru';
 const uiLocale=()=>({ ru:'ru-RU', en:'en-GB', uk:'uk-UA', de:'de-DE' })[window.HudiniI18n?.lang]||'en-GB';
 const TAURI=window.__TAURI__?.core ? window.__TAURI__ : null;   // открыто в окне программы (app/), а не в браузере
 // Rust зовёт это после загрузки страницы, если прошлый запуск упал (crash-*.log в data/logs)
@@ -366,12 +672,35 @@ window.hudiniCrash=(name, text)=>{
 if(TAURI){ $('logFolder').hidden=false; $('logFolder').onclick=()=>TAURI.core.invoke('open_logs').catch(e=>toastErr(e)); }
 function toast(t, err){ const e=$('toast'); e.textContent=t; e.style.display='block'; e.style.borderColor=err?'var(--bad)':''; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none', err?8000:2600); }
 const toastErr=e=>toast(String(e?.message||e), true);   // errors stay on screen longer: there is time to read and copy them
-function st(id, cls, text){ const e=$(id); e.className='st '+cls; e.querySelector('.v').textContent=text; }
-function light(id, cls, title){ const e=$(id); e.className='light '+cls; e.title=title; }
+// storage may be unavailable (private window, blocked site data): the window works without it
+const keep=(box, k, v)=>{ try{ if(v===undefined) return window[box].getItem(k); window[box].setItem(k, v); }catch{} return null; };
+
+// ---------- small DOM helpers ----------
+const el=(tag, text, cls)=>{ const e=document.createElement(tag); if(text!=null) e.textContent=text; if(cls) e.className=cls; return e; };
+const raw=(tag, text, cls)=>{ const e=el(tag, text, cls); e.setAttribute('data-i18n-skip',''); return e; };   // text from the server or already translated
+const ico=emoji=>{ const e=el('span', emoji, 'ico'); e.setAttribute('aria-hidden','true'); return e; };
+const wrote=new WeakMap();
+// Polling writes only what changed, so focus, selection and translated text are left alone
+function setText(e, text){ if(wrote.get(e)===text) return; wrote.set(e, text); e.textContent=text; }
+// A phrase with values: the whole template is one translation key, the result is not translated again
+const fmt=(key, vars={})=>tr_(key).replace(/\{(\w+)\}/g, (m, k)=>vars[k]??m);
+function setRaw(e, text){ if(wrote.get(e)==='\0'+text) return; wrote.set(e, '\0'+text); e.replaceChildren(raw('span', text)); }
+// Rebuild a block only when its data changed
+const sigs=new WeakMap();
+function changed(e, data){ const s=JSON.stringify(data); if(sigs.get(e)===s) return false; sigs.set(e, s); return true; }
+
+function st(id, cls, text){ const e=$(id); e.className='st '+cls; setText(e.querySelector('.v'), text); }
+function light(id, cls, title, value, isData){ const e=$(id); e.className='stat '+cls; if(wrote.get(e)!==title){ wrote.set(e, title); e.title=title; } (isData?setRaw:setText)(e.querySelector('small'), value); }
+let writes=0;   // grows with every change sent to the program: a status answer asked for before it is stale
 async function api(p, body){
-  const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
-  const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
+  if(body) writes++;
+  try{
+    const r=await fetch(p, body ? { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(body) } : {});
+    const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
+  } finally { if(body) writes++; }
 }
+// POST, then show what the program says now (also puts a switch back if the change was refused)
+async function send(p, body){ try{ await api(p, body); }catch(e){ toastErr(e); } await refresh(); }
 // Копирование с отметкой «Скопировано ✓» на самой кнопке. Источник: поле ввода, строка или функция, которая её вернёт
 async function copy(btn, src, msg){
   const input=src&&src.tagName ? src : null, text=input ? input.value : typeof src==='function' ? src() : src; if(!text) return false;
@@ -385,145 +714,501 @@ async function copy(btn, src, msg){
   if(msg) toast(msg);
   return true;
 }
-let limFilled=false, lastS=null;
+
+// ---------- sections ----------
+const VIEWS=['home','obs','code','rights','notify','app','log'];
+let view=[location.hash.slice(1), keep('localStorage','hudini.host.view')].find(v=>VIEWS.includes(v))||'home';
+let lastS=null, logFollow=true;
+const navButton=v=>document.querySelector(`#nav [data-go="${v}"]`);
+const tour={ on:false, done:false, hold:false, steps:[], i:0, back:'home', placed:-1 };
+function show(v){
+  if(!VIEWS.includes(v) || (v==='notify' && lastS && !lastS.notify)) v='home';
+  const moved=document.querySelector('[data-page]:not([hidden])')?.dataset.page!==v, focused=document.activeElement;
+  view=v; keep('localStorage','hudini.host.view', v);
+  if(location.hash.slice(1)!==v) history.replaceState(null, '', '#'+v);
+  // the code and the OBS link are one card each: short on the overview, complete in their own section
+  for(const id of ['codeCard','obsCard']){
+    const full=id==='codeCard' ? 'code' : 'obs', at=v==='home' ? 'home' : full, card=$(id), slot=document.querySelector(`[data-slot="${id}"][data-in="${at}"]`);
+    if(card.parentElement!==slot) slot.append(card);
+    card.classList.toggle('short', at==='home');
+  }
+  for(const s of document.querySelectorAll('[data-page]')) s.hidden=s.dataset.page!==v;
+  for(const b of document.querySelectorAll('#nav [data-go]')) b.dataset.go===v ? b.setAttribute('aria-current','page') : b.removeAttribute('aria-current');
+  if(moved){
+    $('scroll').scrollTop=0;
+    if(focused && focused!==document.body && !focused.getClientRects().length) navButton(v)?.focus();
+    if(v==='log' && logFollow) $('logs').scrollTop=1e9;
+    if(v==='app') loadChangelog(); else tour.hold=false;
+  }
+}
+document.addEventListener('click', e=>{ const b=e.target.closest?.('[data-go]'); if(b) show(b.dataset.go); });
+addEventListener('hashchange', ()=>show(location.hash.slice(1)));
+
+// ---------- requests from moderators ----------
 // Запросы модераторов на камеру, экран и микрофон: те же, что в панели OBS. Пока стример не ответил, модератор ждёт
 const ASK_TXT={ cam:'хочет показать камеру', screen:'хочет показать экран', mic:'хочет включить микрофон' };
+const ASK_ICO={ cam:'📷', screen:'🖥', mic:'🎤' };
 const baseTitle=document.title;
 function renderAsk(s){
-  const list=s.media?.pending||[], box=$('askBox'), sig=JSON.stringify(list);
-  $('askCard').hidden=!list.length;
+  const list=s.media?.pending||[], box=$('askBox');
+  $('askCard').hidden=!list.length; $('global').hidden=!list.length;
   document.title=list.length ? '('+list.length+') '+baseTitle : baseTitle;
-  if(box.dataset.sig===sig) return; box.dataset.sig=sig;
+  if(!changed(box, list)) return;
+  const had=box.contains(document.activeElement) ? document.activeElement.dataset.ask : null;
   box.replaceChildren(...list.map(q=>{
-    const row=el('div',null,'row'), n=el('span',null); n.style.flex='1';
-    const ip=el('b',q.ip); ip.setAttribute('data-i18n-skip',''); n.append(tr_('Модератор')+' ', ip, ' '+tr_(ASK_TXT[q.kind]||q.kind));
-    const go=async a=>{ try{ await api('/api/control', { action:a, key:q.key }); }catch(e){ toastErr(e); } refresh(); };
+    const row=el('div',null,'askrow'), txt=el('div',null,'txt');
+    txt.append(tr_('Модератор')+' ', raw('b', q.ip), ' '+tr_(ASK_TXT[q.kind]||q.kind), el('small','Пока не ответишь, модератор ждёт. То же самое есть в панели OBS.'));
+    const go=a=>send('/api/control', { action:a, key:q.key });
     const ok=el('button','Разрешить показ','primary'), no=el('button','Отклонить запрос');
+    ok.type=no.type='button'; ok.dataset.ask='ok|'+q.key; no.dataset.ask='no|'+q.key;
     ok.onclick=()=>go('mediaallow'); no.onclick=()=>go('mediadeny');
-    row.append(n, ok, no); return row;
+    const btns=el('div',null,'btns'); btns.append(ok, no);
+    row.append(ico(ASK_ICO[q.kind]||'🎥'), txt, btns); return row;
   }));
+  if(had) [...box.querySelectorAll('button')].find(b=>b.dataset.ask===had)?.focus();
 }
+
+// ---------- status ----------
 const WEAP={ak47:'AK-47',m4a1:'M4A4',m4a1_silencer:'M4A1-S',awp:'AWP',deagle:'Desert Eagle',usp_silencer:'USP-S',glock:'Glock-18'};
+let limFilled=false, limDirty=false, gsiDone=false;   // gsiDone: the line under the CS2 buttons shows the result of the install
+let asked=0, answered=0;   // numbers of the status requests: the last one sent and the last one shown
+function hero(cls, title, parts){
+  $('hero').className='hero '+cls; setText($('heroTitle'), title);
+  setRaw($('heroSub'), parts.map(p=>Array.isArray(p) ? fmt(p[0], p[1]) : tr_(p)).join(' · '));
+}
+function offline(){
+  st('sObs','bad','программа не отвечает'); light('lObs','bad','программа не отвечает','ошибка');
+  hero('bad', 'Программа не отвечает', ['Если это не проходит, перезапусти Hudini Host.']);
+}
+function renderHero(s){
+  if(s.modErr) return hero('bad', 'Порт модераторов не открылся', ['Оверлей работает, но модераторы не смогут подключиться.']);
+  if(!s.room) return hero('warn', 'Комната создаётся', ['Это занимает несколько секунд.']);
+  if(!s.obsOnline) return hero('warn', 'OBS не подключён', ['Вставь ссылку для OBS в источник «Браузер»']);
+  hero('ok', 'Всё готово к стриму', ['OBS подключён', ['модераторов: {n}', { n:s.mods||0 }], s.cs2Online?'CS2: данные идут':'CS2: нет данных']);
+}
 async function refresh(){
-  let s; try{ s=await api('/api/status'); }catch{ st('sObs','bad','программа не отвечает'); light('lObs','bad','программа не отвечает'); return; }
-  $('ver').textContent='v'+s.version;
-  $('aboutVer').textContent='v'+s.version;
+  const my=++asked, before=writes;
+  let s; try{ s=await api('/api/status'); }catch{ if(my>answered) offline(); return; }
+  if(my<answered || before!==writes) return;   // an older answer, or one from before a change
+  const first=!answered; answered=my;
+  setRaw($('ver'), 'v'+s.version);
+  setRaw($('aboutVer'), 'v'+s.version);
   const app=!!(s.app || TAURI);
   $('subApp').hidden=!app; $('subBrowser').hidden=app; $('roleLink').hidden=!TAURI;   // /__role: программа возвращает окно на первый экран
   $('legacyBanner').hidden=!s.standalone;
-  if(document.activeElement!==$('obs')) $('obs').value=s.obsLink||'';
+  if(document.activeElement!==$('obs') && $('obs').value!==(s.obsLink||'')) $('obs').value=s.obsLink||'';
   const obsTxt=s.obsOnline?'виджет подключён':(s.room?'виджет не подключён':'комната создаётся');
   const tunTxt=s.modErr?('не открылся: '+s.modErr):('порт '+s.mport+' · TLS');
   const csTxt=s.cs2Online?'данные идут':'нет данных';
   st('sObs', s.obsOnline?'ok':'bad', obsTxt);
   st('sTun', s.modErr?'bad':'ok', tunTxt);
   st('sMods', s.mods?'ok':'warn', s.mods?('онлайн: '+s.mods):'пока никого');
-  light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Комната создаётся');
-  light('lObs', s.obsOnline?'ok':(s.room?'warn':''), obsTxt);
-  light('lTun', s.modErr?'bad':'ok', tunTxt);
-  light('lCs', s.cs2Online?'ok':'', csTxt);
-  const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0), U=['ru','uk'].includes(window.HudiniI18n?.lang||'ru')?'МБ':'MB';
+  st('sRoom', s.room?'ok':'warn', s.room||'комната создаётся');
+  light('lRoom', s.room?'ok':'bad', s.room?'Комната: '+s.room:'Комната создаётся', s.room||'создаётся', !!s.room);
+  light('lObs', s.obsOnline?'ok':(s.room?'warn':''), obsTxt, s.obsOnline?'подключён':'не подключён');
+  light('lTun', s.modErr?'bad':'ok', tunTxt, s.modErr?'ошибка':String(s.mport), !s.modErr);
+  light('lCs', s.cs2Online?'ok':'', csTxt, csTxt);
+  setText($('obsTag'), s.obsOnline?'виджет подключён':'виджет не подключён'); $('obsTag').className='right tag '+(s.obsOnline?'ok':'warn');
+  const g=s.storage||{}, L=s.limits||{}, mb=b=>(b/1048576).toFixed(b<10485760?1:0), U=['ru','uk'].includes(uiLang())?'МБ':'MB';
   st('sFiles', g.used>0.9*g.limitBytes||g.files>=g.maxFiles?'warn':'ok', `${mb(g.used||0)} / ${L.totalMB} ${U} · файлов: ${g.files||0} / ${L.files}`);
-  $('limUsed').textContent = `Сейчас занято: ${mb(g.used||0)} ${U} · файлов: ${g.files||0}`;
+  setText($('limUsed'), `Сейчас занято: ${mb(g.used||0)} ${U} · файлов: ${g.files||0}`);
+  $('limMeter').style.width=g.limitBytes ? Math.min(100, 100*(g.used||0)/g.limitBytes)+'%' : '0';
   if(!limFilled || !g.limitsSet){
-    if(!['limFile','limTotal','limFiles'].includes(document.activeElement?.id)){ $('limFile').value=L.fileMB; $('limTotal').value=L.totalMB; $('limFiles').value=L.files; limFilled=true; }
+    if(!limDirty && !['limFile','limTotal','limFiles'].includes(document.activeElement?.id)){ $('limFile').value=L.fileMB; $('limTotal').value=L.totalMB; $('limFiles').value=L.files; limFilled=true; }
   }
   $('limAsk').hidden = !!g.limitsSet; $('limCard').classList.toggle('first', !g.limitsSet);
-  $('limSave').textContent = g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить';
-  lastS=s; renderConnect(s); renderAsk(s);
+  setText($('limSave'), g.limitsSet ? 'Сохранить' : 'Сохранить и продолжить');
+  $('tipLimits').hidden = !!g.limitsSet || !s.limits;
+  lastS=s;
+  renderHero(s); renderConnect(s); renderAsk(s); renderCs2(s, csTxt); renderUpdate(s); renderNotify(s); renderSettings(s);
+  $('reportLink').href=reportHref(s);
+  renderLogs(s);
+  if(view==='notify' && !s.notify) show('home');
+  if(first && view==='app') loadChangelog();
+  syncModals();
+}
+function renderCs2(s, csTxt){
   st('sCs', s.cs2Online?'ok':'warn', csTxt);
-  if(s.gsiPath) $('gsiInfo').textContent='Файл: '+s.gsiPath;
-  const c=s.cs2;
-  $('cs2').innerHTML='';
-  if(c && s.cs2Online){
-    const add=(k,v)=>{ const sp=document.createElement('span'); sp.append(k+' '); const b=document.createElement('b'); b.textContent=v??'—'; sp.append(b); $('cs2').append(sp); };
+  setText($('csTag'), csTxt); $('csTag').className='right tag'+(s.cs2Online?' ok':'');
+  if(s.gsiPath && !gsiDone && changed($('gsiInfo'), s.gsiPath)) $('gsiInfo').replaceChildren(el('span','Файл:'), ' ', raw('span', s.gsiPath));
+  const c=s.cs2, live=!!(c && s.cs2Online);
+  $('cs2None').hidden=live;
+  for(const box of [$('cs2'), $('cs2Home')]){
+    if(!changed(box, live ? c : null)) continue;
+    box.replaceChildren();
+    if(!live) continue;
+    const add=(k,v)=>{ const sp=el('span',null,'v'); sp.append(el('span',k), raw('b', v??'—')); box.append(sp); };
     add('Карта',c.map); add('Счёт',`${c.ct??0}:${c.tt??0}`); add('K/D/A',`${c.k??0}/${c.d??0}/${c.a??0}`); add('HP',c.hp); add('$',c.money);
     if(c.weapon) add('Оружие', WEAP[c.weapon.replace('weapon_','')]||c.weapon.replace('weapon_',''));
   }
-  const u=s.upd||{};
-  $('reportLink').href=reportHref(s);
-  $('updInfo').textContent = !u.compiled ? 'Запущено из исходников: обновляй через git pull' :
-    u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…${u.prog?.total ? ' '+Math.round(100*u.prog.done/u.prog.total)+'%' : ''}` :
-    u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
-    u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
-  { const dl=u.state==='downloading'; $('updBar').hidden=!(dl||u.state==='checking'); $('updBar').classList.toggle('busy', !(dl && u.prog?.total));
-    $('updFill').style.width = dl && u.prog?.total ? Math.round(100*u.prog.done/u.prog.total)+'%' : '';
-    $('updWhen').textContent = !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(uiLocale(), { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось'; }
-  $('updApply').hidden = !u.ready; if(document.activeElement!==$('updAuto')) $('updAuto').checked = !!u.auto;
-  $('logs').textContent=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n'); $('logs').scrollTop=1e9;
 }
+function renderLogs(s){
+  const box=$('logs'), text=($('logConn').checked ? (s.connLogs||[]) : (s.logs||[])).join('\n');
+  if(box.textContent===text) return;
+  box.textContent=text; if(logFollow) box.scrollTop=1e9;
+}
+$('logs').addEventListener('scroll', ()=>{ const b=$('logs'); if(b.clientHeight) logFollow=b.scrollTop+b.clientHeight>=b.scrollHeight-8; });
 $('copyObs').onclick=async()=>{ if(!await copy($('copyObs'), $('obs'), 'Скопировано: вставь в OBS')) toast('Комната ещё создаётся'); };
-$('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ $('gsiInfo').textContent=e.message; } };
+$('gsiInstall').onclick=async()=>{ try{ const r=await api('/api/gsi/install', {}); gsiDone=true; $('gsiInfo').textContent='✓ Готово: '+r.file+' — перезапусти CS2'; }catch(e){ gsiDone=false; $('gsiInfo').textContent=e.message; } };
 $('gsiDl').onclick=()=>{ location.href='/api/gsi/cfg'; };
-$('updCheck').onclick=async()=>{ toast('Проверяю…'); try{ await api('/api/update/check', {}); }catch(e){ toastErr(e); } refresh(); };
-$('updApply').onclick=async()=>{ if(!confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return; try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toastErr(e); } };
 const reportHref=(s)=>{ const q=new URLSearchParams({ lang:window.HudiniI18n?.lang||'en', role:'streamer' }); if(s?.version) q.set('v', s.version);
   const ua=navigator.userAgent||''; q.set('os', /Windows/i.test(ua)?'windows':/Mac/i.test(ua)?'macos':/Linux|X11/i.test(ua)?'linux':'windows');
   const nets=(s?.addrs||[]).map(a=>a.net).filter(n=>['radmin','porthole','tailscale','zerotier','hamachi','ext'].includes(n)); if(nets.length===1) q.set('conn', nets[0]);
   return 'https://niko-ua-designer.github.io/hudini/report.html?'+q; };
 $('reportLink').href=reportHref();
 // «Сменить роль» останавливает сервер: во время стрима переспрашиваем
+const streaming=()=>!!(lastS && (lastS.obsOnline || lastS.mods>0 || (lastS.media?.live||[]).length));
 $('roleLink').onclick=e=>{
-  const busy=lastS && (lastS.obsOnline || lastS.mods>0 || (lastS.media?.live||[]).length);
-  if(busy && !confirm('Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?')) e.preventDefault();
+  if(streaming() && !confirm('Сейчас идёт стрим: OBS или модераторы подключены. Если сменить роль, программа остановит сервер и оверлей пропадёт. Сменить?')) e.preventDefault();
 };
-$('updAuto').onchange=async e=>{ try{ await api('/api/update/auto', { auto:e.target.checked }); }catch(err){ toastErr(err); } };
-// the dock must open on localhost (the widget's origin): on 127.0.0.1 the status API hides everything without the admin cookie
-const DOCK_URL=`http://localhost:${location.port||'7777'}/dock?lang=${window.HudiniI18n?.lang||'en'}`;   // the dock has no language switch: it takes the language from the link
-$('dockUrl').value=DOCK_URL; $('dockCode').textContent=DOCK_URL;
-$('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
-$('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toastErr(e); } };
-// ---- подключение модераторов ----
+
+// ---------- updates ----------
+const KINDS={ hotfix:['хотфикс','Вышло исправление'], version:['новая версия','Вышла новая версия'], beta:['бета','Вышла новая бета-версия'] };
+const notesSig=n=>n ? [n.ver, n.sections] : null;
+// Release notes come from the server: text only, never markup
+function noteSections(box, sections){
+  for(const s of Array.isArray(sections) ? sections : []){
+    if(s?.title) box.append(el('h4', String(s.title)));
+    const ul=el('ul'); for(const i of Array.isArray(s?.items) ? s.items : []) ul.append(el('li', String(i)));
+    if(ul.childElementCount) box.append(ul);
+  }
+}
+function renderUpdate(s){
+  const u=s.upd||{}, manual=u.channel!==undefined;   // a program with update channels never restarts by itself
+  const info = !u.compiled ? 'Запущено из исходников: обновляй через git pull' :
+    u.state==='checking' ? 'Проверяю…' : u.state==='downloading' ? `Скачиваю ${u.latest}…${u.prog?.total ? ' '+Math.round(100*u.prog.done/u.prog.total)+'%' : ''}` :
+    u.state==='ready' ? `Скачана версия ${u.latest}. Применится сама, когда стрим не идёт, или нажми кнопку.` :
+    u.state==='error' ? '⚠ '+u.err : u.state==='latest' ? `✓ Версия ${s.version} — последняя` : `Версия ${s.version}`;
+  if(manual && u.compiled && u.state==='ready') setRaw($('updInfo'), fmt('Скачана версия {v}. Перезапусти программу, когда будет удобно.', { v:u.latest }));
+  else setText($('updInfo'), info);
+  const dl=u.state==='downloading'; $('updBar').hidden=!(dl||u.state==='checking'); $('updBar').classList.toggle('busy', !(dl && u.prog?.total));
+  $('updFill').style.width = dl && u.prog?.total ? Math.round(100*u.prog.done/u.prog.total)+'%' : '';
+  setText($('updWhen'), !u.compiled ? '' : u.checkedAt ? 'Последняя проверка: '+new Date(u.checkedAt).toLocaleString(uiLocale(), { dateStyle:'medium', timeStyle:'short' }) : 'Ещё не проверялось');
+  $('updApply').hidden = !u.ready; $('navUpd').hidden = !u.ready;
+  $('updAuto').checked = !!u.auto; $('updAutoRow').hidden = u.auto===undefined;
+  setText($('updAutoTxt'), manual ? 'Скачивать обновления автоматически' : 'Обновлять автоматически (только когда стрим не идёт: OBS не подключён, модераторов нет)');
+  $('updAutoHint').hidden = !manual;
+  const kind=u.ready ? KINDS[u.kind] : null;
+  $('updKind').hidden=!kind; if(kind) setText($('updKind'), kind[0]);
+  $('chanRow').hidden = !['stable','beta'].includes(u.channel);
+  for(const r of document.querySelectorAll('input[name=channel]')) r.checked=r.value===u.channel;
+  const notes=u.ready && Array.isArray(u.notes?.sections) && u.notes.sections.length ? u.notes : null;
+  $('updNotes').hidden=!notes;
+  if(changed($('updNotes'), notesSig(notes))){ $('updNotes').replaceChildren(); if(notes){ $('updNotes').append(el('h3', fmt('Что нового в версии {v}', { v:notes.ver||u.latest }))); noteSections($('updNotes'), notes.sections); } }
+  // the installed version is newer than the latest stable one: roll back now or wait for the next stable release
+  const back=u.rollback?.ver ? String(u.rollback.ver) : '', waiting=!!back && keep('localStorage','hudini.host.rbWait')===back;
+  $('rollBox').hidden=!back;
+  if(back){
+    setRaw($('rollTxt'), fmt(waiting ? 'Ждём новую стабильную версию. Откатиться на {v} можно в любой момент.' : 'Сейчас стоит {cur}, а последняя стабильная — {v}. Можно откатиться сейчас (сначала сохранится копия настроек) или дождаться новой стабильной.', { v:back, cur:s.version }));
+    setRaw($('rollNow'), fmt('Откатиться на {v}', { v:back }));
+    $('rollWait').hidden=waiting;
+  }
+  // home tip
+  $('tipUpd').hidden=!u.ready; if(u.ready) setRaw($('tipUpdTxt'), fmt('Скачана версия {v}.', { v:u.latest }));
+  // the full-window offer
+  if(u.ready && kind && changed($('ovNotes'), [u.latest, u.kind, s.version, notesSig(notes)])){
+    setText($('ovKind'), kind[0]); setText($('ovTitle'), kind[1]);
+    $('ovVers').textContent='v'+s.version+' → v'+u.latest;
+    $('ovNotes').replaceChildren(); $('ovNotes').hidden=!notes; if(notes) noteSections($('ovNotes'), notes.sections);
+  }
+}
+async function applyUpdate(ask){
+  if(ask && !confirm('Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return;
+  try{ await api('/api/update/apply', {}); toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000); }catch(e){ toastErr(e); }
+}
+$('updCheck').onclick=async()=>{ toast('Проверяю…'); await send('/api/update/check', {}); };
+$('updApply').onclick=$('tipApply').onclick=()=>applyUpdate(true);
+$('updAuto').onchange=e=>send('/api/update/auto', { auto:e.target.checked });
+for(const r of document.querySelectorAll('input[name=channel]')) r.onchange=()=>{ if(r.checked) send('/api/update/channel', { channel:r.value }); };
+$('rollNow').onclick=()=>{
+  const v=lastS?.upd?.rollback?.ver; if(!v) return;
+  if(confirm(fmt('Откатиться на версию {v}? Сначала сохранится копия настроек. При перезапуске оверлей пропадёт со стрима на пару секунд.', { v }))) send('/api/update/rollback', {});
+};
+$('rollWait').onclick=()=>{ const v=lastS?.upd?.rollback?.ver; if(!v) return; keep('localStorage','hudini.host.rbWait', String(v)); if(lastS) renderUpdate(lastS); $('rollNow').focus(); };
+
+// ---------- changelog ----------
+let chlog=null, chlogJob=null;
+const hasNews=()=>!!(lastS && (lastS.ui || lastS.upd?.channel));   // programs without these have no /api/changelog
+function loadChangelog(){
+  if(!hasNews()) return Promise.resolve(null);
+  if(chlog) return Promise.resolve(chlog);
+  return chlogJob ||= api('/api/changelog?lang='+uiLang()).then(j=>{ if(Array.isArray(j.entries)){ chlog=j; renderChangelog(j); } return chlog; }).catch(()=>null).finally(()=>{ chlogJob=null; });
+}
+const niceDate=d=>{ const t=new Date(d); return d && !isNaN(t) ? t.toLocaleDateString(uiLocale(), { dateStyle:'medium', timeZone:'UTC' }) : String(d||''); };
+function entryBody(box, e, beta){
+  if(beta) box.append(el('h3', tr_('Что входит в бету')));
+  noteSections(box, e.sections);
+  const testing=Array.isArray(e.testing) ? e.testing : [];
+  if(e.beta && testing.length){ const ul=el('ul'); for(const i of testing) ul.append(el('li', String(i))); box.append(el('h3', tr_('Что тестируется')), ul); }
+}
+function renderChangelog(j){
+  const list=j.entries.filter(e=>e && e.ver);
+  $('newsCard').hidden=!list.length;
+  const openVer=list.some(e=>e.ver===j.current) ? j.current : list[0]?.ver;
+  $('newsList').replaceChildren(...list.map(e=>{
+    const d=el('details',null,'ver'), sum=el('summary'), body=el('div',null,'notes'); d.open=e.ver===openVer;
+    sum.append(el('span','v'+e.ver));
+    if(e.beta) sum.append(el('span', tr_('бета'), 'tag warn'));
+    if(e.ver===j.current) sum.append(el('span', tr_('установлена'), 'tag ok'));
+    sum.append(el('span', niceDate(e.date), 'when'));
+    entryBody(body, e, false); d.append(sum, body); return d;
+  }));
+}
+
+// ---------- settings: sounds and tour ----------
+function renderSettings(s){
+  $('uiCard').hidden=!s.ui;
+  $('soundsRow').hidden=!s.ui || s.ui.sounds===undefined; $('soundsOn').checked=s.ui?.sounds===true;
+}
+$('soundsOn').onchange=e=>send('/api/ui', { sounds:e.target.checked });
+
+// ---------- notifications ----------
+const NGROUPS=[
+  ['moderators','👥','Модераторы',[['join','Модератор подключился'],['leave','Модератор отключился']]],
+  ['media','📷','Запросы показа',[['cam','Запрос камеры'],['screen','Запрос экрана'],['mic','Запрос микрофона']]],
+  ['obs','📺','OBS',[['widgetUp','Виджет подключился'],['widgetDown','Виджет отключился'],['dock','Док подключился']]],
+  ['cs2','🎯','CS2',[['appeared','Игра появилась']]],
+  ['system','🔄','Обновления и ошибки',[['updateReady','Обновление готово'],['updateError','Ошибка обновления'],['modPort','Порт модераторов не открылся'],['roomNew','Комната пересоздана']]],
+];
+let openGroups=(()=>{ try{ const a=JSON.parse(keep('localStorage','hudini.host.groups')); if(Array.isArray(a)) return new Set(a); }catch{} return new Set(['moderators','media','obs']); })();
+function notifyGroup([id, icon, name, kinds], locked){
+  const box=el('div',null,'ng'); box.dataset.group=id;
+  const head=el('div',null,'ng-head'), btn=el('button',null,'ng-open'), title=el('span',null,'ng-title'), body=el('div',null,'ng-body');
+  const mark=el('span',null,'ng-ico'); mark.append(ico(icon));
+  title.append(el('b', name), el('small',''));
+  btn.type='button'; btn.id='ng_'+id; btn.setAttribute('aria-expanded', openGroups.has(id)); body.hidden=!openGroups.has(id);
+  btn.append(mark, title, el('span',null,'chev'));
+  btn.onclick=()=>{ openGroups.has(id) ? openGroups.delete(id) : openGroups.add(id); body.hidden=!openGroups.has(id); btn.setAttribute('aria-expanded', !body.hidden); keep('localStorage','hudini.host.groups', JSON.stringify([...openGroups])); };
+  head.append(btn);
+  const toggle=(inputId, onchange, label, cls)=>{
+    const l=el('label',null,cls), inp=el('input'); inp.type='checkbox'; inp.id=inputId; inp.onchange=()=>onchange(inp.checked);
+    if(label) l.append(el('span', label, 'name'));
+    l.append(inp, el('span',null,'sw')); return l;
+  };
+  if(locked){ const mk=el('span',null,'locked'); mk.title='Нельзя выключить'; mk.append(ico('🔒')); head.append(mk); }
+  else{ const l=toggle('nt_'+id, on=>send('/api/notify', { group:id, on }), null, 'tgl'); l.title='Вся группа'; l.querySelector('input').setAttribute('aria-label', name); head.append(l); }
+  for(const [kind, label] of kinds){
+    if(locked){ const r=el('div',null,'lockrow'); r.dataset.kind=kind; r.append(el('span', label), ico('🔒')); body.append(r); }
+    else body.append(toggle('nt_'+id+'_'+kind, on=>send('/api/notify', { group:id, kind, on }), label, 'tgl mini'));
+  }
+  if(locked) body.append(el('div','Нельзя выключить: модератор ждёт ответа.','hint'));
+  box.append(head, body); return box;
+}
+function renderNotify(s){
+  const n=s.notify, groups=n?.groups||{}, list=$('notifyList');
+  $('navNotify').hidden=!n; $('notifyNote').hidden=!n?.visibleOnlyMedia;
+  const have=NGROUPS.filter(g=>groups[g[0]]).map(([id, icon, name, kinds])=>[id, icon, name, kinds.filter(k=>typeof groups[id].kinds?.[k[0]]==='boolean')]);
+  if(changed(list, have.map(g=>[g[0], !!groups[g[0]].locked, g[3].map(k=>k[0])]))) list.replaceChildren(...have.map(g=>notifyGroup(g, !!groups[g[0]].locked)));
+  for(const [id, , , kinds] of have){
+    const g=groups[id], box=list.querySelector(`[data-group="${id}"]`), sum=box.querySelector('.ng-title small');
+    const on=kinds.filter(k=>g.kinds[k[0]]).length;
+    if(g.locked) setText(sum, 'всегда включено');
+    else if(!g.on || !on) setText(sum, 'выключено');
+    else if(on<kinds.length) setRaw(sum, fmt('включено {n} из {m}', { n:on, m:kinds.length }));
+    else if(on>1) setRaw(sum, fmt('включено всё: {n}', { n:on }));
+    else setText(sum, 'включено');
+    if(g.locked) continue;
+    $('nt_'+id).checked=!!g.on;
+    box.querySelector('.ng-body').classList.toggle('off', !g.on);
+    for(const [kind] of kinds){ const c=$('nt_'+id+'_'+kind); c.checked=!!g.kinds[kind]; c.disabled=!g.on; }
+  }
+}
+
+// ---------- windows over the program: new room, what is new, tour, update ----------
+let newsDone='', news=null;   // news: { ver, ready } for the popup about the version that has just started
+const newsWanted=()=>{ const w=lastS?.ui?.whatsNew; return w?.ver && w.ver!==newsDone ? w : null; };
+function prepareNews(w){
+  if(news?.ver===w.ver) return;
+  const mine=news={ ver:w.ver, ready:false };
+  loadChangelog().then(j=>{
+    if(news!==mine) return;
+    const e=j?.entries?.find(x=>x?.ver===w.ver), box=$('nwBody'), beta=!!(w.beta ?? e?.beta);
+    setRaw($('nwTitle'), fmt(beta ? 'Что нового в бете {v}' : 'Что нового в версии {v}', { v:w.ver }));
+    box.replaceChildren();
+    if(e) entryBody(box, e, beta); else box.append(el('p', tr_('Список изменений пока не загрузился.')));
+    mine.ready=true; syncModals();
+  });
+}
+function closeNews(){
+  const w=newsWanted(); if(!w) return;
+  newsDone=w.ver; syncModals();
+  api('/api/ui', { seenWhatsNew:true }).catch(toastErr);
+}
+$('nwOk').onclick=closeNews;
+// "All changes": the first tour waits until the reader leaves that section
+$('nwAll').onclick=()=>{ tour.hold=true; show('app'); closeNews(); loadChangelog().then(()=>$('newsCard').scrollIntoView({ block:'start' })); };
+
+const laterVer=()=>keep('sessionStorage','hudini.host.later');
+let later='';
+const updWanted=()=>{ const u=lastS?.upd; return !!(u?.ready && KINDS[u.kind] && String(u.latest)!==(later||laterVer())); };
+$('ovLater').onclick=()=>{ later=String(lastS?.upd?.latest); keep('sessionStorage','hudini.host.later', later); syncModals(); };
+$('ovApply').onclick=()=>applyUpdate(streaming());
+
+const TOUR=[
+  { at:['#nav'], title:'Разделы программы', text:'Всё разложено по разделам: стрим, модераторы и программа. Обзор показывает, всё ли готово к стриму.' },
+  { at:['#codeCard'], view:'home', title:'Код для модератора', text:'Скопируй код и отправь его модератору. Здесь же можно закрыть вход.' },
+  { at:['#obsCard'], view:'home', title:'Ссылка для OBS', text:'Вставь эту ссылку в OBS как источник «Браузер»: так оверлей попадёт на стрим.' },
+  { at:['#openPanel'], title:'Пульт на этом компьютере', text:'Полный пульт в отдельном окне, без кода и пароля.' },
+  { at:['#nav [data-go="obs"]'], title:'OBS и CS2', text:'Пошаговая настройка OBS, маленькая панель прямо в OBS и подключение CS2.' },
+  { at:['#nav [data-go="code"]','#nav [data-go="rights"]'], title:'Всё про модераторов', text:'Код, адреса, права и место для файлов.' },
+  { at:['#nav [data-go="notify"]','#nav [data-go="app"]'], title:'Настройки программы', text:'Уведомления, обновления, список изменений, автозапуск и звуки.' },
+  { at:['#lights'], title:'Состояние одним взглядом', text:'Комната, OBS, порт модераторов и CS2. Нажми на строку, чтобы открыть нужный раздел.' },
+  { at:[], sound:true, title:'Звуки программы', text:'Включить короткие звуки? Это всегда можно поменять в разделе «Запуск и обновления».' },
+];
+const visible=e=>!!e && e.getClientRects().length>0;
+function startTour(){
+  tour.back=view;
+  tour.steps=TOUR.filter(s=>s.sound ? lastS?.ui?.sounds===null : s.at[0]!=='#openPanel' || !$('panelCard').hidden);
+  tour.i=0; tour.placed=-1; tour.on=true;
+}
+function endTour(sounds){
+  tour.on=false; tour.done=true; show(tour.back); syncModals();
+  api('/api/ui', sounds===undefined ? { tourDone:true } : { tourDone:true, sounds }).then(refresh, toastErr);
+}
+// Skipping still asks about sounds when that was never answered
+function skipTour(){ const i=tour.steps.findIndex(s=>s.sound); if(i>=0 && i!==tour.i) goTour(i); else endTour(); }
+function goTour(i){ tour.i=i; syncModals(); (tour.steps[i].sound ? $('tourSoundOn') : $('tourNext')).focus(); }
+function placeTour(){
+  if($('tour').hidden) return;
+  const s=tour.steps[tour.i], moved=tour.placed!==tour.i;
+  if(s.view && view!==s.view) show(s.view);
+  setRaw($('tourCount'), fmt('{n} из {m}', { n:tour.i+1, m:tour.steps.length }));
+  setText($('tourTitle'), s.title); setText($('tourText'), s.text);
+  const last=tour.i===tour.steps.length-1;
+  $('tourSound').hidden=!s.sound; $('tourNext').hidden=!!s.sound; $('tourSkip').hidden=!!s.sound;
+  $('tourBack').hidden=tour.i===0; setText($('tourNext'), last ? 'Готово' : 'Далее');
+  const targets=s.at.map(q=>document.querySelector(q)).filter(visible);
+  if(moved && targets[0]){ targets[0].scrollIntoView({ block:$('scroll').contains(targets[0]) ? 'start' : 'nearest' }); }
+  tour.placed=tour.i;
+  const spot=$('tourSpot'), box=$('tourBox'), W=innerWidth, H=innerHeight, top=$('tour').getBoundingClientRect().top;
+  const bw=box.offsetWidth, bh=box.offsetHeight, fit=(v, lo, hi)=>Math.max(lo, Math.min(v, hi));
+  spot.classList.toggle('none', !targets.length);
+  let x=(W-bw)/2, y=top+(H-top-bh)/2;
+  if(targets.length){
+    const r=targets.map(e=>e.getBoundingClientRect()), pad=4;
+    const l=Math.max(2, Math.min(...r.map(a=>a.left))-pad), t=Math.max(top+2, Math.min(...r.map(a=>a.top))-pad);
+    const rt=Math.min(W-2, Math.max(...r.map(a=>a.right))+pad), b=Math.min(H-2, Math.max(...r.map(a=>a.bottom))+pad);
+    Object.assign(spot.style, { left:l+'px', top:t+'px', width:(rt-l)+'px', height:Math.max(0, b-t)+'px' });
+    if(W-rt>=bw+20){ x=rt+12; y=fit(t, top+8, H-bh-8); }
+    else if(H-b>=bh+16){ x=fit(l, 8, W-bw-8); y=b+10; }
+    else if(t-top>=bh+16){ x=fit(l, 8, W-bw-8); y=t-bh-10; }
+    else{ x=W-bw-12; y=H-bh-12; }
+  } else Object.assign(spot.style, { left:W/2+'px', top:H/2+'px', width:'0px', height:'0px' });
+  box.style.left=Math.max(8, x)+'px'; box.style.top=Math.max(top+8, y)+'px';
+}
+$('tourNext').onclick=()=>{ if(tour.i>=tour.steps.length-1) endTour(); else goTour(tour.i+1); };
+$('tourBack').onclick=()=>{ if(tour.i>0) goTour(tour.i-1); };
+$('tourSkip').onclick=skipTour;
+$('tourSoundOn').onclick=()=>endTour(true);
+$('tourMute').onclick=()=>endTour(false);
+$('tourReplay').onclick=()=>{ startTour(); syncModals(); };
+
+const MODAL_FOCUS={ roomNotice:'roomObs', newsModal:'nwOk', tour:'tourNext', updOverlay:'ovLater' };
+let modal=null, modalFrom=null;
+function layoutAsk(){
+  const h=document.body.classList.contains('modal') && !$('global').hidden ? $('global').offsetHeight : 0;
+  document.documentElement.style.setProperty('--askh', h+'px');
+}
+function syncModals(){
+  const room=!!lastS?.roomNotice, wn=newsWanted();
+  if(wn) prepareNews(wn);
+  if(!tour.on && !tour.done && !tour.hold && lastS?.ui?.tourDone===false && !room && !wn && !$('langPick')) startTour();
+  const cur=room ? 'roomNotice' : wn ? (news?.ready ? 'newsModal' : null) : tour.on ? 'tour' : updWanted() ? 'updOverlay' : null;
+  const opening=cur!==modal;
+  if(opening && cur && !modal) modalFrom=document.activeElement;
+  const inModal=modal && $(modal).contains(document.activeElement);
+  for(const id of Object.keys(MODAL_FOCUS)) $(id).hidden=id!==cur;
+  document.body.classList.toggle('modal', !!cur);
+  $('side').inert=$('scroll').inert=!!cur;   // the requests above stay usable
+  layoutAsk(); placeTour();
+  if(!opening) return;
+  modal=cur;
+  if($('global').contains(document.activeElement)) return;
+  if(cur){ const id=cur==='tour' && tour.steps[tour.i].sound ? 'tourSoundOn' : MODAL_FOCUS[cur]; $(id).focus(); }
+  else if(inModal || document.activeElement===document.body) (visible(modalFrom) && modalFrom!==document.body ? modalFrom : navButton(view))?.focus({ preventScroll:true });
+}
+new ResizeObserver(()=>{ layoutAsk(); placeTour(); }).observe($('global'));
+new ResizeObserver(()=>placeTour()).observe($('tourBox'));
+addEventListener('resize', ()=>{ layoutAsk(); placeTour(); });
+addEventListener('keydown', e=>{
+  if(!modal || $('langPick')) return;
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(modal==='newsModal') closeNews(); else if(modal==='updOverlay') $('ovLater').click(); else if(modal==='tour') skipTour();
+  } else if(e.key==='Tab'){   // focus goes round the requests and the open window only
+    const all=[$('global'), $(modal)].flatMap(r=>[...r.querySelectorAll('button,a[href],input,[tabindex="0"]')]).filter(x=>visible(x) && !x.disabled);
+    if(!all.length) return;
+    const i=all.indexOf(document.activeElement), n=i<0 ? 0 : (i+(e.shiftKey?-1:1)+all.length)%all.length;
+    e.preventDefault(); all[n].focus();
+  }
+});
+
+// ---------- подключение модераторов ----------
 const NET={ tailscale:'Tailscale', radmin:'Radmin VPN', hamachi:'Hamachi', zerotier:'ZeroTier', lan:'Локальная сеть', inet:'Интернет', porthole:'Porthole', ext:'Свой адрес' };
 const NEED={ tailscale:'Tailscale у обоих', radmin:'Radmin VPN у обоих', hamachi:'Hamachi у обоих', zerotier:'ZeroTier у обоих', lan:'одна сеть с модератором', inet:'порт 7778 открыт из интернета', porthole:'Porthole, порт модераторов', ext:'проброс порта на роутере' };
 let lastCode='', hist=new Map();
-const el=(tag, text, cls)=>{ const e=document.createElement(tag); if(text!=null) e.textContent=text; if(cls) e.className=cls; return e; };
 const rttCls=ms=>ms==null?'':ms<80?'good':ms<200?'mid':'slow';
 function renderConnect(s){
-  lastCode=s.code||''; $('mpTxt').textContent=s.mport; $('lpTxt').textContent=location.port||'7777';
-  $('codeBox').textContent=lastCode||'—';
-  $('fpTxt').textContent=s.fp ? s.fp.slice(0,8)+'…'+s.fp.slice(-6) : '—';
-  $('modsOn').checked=!!s.modsOn;
+  lastCode=s.code||''; setRaw($('mpTxt'), String(s.mport)); setRaw($('lpTxt'), location.port||'7777');
+  if($('codeBox').textContent!==(lastCode||'—')) $('codeBox').textContent=lastCode||'—';
+  setRaw($('fpTxt'), s.fp ? s.fp.slice(0,8)+'…'+s.fp.slice(-6) : '—');
+  $('modsOn').checked=!!s.modsOn; $('modsClosed').hidden=s.modsOn!==false;
   $('panelCard').hidden=!s.panel; $('openPanel').disabled=!s.ownRoom;
-  $('panelHint').textContent=s.ownRoom ? '' : 'Работает с комнатой, которую создал Hudini Host, а не со ссылкой из пульта модератора.';
-  for(const c of document.querySelectorAll('[data-perm]')) if(document.activeElement!==c) c.checked=['cam','screen','mic'].includes(c.dataset.perm) ? s.perms?.[c.dataset.perm]===true : s.perms?.[c.dataset.perm]!==false;
-  $('cfNotice').hidden=!s.cfNotice; $('roomNotice').hidden=!s.roomNotice;
+  $('tipPanel').hidden=!(s.panel && !s.ownRoom);
+  setText($('panelHint'), s.ownRoom ? '' : 'Работает с комнатой, которую создал Hudini Host, а не со ссылкой из пульта модератора.');
+  for(const c of document.querySelectorAll('[data-perm]')) c.checked=['cam','screen','mic'].includes(c.dataset.perm) ? s.perms?.[c.dataset.perm]===true : s.perms?.[c.dataset.perm]!==false;
+  $('cfNotice').hidden=!s.cfNotice;
   // модераторы
-  const list=s.modList||[]; $('modCnt').textContent=list.length; $('modCnt').className='tag'+(list.length?' ok':'');
-  const box=$('modBox'); box.replaceChildren();
-  if(!list.length){ box.append(el('div','Пока никого. Когда модератор зайдёт, он появится здесь.','hint')); }
-  else{
-    const live=new Set(), t=el('table',null,'tbl'), head=el('tr'); for(const h of ['Кто','Сеть','Задержка']) head.append(el('th',h)); t.append(head);
-    for(const m of list){
-      const key=m.ip+'|'+m.since; live.add(key);
-      const h=hist.get(key)||[]; if(m.rtt!=null){ h.push(m.rtt); if(h.length>10) h.shift(); } hist.set(key,h);
-      const tr=el('tr'), who=el('td',m.me?'Пульт стримера (этот компьютер)':m.ip); who.append(el('small', 'с '+new Date(m.since).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'})));
-      const lat=el('td', m.rtt==null?'…':m.rtt+' мс', rttCls(m.rtt)); const sp=el('div',null,'spark');
-      for(const v of h){ const i=el('i'); i.style.height=Math.max(3,Math.min(18,Math.round(v/10)))+'px'; i.style.background='var(--'+(v<80?'ok':v<200?'warn':'bad')+')'; sp.append(i); } lat.append(sp);
-      tr.append(who, el('td', m.me?'':NET[m.net]||m.net), lat); t.append(tr);
-    }
-    for(const k of [...hist.keys()]) if(!live.has(k)) hist.delete(k);
-    const kick=el('button','Отключить всех'); kick.onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toastErr(e); } };
-    box.append(t); const d=el('div'); d.style.marginTop='10px'; d.append(kick); box.append(d);
+  const list=s.modList||[]; setRaw($('modCnt'), String(list.length)); $('modCnt').className='tag'+(list.length?' ok':'');
+  setRaw($('navMods'), String(s.mods||0)); $('navMods').hidden=!s.mods;
+  $('kickAll').hidden=!list.length;
+  const live=new Set();
+  for(const m of list){
+    const key=m.ip+'|'+m.since; live.add(key);
+    const h=hist.get(key)||[]; if(m.rtt!=null){ h.push(m.rtt); if(h.length>10) h.shift(); } hist.set(key,h);
   }
-  // адреса (поле «свой адрес» не трогаем, пока в нём печатают)
-  const body=$('addrBody'), typing=document.activeElement?.id==='extAddr', keep=typing ? $('extAddr').value : null;
-  if(body.dataset.sig===JSON.stringify(s.addrs)+s.extAddr) return;
-  body.dataset.sig=JSON.stringify(s.addrs)+s.extAddr; body.replaceChildren();
+  for(const k of [...hist.keys()]) if(!live.has(k)) hist.delete(k);
+  const box=$('modBox');
+  if(changed(box, list.map(m=>[m, hist.get(m.ip+'|'+m.since)]))){
+    box.replaceChildren();
+    if(!list.length) box.append(el('div','Пока никого. Когда модератор зайдёт, он появится здесь.','hint tight'));
+    else{
+      const t=el('table',null,'tbl'), head=el('tr'); for(const h of ['Кто','Сеть','Задержка']) head.append(el('th',h)); t.append(head);
+      for(const m of list){
+        const row=el('tr'), who=m.me ? el('td','Пульт стримера (этот компьютер)') : raw('td', m.ip);
+        who.append(raw('small', fmt('с {t}', { t:new Date(m.since).toLocaleTimeString(uiLocale(),{hour:'2-digit',minute:'2-digit'}) })));
+        const lat=el('td', null, 'lat '+rttCls(m.rtt)), sp=el('span',null,'spark');
+        lat.append(raw('span', m.rtt==null?'…':m.rtt+' '+tr_('мс')));
+        for(const v of hist.get(m.ip+'|'+m.since)){ const i=el('i'); i.style.height=Math.max(3,Math.min(18,Math.round(v/10)))+'px'; i.style.background='var(--'+(v<80?'ok':v<200?'warn':'bad')+')'; sp.append(i); } lat.append(sp);
+        row.append(who, el('td', m.me?'—':NET[m.net]||m.net), lat); t.append(row);
+      }
+      box.append(t);
+    }
+  }
+  renderAddrs(s);
+}
+// адреса (поле «свой адрес» не трогаем, пока в нём печатают)
+function renderAddrs(s){
+  const body=$('addrBody'), old=$('extAddr'), typing=old && document.activeElement===old;
+  if(!changed(body, [s.addrs, s.extAddr])) return;
+  const typed=typing ? [old.value, old.selectionStart, old.selectionEnd] : null;
+  body.replaceChildren();
   for(const a of (s.addrs||[])){
-    const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot on'), document.createTextNode(NET[a.net]||a.net));
-    const c=el('td'); c.append(el('code', a.h+':'+a.port));
-    const b=el('button','Копировать'); b.onclick=()=>copy(b, a.h+':'+a.port);
-    const bt=el('td'); bt.append(b); tr.append(n, c, el('td', a.net==='porthole' ? tr_('открой в Porthole порт')+' '+a.port : NEED[a.net]||'', 'hint'), bt); body.append(tr);
+    const row=el('tr'), n=el('td'); n.append(el('span',null,'dot on'), document.createTextNode(NET[a.net]||a.net));
+    const c=el('td'); c.append(raw('code', a.h+':'+a.port));
+    const b=el('button','Копировать'); b.type='button'; b.onclick=()=>copy(b, a.h+':'+a.port);
+    const bt=el('td'); bt.append(b); row.append(n, c, el('td', a.net==='porthole' ? tr_('открой в Porthole порт')+' '+a.port : NEED[a.net]||'', 'hint'), bt); body.append(row);
   }
   const own=(s.addrs||[]).some(a=>a.net==='ext');
-  const tr=el('tr'), n=el('td'); n.append(el('span',null,'dot '+(own?'on':'off')), document.createTextNode(NET.ext));
-  const inp=el('input'); inp.id='extAddr'; inp.placeholder='my-pc.example.com:7778'; inp.value=keep ?? s.extAddr ?? '';
-  const sv=el('button','Сохранить'); sv.onclick=async()=>{ try{ await api('/api/extaddr', { addr:inp.value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toastErr(e); } };
+  const row=el('tr'), n=el('td'); n.append(el('span',null,'dot '+(own?'on':'off')), document.createTextNode(NET.ext));
+  const inp=el('input'); inp.id='extAddr'; inp.placeholder='my-pc.example.com:7778'; inp.setAttribute('aria-label', NET.ext); inp.value=typed ? typed[0] : s.extAddr ?? '';
+  const sv=el('button','Сохранить'); sv.type='button'; sv.onclick=async()=>{ try{ await api('/api/extaddr', { addr:inp.value }); toast('Адрес сохранён ✓'); refresh(); }catch(e){ toastErr(e); } };
   const ic=el('td'), sc=el('td'); ic.append(inp); sc.append(sv);
-  tr.append(n, ic, el('td', NEED.ext, 'hint'), sc); body.append(tr);
+  row.append(n, ic, el('td', NEED.ext, 'hint'), sc); body.append(row);
+  if(typed){ inp.focus({ preventScroll:true }); inp.setSelectionRange(typed[1], typed[2]); }
 }
-for(const c of document.querySelectorAll('[data-perm]')) c.onchange=async()=>{ try{ await api('/api/perms', { perms:{ [c.dataset.perm]:c.checked } }); }catch(err){ toastErr(err); } c.blur(); refresh(); };
+for(const c of document.querySelectorAll('[data-perm]')) c.onchange=()=>send('/api/perms', { perms:{ [c.dataset.perm]:c.checked } });
+$('kickAll').onclick=async()=>{ if(!confirm('Отключить всех модераторов? Они смогут зайти снова с тем же кодом.')) return; try{ await api('/api/mods/kick', {}); toast('Отключены'); refresh(); }catch(e){ toastErr(e); } };
 // «Открыть пульт»: программа сама передаёт окну пульта одноразовый ключ. Без приложения (разработка) ключ идёт во фрагменте адреса.
 $('openPanel').onclick=async()=>{
   try{
@@ -532,18 +1217,27 @@ $('openPanel').onclick=async()=>{
     window.open(`${r.url}?streamer=1#hk=${encodeURIComponent(r.key)}&port=${r.port}`, '_blank', 'noopener,noreferrer');
   }catch(e){ toastErr(e); }
 };
-$('modsOn').onchange=async e=>{ try{ await api('/api/mods', { on:e.target.checked }); }catch(err){ toastErr(err); } refresh(); };
+$('modsOn').onchange=e=>send('/api/mods', { on:e.target.checked });
 $('newPass').onclick=async()=>{ if(!confirm('Выдать новый код? Все модераторы отключатся, старый код перестанет работать.')) return; try{ await api('/api/code/new', {}); toast('Новый код ✓'); refresh(); }catch(e){ toastErr(e); } };
 $('newRoom').onclick=async()=>{ if(!confirm('Пересоздать комнату? Появятся новые ключи и новая ссылка для OBS, модераторам нужен новый код.')) return; try{ await api('/api/room/new', {}); toast('Комната создана ✓ (обнови ссылку в OBS)'); refresh(); }catch(e){ toastErr(e); } };
 $('copyCode').onclick=()=>copy($('copyCode'), ()=>lastCode);
-$('cfOk').onclick=async()=>{ try{ await api('/api/notice', { id:'cf' }); }catch{} refresh(); };
-$('roomOk').onclick=async()=>{ try{ await api('/api/notice', { id:'room' }); }catch{} refresh(); };
-$('roomObs').onclick=()=>$('copyObs').click();
-$('roomCode').onclick=()=>$('copyCode').click();
-$('logConn').onchange=refresh;
+$('cfCopy').onclick=()=>copy($('cfCopy'), ()=>lastCode);
+$('cfOk').onclick=()=>send('/api/notice', { id:'cf' });
+$('roomOk').onclick=()=>send('/api/notice', { id:'room' });
+$('roomObs').onclick=async()=>{ if(!await copy($('roomObs'), ()=>$('obs').value, 'Скопировано: вставь в OBS')) toast('Комната ещё создаётся'); };
+$('roomCode').onclick=()=>copy($('roomCode'), ()=>lastCode);
+
+// ---------- dock, files, log ----------
+// the dock must open on localhost (the widget's origin): on 127.0.0.1 the status API hides everything without the admin cookie
+const DOCK_URL=`http://localhost:${location.port||'7777'}/dock?lang=${window.HudiniI18n?.lang||'en'}`;   // the dock has no language switch: it takes the language from the link
+$('dockUrl').value=DOCK_URL; $('dockCode').textContent=DOCK_URL;
+$('copyDock').onclick=()=>copy($('copyDock'), $('dockUrl'), 'Скопировано: вставь в OBS → Доки');
+for(const id of ['limFile','limTotal','limFiles']) $(id).addEventListener('input', ()=>{ limDirty=true; });
+$('limSave').onclick=async()=>{ try{ await api('/api/limits', { fileMB:+$('limFile').value, totalMB:+$('limTotal').value, files:+$('limFiles').value }); limDirty=false; limFilled=false; toast('Лимиты сохранены ✓'); refresh(); }catch(e){ toastErr(e); } };
+$('logConn').onchange=()=>{ logFollow=true; refresh(); };
 $('logCopy').onclick=()=>copy($('logCopy'), ()=>$('logs').textContent, 'Журнал скопирован');
 
-// ---- только в окне программы: автозапуск и внешние ссылки ----
+// ---------- только в окне программы: автозапуск и внешние ссылки ----------
 if(TAURI){
   const auto=cmd=>TAURI.core.invoke('plugin:autostart|'+cmd);
   const readAuto=async()=>{ try{ if(document.activeElement!==$('autoStart')) $('autoStart').checked=!!await auto('is_enabled'); $('autoCard').hidden=false; }catch{ $('autoCard').hidden=true; } };
@@ -562,6 +1256,7 @@ if(TAURI){
     if(url.origin!==location.origin){ e.preventDefault(); location.href=url.href; }
   });
 }
+show(view);
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>
