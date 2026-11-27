@@ -249,6 +249,12 @@ pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10
 .rbox .tag{align-self:center;margin-bottom:6px;color:var(--acc2);border-color:#4b3aa3}
 .mbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .mbtns button{padding:9px 18px}
+/* вопрос перед перезапуском во время стрима */
+#liveModal p.warn{text-align:left;border-left:3px solid var(--warn);padding-left:10px;color:#f5c268}
+#liveModal p.later{color:var(--muted);font-size:13px}
+#lvNo:focus{outline:2px solid var(--focus);outline-offset:2px}
+button.stop{border-color:#8a3440;color:#ff8a95}
+button.stop:hover{border-color:var(--bad)}
 /* тур по окну */
 .tour{position:fixed;inset:0;top:var(--askh);z-index:1100}
 .spot{position:fixed;border:2px solid var(--acc2);border-radius:12px;box-shadow:0 0 0 200vmax #07080bc9,0 0 24px #7c5cffaa;pointer-events:none}
@@ -646,6 +652,15 @@ a{text-underline-offset:2px}
   </div>
 </div>
 
+<div class="rmodal" id="liveModal" hidden role="alertdialog" aria-modal="true" aria-labelledby="lvTitle" aria-describedby="lvBody">
+  <div class="rbox">
+    <div class="rico" aria-hidden="true">⚠</div>
+    <h2 id="lvTitle">Сейчас идёт стрим</h2>
+    <div id="lvBody"></div>
+    <div class="mbtns"><button type="button" class="primary" id="lvNo">Отмена</button><button type="button" class="stop" id="lvYes">Всё равно перезапустить</button></div>
+  </div>
+</div>
+
 <div class="tour" id="tour" hidden>
   <div class="spot" id="tourSpot"></div>
   <div class="tourbox" id="tourBox" role="dialog" aria-modal="true" aria-labelledby="tourTitle" aria-describedby="tourText">
@@ -698,7 +713,7 @@ async function api(p, body){
   try{
     const lang={ 'x-hudini-lang':uiLang() };   // release notes come back in the language of the window
     const r=await fetch(p, body ? { method:'POST', headers:{ ...lang, 'content-type':'application/json' }, body:JSON.stringify(body) } : { headers:lang });
-    const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status)); return j;
+    const j=await r.json().catch(()=>({})); if(!r.ok || j.ok===false){ const e=new Error(j.error||('HTTP '+r.status)); if(j.code==='confirm') e.ask=j; throw e; } return j;
   } finally { if(body) writes++; }
 }
 // POST, then show what the program says now (also puts a switch back if the change was refused)
@@ -908,6 +923,7 @@ function renderUpdate(s){
     setRaw($('rollNow'), fmt('Откатиться на {v}', { v:back }));
     $('rollWait').hidden=waiting;
   }
+  if(u.held && waitHeld && u.held.n!==heldSeen){ heldSeen=u.held.n; waitHeld=false; askLive(u.held); }
   // home tip
   $('tipUpd').hidden=!offer; if(offer) setRaw($('tipUpdTxt'), fmt(found ? 'Вышла версия {v}.' : 'Скачана версия {v}.', { v:u.latest }));
   // the full-window offer
@@ -917,14 +933,48 @@ function renderUpdate(s){
     $('ovNotes').replaceChildren(); $('ovNotes').hidden=!notes; if(notes) noteSections($('ovNotes'), notes.sections);
   }
 }
-async function applyUpdate(ask){
+// ---------- перезапуск во время стрима ----------
+// Пока стрим идёт или может идти, обновление и откат спрашивают в отдельном окне. Программа проверяет это и сама
+// (ответ с code «confirm»); held в состоянии: скачала, но не перезапустилась, потому что стрим начался во время загрузки
+let liveQ=null, waitHeld=false, heldSeen=0;
+const liveNow=()=>{ const l=lastS?.live; return l && l!=='off' ? l : ''; };
+// Старая версия после отката: до 1.1 включительно программа ставит обновления сама, когда стрим не идёт
+const idleNote=v=>/^(0\.|1\.[01]\.)/.test(v) ? fmt('В версии {v} программа стримера снова сама ставит обновления в простое: когда OBS не подключён и модераторов нет. Отключается галочкой «Обновлять автоматически».', { v }) : '';
+function askLive(q){
+  liveQ=q;
+  const back=q.action==='rollback', body=$('lvBody');
+  const para=(text, cls)=>{ const p=el('p', text); if(cls) p.className=cls; body.append(p); };
+  const filled=(text, cls)=>{ const p=el('p'); if(cls) p.className=cls; p.append(raw('span', text)); body.append(p); };
+  body.replaceChildren();
+  setText($('lvTitle'), q.live==='unknown' ? 'Возможно, сейчас идёт стрим' : 'Сейчас идёт стрим');
+  if(q.live==='unknown'){ para('OBS подключён, но не сообщает, идёт ли трансляция.'); para('Если стрим идёт, при перезапуске оверлей пропадёт с него на несколько секунд.'); }
+  else para('Программа перезапустится, и оверлей пропадёт со стрима на несколько секунд.');
+  if(back){ filled(fmt('Откат на версию {v}: сначала сохранится копия настроек.', { v:q.ver })); if(idleNote(q.ver)) filled(idleNote(q.ver), 'warn'); }
+  if(q.download) para('Сначала скачается нужная версия, перезапуск будет сразу после загрузки.', 'later');
+  if(back) setRaw($('lvYes'), fmt('Откатиться на {v}', { v:q.ver })); else setText($('lvYes'), 'Всё равно перезапустить');
+  syncModals(); $('lvNo').focus();
+}
+$('lvNo').onclick=()=>{ liveQ=null; syncModals(); };
+$('lvYes').onclick=()=>{ const q=liveQ; liveQ=null; syncModals(); if(q) (q.action==='rollback' ? doRollback : doApply)(true); };
+async function doApply(confirmed){
   const found=lastS?.upd?.state==='available';
-  if(ask && !confirm(found ? 'Скачать новую версию и перезапустить программу? Оверлей пропадёт со стрима на пару секунд.' : 'Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return;
   try{
-    await api('/api/update/apply', {});
+    await api('/api/update/apply', confirmed ? { confirm:true } : {});
+    waitHeld=!confirmed;
     if(found){ toast('Скачиваю обновление…'); refresh(); return; }
     toast('Перезапуск… страница обновится сама'); if(!TAURI) setTimeout(()=>location.reload(), 6000);
-  }catch(e){ toastErr(e); }
+  }catch(e){ if(e.ask) askLive(e.ask); else toastErr(e); }
+}
+async function doRollback(confirmed){
+  try{ await api('/api/update/rollback', confirmed ? { confirm:true } : {}); waitHeld=!confirmed; }
+  catch(e){ if(e.ask) return askLive(e.ask); toastErr(e); }
+  await refresh();
+}
+function applyUpdate(ask){
+  const u=lastS?.upd, found=u?.state==='available', live=liveNow();
+  if(live) return askLive({ action:'apply', live, ver:u?.latest, download:found });
+  if(ask && !confirm(found ? 'Скачать новую версию и перезапустить программу? Оверлей пропадёт со стрима на пару секунд.' : 'Перезапустить программу с новой версией? Оверлей пропадёт со стрима на пару секунд.')) return;
+  doApply(false);
 }
 $('updCheck').onclick=async()=>{ toast('Проверяю…'); await send('/api/update/check', {}); };
 $('updApply').onclick=$('tipApply').onclick=()=>applyUpdate(true);
@@ -932,7 +982,9 @@ $('updAuto').onchange=e=>send('/api/update/auto', { auto:e.target.checked });
 for(const r of document.querySelectorAll('input[name=channel]')) r.onchange=()=>{ if(r.checked) send('/api/update/channel', { channel:r.value }); };
 $('rollNow').onclick=()=>{
   const v=lastS?.upd?.rollback?.ver; if(!v) return;
-  if(confirm(fmt('Откатиться на версию {v}? Сначала сохранится копия настроек. При перезапуске оверлей пропадёт со стрима на пару секунд.', { v }))) send('/api/update/rollback', {});
+  const live=liveNow(); if(live) return askLive({ action:'rollback', live, ver:String(v), download:true });
+  const note=idleNote(String(v));
+  if(confirm(fmt('Откатиться на версию {v}? Сначала сохранится копия настроек. При перезапуске оверлей пропадёт со стрима на пару секунд.', { v })+(note ? '\n\n'+note : ''))) doRollback(false);
 };
 $('rollWait').onclick=()=>{ const v=lastS?.upd?.rollback?.ver; if(!v) return; keep('localStorage','hudini.host.rbWait', String(v)); if(lastS) renderUpdate(lastS); $('rollNow').focus(); };
 
@@ -1126,7 +1178,7 @@ $('tourSoundOn').onclick=()=>{ soundPreview(true); endTour(true); };
 $('tourMute').onclick=()=>endTour(false);
 $('tourReplay').onclick=()=>{ startTour(); syncModals(); };
 
-const MODAL_FOCUS={ roomNotice:'roomObs', newsModal:'nwOk', tour:'tourNext', updOverlay:'ovLater' };
+const MODAL_FOCUS={ liveModal:'lvNo', roomNotice:'roomObs', newsModal:'nwOk', tour:'tourNext', updOverlay:'ovLater' };
 let modal=null, modalFrom=null;
 function layoutAsk(){
   const h=document.body.classList.contains('modal') && !$('global').hidden ? $('global').offsetHeight : 0;
@@ -1136,7 +1188,7 @@ function syncModals(){
   const room=!!lastS?.roomNotice, wn=newsWanted();
   if(wn) prepareNews(wn);
   if(!tour.on && !tour.done && !tour.hold && lastS?.ui?.tourDone===false && !room && !wn && !$('langPick')) startTour();
-  const cur=room ? 'roomNotice' : wn ? (news?.ready ? 'newsModal' : null) : tour.on ? 'tour' : updWanted() ? 'updOverlay' : null;
+  const cur=liveQ ? 'liveModal' : room ? 'roomNotice' : wn ? (news?.ready ? 'newsModal' : null) : tour.on ? 'tour' : updWanted() ? 'updOverlay' : null;
   const opening=cur!==modal;
   if(opening && cur && !modal) modalFrom=document.activeElement;
   const inModal=modal && $(modal).contains(document.activeElement);
@@ -1157,7 +1209,7 @@ addEventListener('keydown', e=>{
   if(!modal || $('langPick')) return;
   if(e.key==='Escape'){
     e.preventDefault();
-    if(modal==='newsModal') closeNews(); else if(modal==='updOverlay') $('ovLater').click(); else if(modal==='tour') skipTour();
+    if(modal==='liveModal') $('lvNo').click(); else if(modal==='newsModal') closeNews(); else if(modal==='updOverlay') $('ovLater').click(); else if(modal==='tour') skipTour();
   } else if(e.key==='Tab'){   // focus goes round the requests and the open window only
     const all=[$('global'), $(modal)].flatMap(r=>[...r.querySelectorAll('button,a[href],input,[tabindex="0"]')]).filter(x=>visible(x) && !x.disabled);
     if(!all.length) return;

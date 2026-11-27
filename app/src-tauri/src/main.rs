@@ -1,7 +1,7 @@
 // Hudini: окно, иконка в трее и автозапуск поверх сервера оверлея (server/server.js).
 // Сервер собран Bun в один файл и лежит рядом с программой (hudini-server, sidecar).
 // Связь: сервер пишет в stdout «READY <порт>», «UPDATE <состояние> <версия>», «RESTART», «FAIL …», «PANEL <ключ> <порт>», «NOTIFY <вид> <json>»,
-// «INFO <json>»; программа пишет в его stdin «VISIBLE 0/1», «APPLY», «PANEL», «UI <json>».
+// «INFO <json>», «CONFIRM <json>»; программа пишет в его stdin «VISIBLE 0/1», «TRAY 0/1», «APPLY», «APPLY confirm», «PANEL», «UI <json>».
 // Две роли: «стример» (сервер оверлея с окном управления) и «модератор» (сервер без портов, только обновления;
 // окно показывает экран сессий из пакета приложения). Роль выбирает первый экран (web/app/start.html).
 // Программа закрылась или упала → stdin сервера закрывается → сервер выключается сам.
@@ -266,6 +266,8 @@ struct Server {
     update: Mutex<Option<(String, String)>>,
     // последнее сказанное серверу «VISIBLE»: окно на виду (не свёрнуто и не в трее)
     visible: AtomicBool,
+    // последнее сказанное серверу «TRAY»: окно спрятано в трей (свёрнутое сюда не относится)
+    tray: AtomicBool,
     // баннер о прошлом падении на странице управления уже показан в этом запуске
     crash_shown: AtomicBool,
     // запуск и остановка сервера по очереди: перезапуск после падения, смена роли и «Сменить роль» не должны
@@ -426,18 +428,22 @@ fn show_main(app: &AppHandle) {
         let _ = w.show();
         let _ = w.set_focus();
     }
-    say_visible(app, true);
+    say_window(app, true, false);
 }
 
 fn hide_main(app: &AppHandle) {
     if let Some(w) = app.get_window(MAIN) {
         let _ = w.hide();
     }
-    say_visible(app, false);
+    say_window(app, false, true);
 }
 
-fn say_visible(app: &AppHandle, seen: bool) {
-    app.state::<Server>().visible.store(seen, Ordering::SeqCst);
+// seen: окно на виду; tray: спрятано в трей (после обновления программа тогда запускается тоже в трее)
+fn say_window(app: &AppHandle, seen: bool, tray: bool) {
+    let server = app.state::<Server>();
+    server.visible.store(seen, Ordering::SeqCst);
+    server.tray.store(tray, Ordering::SeqCst);
+    say(app, if tray { "TRAY 1" } else { "TRAY 0" });
     say(app, if seen { "VISIBLE 1" } else { "VISIBLE 0" });
 }
 
@@ -445,11 +451,16 @@ fn window_seen(app: &AppHandle) -> bool {
     app.get_window(MAIN).map(|w| w.is_visible().unwrap_or(true) && !w.is_minimized().unwrap_or(false)).unwrap_or(true)
 }
 
+fn window_in_tray(app: &AppHandle) -> bool {
+    app.get_window(MAIN).map(|w| !w.is_visible().unwrap_or(true)).unwrap_or(false)
+}
+
 // Свёрнутое окно для сервера так же не на виду, как спрятанное в трей: тогда события идут уведомлениями системы
 fn report_visible(app: &AppHandle) {
-    let seen = window_seen(app);
-    if app.state::<Server>().visible.load(Ordering::SeqCst) != seen {
-        say_visible(app, seen);
+    let (seen, tray) = (window_seen(app), window_in_tray(app));
+    let server = app.state::<Server>();
+    if server.visible.load(Ordering::SeqCst) != seen || server.tray.load(Ordering::SeqCst) != tray {
+        say_window(app, seen, tray);
     }
 }
 
@@ -546,8 +557,9 @@ fn spawn_server(app: &AppHandle, role: &str) -> Result<(), String> {
     *server.stdin.lock().unwrap() = child.stdin.take();
     *server.child.lock().unwrap() = Some(child);
     *server.role.lock().unwrap() = role.to_string();
-    // окно спрятано (автозапуск) или свёрнуто → сервер знает об этом: шлёт уведомления и после обновления запустит программу в трее
-    say_visible(app, window_seen(app));
+    // окно спрятано (автозапуск) или свёрнуто → сервер знает об этом и шлёт уведомления; спрятанную в трей программу
+    // он после обновления запустит тоже в трее
+    say_window(app, window_seen(app), window_in_tray(app));
     if let Some(err) = stderr {
         // stderr только вычитываем, чтобы сервер не встал на полном канале
         thread::spawn(move || {
@@ -609,6 +621,11 @@ fn read_server(app: AppHandle, out: ChildStdout, gen: u32, role: String) {
             // ответ на «UI …» (обновления в роли модератора): отдаём страницам как есть
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(j) {
                 let _ = app.emit("hudini-info", v);
+            }
+        } else if let Some(j) = line.strip_prefix("CONFIRM ") {
+            // перезапуск во время стрима: вопрос задаёт страница, которая просила установить
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(j) {
+                let _ = app.emit("hudini-confirm", v);
             }
         } else if line == "RESTART" {
             restart = true;
@@ -1374,9 +1391,10 @@ fn set_remember(app: AppHandle, remember: bool) {
     save_cfg(&paths.data, &cfg);
 }
 
+// confirmed: на вопрос о перезапуске уже ответили; иначе сервер во время стрима сначала переспросит (событие hudini-confirm)
 #[tauri::command]
-fn apply_update(app: AppHandle) {
-    say(&app, "APPLY");
+fn apply_update(app: AppHandle, confirmed: Option<bool>) {
+    say(&app, if confirmed == Some(true) { "APPLY confirm" } else { "APPLY" });
 }
 
 // Обновления в роли модератора (канал, автозагрузка, откат, «что нового»): у неё нет страницы управления, поэтому

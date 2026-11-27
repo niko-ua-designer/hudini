@@ -153,6 +153,24 @@ async function newPage(name, { w = 1600, h = 900, lang = 'ru', irc = false, tour
 }
 async function closeBrowser(){ await browser?.close(); browser = null; await closeRelays(); }
 
+// An OBS widget as the Host sees it: the heartbeat widget.html sends, sealed with the room key of the OBS link.
+// live: true | false | null («unknown») | undefined (an older widget sends no such field)
+function fakeWidget(port, obsLink, live){
+  const mqtt = require('mqtt'), crypto = require('crypto');
+  const u = new URL(obsLink), key = Buffer.from(new URLSearchParams(u.hash.slice(1)).get('k'), 'base64url');
+  const topic = `stream-overlay/v1/${u.searchParams.get('room')}/hb`;
+  const c = mqtt.connect(`ws://localhost:${port}/mqtt`, { reconnectPeriod: 500 });
+  const send = () => {
+    if(!c.connected) return;
+    const iv = crypto.randomBytes(12), box = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const ct = Buffer.concat([box.update(JSON.stringify({ id: 'fake', ver: 99, live, t: Date.now() })), box.final(), box.getAuthTag()]);
+    c.publish(topic, Buffer.concat([Buffer.from([1, 0]), iv, ct]), { qos: 0 });
+  };
+  c.on('connect', send);
+  const timer = setInterval(send, 500);
+  return { set(v){ live = v; send(); }, stop(){ clearInterval(timer); c.end(true); } };
+}
+
 // Point a panel at a Host the way a saved session does: a session for the panel's room (address, password), then the relay
 async function attach(page, host){
   const { pass } = await host.api('/api/code');
@@ -200,4 +218,4 @@ function finish(){
   return bad.length ? 1 : 0;
 }
 // A sealed asset made the same way the panel does it, using core.js inside a page
-module.exports = { extraArgs, answerPw, ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };
+module.exports = { fakeWidget, extraArgs, answerPw, ROOT, ADMIN_TOKEN, attach, PORTS, sleep, until, check, eq, step, stored, webServer, startHost, newPage, closeBrowser, stack, finish, pageErrors };

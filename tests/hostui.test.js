@@ -10,7 +10,7 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
 (async () => {
   const host = T.startHost({ OVERLAY_SITE: 'off', OVERLAY_PANEL_ORIGIN: 'http://localhost:1' }); await host.ready();   // an origin for the panel: the button exists
   // what the fake program says on top of the real status, and what the window sent to it
-  let fake = null; const sent = [], asked = [];
+  let fake = null; const sent = [], asked = [], dialogs = [];
   async function open(opts = {}) {
     const p = await T.newPage('ui', { app: false, w: 980, h: 760, ...opts });
     p.on('request', r => { const u = new URL(r.url()); if (u.pathname.startsWith('/api/')) asked.push(u.pathname); });
@@ -18,8 +18,9 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
     const bare = j => { delete j.notify; delete j.ui; for(const k of ['channel', 'kind', 'rollback', 'notes']) delete j.upd?.[k]; return j; };
     await p.route('**/api/status', async r => { const res = await r.fetch(), j = await res.json(); await r.fulfill({ json: fake ? fake.status(j) : bare(j) }); });
     for (const path of ['notify', 'update/channel', 'update/rollback', 'update/apply', 'ui', 'control'])
-      await p.route('**/api/' + path, async r => { if (!fake) return r.continue(); const body = r.request().postDataJSON(); sent.push([path, body]); fake.post(path, body); await r.fulfill({ json: { ok: true } }); });
+      await p.route('**/api/' + path, async r => { if (!fake) return r.continue(); const body = r.request().postDataJSON(); sent.push([path, body]); await r.fulfill(fake.post(path, body) || { json: { ok: true } }); });
     await p.route('**/api/changelog*', r => fake ? r.fulfill({ json: fake.changelog }) : r.continue());
+    p.on('dialog', d => dialogs.push(d.message()));
     await p.goto(`${host.admin}/auth?t=${host.token}`);
     await p.waitForURL(u => new URL(u).pathname === '/');
     await p.waitForFunction(() => document.getElementById('ver').textContent !== '—');
@@ -38,7 +39,8 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
       status(s) {
         s.media = { pending: f.pending, live: [] }; s.notify = f.notify; s.ui = f.ui; s.roomNotice = false;
         s.upd = { state: f.ready ? 'ready' : f.found ? 'available' : 'latest', latest: f.latest, err: '', auto: true, ready: f.ready, compiled: true, checkedAt: Date.now(), prog: null, channel: f.channel, kind: f.kind, rollback: f.rollback,
-          notes: f.ready ? { ver: f.latest, sections: [{ title: 'Обновление', items: [EVIL] }] } : undefined };
+          notes: f.ready ? { ver: f.latest, sections: [{ title: 'Обновление', items: [EVIL] }] } : undefined, held: f.held };
+        s.live = f.live;
         return s;
       },
       post(path, b) {
@@ -46,6 +48,8 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
         if (path === 'update/channel') { f.channel = b.channel; f.rollback = b.channel === 'stable' ? { ver: '9.8.0' } : null; }
         if (path === 'ui') { if ('sounds' in b) f.ui.sounds = b.sounds; if ('tourDone' in b) f.ui.tourDone = b.tourDone; if (b.seenWhatsNew) f.ui.whatsNew = null; }
         if (path === 'control') f.pending = f.pending.filter(x => x.key !== b.key);
+        // the program found the stream live before the window did
+        if (f.refuse && /update\/(apply|rollback)/.test(path) && !b.confirm) return { status: 409, json: { ok: false, error: 'x', code: 'confirm', action: path.split('/')[1], live: f.refuse, ver: '1.1.3', download: true } };
       },
     };
     return f;
@@ -196,6 +200,60 @@ const EVIL = '<img src=x onerror="window.__pwned=1">';
     check((await p.textContent('#updApply')).includes('Скачать и перезапустить') && (await p.textContent('#updInfo')).includes('9.9.9'), 'the button says what it does');
     await p.click('#updApply');
     check(await until(async () => posts('update/apply').length === 1), 'sent after a confirmation');
+    await p.context().close();
+  });
+
+  await step('while live, updating and rolling back ask in a window of their own', async () => {
+    fake = newFake(); sent.length = 0; dialogs.length = 0; Object.assign(fake, { ready: true, kind: 'version', live: 'on', rollback: { ver: '1.1.3' } });
+    const p = await open();
+    const asking = () => p.isVisible('#liveModal'), focus = () => p.evaluate(() => document.activeElement.id);
+    check(await until(() => p.isVisible('#updOverlay')), 'the offer');
+    await p.click('#ovApply');
+    eq([await asking(), await p.isHidden('#updOverlay'), await focus()], [true, true, 'lvNo'], 'a separate question, «Cancel» focused');
+    check((await p.textContent('#lvBody')).includes('оверлей пропадёт со стрима'), 'says what will happen');
+    await polls();
+    eq([await asking(), await focus()], [true, 'lvNo'], 'stays over the next status answers');
+    await p.keyboard.press('Enter');
+    eq([await asking(), await p.isVisible('#updOverlay'), posts('update/apply')], [false, true, []], 'Enter cancels, nothing sent');
+    await p.click('#ovLater'); await go(p, 'app');
+    await p.click('#updApply'); await p.keyboard.press('Escape');
+    eq([await asking(), posts('update/apply')], [false, []], 'Escape cancels');
+    await go(p, 'home'); await p.click('#tipApply');
+    check(await asking(), 'the button on the first page asks too');
+    await p.click('#lvYes');
+    check(await until(async () => posts('update/apply').length === 1), 'sent after the confirmation');
+    eq([posts('update/apply'), dialogs], [[{ confirm: true }], []], 'with confirm, without a second dialog');
+    await go(p, 'app'); await p.click('#rollNow');
+    check((await p.textContent('#lvBody')).includes('копия настроек') && (await p.textContent('#lvBody')).includes('в простое'), 'rollback: settings copy and the idle updates of the old version');
+    eq((await p.textContent('#lvYes')).trim(), 'Откатиться на 1.1.3', 'the button names the version');
+    await p.click('#lvNo'); eq(posts('update/rollback'), [], 'cancelled');
+    await p.click('#rollNow'); await p.click('#lvYes');
+    check(await until(async () => posts('update/rollback').length === 1), 'rolled back after the confirmation');
+    eq(posts('update/rollback'), [{ confirm: true }], 'with confirm');
+
+    // unknown
+    fake.live = 'unknown'; await polls(); await p.click('#updApply');
+    eq([await p.textContent('#lvTitle'), (await p.textContent('#lvBody')).includes('не сообщает')], ['Возможно, сейчас идёт стрим', true], 'unknown: softer words');
+    await p.click('#lvNo');
+
+    // the window thinks the stream is off, the program disagrees
+    fake.live = 'off'; fake.refuse = 'on'; await polls(); sent.length = 0; dialogs.length = 0;
+    await p.click('#rollNow');
+    check(await until(asking), 'the refusal opens the question');
+    check(dialogs.length === 1 && dialogs[0].includes('в простое'), 'the ordinary confirmation warns about idle updates too', dialogs);
+    await p.click('#lvYes');
+    check(await until(async () => posts('update/rollback').length === 2), 'repeated');
+    eq(posts('update/rollback'), [{}, { confirm: true }], 'second time with confirm');
+
+    // downloaded while the stream started: the program holds the restart
+    delete fake.refuse; sent.length = 0;
+    await p.click('#updApply');
+    check(await until(async () => posts('update/apply').length === 1), 'sent while off');
+    eq(await asking(), false, 'no question yet');
+    fake.held = { n: 1, action: 'apply', live: 'on', ver: '9.9.9', download: false };
+    check(await until(asking), 'held by the program: the question appears');
+    await p.click('#lvNo'); await polls();
+    eq(await asking(), false, 'asked once');
     await p.context().close();
   });
 
