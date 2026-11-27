@@ -83,6 +83,9 @@ async function useRoom(code){ const k=await roomKeys(code); room=code; KEYS=k; }
 let state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null };
 let selectedId=null, drag=null;
 const undoStack=[], redoStack=[]; let changeOpen=false, openChange=null;
+// одновременные правки (раздел «ОДНОВРЕМЕННЫЕ ПРАВКИ»): netState: последний экран, отправленный или принятый этим пультом;
+// sentSteps: что этот пульт менял в недавних отправках; seenBy: какие отправки пультов уже входят в текущий экран (msg.vv)
+let netState=JSON.parse(JSON.stringify(state)), sentSteps=[], seenBy={};
 function byId(id){ return state.els.find(e=>e.id===id); }
 
 // ================== СВЯЗЬ ==================
@@ -348,6 +351,7 @@ async function onMessage(topic, payload, packet){
   stateSeenT.set(room, t);
   if(msg.from===clientId && !packet.retain) return;   // своё эхо
   const s=sanitizeState(msg);
+  if(takeRemote(s, cleanSeen(msg.vv))) scheduleSend();   // наши правки, которых в чужом экране ещё нет: дошлём
   if(drag && drag.mode!=='rect'){
     // тащим: чужой экран принимаем, а у элементов под мышью оставляем своё положение и размер, и сразу отправляем их
     for(const id of dragIds()){
@@ -396,6 +400,7 @@ function mergeOffline(msg, t){
   if(t<=w.seen){ publishNow(1); return; }
   stateSeenT.set(room, t);
   const remote=sanitizeState(msg), have=new Set(drawList(remote).map(e=>e.id));
+  noteRemote(remote, cleanSeen(msg.vv)); sentSteps=[];   // что из правок без связи остаётся, решается здесь
   const mine=state.els.filter(e=>!have.has(e.id) && !syncedIds.has(e.id));
   remote.els=[...remote.els, ...mine].slice(0, MAX_ELS);
   const myRaf=!remote.raffle && state.raffle && !syncedIds.has(state.raffle.id);
@@ -438,8 +443,9 @@ function publishNow(qos=0){
   STREAM_LANG=streamLang();
   window.Draw?.beforeSend();
   // время не меньше самого нового увиденного экрана: если часы у этого ПК отстают, правки всё равно примут
-  const t=Math.max(Date.now(), (stateSeenT.get(room)||0)+1);
-  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, claims:state.claims||[], fonts:state.fonts||[], emx:emxNow(), cs2auto:taCfg() };
+  const t=Math.max(Date.now(), Math.floor(stateSeenT.get(room)||0)+1)+T_FRAC;
+  noteSent(t);
+  const msg={ v:2, wv:WIDGET_VER, from:clientId, t, lang:STREAM_LANG, visible:true, hidAll:state.hidAll||[], vol:state.vol, fxVol:state.fxVol, raffle:state.raffle, els:state.els, claims:state.claims||[], fonts:state.fonts||[], emx:emxNow(), cs2auto:taCfg(), vv:seenBy };
   stateSeenT.set(room, Math.max(stateSeenT.get(room)||0, msg.t));
   syncedIds=new Set(drawList(state).map(e=>e.id));
   sealedPublish(topics(room).state, msg, { qos, retain:true }).catch(()=>{});
@@ -466,7 +472,7 @@ async function switchRoom(code){
   chatDisconnect(); chatLog.length=0; $('chatFeed').replaceChildren(); $('chatChan').value=''; $('chatMore').hidden=true;   // у каждой комнаты свой чат
   widgets.clear(); renderObs(); CS2=null; CS2_SERIES=null; hostNote=''; storage=null; renderStorage();
   room=code; KEYS=keys; saveRooms(); window.Cursors?.reset();
-  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; redoStack.length=0; changeOpen=false; openChange=null; chatSeen.clear(); pendingOffline=null; syncedIds=new Set();
+  state={ visible:true, hidAll:[], vol:1, fxVol:1, els:[], raffle:null }; selectedId=null; undoStack.length=0; redoStack.length=0; changeOpen=false; openChange=null; chatSeen.clear(); pendingOffline=null; syncedIds=new Set(); noteRemote(state, null); sentSteps=[];
   clearTimeout(sendTimer); sendTimer=null; clearTimeout(wheelT); wheelT=null;
   Assets.reset();
   reopenHome(); renderSlang(); STREAM_LANG=streamLang();
@@ -539,6 +545,11 @@ function keepVolatile(want, expect, cur){
   if(v && cur && expect) for(const k of undoVolatile(v)) if(canonJSON(want[k])===canonJSON(expect[k])){ if(k in cur) v[k]=cloneJ(cur[k]); else delete v[k]; }
   return v;
 }
+// место слоя id по порядку ord: над ближайшим соседом снизу, который есть в els
+function layerPos(els, ord, id){
+  for(let j=ord.indexOf(id)-1; j>=0; j--){ const p=els.findIndex(el=>el.id===ord[j]); if(p>=0) return p+1; }
+  return 0;
+}
 // Применить шаг в сторону to ('b' = отмена, 'a' = повтор). Возвращает, сколько частей пропущено из-за чужих правок.
 function applyStep(e, to){
   const from=to==='b'?'a':'b', ordTo=to==='b'?e.ob:e.oa, ordFrom=to==='b'?e.oa:e.ob;
@@ -550,10 +561,7 @@ function applyStep(e, to){
     const v=keepVolatile(want, expect, cur);
     if(cur){ state.els[i]=v; continue; }
     if(state.els.length>=MAX_ELS){ skip++; continue; }
-    // удалённый возвращается на место: над ближайшим соседом снизу, который ещё есть
-    const ord=ordTo||[], at=ord.indexOf(id); let pos=0;
-    for(let j=at-1; j>=0; j--){ const p=state.els.findIndex(el=>el.id===ord[j]); if(p>=0){ pos=p+1; break; } }
-    state.els.splice(pos, 0, v);
+    state.els.splice(layerPos(state.els, ordTo||[], id), 0, v);   // удалённый возвращается на место
   }
   if(ordTo && ordFrom){   // порядок слоёв: только если с тех пор его никто не менял
     const now=new Set(state.els.map(el=>el.id)), both=new Set(ordFrom.filter(id=>now.has(id)));
@@ -582,6 +590,111 @@ function redo(){
   closeChange();
   if(!redoStack.length) return toast('Нечего повторять');
   const e=redoStack.pop(); undoStack.push(e); applyStep(e, 'a');
+}
+
+// ================== ОДНОВРЕМЕННЫЕ ПРАВКИ ==================
+// В каждом сообщении весь экран, и принимается только более новый. Если два пульта правят разное одновременно, более новый экран
+// собран без правки другого. Поэтому в сообщении есть vv: { пульт: время его последней отправки, вошедшей в этот экран }.
+// Пульт, чьей правки в принятом экране нет, возвращает её поверх и отправляет экран заново: за свои правки отвечает тот,
+// кто их сделал. Один и тот же элемент: остаётся более новый вариант; удаление сильнее одновременной правки.
+// Экран без vv (старый пульт) принимается целиком, как раньше.
+const SENT_KEEP_MS=20000;   // правки старше этого уже дошли до всех и не возвращаются
+const SEEN_MAX=32;
+// дробная часть времени у каждого пульта своя: два пульта не пришлют экраны с одним и тем же временем
+const T_FRAC=(1+crypto.getRandomValues(new Uint16Array(1))[0]%1023)/1024;
+function cleanSeen(v){
+  if(!v || typeof v!=='object') return null;
+  return Object.fromEntries(Object.entries(v).filter(([k, t])=>/^mod_[a-z0-9]{1,28}$/.test(k) && Number.isFinite(t)).sort((a, b)=>b[1]-a[1]).slice(0, SEEN_MAX));
+}
+// общие поля экрана в одном виде, есть они в нём или нет
+const SYNC_TOP={ hidAll:s=>s.hidAll||[], vol:s=>s.vol, fxVol:s=>s.fxVol, fonts:s=>s.fonts||[], emx:s=>s.emx||null, cs2auto:s=>cleanCs2Auto(s.cs2auto||null), raffle:s=>s.raffle||null };
+// что изменилось между двумя экранами: элементы и общие поля «было/стало», порядок слоёв; null: ничего
+function syncDiff(before, now){
+  const d={ els:new Map(), top:new Map() }, bm=new Map(before.els.map(e=>[e.id, e])), am=new Map(now.els.map(e=>[e.id, e]));
+  for(const id of new Set([...bm.keys(), ...am.keys()])){
+    const b=bm.get(id)||null, a=am.get(id)||null;
+    if(JSON.stringify(b)!==JSON.stringify(a)) d.els.set(id, { b, a });
+  }
+  const ob=before.els.map(e=>e.id), oa=now.els.map(e=>e.id);
+  if(ob.join()!==oa.join()){ d.ob=ob; d.oa=oa; }
+  for(const [k, get] of Object.entries(SYNC_TOP)){ const b=get(before), a=get(now); if(canonJSON(b)!==canonJSON(a)) d.top.set(k, { b, a }); }
+  return d.els.size || d.top.size || d.ob ? d : null;
+}
+// несколько своих отправок подряд как одна правка: «было» из первой, «стало» из последней
+function syncFold(list){
+  const out={ els:new Map(), top:new Map() };
+  for(const d of list){
+    for(const part of ['els', 'top']) for(const [k, x] of d[part]) out[part].set(k, { b:out[part].has(k) ? out[part].get(k).b : x.b, a:x.a });
+    if(d.ob){ out.ob ||= d.ob; out.oa=d.oa; }
+  }
+  return out;
+}
+// своя правка элемента (b → a) поверх варианта cur из чужого экрана → что должно остаться
+function replayEl(b, a, cur){
+  // штрихи рисунка объединяет Draw.merge: здесь они не сравниваются и остаются как в cur
+  const draw=cur.type==='draw', canon=e=>elCanon(draw ? { ...e, strokes:[], del:[] } : e);
+  if(canon(a)!==canon(b)){
+    if(canon(cur)!==canon(b)) return cur;   // этот элемент поменяли и там: остаётся их вариант, он новее
+    const v=keepVolatile(a, b, cur);
+    if(draw){ v.strokes=cur.strokes; v.del=cur.del; }
+    return v;
+  }
+  // изменились только голоса или счёт. Пришедшее из чата объединяет mergeChat (chatPend); изменённое кнопкой берём,
+  // если там этого не трогали
+  const keys=undoVolatile(cur);
+  if(chatPend.get(cur.id)?.size || !keys.every(k=>canonJSON(cur[k])===canonJSON(b[k]))) return cur;
+  const v=cloneJ(cur);
+  for(const k of keys){ if(k in a) v[k]=cloneJ(a[k]); else delete v[k]; }
+  return v;
+}
+// вернуть свои правки d в чужой экран s. true: s изменился, его надо отправить
+function replayOwn(s, d){
+  let did=false;
+  for(const [id, { b, a }] of d.els){
+    const i=s.els.findIndex(e=>e.id===id), cur=i>=0 ? s.els[i] : null;
+    if(!a){ if(cur){ s.els.splice(i, 1); did=true; } continue; }
+    if(!cur){   // свой новый элемент ставим на место; если b есть, элемент удалили там: не возвращаем
+      if(!b && s.els.length<MAX_ELS){ s.els.splice(layerPos(s.els, d.oa||[], id), 0, cloneJ(a)); did=true; }
+      continue;
+    }
+    if(!b || b.type!==cur.type) continue;
+    const v=replayEl(b, a, cur);
+    if(canonJSON(v)!==canonJSON(cur)){ s.els[i]=v; did=true; }
+  }
+  if(d.ob){   // порядок слоёв: только если там его не меняли
+    const here=new Set(s.els.map(e=>e.id)), both=new Set(d.ob.filter(id=>here.has(id) && d.oa.includes(id)));
+    const want=d.oa.filter(id=>both.has(id)), had=d.ob.filter(id=>both.has(id)).join(), cur=s.els.filter(e=>both.has(e.id)).map(e=>e.id).join();
+    if(had===cur && want.join()!==cur){ const m=new Map(s.els.map(e=>[e.id, e])); let n=0; s.els=s.els.map(e=>both.has(e.id) ? m.get(want[n++]) : e); did=true; }
+  }
+  for(const [k, { b, a }] of d.top){
+    const cur=SYNC_TOP[k](s);
+    let v=cur;
+    if(k!=='raffle'){ if(canonJSON(cur)===canonJSON(b)) v=a; }
+    else if(!a) v=null;                            // розыгрыш: те же правила, что у элемента
+    else if(!cur) v=b ? null : a;
+    else if(b) v=replayEl(b, a, cur);
+    if(canonJSON(v)!==canonJSON(cur)){ s[k]=cloneJ(v); did=true; }
+  }
+  return did;
+}
+// s стал последним известным экраном сети
+function noteRemote(s, vv){ netState=cloneJ(s); seenBy=vv||{}; }
+// принят чужой экран s: вернуть в него наши правки, которых его отправитель не видел. true: s изменился
+function takeRemote(s, vv){
+  const now=performance.now(), mine=[];
+  if(!vv) sentSteps=[];   // старый пульт: видел ли он наши правки, неизвестно
+  else for(const x of sentSteps) if(now-x.at<SENT_KEEP_MS && x.t>(vv[clientId]||0)) mine.push(x.d);
+  const unsent=sendTimer && syncDiff(netState, state);   // правка, которая ещё ждёт отправки
+  if(unsent) mine.push(unsent);
+  noteRemote(s, vv);
+  return mine.length>0 && replayOwn(s, syncFold(mine));
+}
+// экран уходит с временем t: запоминаем, что в нём изменено
+function noteSent(t){
+  const now=performance.now(), snap=cloneJ(state), d=syncDiff(netState, snap);
+  sentSteps=sentSteps.filter(x=>now-x.at<SENT_KEEP_MS);
+  if(d) sentSteps.push({ t, at:now, d });
+  netState=snap; seenBy=cleanSeen({ ...seenBy, [clientId]:t });
 }
 
 // ================== СОЗДАНИЕ ==================
