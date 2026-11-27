@@ -556,7 +556,7 @@ de: {
 ['panel', 'Das Pult: was wo ist', `
 <ul>
 <li><b>Kopfzeile</b>: Verbindungskapsel (Netzwerk, <b>Ping</b>, OBS-Status), Gesamtlautstärke, „Rückgängig“, „Alles verstecken“, ❓ und das Menü <b>⋯ Mehr</b> (Rahmen, Passwort, alles löschen).</li>
-<li><b>Tab-Leiste links</b>: ➕ Hinzufügen (Text, Bilder, Video, Websites, Widgets, Effekte), 🎞 Szenen und Bibliothek, 💬 Chat, ⚡ Szenarien, 🎁 Verlosungen, 🔊 Ton, ⚙ Raum.</li>
+<li><b>Tab-Leiste links</b>: ➕ Hinzufügen (Text, Bilder, Video, Websites, Widgets, Effekte), 🎞 Szenen und Bibliothek, 💬 Chat, ⚡ Szenarien, 🎁 Gewinnspiele, 🔊 Ton, ⚙ Raum.</li>
 <li><b>In der Mitte die Fläche</b> — der Bildschirm des Streamers. Element ziehen, an der Ecke skalieren, <b>ein Bild an den seitlichen Griffen strecken</b>, am Kreis drehen. Über der Fläche: ausrichten, gruppieren 🔗, zeigen/verstecken, kopieren und löschen. Ein Bild lässt sich aus einem Ordner hineinziehen oder mit <kbd>Strg+V</kbd> einfügen.</li>
 <li><b>Rechts die Ebenen</b> und die Einstellungen des gewählten Elements: Schrift, Farbe, Animationen, „für N Sekunden zeigen“. Das Auge 👁 versteckt es im Stream, ohne zu löschen.</li>
 <li><b>Ordner in den Ebenen.</b> Wähle mehrere Elemente (Shift+Klick wählt einen Bereich von Ebenen, Strg+Klick fügt eine hinzu) und drücke Strg+G: Sie werden zu einem Ordner „Gruppe 1“, der sich gemeinsam bewegt. Doppelklick auf den Namen oder F2 benennt ihn um, ▸ klappt ihn zu. 👁 und ⚡ des Ordners wirken auf alles darin. Um viele Ebenen auf einmal zu verstecken, halte 👁 gedrückt und ziehe über die Zeilen.</li>
@@ -621,11 +621,11 @@ de: {
 <li><b>Start durch Zuschauer</b> (Block „💬 Start durch Zuschauer“, ohne Twitch-Anmeldung): ein <b>Chat-Befehl</b> (standardmäßig „!drehen“, bei anderer Sprache der Stream-Texte „!крутить“, „!spin“ oder „!крутити“; das Wort lässt sich ändern) mit „Wer darf“: Streamer und Moderatoren, Subs oder alle. „Zu den Teilnehmern hinzufügen“ setzt den Zuschauer auf die Liste, „sofort drehen“ startet die Roulette mit seinem Namen. „Pause“ verhindert zu häufiges Starten, das „Limit pro Zuschauer“ begrenzt, wie oft eine Person starten darf (0 heißt unbegrenzt). Sind mehrere Panels offen, verarbeitet nur eines die Nachricht.</li>
 <li><b>Kanalpunkte-Belohnung</b>: Lege in Twitch eine Belohnung an und aktiviere <b>„Zuschauer muss Text eingeben“</b> (Creator-Dashboard → Kanalpunkte → Neue benutzerdefinierte Belohnung). Eine Belohnung ohne Texteingabe kommt nicht im Chat an. Dann im Panel „🔍 Belohnung erkennen“ drücken, die Belohnung einlösen lassen (auch selbst) und in der Liste wählen. Der Filter „nur ein Wort“ (standardmäßig an) verwirft lange Texte, außerdem kannst du ein Wort festlegen, das eingegeben werden muss. Alles Verworfene steht unter „Übersprungen“.</li>
 </ul>`],
-['giveaway', 'Verlosungen', `
-<p>Der Tab <b>🎁 Verlosungen</b>: eine Verlosung mit Roulette. Auf dem Bildschirm gibt es eine Verlosung, sie wird über allen Ebenen gezeichnet, Position und Größe stellst du mit Reglern ein.</p>`],
+['giveaway', 'Gewinnspiele', `
+<p>Der Tab <b>🎁 Gewinnspiele</b>: ein Gewinnspiel mit Roulette. Auf dem Bildschirm gibt es ein Gewinnspiel, es wird über allen Ebenen gezeichnet, Position und Größe stellst du mit Reglern ein.</p>`],
 ['sound', 'Ton', `
 <p>Der Tab <b>🔊 Ton</b>: Gesamtlautstärke (dieselbe wie in der Kopfzeile), Effektlautstärke und ein eigener Regler für jeden Ton.</p>
-<p>Videos, Websites, Case, Timer und Verlosung haben eine eigene Lautstärke, die im Stream mit der Gesamtlautstärke multipliziert wird. Das Symbol 🔇 schaltet ein Element stumm (bei Videos und Websites ist das ihr eigener Ton).</p>`],
+<p>Videos, Websites, Case, Timer und Gewinnspiel haben eine eigene Lautstärke, die im Stream mit der Gesamtlautstärke multipliziert wird. Das Symbol 🔇 schaltet ein Element stumm (bei Videos und Websites ist das ihr eigener Ton).</p>`],
 ['cs2', 'CS2 β', `
 <p>Klicke im Hudini-Fenster des Streamers auf <b>🎯 CS2 verbinden</b> und starte das Spiel neu. Das ist eine offizielle Valve-Funktion (Game State Integration): Das Spiel schickt die Daten selbst an das Programm. Es wird nichts ins Spiel eingeschleust, also kein Bann-Risiko.</p>
 <p>Füge im Pult das Widget 🎯 CS2 hinzu und wähle eine Ansicht: Spielerkarte, K/D/A, HP, Geld, Waffe, DOUBLE / TRIPLE / ACE-Popup. Die „Zuschauer“-Ansichten (α) funktionieren, wenn der Streamer ein Match als Zuschauer verfolgt.</p>
@@ -641,7 +641,7 @@ de: {
 <li><b>Granaten auf dem Radar</b>: Molotow, HE, Flash und Rauch fliegen mit Spur und lassen ihre Wirkungszone zurück. Das schaltest du in den Radar-Einstellungen ein, dort wählst du auch Typen und Look (Symbole mit Spur oder einfache Punkte). Nötig ist die CS2-Datei aus Hudini Host: nach dem Update "CS2 verbinden" drücken und das Spiel neu starten. Funktioniert, wenn du ein Match als Zuschauer ansiehst.</li>
 </ul>`],
 ['perms', 'Rechte der Moderatoren und das OBS-Dock', `
-<p><b>Rechte.</b> In den Einstellungen von Hudini legt der Streamer fest, was Moderatoren dürfen. Vier Häkchen, standardmäßig alle an: Sounds und Videos; Websites und Dateien; Chat, Zeichnen und Effekte; Cases, Verlosungen, Umfragen und CS2. Was aus ist, verschwindet aus dem Pult und gelangt nicht in den Stream.</p>
+<p><b>Rechte.</b> In den Einstellungen von Hudini legt der Streamer fest, was Moderatoren dürfen. Vier Häkchen, standardmäßig alle an: Sounds und Videos; Websites und Dateien; Chat, Zeichnen und Effekte; Cases, Gewinnspiele, Umfragen und CS2. Was aus ist, verschwindet aus dem Pult und gelangt nicht in den Stream.</p>
 <p><b>Schnellschalter</b> im OBS-Dock schalten Chat, CS2-HUD, Sounds, Zeichnungen oder Effekte im Stream sofort aus.</p>
 <p><b>Das OBS-Dock</b> zeigt jetzt den Status, eine Liste der Elemente auf dem Bildschirm mit Augen (der Streamer blendet Überflüssiges selbst aus), einen Block „Wer ist online“ (Moderatoren, Ping, Verbindungsart, Knopf „trennen“) und einen CS2-Block mit Spielstand, beobachtetem Spieler und einem großen „Fight“-Hinweis.</p>
 <p><b>Streamer als eigener Moderator.</b> Die Taste <b>„Pult öffnen“</b> in Hudini öffnet das volle Pult auf demselben PC ohne Code und Passwort. Moderatoren können gleichzeitig arbeiten.</p>
