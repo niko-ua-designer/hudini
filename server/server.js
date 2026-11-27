@@ -1812,13 +1812,15 @@ function queued(fn){
 async function doCheck(wanted){   // wanted: скачать, даже если автозагрузка выключена (нажата кнопка)
   if(!UPDATES_ON){ upd.state='off'; return; }
   upd.state='checking'; upd.err='';
-  const list=await releases(), rel=pickRelease(list, channel()), ver=rel ? rel.tag_name.slice(1) : VERSION;
+  const list=await releases(), ch=channel(), rel=pickRelease(list, ch), ver=rel ? rel.tag_name.slice(1) : VERSION;
   upd.checkedAt=Date.now(); upd.latest=ver; upd.body=String(rel?.body || '').slice(0, 100000); upd.rollback=rollbackOf(list);
   if(upd.staged?.ver!==ver) upd.staged=null;
   if(!rel || cmpVer(ver, VERSION)<=0){ upd.staged=null; upd.state='latest'; return; }
   if(!upd.staged){
     if(!wanted && !upd.auto){ upd.state='available'; return; }
-    upd.staged=await download(rel, ver);
+    const staged=await download(rel, ver);
+    if(channel()!==ch) return;   // канал сменили во время загрузки: решит следующая проверка, она уже в очереди
+    upd.staged=staged;
   }
   upd.state='ready';
 }

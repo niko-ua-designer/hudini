@@ -73,6 +73,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   fs.writeFileSync(path.join(rel, APP_ZIP), appZip);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
   let sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
+  let slowZip = 0;   // ms before a zip is sent
   let list = [], sigVer = '1.0.0', sigMode = 'ok';   // sigMode: ok | bad (signed by another key) | site (by the key of the site files) | none
   const OFF = Number(process.env.HUDINI_TEST_PORT_OFFSET || 0), HPORT = 17830 + OFF;
   const port = 19300 + OFF, url = f => `http://localhost:${port}/${f}`;
@@ -91,7 +92,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
       if(sigMode === 'site') return s.end(crypto.sign(null, Buffer.from(`hudini-update\n${sigVer}\n${sums}`), SITE_KEYS.privateKey).toString('base64'));
       return s.end(signFor(sigVer, sums));
     }
-    const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)) return s.end(fs.readFileSync(f)); s.statusCode = 404; s.end();
+    const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)){ const body = fs.readFileSync(f); return void setTimeout(() => s.end(body), f.endsWith('.zip') ? slowZip : 0); } s.statusCode = 404; s.end();
   });
   await new Promise(r => srv.listen(port, r));
   const env = { ...process.env, OVERLAY_RELEASES_API: url('releases'), OVERLAY_NO_OPEN: '1', OVERLAY_ADMIN_TOKEN: T.ADMIN_TOKEN, OVERLAY_SITE: 'off', OVERLAY_PORT: String(HPORT) };
@@ -138,6 +139,14 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     run();
     s = await stateIs('latest');
     eq(s && [s.version, s.upd.channel], ['1.0.0', 'stable'], 'the choice is kept; rc not offered');
+    slowZip = 4000;
+    await post('/api/update/channel', { channel: 'beta' });
+    check(await stateIs('downloading'), 'back on beta: downloading the rc');
+    await post('/api/update/channel', { channel: 'stable' });
+    s = await stateIs('latest');
+    await T.sleep(1000);
+    eq(s && [(await status()).upd.ready, (await post('/api/update/apply')).status], [false, 400], 'a download that finishes after leaving the channel is not kept');
+    slowZip = 0;
     await stopAll();
     sigVer = '1.0.0';
   });
