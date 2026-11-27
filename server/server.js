@@ -150,6 +150,7 @@ async function setRoom(link, full){
     cfg.modPass = rnd(18);
     kickMods('room keys changed');
     screen = null; ctl.hideIds = []; cfg.hideIds = [];   // элементы старой комнаты доку больше не нужны
+    keepReset();   // и списки файлов, нужных модераторам
     dropPanelSessions();   // пульт стримера войдёт заново с новыми ключами
   }
   PUB = pub;
@@ -169,6 +170,13 @@ function kickMods(why){
   let n = 0;
   for(const c of Object.values(aedes.clients)) if(c.conn?._mod){ try{ c.close(); n++; }catch{} }
   if(n) logc('👤 Disconnected moderators:', n, '—', why);
+}
+// Пауза: сначала пульты получают весть о ней (тема host), потом их соединения закрываются. Присланное за это время отбрасывается
+const PAUSE_NOTICE_MS = 300;
+async function pauseMods(){
+  await publishCtl();
+  await new Promise(r => setTimeout(r, PAUSE_NOTICE_MS));
+  if(ctl.paused) kickMods('moderators paused');
 }
 // Шифруем ключом комнаты (как в core.js, без подписи)
 async function sealAES(obj){
@@ -381,17 +389,25 @@ function passOk(ip, pass){
 }
 // Адрес — только из сокета: заголовкам вроде cf-connecting-ip верить нельзя
 const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
+// Секрет возобновления: пульт придумывает его при запуске и присылает в адресе подключения (внутри TLS), программа держит
+// только хэш и только пока живо соединение. По нему тот же пульт, сменивший сеть, узнаётся с нового адреса.
+const RESUME_RE = /^[A-Za-z0-9_-]{22,128}$/;
+const samePanel = (a, b) => !!(a.conn._resume && b.conn._resume) && nodeCrypto.timingSafeEqual(a.conn._resume, b.conn._resume);
 aedes.authenticate = (client, user, pass, cb) => {
   // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор с другого адреса
+  // без секрета того же пульта. Старое соединение закрывает брокер, и только после того, как новое прошло все проверки ниже
   const prev = client.id ? aedes.clients[client.id] : null;
+  let moved = null;
   if(prev && prev!==client && prev.conn && prev.connected!==false){
     const kindOf = c => c.conn._mod ? 'mod' : c.conn._streamer ? 'streamer' : 'widget';
     // новое соединение ещё не вошло: пульт стримера узнаём по логину (пароль проверяется ниже)
     const kind = client.conn?._mod ? 'mod' : user==='streamer' ? 'streamer' : 'widget';
-    if(kindOf(prev)!==kind || (client.conn?._mod && prev.conn._ip!==client.conn._ip)){
+    const away = !!client.conn?._mod && prev.conn._ip!==client.conn._ip;
+    if(kindOf(prev)!==kind || (away && !samePanel(prev, client))){
       refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }
+    if(away) moved = prev;
   }
   if(!client.conn?._mod){
     if(user==='streamer'){   // пульт стримера на этом ПК: только с сессией, полученной за одноразовый ключ
@@ -406,6 +422,7 @@ aedes.authenticate = (client, user, pass, cb) => {
   if(!cfg.modsOn){ refuse(client.conn._ip, 'entrance closed'); return cb(Object.assign(new Error('off'), { returnCode:3 }), false); }   // 3: сервер не принимает
   const ok = user==='mod' && passOk(client.conn._ip, pass);
   if(ok) client.conn._authed = true;   // снимает лимит PRE_AUTH в wsServer
+  if(ok && moved) logc('👤 Moderator is back from another address, replacing the old connection:', who(moved.conn._ip), '→', who(client.conn._ip));
   cb(ok ? null : Object.assign(new Error('auth'), { returnCode:4 }), ok);
 };
 // Кто что пишет: модераторы — только экран (state), эффекты (fx) живые штрихи рисунка (ink) и команды серии CS2 (cs2cmd), виджет OBS — только пульс (hb).
@@ -414,7 +431,8 @@ const PUB_MOD = new Set(['state', 'fx', 'ink', 'cs2cmd', 'cur', 'rtc']), PUB_LOC
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
   if(!(client?.conn?._mod || client?.conn?._streamer ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
-  if(ctl.paused && client?.conn?._mod) return cb(new Error('пауза'));
+  // на паузе сообщение тихо отбрасывается: обрыв за отправку не дал бы вести о паузе дойти до пульта
+  if(ctl.paused && client?.conn?._mod){ packet.topic = `${PREFIX}/_drop`; packet.retain = false; return cb(null); }
   if(kind==='rtc'){
     const r = rtcGate(client, packet);
     if(r===false) return cb(new Error('rtc: неверный заголовок'));
@@ -427,6 +445,8 @@ aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub
 let obsUp = false, obsDropTimer = null;
 const OBS_DROP_MS = 5000;
 const PING_MS = 5000, PING_MISS = 3;   // модератор молчит 15 с — соединения больше нет
+// вход, начатый до паузы и законченный после отключения всех: закрываем, повторный вход получит отказ «пауза»
+aedes.on('clientReady', c => { if(ctl.paused && c.conn?._mod) c.close(); });
 aedes.on('client', c => {
   const s = c.conn;
   if(!s?._mod && !s?._streamer){
@@ -436,7 +456,8 @@ aedes.on('client', c => {
     return;
   }
   const me = !!s._streamer;   // пульт стримера на этом ПК: в списке «на связи», но не модератор
-  const m = { ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, miss:0, timer:null };
+  clearInterval(modList.get(c.id)?.timer);
+  const m = { client:c, ip:me ? 'local' : s._ip, net:me ? 'local' : netOf(s._ip), me, since:Date.now(), rtt:null, ws:s._ws, pingAt:0, miss:0, timer:null };
   // Модератор, у которого пропала сеть, не должен держать свой clientId до keepalive MQTT (~45 с): без ответа на PING_MISS пинга подряд
   // соединение закрываем, и тот же пульт входит с нового адреса. Считаем пинги, а не время: сон ПК стримера никого не отключит.
   const ping = () => {
@@ -462,7 +483,7 @@ aedes.on('clientDisconnect', c => {
     }
     return;
   }
-  if(m){ clearInterval(m.timer); modList.delete(c.id);
+  if(m && m.client===c){ clearInterval(m.timer); modList.delete(c.id);   // запись нового соединения с тем же clientId не трогаем
     if(m.me) logc('🖥 Streamer panel disconnected');
     else logc('👤 Moderator disconnected:', who(m.ip), '— was online', fmtDur(Math.round((Date.now()-m.since)/1000))); }
   status.mods = modCount();
@@ -503,6 +524,9 @@ function wsServer(mod){
     const panel = !mod && PANEL_ORIGINS.has(req.headers.origin || '');
     if(!mod && (!okHost(req.headers.host) || (req.headers.origin && !okOrigin(req.headers.origin) && !panel))){ socket.destroy(); return; }
     const ip = ipOf(req);
+    // из секрета возобновления берётся только хэш, а из запроса он убирается: дальше ему попадать некуда
+    const resume = mod ? new URL(req.url, 'http://x').searchParams.get('resume') : null;
+    req.url = pth;
     if(mod){
       let pending = 0; for(const w of wss.clients) if(!w._stream?._authed) pending++;
       const why = !cfg.modsOn ? 'entrance closed' : wss.clients.size >= MOD_CONNS ? 'limit: too many connections' : pending >= PENDING ? 'limit: too many waiting to log in'
@@ -511,6 +535,7 @@ function wsServer(mod){
     }
     wss.handleUpgrade(req, socket, head, ws => {
       const stream = createWebSocketStream(ws); stream._mod = mod; stream._panel = panel; stream._ip = ip; stream._ws = ws; ws._stream = stream;
+      stream._resume = resume && RESUME_RE.test(resume) ? sha256(resume) : null;
       stream.on('error', ()=>{});
       if(mod){
         perIp.set(ip, (perIp.get(ip)||0) + 1);
@@ -1837,7 +1862,56 @@ function delFile(room, id){
   fs.rmSync(filePath(room, id), { force:true });
   return fileIndex.delete(room+'/'+id);
 }
-// Удалить всё в комнате, кроме списка, который прислал пульт (то, что на экране, в сценах и библиотеке)
+// Какие файлы нужны каждому пульту: он присылает свой список (экран, сцены, библиотека, сценарии), и очистка не трогает
+// файлы ни из одного списка. Списки переживают перезапуск программы и сбрасываются вместе с комнатой.
+const KEEP_FILE = path.join(BASE, 'files-keep.json'), KEEP_PANELS = 64, KEEP_IDS = 5000, KEEP_BYTES = 16*MB;
+const okPanel = p => typeof p==='string' && /^[a-z0-9]{12,32}$/.test(p);
+const keepIds = a => [...new Set((Array.isArray(a) ? a : []).filter(x => typeof x==='string' && okId(x)))];
+let keepRoom = '';
+const keepLists = new Map();   // id пульта → { at, ids }
+try{
+  if(fs.statSync(KEEP_FILE).size <= KEEP_BYTES){
+    const j = JSON.parse(fs.readFileSync(KEEP_FILE, 'utf8'));
+    if(j?.v===1 && typeof j.room==='string' && okRoom(j.room) && j.panels && typeof j.panels==='object'){
+      keepRoom = j.room;
+      for(const [p, x] of Object.entries(j.panels).slice(0, KEEP_PANELS)){
+        const ids = keepIds(x?.ids).slice(0, KEEP_IDS);
+        if(okPanel(p) && ids.length) keepLists.set(p, { at:Number(x.at)||0, ids });
+      }
+    }
+  }
+}catch{}
+function keepSave(){
+  try{
+    fs.writeFileSync(KEEP_FILE+'.tmp', JSON.stringify({ v:1, room:keepRoom, panels:Object.fromEntries(keepLists) }), { mode:0o600 });
+    fs.renameSync(KEEP_FILE+'.tmp', KEEP_FILE);
+  }catch(e){ log('⚠ Could not save the file lists:', e?.code || e?.message || e); }
+}
+function keepReset(){ keepLists.clear(); keepRoom = ''; keepSave(); }
+// Списки текущей комнаты
+function keepOfRoom(){
+  if(keepRoom!==ROOM.room){ keepLists.clear(); keepRoom = ROOM.room; }
+  return keepLists;
+}
+// Новый список пульта заменяет прежний. Хранятся только имена файлов, которые есть в комнате; при переполнении выбывает самый давний пульт
+function keepSet(panel, list){
+  const lists = keepOfRoom(), ids = keepIds(list).filter(id => fileIndex.has(ROOM.room+'/'+id)).slice(0, KEEP_IDS);
+  if(!ids.length){ if(lists.delete(panel)) keepSave(); return; }
+  const same = lists.get(panel)?.ids.join()===ids.join();
+  lists.set(panel, { at:Date.now(), ids });
+  while(lists.size > KEEP_PANELS){
+    let oldest = null; for(const [p, x] of lists) if(p!==panel && (!oldest || x.at < oldest[1].at)) oldest = [p, x];
+    lists.delete(oldest[0]);
+  }
+  if(!same) keepSave();
+}
+// Всё, что нужно пультам, кроме указанного
+function keepHeld(except){
+  const out = new Set();
+  for(const [p, x] of keepOfRoom()) if(p!==except) for(const id of x.ids) if(fileIndex.has(ROOM.room+'/'+id)) out.add(id);
+  return [...out];
+}
+// Удалить всё в комнате, кроме переданного списка (то, что на экране, в сценах и библиотеке этого и других пультов)
 function cleanRoomFiles(room, keep){
   const k = new Set(keep.filter(okId)); let n = 0, bytes = 0;
   for(const f of [...fileIndex.values()]) if(f.room===room && !k.has(f.id)){ bytes += f.size; if(delFile(room, f.id)) n++; }
@@ -1905,11 +1979,15 @@ async function filesApi(req, res, url, mod){
     }
   }
   const mine = () => [...fileIndex.values()].filter(f => f.room===ROOM.room).map(f => [f.id, f.size]);
-  if(req.method==='GET' && p==='/files') return j(200, { ok:true, storage:storage(ROOM.room), ids:mine() });
-  if(req.method==='POST' && p==='/files/clean'){
-    const { keep } = JSON.parse(await readBody(req, 512*1024));
-    if(!Array.isArray(keep)) throw new HttpErr(400, 'нет списка файлов');
-    return j(200, cleanRoomFiles(ROOM.room, keep));
+  const panelId = url.searchParams.get('panel');
+  // held: файлы из списков других пультов, очистка их оставит
+  if(req.method==='GET' && p==='/files') return j(200, { ok:true, storage:storage(ROOM.room), ids:mine(), held:keepHeld(panelId) });
+  if(req.method==='POST' && (p==='/files/keep' || p==='/files/clean')){
+    const { keep, id:panel } = JSON.parse(await readBody(req, 512*1024)), clean = p==='/files/clean';
+    if(!Array.isArray(keep) || !clean && !okPanel(panel)) throw new HttpErr(400, 'нет списка файлов');
+    if(okPanel(panel)) keepSet(panel, keep);
+    // пульт старой версии id не присылает: тогда бережём списки всех пультов
+    return j(200, clean ? cleanRoomFiles(ROOM.room, [...keep, ...keepHeld(panel)]) : { ok:true });
   }
   if(!okId(id) || !okRoom(room)) return j(400, { ok:false, error:'плохое имя файла' });
   // Модератор может читать и файлы прошлых комнат этого ПК: пульт так копирует файл из библиотеки в новую комнату.
@@ -1924,7 +2002,10 @@ async function filesApi(req, res, url, mod){
   if(req.method==='PUT'){
     const part = Number(url.searchParams.get('part')||0);
     if(!Number.isInteger(part) || part<0 || part>100000) return j(400, { ok:false, error:'плохой номер куска' });
-    return j(200, putPart(room, id, part, url.searchParams.get('last')==='1', await readRaw(req, PART_MAX)));
+    const last = url.searchParams.get('last')==='1', saved = putPart(room, id, part, last, await readRaw(req, PART_MAX));
+    // свежий файл числится за загрузившим пультом, пока тот не пришлёт новый список
+    if(last && okPanel(panelId)) keepSet(panelId, [id, ...(keepOfRoom().get(panelId)?.ids || [])]);
+    return j(200, saved);
   }
   if(req.method==='DELETE'){ delFile(room, id); return j(200, { ok:true, storage:storage(room) }); }
   return j(405, { ok:false, error:'нельзя' });
@@ -2069,7 +2150,7 @@ const local = http.createServer(async (req, res) => {
         }
         else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Streamer hid the overlay' : '👁 Streamer showed the overlay'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Streamer stopped the sounds'); }
-        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('moderators paused'); log(ctl.paused ? '⏸ Moderators paused' : '▶ Moderators can change the screen again'); await announce(); }
+        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; log(ctl.paused ? '⏸ Moderators paused' : '▶ Moderators can change the screen again'); await announce(); if(ctl.paused) pauseMods().catch(e => log('⚠ Pause:', e?.message || e)); }
         else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 CS2 auto-tab turned off on stream' : '🎯 CS2 auto-tab turned back on'); }   // быстрый выключатель авто-таба (док)
         else throw new HttpErr(400, 'неизвестное действие');
         await publishCtl();

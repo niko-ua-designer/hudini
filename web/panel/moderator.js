@@ -123,12 +123,20 @@ setInterval(renderObs, 3000);
 // - в тестах: openHome({ url, pass }) прямо на адрес сервера.
 // Экран, файлы и CS2 идут только через программу. Без неё пульт работает: всё уйдёт стримеру при подключении.
 let homeInfo=null, homeClient=null, hostNote='';
+// pausedRoom: комната, где стример поставил модераторов на паузу; пульт пробует вернуться, пока не пустят
+let pausedRoom=null, retryT=null;
+const PAUSE_NOTE='⏸ Стример поставил управление на паузу', RETRY_MS=20000;
 const TAURI=window.__TAURI__;
 let session=null, relayInfo=null, relayPort=0;   // сохранённая сессия приложения и последнее состояние ретранслятора
+// Секрет возобновления: только в памяти этой вкладки, уходит только программе стримера в адресе подключения (внутри TLS).
+// По нему она узнаёт тот же пульт, сменивший сеть, и сразу отдаёт ему его clientId. В пароле и логине ему не место:
+// программа старой версии сверяет их точно, а лишнее в адресе пропускает.
+const RESUME=rid(32);
 function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
+let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: она списков не принимает (reportKeep)
 const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur', topics(room).base+'/rtc', topics(room).base+'/media'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
@@ -149,6 +157,8 @@ function statusModel(){
     return { cls, bars, text:R?.net ? netName(R.net)+(rtt!=null ? ` · ${rtt} ms` : '') : 'онлайн · Hudini Host',
       title:'Подключено к программе стримера'+(R?.addr ? ': '+R.addr : ''), strip:null };
   }
+  // пауза стримера важнее «нет связи» и «переподключение»
+  if(pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
   if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
     why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
   if(R?.state==='offline'){
@@ -160,7 +170,7 @@ function statusModel(){
   }
   if(!homeClient && hostNote){
     const bad=/пароль|Не удалось/.test(hostNote);
-    return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad || /пауз/.test(hostNote) ? { head:hostNote, why:'' } : null };
+    return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad ? { head:hostNote, why:'' } : null };
   }
   if(R?.state==='connecting' || relayPort && !homeClient) return { cls:'warn', bars:1, text:'подключаюсь к адресам из кода…', title:'Пробую адреса из кода стримера: '+(session?.addrs?.length||1), strip:null };
   if(homeClient) return { cls:'warn', bars:1, text:'подключаюсь к Hudini Host…', title:'', strip:null };
@@ -203,7 +213,7 @@ function toggleConnPop(force){
 $('csRetry').onclick=()=>{ hostNote=''; relayInfo=null; dropHome(); reopenHome(); };
 function useMain(c){
   if(client && client!==c && client.connected) client.unsubscribe(mainTopics());
-  client=c; cancelOfflineWait();
+  client=c; cancelOfflineWait(); keepSent=null; keepOld=false;
   if(!c?.connected){ hostStatus(); return; }
   hostStatus();
   c.subscribe(mainTopics(), { qos:1 });
@@ -265,21 +275,32 @@ function openHome(info){
   if(homeClient && homeInfo?.url===info.url && homeInfo?.pass===info.pass) return;
   if(homeClient) dropHome();
   homeInfo=info; hostNote='';
-  const c=mqttClient(info.url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
+  const url=info.user==='streamer' ? info.url : info.url+'?resume='+RESUME;
+  const c=mqttClient(url, 'h', { username:info.user||'mod', password:String(info.pass||''), reconnectPeriod:3000 });
   homeClient=c; wire(c); hostStatus();
   c.on('connect', ()=>{
     if(homeClient!==c) return;
+    pausedRoom=null;
     const first=client!==c; useMain(c);
     if(first) toast('🏠 Подключено к Hudini Host', 2500);
   });
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
-    // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
-    if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
-    else if(info.user==='streamer') hostNote='Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз';
-    else if(!hostCtl?.paused) hostNote='Неверный пароль: попроси у стримера новый код';
-    dropHome(); setTimeout(()=>{ if(!homeClient) reopenHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
+    // код 5 («Not authorized») программа отвечает только на паузе, неверный пароль — код 4
+    if(/Not authorized/i.test(String(e.message))) return pausedByStreamer();
+    pausedRoom=null;
+    hostNote=info.user==='streamer' ? 'Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз' : 'Неверный пароль: попроси у стримера новый код';
+    dropHome(); retryHome();   // стример мог выдать новый пароль: пробуем снова
   } });
+  // попытка вернуться закончилась без ответа программы: это уже не пауза, показываем состояние связи
+  c.on('close', ()=>{ if(homeClient===c && client!==c && pausedRoom===room){ pausedRoom=null; hostStatus(); } });
 }
+// Весть о паузе от программы или отказ при входе: показываем паузу и возвращаемся, когда её снимут. Пульта стримера пауза не касается
+function pausedByStreamer(){
+  if(!homeClient || homeInfo?.user==='streamer') return;
+  pausedRoom=room; hostNote='';
+  dropHome(); retryHome();
+}
+function retryHome(){ clearTimeout(retryT); retryT=setTimeout(()=>{ if(!homeClient) reopenHome(); }, RETRY_MS); }
 // Повторная попытка после паузы или отказа
 function reopenHome(){
   if(homeInfo) return;
@@ -331,7 +352,7 @@ async function onMessage(topic, payload, packet){
   if(topic===T.base+'/rtc'){ window.hudiniBroadcast?.onPacket(payload); return; }
   if(topic===T.base+'/media'){ window.hudiniBroadcast?.onMedia(payload); return; }   // ответ Host на запрос показать камеру/экран   // камера, экран, микрофон: запечатанная сигнализация (broadcast.js)
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
-  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); if(c.paused && !packet.retain && keys===KEYS) pausedByStreamer(); } return; }
   if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
@@ -740,7 +761,7 @@ function setStorage(st){ if(st && typeof st==='object'){ storage=st; renderStora
 async function refreshStorage(announce){
   const h=homeHttp(); if(!h) return;
   try{
-    const r=await fetch(h.base+'/files', { headers:{ authorization:h.auth } });
+    const r=await fetch(`${h.base}/files?panel=${panelId()}`, { headers:{ authorization:h.auth } });
     const j=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,j);
     setStorage(j.storage);
     if(announce && !storageToast){ storageToast=true; toast(`Место для файлов: свободно ${fmtBytes(Math.max(0, storage.limitBytes-storage.used))}, ещё ${Math.max(0, storage.maxFiles-storage.files)} файлов`, 4000); }
@@ -754,8 +775,34 @@ function usedAssets(){
   for(const it of library) if(it.room===room) assetsOfEl(it.el, used);
   for(const sc of scenes[room]||[]) assetsOf(sc, used);
   for(const sc of scnStore[room]||[]) for(const a of sc.acts||[]) add(a.url);
+  add(window.Draw?.brushAsset);   // загруженная кисть из фото, которой ещё не рисовали
   return used;
 }
+// Постоянный id пульта: по нему программа стримера помнит, какие файлы нужны этому модератору
+function panelId(){
+  let v=lsGet('overlay.panelId', '');
+  if(typeof v!=='string' || !/^[a-z0-9]{12,32}$/.test(v)){ v=rid(20); lsSet('overlay.panelId', v); }
+  return v;
+}
+// Программа стримера хранит список файлов этого пульта, чтобы очистка у другого модератора их не удалила.
+// Отправляем после подключения и после изменений; проверка раз в 2 с заодно объединяет частые правки.
+let keepBusy=false;
+async function reportKeep(){
+  const h=homeHttp(), c=client; if(!h || keepBusy || keepOld) return;
+  const keep=[...usedAssets()].sort(), sig=room+'|'+keep.join();
+  if(sig===keepSent) return;
+  keepBusy=true;
+  try{
+    const r=await fetch(h.base+'/files/keep', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep }) });
+    if(c===client){
+      if(r.ok) keepSent=sig;
+      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором. До следующего подключения не спрашиваем
+      else if([400, 401, 404].includes(r.status)) keepOld=true;
+    }
+  }catch(e){ console.warn('keep', e); }
+  keepBusy=false;
+}
+setInterval(reportKeep, 2000);
 function showHostTip(why, full){
   $('hostTipWhy').textContent = why || 'Экран стримера меняется через программу Hudini Host';
   $('hostTipFull').hidden=!full; $('hostTipNoHost').hidden=!!full;
@@ -773,7 +820,7 @@ async function uploadBlob(blob, name){
   const box=await packAsset(keys, blob, id, name);
   const n=Math.max(1, Math.ceil(box.length/PART_BYTES));
   for(let i=0;i<n;i++){
-    const r=await fetch(`${h.base}/files/${id}?part=${i}${i===n-1?'&last=1':''}`, { method:'PUT',
+    const r=await fetch(`${h.base}/files/${id}?part=${i}${i===n-1?'&last=1':''}&panel=${panelId()}`, { method:'PUT',
       headers:{ authorization:h.auth, 'content-type':'application/octet-stream' }, body:box.subarray(i*PART_BYTES, (i+1)*PART_BYTES) });
     const j=await r.json().catch(()=>({}));
     if(j.storage) setStorage(j.storage);
@@ -837,17 +884,20 @@ async function uploadFiles(files, x, y){
   }
   hideUpload();
 }
-// Удалить из программы стримера файлы, которых нет ни на экране, ни в сценах, ни в библиотеке этого пульта.
-// Сама программа ничего не удаляет: так мем, приготовленный на конец стрима, не пропадёт.
+// Удалить из программы стримера файлы, которых нет ни на экране, ни в сценах, ни в библиотеке этого пульта
+// и в списках других пультов (held). Сама программа ничего не удаляет: так мем, приготовленный на конец стрима, не пропадёт.
 async function cleanFiles(){
   const h=homeHttp(); if(!h) return showHostTip('Файлы хранятся в программе Hudini Host, а она сейчас не подключена');
   const j=await refreshStorage(); if(!j) return toast('Не получилось узнать список файлов');
-  const used=usedAssets(), unused=(j.ids||[]).filter(([id])=>!used.has(id));
+  const used=usedAssets(), held=new Set(j.held||[]), unused=(j.ids||[]).filter(([id])=>!used.has(id) && !held.has(id));
   if(!unused.length) return toast('Все файлы используются: на экране, в сценах, библиотеке или сценариях', 4000);
   const bytes=unused.reduce((a,[,b])=>a+b, 0);
-  if(!confirm(`Удалить ${unused.length} файлов (${fmtBytes(bytes)})?\n\nИх нет ни на экране, ни в сценах, библиотеке и сценариях этого пульта.\nЕсли у другого модератора свои сцены с этими файлами, у него они пропадут.`)) return;
+  const note=Array.isArray(j.held)
+    ? 'Их нет на экране и в сценах, библиотеке и сценариях модераторов.\nФайлы, нужные только модераторам, которые не подключались после обновления, могут удалиться.'
+    : 'Их нет ни на экране, ни в сценах, библиотеке и сценариях этого пульта.\nЕсли у другого модератора свои сцены с этими файлами, у него они пропадут.';   // программа старой версии списков не знает
+  if(!confirm(`Удалить ${unused.length} файлов (${fmtBytes(bytes)})?\n\n${note}`)) return;
   try{
-    const r=await fetch(h.base+'/files/clean', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ keep:[...used] }) });
+    const r=await fetch(h.base+'/files/clean', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep:[...used] }) });
     const k=await r.json().catch(()=>({})); if(!r.ok) throw fileErr(r,k);
     setStorage(k.storage); toast(`🧹 Удалено файлов: ${k.deleted} (${fmtBytes(k.bytes)})`, 4000);
   }catch(e){ toast('Не удалилось: '+(e.message||e)); }

@@ -246,6 +246,7 @@ const IMG = path.join(__dirname, 'fixtures/img.png'), GIF = path.join(__dirname,
     check(dropped, 'nobody but the app may publish dock commands');
     await dock.click('#pause');
     check(await until(async () => /паузу/.test(await panel.textContent('#status')), 10000), 'panel shows the pause: ' + await panel.textContent('#status'));
+    await until(async () => /Снять паузу/.test(await dock.textContent('#pause')));   // the panel knows before the dock has refreshed
     await dock.click('#pause');
     check(await until(async () => (await panel.getAttribute('#status', 'class')).includes('ok'), 25000), 'panel reconnects after the pause');
     await dock.context().close();
