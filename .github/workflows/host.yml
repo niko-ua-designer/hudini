@@ -51,6 +51,14 @@ jobs:
           echo "pretty=$pretty" >> "$GITHUB_OUTPUT"
           echo "title=$title" >> "$GITHUB_OUTPUT"
           echo "version $ver -> files $pretty, title \"Hudini $title\""
+      # A published Host without the site key would never take widget files from the site; dry runs may build without it
+      - name: Site key
+        if: github.ref_type == 'tag' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+        run: |
+          site=$(grep -oP "^const SITE_KEY = '\KMCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}=(?=')" server/server.js || true)
+          update=$(grep -oP "^const UPDATE_KEY = '\K[^']+" server/server.js)
+          [ -n "$site" ] || { echo "SITE_KEY in server/server.js is empty or not an Ed25519 public key (tools/signing-key.mjs site)"; exit 1; }
+          [ "$site" != "$update" ] || { echo "SITE_KEY must not be the update key"; exit 1; }
       - name: Build matrix
         id: m
         env:

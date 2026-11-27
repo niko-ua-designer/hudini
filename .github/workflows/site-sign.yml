@@ -1,5 +1,5 @@
 # Signs the widget files of the published site. Hudini Host loads them into the streamer's OBS only with this signature.
-# Runs after a successful "Pages" deploy of main (or by hand) and waits for the owner's approval of the "release" environment:
+# Runs after a successful "Pages" deploy of main (or by hand) and waits for the owner's approval of the "site-sign" environment:
 # approving is the "sign the site" button. site-manifest.json and site-manifest.json.sig go to the permanent
 # pre-release "site-manifest", which is not an app release.
 # Two jobs: "build" runs the scripts of the repository and has no secrets; "sign" holds the key and runs only what is written
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # only to upload the signature to the "site-manifest" release
-    environment: release   # the signing key lives in this environment; it requires the owner's approval
+    environment: site-sign   # the site signing key lives in this environment; it requires the owner's approval
     concurrency:
       group: site-sign
       cancel-in-progress: true   # only the latest deploy waits for approval
@@ -102,23 +102,25 @@ jobs:
             console.log(clean);
           '
       # Ed25519 signature over "hudini-site\n<seq>\n" + site-manifest.json.
-      # The private key lives only in the HUDINI_SIGNING_KEY secret (made by tools/signing-key.mjs).
+      # The private key lives only in the HUDINI_SITE_SIGNING_KEY secret (made by tools/signing-key.mjs site);
+      # it is not the key of the app updates.
       - name: Sign
         env:
-          HUDINI_SIGNING_KEY: ${{ secrets.HUDINI_SIGNING_KEY }}
+          HUDINI_SITE_SIGNING_KEY: ${{ secrets.HUDINI_SITE_SIGNING_KEY }}
         run: |
-          [ -n "$HUDINI_SIGNING_KEY" ] || { echo "secret HUDINI_SIGNING_KEY is not set"; exit 1; }
+          [ -n "$HUDINI_SITE_SIGNING_KEY" ] || { echo "secret HUDINI_SITE_SIGNING_KEY is not set"; exit 1; }
           node -e '
             const c = require("crypto"), fs = require("fs");
+            const want = (/^const SITE_KEY = .([^\x27]*)./m.exec(fs.readFileSync("src/server/server.js", "utf8")) || [])[1];
+            if(!want){ console.error("SITE_KEY in server/server.js is empty: put the public site key there first"); process.exit(1); }
             const body = fs.readFileSync("site-manifest.json");
             const msg = Buffer.concat([Buffer.from("hudini-site\n" + JSON.parse(body).seq + "\n"), body]);
-            const key = c.createPrivateKey(process.env.HUDINI_SIGNING_KEY);
+            const key = c.createPrivateKey(process.env.HUDINI_SITE_SIGNING_KEY);
             const sig = c.sign(null, msg, key);
             if(!c.verify(null, msg, c.createPublicKey(key), sig)) process.exit(1);
             // the secret must match the public key built into Hudini Host, or no Host would take the files
             const pub = c.createPublicKey(key).export({ format: "der", type: "spki" }).toString("base64");
-            const want = (/^const UPDATE_KEY = .([^\x27]*)./m.exec(fs.readFileSync("src/server/server.js", "utf8")) || [])[1];
-            if(pub !== want){ console.error("HUDINI_SIGNING_KEY does not match UPDATE_KEY in server/server.js"); process.exit(1); }
+            if(pub !== want){ console.error("HUDINI_SITE_SIGNING_KEY does not match SITE_KEY in server/server.js"); process.exit(1); }
             fs.writeFileSync("site-manifest.json.sig", sig.toString("base64") + "\n");
           '
       - name: Upload

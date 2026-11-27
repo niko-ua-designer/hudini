@@ -1,7 +1,8 @@
 // Widget files from the website: Hudini Host takes them only with a valid signature over the manifest, all or nothing,
 // never an older manifest or an older widget, and checks its saved copies again at start.
 // The manifest is made by tools/site-manifest.mjs, checked and signed by the scripts of .github/workflows/site-sign.yml,
-// with a test key swapped into a temp copy of server.js; a fake HTTP site stands in for Pages and the release.
+// with test keys swapped into temp copies of server.js; a fake HTTP site stands in for Pages and the release.
+// The site has its own key: the update key does not sign the site, and a release needs the site key (host.yml).
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
@@ -14,19 +15,31 @@ const VER = Number(/const WIDGET_VER\s*=\s*(\d+)/.exec(ORIG['widget/widget.html'
 const SEQ = 1_780_000_000;
 const OFF = Number(process.env.HUDINI_TEST_PORT_OFFSET || 0);
 const HPORT = T.PORTS.host + 60, SPORT = 19400 + OFF;
-const TEST_SERVER = path.join(HOST, '.sitesig-test.js');
+const TEST_SERVER = path.join(HOST, '.sitesig-test.js'), NOKEY_SERVER = path.join(HOST, '.sitesig-nokey-test.js');
+const cleanUp = () => { for(const f of [TEST_SERVER, NOKEY_SERVER]) fs.rmSync(f, { force: true }); };
 
-const KEYS = crypto.generateKeyPairSync('ed25519');
-const PUB = KEYS.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
-const PEM = KEYS.privateKey.export({ format: 'pem', type: 'pkcs8' });
-const OTHER = crypto.generateKeyPairSync('ed25519').privateKey;
-const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null, Buffer.from(`${domain}\n${seq}\n${text}`), key).toString('base64');
+const pair = () => {
+  const k = crypto.generateKeyPairSync('ed25519');
+  return { key: k.privateKey, pub: k.publicKey.export({ format: 'der', type: 'spki' }).toString('base64'), pem: k.privateKey.export({ format: 'pem', type: 'pkcs8' }) };
+};
+const SITE = pair(), UPDATE = pair(), OTHER = pair();
+const signText = (domain, seq, text, key = SITE.key) => crypto.sign(null, Buffer.from(`${domain}\n${seq}\n${text}`), key).toString('base64');
+// server.js with other public keys
+function withKeys(source, keys){
+  for(const [name, pub] of Object.entries(keys)){
+    const line = new RegExp(`^const ${name} = '[^']*';`, 'm');
+    if(!line.test(source)) throw new Error(name + ' not found in server.js');
+    source = source.replace(line, `const ${name} = '${pub}';`);
+  }
+  return source;
+}
 
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hudini-sitesig-'));
   const source = fs.readFileSync(path.join(HOST, 'server.js'), 'utf8');
-  const testSource = source.replace(/^const UPDATE_KEY = '[^']*';/m, `const UPDATE_KEY = '${PUB}';`);
-  fs.writeFileSync(TEST_SERVER, testSource);
+  const testSource = withKeys(source, { UPDATE_KEY: UPDATE.pub, SITE_KEY: SITE.pub });
+  const nokeySource = withKeys(source, { UPDATE_KEY: UPDATE.pub, SITE_KEY: '' });
+  fs.writeFileSync(TEST_SERVER, testSource); fs.writeFileSync(NOKEY_SERVER, nokeySource);
   // the check and sign steps of the workflow, run as they are
   const workflow = fs.readFileSync(path.join(T.ROOT, '.github/workflows/site-sign.yml'), 'utf8');
   const stepScript = name => new RegExp(`name: ${name}\\n[\\s\\S]*?node -e '\\n([\\s\\S]*?)\\n +'\\n`).exec(workflow)?.[1];
@@ -52,10 +65,11 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
     return { root, files };
   }
   // One published state of the site: the six files with a mark, their manifest and its signature
-  function release(mark, seq, { widgetVer = VER, key = PEM } = {}){
+  function release(mark, seq, { widgetVer = VER, key = SITE.pem, server } = {}){
     const { root, files } = prepare(mark, seq, widgetVer);
+    if(server) fs.writeFileSync(path.join(root, 'src/server/server.js'), server);
     run(checkScript, root, { SEQ: String(seq) });
-    run(signScript, root, { HUDINI_SIGNING_KEY: key });
+    run(signScript, root, { HUDINI_SITE_SIGNING_KEY: key });
     const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     return { mark, seq, files, manifest: read('site-manifest.json'), sig: read('site-manifest.json.sig') };
   }
@@ -105,9 +119,34 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
     const m = JSON.parse(A.manifest);
     eq([m.seq, m.widgetVer, Object.keys(m.files)], [SEQ, VER, FILES], 'seq, widget version and exactly the files the Host serves');
     eq(m.files['shared/core.js'], crypto.createHash('sha256').update(A.files['shared/core.js']).digest('hex'), 'SHA-256 of the file');
-    let refused = '';
-    try{ release('X', SEQ, { key: OTHER.export({ format: 'pem', type: 'pkcs8' }) }); }catch(e){ refused = String(e.stderr); }
-    check(/does not match UPDATE_KEY/.test(refused), 'a secret that does not match UPDATE_KEY is refused', refused);
+    for(const [what, opts, re] of [
+      ['a secret that does not match SITE_KEY', { key: OTHER.pem }, /does not match SITE_KEY/],
+      ['the update key as the secret', { key: UPDATE.pem }, /does not match SITE_KEY/],
+      ['an empty SITE_KEY', { server: nokeySource }, /SITE_KEY in server\/server\.js is empty/],
+    ]){
+      let refused = '';
+      try{ release('X', SEQ, opts); }catch(e){ refused = String(e.stderr); }
+      check(re.test(refused), what + ': not signed', refused);
+    }
+    check(/^    environment: site-sign /m.test(workflow) && !/secrets\.HUDINI_SIGNING_KEY|environment: release/.test(workflow), 'own environment and secret, not those of the app releases');
+  });
+
+  await step('a release cannot be published without the site key', async () => {
+    const host = fs.readFileSync(path.join(T.ROOT, '.github/workflows/host.yml'), 'utf8');
+    const m = /- name: Site key\n +if: (.+)\n +run: \|\n((?: {10}.*\n)+)/.exec(host);
+    check(!!m, 'step found in host.yml');
+    // the same condition as the publish job, in the job everything else waits for
+    check(m[1] === /^  publish:\n[\s\S]*?\n    if: (.+)$/m.exec(host)[1], 'runs whenever a release would be published', m[1]);
+    check(host.indexOf('- name: Site key') < host.indexOf('\n  build:'), 'before anything is built');
+    if(process.platform !== 'linux') return;   // the step uses GNU grep, as on the runner
+    const passes = src => {
+      const root = fs.mkdtempSync(path.join(dir, 'host-')); fs.mkdirSync(path.join(root, 'server')); fs.writeFileSync(path.join(root, 'server/server.js'), src);
+      try{ execFileSync('bash', ['-eo', 'pipefail', '-c', m[2]], { cwd: root, stdio: 'pipe' }); return true; }catch{ return false; }
+    };
+    check(passes(testSource), 'a site key of its own: publish');
+    check(!passes(nokeySource), 'empty SITE_KEY: stop');
+    check(!passes(withKeys(source, { SITE_KEY: 'not a key' })), 'not a public key: stop');
+    check(!passes(withKeys(source, { UPDATE_KEY: UPDATE.pub, SITE_KEY: UPDATE.pub })), 'the update key as SITE_KEY: stop');
   });
 
   await step('the signing job holds the key apart from repository code', async () => {
@@ -201,8 +240,9 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
   const BAD = /Could not update widget files from the site \(bad signature\)/;
 
   await step('a wrong signature is refused', async () => {
-    await refusedKeeping({ ...C, sig: signText('hudini-site', C.seq, C.manifest, OTHER) }, BAD, 'another key');
-    await refusedKeeping({ ...C, sig: signText('hudini-update', C.seq, C.manifest) }, BAD, 'signature made for an app update');
+    await refusedKeeping({ ...C, sig: signText('hudini-site', C.seq, C.manifest, OTHER.key) }, BAD, 'another key');
+    await refusedKeeping({ ...C, sig: signText('hudini-update', C.seq, C.manifest) }, BAD, 'signature for the update purpose');
+    await refusedKeeping({ ...C, sig: signText('hudini-site', C.seq, C.manifest, UPDATE.key) }, BAD, 'signed with the update key');
     await refusedKeeping({ ...C, manifest: C.manifest.replace(String(C.seq), String(C.seq + 1)) }, BAD, 'manifest edited after signing');
     await refusedKeeping({ ...C, manifest: 'not json' }, BAD, 'garbage manifest');
   });
@@ -239,7 +279,8 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
     const cases = [
       ['changed file', edit(c => { c.files['shared/core.js'] = Buffer.from('alert(1) /* site EVIL */').toString('base64'); }), /does not match the signed list/],
       ['file removed', edit(c => { delete c.files['shared/media.js']; }), /does not match the signed list/],
-      ['foreign signature', edit(c => { c.sig = signText('hudini-site', B.seq, c.manifest, OTHER); }), /bad signature/],
+      ['foreign signature', edit(c => { c.sig = signText('hudini-site', B.seq, c.manifest, OTHER.key); }), /bad signature/],
+      ['signed with the update key', edit(c => { c.sig = signText('hudini-site', B.seq, c.manifest, UPDATE.key); }), /bad signature/],
       ['truncated', good.slice(0, 100), /Saved widget files not used/],
       ['null', 'null', /Saved widget files not used/],
     ];
@@ -281,11 +322,31 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
     await serves('NEW', 'newer files served');
   });
 
+  const OFF_LINE = /Widget files from the site are off: this build has no site signing key/;
+
+  await step('with an empty SITE_KEY nothing is taken from the site', async () => {
+    // an install with good saved files, and a site with files signed by the update key
+    pub = { ...C, sig: signText('hudini-site', C.seq, C.manifest, UPDATE.key) };
+    hits = 0;
+    await start(main, { server: NOKEY_SERVER });
+    check(await logged(OFF_LINE), 'logged');
+    await serves('built-in', 'built-in files, not the saved ones');
+    pub = C;
+    await get('widget/widget.html', '?upd=1');
+    await serves('built-in', 'still built-in');
+    eq(hits, 0, 'the site is not asked');
+    eq(host.log.split('Widget files from the site').length - 1, 1, 'one line, once');
+    eq(savedSeq(main), SEQ + 100, 'accepted seq kept');
+    await start(main);
+    await serves('C', 'a build with the key takes them');
+    check(!OFF_LINE.test(host.log), 'and does not say they are off');
+  });
+
   await step('changing the addresses does not change the signature check', async () => {
-    pub = C;   // signed with the test key; the real server.js knows only the release key
+    pub = C;   // signed with the test key; the real server.js knows only the real site key, if it has one yet
     const data = newData();
     await start(data, { server: path.join(HOST, 'server.js') });
-    check(await logged(BAD), 'refused by the unmodified Host');
+    check(await logged(/^const SITE_KEY = '';/m.test(source) ? OFF_LINE : BAD), 'refused by the unmodified Host', host.log);
     await serves('built-in', 'built-in files');
   });
 
@@ -298,6 +359,6 @@ const signText = (domain, seq, text, key = KEYS.privateKey) => crypto.sign(null,
   });
 
   await stop(); srv.close(); srv.closeAllConnections();
-  fs.rmSync(TEST_SERVER, { force: true }); fs.rmSync(dir, { recursive: true, force: true });
+  cleanUp(); fs.rmSync(dir, { recursive: true, force: true });
   process.exit(T.finish());
-})().catch(e => { console.error(e); fs.rmSync(TEST_SERVER, { force: true }); process.exit(1); });
+})().catch(e => { console.error(e); cleanUp(); process.exit(1); });

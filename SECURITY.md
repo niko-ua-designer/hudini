@@ -19,8 +19,12 @@ the moderator connects to it directly over a network both share (VPN, Porthole, 
 | A moderator changes what they should not | Moderators may publish only the screen state and effects. Game data (CS2), the host announcement and settings come only from the streamer's app. Room messages are AES-256-GCM encrypted and signed (ECDSA P-256); the widget ignores unsigned or foreign messages. |
 | A web page or another program controls the streamer's app | The management page and `/api/*` are served on `127.0.0.1` only and need the `hudini_admin` cookie (HttpOnly, SameSite=Strict, set by a one-time `/auth?t=` token) or the `X-Hudini-Token` header, with a Host check. The OBS widget is served from `localhost`, a different origin, and cannot read settings. The moderator port serves only `/ping`, `/files` and the room WebSocket, never `/api`. |
 | A forged update | Releases carry `SHA256SUMS.txt.sig`, an Ed25519 signature over the version and the checksums. The app installs nothing without a valid signature from the key built into it. |
-| Forged or unreviewed widget code from the website reaches OBS | The list of widget files and their SHA-256 sums carries an Ed25519 signature made with the same key after the owner's approval. The app takes all files or none, never goes back to an older list, and checks its saved copies again at start. |
+| Forged or unreviewed widget code from the website reaches OBS | The list of widget files and their SHA-256 sums carries an Ed25519 signature made after the owner's approval with a key used only for the site: it cannot sign app updates, and the update key cannot sign the site. The app takes all files or none, never goes back to an older list, and checks its saved copies again at start. A build without the site key takes nothing from the site. |
 | Chat is used to inject code | Chat text, names and emotes are rendered as text only. |
+
+The site key is set up once: a GitHub environment `site-sign` with the owner as required reviewer and `main` as the only
+deployment branch holds the secret `HUDINI_SITE_SIGNING_KEY`; its public half is built into the app. Steps:
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## Where data lives
 

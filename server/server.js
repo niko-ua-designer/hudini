@@ -1409,13 +1409,17 @@ async function installGsi(){
 // Подпись Ed25519 строки «<назначение>\n<номер>\n» + текст; назначение не даёт выдать одну подпись за другую:
 // • hudini-update — релиз несёт SHA256SUMS.txt.sig: «hudini-update\n<версия>\n» + SHA256SUMS.txt;
 // • hudini-site — список файлов виджета site-manifest.json.sig: «hudini-site\n<seq>\n» + site-manifest.json.
-// Закрытый ключ есть только в секретах GitHub (HUDINI_SIGNING_KEY), здесь — публичный. Без верной подписи обновление не ставится,
+// Закрытые ключи есть только в секретах GitHub, здесь — публичные. Без верной подписи обновление не ставится,
 // поэтому подменённый релиз (даже с верными суммами) или старая версия под новым тегом не пройдут.
-const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';
+const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';   // обновления программы: секрет HUDINI_SIGNING_KEY
+// Файлы виджета подписываются отдельным ключом (секрет HUDINI_SITE_SIGNING_KEY, tools/signing-key.mjs site):
+// ни один из ключей не подходит вместо другого. Пока здесь пусто, с сайта виджет не берётся.
+const SITE_KEY = '';
+const KEY_OF = { 'hudini-update':UPDATE_KEY, 'hudini-site':SITE_KEY };
 function sigOk(domain, ver, body, sigB64){
-  if(!UPDATE_KEY) return false;
+  if(!KEY_OF[domain]) return false;
   try{
-    const key = nodeCrypto.createPublicKey({ key:Buffer.from(UPDATE_KEY, 'base64'), format:'der', type:'spki' });
+    const key = nodeCrypto.createPublicKey({ key:Buffer.from(KEY_OF[domain], 'base64'), format:'der', type:'spki' });
     return nodeCrypto.verify(null, Buffer.from(`${domain}\n${ver}\n${body}`), key, Buffer.from(String(sigB64).trim(), 'base64'));
   }catch{ return false; }
 }
@@ -1447,7 +1451,8 @@ function useSite(m, got){
   if(m.seq !== cfg.siteSeq){ cfg.siteSeq = m.seq; saveCfg(); }
 }
 // Кэш проверяем заново: он мог испортиться или устареть после обновления программы. Неподписанные файлы кэша 1.1 не читаем.
-try{
+if(!SITE_KEY) log('⚠ Widget files from the site are off: this build has no site signing key, using the built-in ones');
+else try{
   const c = JSON.parse(fs.readFileSync(SITE_CACHE, 'utf8'));
   const m = openManifest(c.manifest, c.sig);
   const got = Object.fromEntries(Object.keys(EMBED).map(f => [f, Buffer.from(String(c.files?.[f] ?? ''), 'base64')]));
@@ -1457,7 +1462,7 @@ try{
 let siteSaid = '';
 const siteSay = msg => { if(msg!==siteSaid) log(siteSaid = msg); };   // одну и ту же причину пишем один раз, а не каждые 10 минут
 async function fetchSite(){
-  if(process.env.OVERLAY_SITE==='off') return;   // тесты: без обращений к сайту
+  if(process.env.OVERLAY_SITE==='off' || !SITE_KEY) return;   // off (тесты) или нет ключа: сайт не спрашиваем
   try{
     const get = async url => {
       const r = await fetch(url, { signal:AbortSignal.timeout(6000) });

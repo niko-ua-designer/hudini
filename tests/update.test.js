@@ -13,9 +13,13 @@ const ASSET = { linux:'HudiniHost-linux', darwin: os.arch() === 'arm64' ? 'Hudin
 const KEYS = crypto.generateKeyPairSync('ed25519');
 const PUB = KEYS.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
 const signFor = (ver, sums) => crypto.sign(null, Buffer.from(`hudini-update\n${ver}\n${sums}`), KEYS.privateKey).toString('base64');
+// the builds also know a key for the site files: it must not sign updates
+const SITE_KEYS = crypto.generateKeyPairSync('ed25519');
+const SITE_PUB = SITE_KEYS.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
 function build(version, out){
   const src = fs.readFileSync(path.join(HOST, 'server.js'), 'utf8').replace(/^const VERSION = '[^']+';/m, `const VERSION = '${version}';`)
-    .replace(/^const UPDATE_KEY = '[^']*';/m, `const UPDATE_KEY = '${PUB}';`);
+    .replace(/^const UPDATE_KEY = '[^']*';/m, `const UPDATE_KEY = '${PUB}';`).replace(/^const SITE_KEY = '[^']*';/m, `const SITE_KEY = '${SITE_PUB}';`);
+  if(!src.includes(PUB) || !src.includes(SITE_PUB)) throw new Error('signing keys not found in server.js');
   const tmp = path.join(HOST, `.update-test-${version}.js`);
   fs.writeFileSync(tmp, src);
   try{ execFileSync('bun', ['build', '--compile', tmp, '--outfile', out], { cwd: HOST, stdio: 'pipe' }); }
@@ -68,7 +72,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   fs.writeFileSync(path.join(rel, APP_ZIP), appZip);
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
   let sums = sha(zip) + '  ' + ASSET + '.zip\n' + sha(appZip) + '  ' + APP_ZIP + '\n';
-  let list = [], sigVer = '1.0.0', sigMode = 'ok';   // sigMode: ok | bad (signed by another key) | none
+  let list = [], sigVer = '1.0.0', sigMode = 'ok';   // sigMode: ok | bad (signed by another key) | site (by the key of the site files) | none
   const OFF = Number(process.env.HUDINI_TEST_PORT_OFFSET || 0), HPORT = 17830 + OFF;
   const port = 19300 + OFF, url = f => `http://localhost:${port}/${f}`;
   const assets = [{ name: APP_ZIP, browser_download_url: url(APP_ZIP) }, { name: ASSET + '.zip', browser_download_url: url(ASSET + '.zip') }, { name: 'SHA256SUMS.txt', browser_download_url: url('SHA256SUMS.txt') }, { name: 'SHA256SUMS.txt.sig', browser_download_url: url('SHA256SUMS.txt.sig') }];
@@ -83,6 +87,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
     if(q.url === '/SHA256SUMS.txt.sig'){
       if(sigMode === 'none'){ s.statusCode = 404; return s.end(); }
       if(sigMode === 'bad') return s.end(crypto.sign(null, Buffer.from(`hudini-update\n${sigVer}\n${sums}`), crypto.generateKeyPairSync('ed25519').privateKey).toString('base64'));
+      if(sigMode === 'site') return s.end(crypto.sign(null, Buffer.from(`hudini-update\n${sigVer}\n${sums}`), SITE_KEYS.privateKey).toString('base64'));
       return s.end(signFor(sigVer, sums));
     }
     const f = path.join(rel, q.url.slice(1)); if(fs.existsSync(f)) return s.end(fs.readFileSync(f)); s.statusCode = 404; s.end();
@@ -118,7 +123,7 @@ const zipOne = (file, name) => zipMany([{ name, data: fs.readFileSync(file) }]);
   await step('release with a wrong or missing signature is refused', async () => {
     build('0.9.0', path.join(app, ASSET));   // an older build again
     list = [{ tag_name: 'v1.0.0', assets }];
-    for(const [mode, re] of [['bad', /подпись/], ['none', /подпис/]]){
+    for(const [mode, re] of [['bad', /подпись/], ['site', /подпись/], ['none', /подпис/]]){
       sigMode = mode;
       run();
       const s = await until(async () => { const x = await status(); return x && x.upd.state === 'error' && x; }, 20000);

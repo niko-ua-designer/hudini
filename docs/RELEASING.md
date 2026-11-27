@@ -5,10 +5,17 @@
 GitHub Pages publishes `web/` right after a push to `main`, but Hudini Host 1.2+ loads the new widget files into OBS only
 after they are signed. Host 1.1 and older take them unsigned, as before.
 
-1. Once, before the first signature: Settings → Environments → `release` → Deployment branches and tags. The environment
-   allows only tags `v*` now; add the branch `main`, or the signing job is rejected. Keep the required reviewer.
+1. One-time setup, before the workflow reaches `main` and before the first 1.2 release. The site has its own key, not the
+   one that signs app updates.
+   - Settings → Environments → New environment `site-sign`. Required reviewers: the owner. Deployment branches and tags:
+     selected branches, only `main`. Do this first: GitHub creates a missing environment by itself, without any protection.
+   - `node tools/signing-key.mjs site` writes the private key to `~/hudini-site-signing.key` without printing it. Add that
+     file as the secret `HUDINI_SITE_SIGNING_KEY` of the environment `site-sign` (not as a repository secret, which any
+     workflow could read), keep a copy in a password manager, delete the file.
+   - Put `~/hudini-site-signing.pub` into `const SITE_KEY` in `server/server.js`. While it is empty, Hudini Host takes
+     nothing from the site, the signing job fails, and the release workflow refuses to publish.
 2. After a push to `main` that changes the site, "Pages" deploys it and "Sign the site" starts and waits. Check the commit
-   and approve the `release` environment: this is the "sign the site" button. Approve soon after the deploy: until then
+   and approve the `site-sign` environment: this is the "sign the site" button. Approve soon after the deploy: until then
    a Host without saved files serves the built-in ones, and the others keep the previous signed ones.
 3. The job puts `site-manifest.json` and `site-manifest.json.sig` into the pre-release `site-manifest` (created on the first
    run; never delete it or mark it latest). Hosts pick it up within 10 minutes. A widget that reloaded itself for a new
@@ -26,8 +33,9 @@ Rules:
 - Raise `WIDGET_VER` with every widget change: a Host ignores a signed widget older than its built-in one, but with an
   equal number the signed site files win over the built-in ones. So after a release that changes widget files, sign the
   site from a commit that has them.
-- The signing key is the same as for app updates. A new file in the `EMBED` table of `server/server.js` is added to the
-  manifest automatically; never remove one while released Hosts still expect it.
+- Released Hosts know one site key. A new key reaches them only with an app update, so keep the copy of the private key.
+- A new file in the `EMBED` table of `server/server.js` is added to the manifest automatically; never remove one while
+  released Hosts still expect it.
 
 ## 1.1.2 (patch, branch `v1`)
 
