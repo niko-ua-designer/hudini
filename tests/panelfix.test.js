@@ -36,6 +36,29 @@ const { step, check, eq, until } = T;
     await p.context().close();
   });
 
+  await step('no room yet: the connection pill does not claim a pause', async () => {
+    const p = await open();
+    const r = await p.evaluate(() => { const keep = room; room = null; const m = statusModel(); room = keep; return [m.text, m.strip?.head || '']; });
+    check(!/паузу/.test(r.join(' ')), 'pill and strip: ' + r.join(' | '));
+    await p.context().close();
+  });
+
+  await step('a broadcast layer is named by its owner, without the client id, and an empty frame has a caption', async () => {
+    const p = await open();
+    const r = await p.evaluate(async () => {
+      const cam = addEl({ type: 'stream', owner: 'mod_n9ffs8kqz1', kind: 'cam', x: 30, y: 30, w: 25 });
+      const own = sanitizeEl({ id: 's2', type: 'stream', owner: 'streamer', kind: 'screen' });
+      const names = [elName(state.els.at(-1)), elName(own)];
+      await new Promise(r => setTimeout(r, 1500));   // the frames are painted again every second
+      const body = document.querySelector('.el[data-type="stream"].nosig .body');
+      return { names, caption: body ? getComputedStyle(body, '::after').content : '' };
+    });
+    check(/^Камера · Модератор \d+$/.test(r.names[0]), 'another moderator: ' + r.names[0]);
+    eq(r.names[1], 'Экран · стример', 'the streamer');
+    check(/Камера · нет сигнала/.test(r.caption), 'caption: ' + r.caption);
+    await p.context().close();
+  });
+
   await step('corrupt giveaway storage does not throw', async () => {
     const p = await open();
     const r = await p.evaluate(async () => {

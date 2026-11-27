@@ -161,7 +161,7 @@ function statusModel(){
       title:'Подключено к программе стримера'+(R?.addr ? ': '+R.addr : ''), strip:null };
   }
   // пауза стримера важнее «нет связи» и «переподключение»
-  if(pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
+  if(pausedRoom && pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
   if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
     why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
   if(R?.state==='offline'){
@@ -1116,7 +1116,7 @@ function elName(el){
   if(el.type==='msg') return (el.user||'сообщение')+': '+el.text;
   if(el.type==='chat') return 'Чат'+(el.chan?' · '+el.chan:'');
   if(el.type==='cs2') return 'CS2 · '+{ card:'карточка', kda:'K/D/A', hp:'HP', score:'счёт', money:'деньги', weapon:'оружие', streak:'серия', teams:'команды'+(el.side!=='both'?' '+el.side.toUpperCase():''), scorebar:'счёт-бар', observed:'наблюдаемый', radar:'радар' }[el.view];
-  if(el.type==='stream') return gT({ cam:'Камера', screen:'Экран', mic:'Микрофон' }[el.kind])+' · '+(el.owner===clientId || (el.owner==='streamer' && document.body.classList.contains('streamer-panel')) ? gT('я') : el.owner.replace(/^[a-z]+_/,'').slice(0,6));
+  if(el.type==='stream') return gT({ cam:'Камера', screen:'Экран', mic:'Микрофон' }[el.kind])+' · '+(el.owner===clientId || (el.owner==='streamer' && document.body.classList.contains('streamer-panel')) ? gT('я') : el.owner==='streamer' ? gT('стример') : window.Cursors?.nameOf(el.owner) || gT('Модератор'));
   if(el.type==='poll') return (el.title||'Голосование')+' · '+el.votes.reduce((a,b)=>a+b,0)+(el.running?' ▶':'');
   if(el.type==='draw') return 'Рисунок · '+el.strokes.length;
   if(el.type==='case') return 'Кейс · '+el.name+(el.openAt && nowMs()<el.openAt+caseT(el).reveal ? ' · открывается' : '');

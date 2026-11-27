@@ -8,6 +8,7 @@ window.Cursors = (function(){
   const SAFE = /^[A-Za-z0-9_-]{1,40}$/;
   const C = { on:lsGet(KEY, true)!==false, name:String(lsGet(NAME, '')||'').slice(0, NAME_MAX), last:null, sentAt:0, t:null, keep:null, gc:null };
   const peers = new Map();   // id клиента → { id, n, x, y, s, d, at, el, box }
+  const nicks = new Map();   // id клиента → последний ник; живёт дольше курсора (подписи слоёв трансляции)
   const layer = document.createElement('div');
   layer.id = 'curLayer'; layer.setAttribute('data-i18n-skip', ''); layer.hidden = !C.on;
   stage.appendChild(layer);
@@ -90,6 +91,7 @@ window.Cursors = (function(){
     p.n = typeof m.n==='string' ? clean(m.n) : '';
     p.s = typeof m.s==='string' && SAFE.test(m.s) ? m.s : ''; p.d = typeof m.d==='string' && SAFE.test(m.d) ? m.d : '';
     p.at = Date.now();
+    if(p.n && (nicks.size < 200 || nicks.has(id))) nicks.set(id, p.n);
     paint(p);
     if(!C.gc) C.gc = setInterval(sweep, 500);
   }
@@ -110,5 +112,8 @@ window.Cursors = (function(){
   $('curOn').checked = C.on;
   if(C.on) C.keep = setInterval(keepAlive, KEEP_MS/2);
 
-  return { msg, reset, peers, get on(){ return C.on; } };
+  // имя участника для списка слоёв: ник курсора, иначе тот же «Модератор N», что и у курсора
+  const nameOf = id => labelOf({ id, n:nicks.get(id) });
+
+  return { msg, reset, peers, nameOf, get on(){ return C.on; } };
 })();
