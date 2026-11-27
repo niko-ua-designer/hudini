@@ -355,7 +355,7 @@ async function roomFromSession(sess){
   const r=sk ? cleanRoom({ code:sess.id, name:sess.name, ...sk }) : null;
   return { room:r && await roomKeysOk(r) ? r : null, differs:false };
 }
-$('status').onclick=()=>{ if(!client?.connected && !session) showHostTip(); else toggleConnPop(); };
+$('status').onclick=()=>{ if(!client?.connected && !session && !document.body.classList.contains('streamer-panel')) showHostTip(); else toggleConnPop(); };
 const stateSeenT=new Map();   // комната → время самого нового экрана, который пульт видел или отправил
 async function onMessage(topic, payload, packet){
   if(!payload.length) return;                     // пустые «удаления» не принимаем

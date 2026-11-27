@@ -12,7 +12,7 @@ main{grid-area:main;position:relative;overflow:hidden;display:flex;align-items:c
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px}
 h2:first-child{margin-top:4px}
 input,textarea,select,button{font:inherit;color:var(--text)}
-input[type=text],input[type=url],input[type=number],input[type=datetime-local],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;outline:none;min-width:0}
+input:not([type]),input[type=text],input[type=password],input[type=url],input[type=number],input[type=datetime-local],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;outline:none;min-width:0}
 input:focus,textarea:focus,select:focus{border-color:var(--acc)}
 /* свой вид списков: WebKitGTK (Linux) рисует <select> темой GTK, белым, и не берёт наш фон. :not(#_) перебивает padding!important у мест */
 select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%238b91a1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
@@ -54,6 +54,8 @@ label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--mut
 #stage.live-bg:not(.bg-interact) #bgLayer{visibility:hidden}
 #bcBack{margin:8px 0 4px}
 #bcBack select{min-width:0}
+#bcBack .row{flex-wrap:wrap}
+#bcBack .row>select.grow{flex:1 1 11em}   /* does not fit beside its label: takes the next line whole */
 #bcBgCamGo.on{border-color:var(--acc);background:#7c5cff33;color:#fff}
 #bcBgCamState.warn{color:var(--warn)}
 #elLayer{position:absolute;inset:0;transition:opacity .2s}
@@ -186,6 +188,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 #hostTip a.primary{display:block;text-align:center;text-decoration:none;background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:6px;padding:8px 10px}
 .lockbox{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:320px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
 .lockbox h3{margin:0 0 6px}
+.lockbox button{white-space:normal;overflow-wrap:break-word}
 .el .cs2[data-view="streak"]{opacity:.45}.el .cs2[data-view="streak"].on{opacity:1}
 .layer .num{font-size:11px;color:var(--muted);width:12px;text-align:center}
 .scene{display:flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);margin:4px 0;cursor:pointer}
@@ -379,13 +382,14 @@ body.ld-active,body.ld-active .layer{cursor:grabbing}
 .rseg button{flex:1;border:0;background:none;padding:6px 4px;font-size:12px;border-radius:6px;position:relative}
 .rseg button.on{background:var(--acc);color:#fff}
 .rseg .live{position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok)}
-.rou-it{display:flex;gap:5px;align-items:center;margin:4px 0}
-.rou-it input[type=color]{width:26px;height:26px;padding:0;flex:none}
-.rou-it .pc{width:46px;text-align:right;color:var(--muted);font-size:11.5px;flex:none}
+/* a prize takes two lines: color and name, then weight, chance and the remove button */
+.rou-it{display:grid;grid-template-columns:auto 72px minmax(0,1fr) auto;grid-template-areas:"color name name name" "color weight chance del";gap:4px 5px;align-items:center;margin:8px 0}
+.rou-it input[type=color]{grid-area:color;width:26px;height:26px;padding:0}
+.rou-it .pc{grid-area:chance;color:var(--muted);font-size:11.5px}
 #iRouPeople{width:100%;resize:vertical;font:inherit}
-.rou-it input[data-f=n]{flex:1;min-width:0}
-.rou-it input[data-f=w]{flex:none;width:54px;padding-left:4px;padding-right:2px}
-.rou-it .pc{width:34px}
+.rou-it input[data-f=n]{grid-area:name}
+.rou-it input[data-f=w]{grid-area:weight;padding-left:6px;padding-right:2px}
+.rou-it button[data-act=del]{grid-area:del}
 
 /* UX polish: focus rings, press/hover/disabled states, touch targets, contrast, scrollbars (looks only) */
 :root{--focus:#a78bfa;--acc-btn:#6d4dff}
@@ -411,7 +415,7 @@ input:user-invalid,textarea:user-invalid,input[aria-invalid=true]{border-color:v
 .layer:not(.sel):not(.msel):not(.folder):hover,.lib:hover,.scene:hover,.kk:hover,.scn:hover,.mx:hover{border-color:#3d4456}
 .layer,.lib,.scene,.kk,.scn{transition:border-color .15s,background-color .15s}
 summary,label.chk,.tgl,.kk{cursor:pointer}
-#helpDrawer .hd-top a:hover,#helpDrawer .hd-top a:focus-visible,#lvlPop a:hover,#connStrip a:hover{text-decoration:underline}
+#helpDrawer .help-bar a:hover,#helpDrawer .help-bar a:focus-visible,#lvlPop a:hover,#connStrip a:hover{text-decoration:underline}
 #tabs button:active{background:#1f2330}
 #tabs button.on:active{background:#2a2250}
 .kk small,.scn .nm span,.layer .num,.cm .tm,kbd,.tag,#curLayer .cur span,#curLayer .curBox span,.rou-it .pc,.foot small{font-size:12px}
