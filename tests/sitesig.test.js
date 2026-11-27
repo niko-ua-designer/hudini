@@ -76,6 +76,12 @@ function withKeys(source, keys){
 
   // The fake site: `pub` is what it serves now; null = nothing there
   let pub = null, hits = 0;
+  const HUGE = Symbol('huge'), HUGE_BYTES = 64 * 1048576;   // a response far above any real file, sent as long as it is read
+  const sendHuge = s => {
+    const chunk = Buffer.alloc(65536, 'x'); let sent = 0;
+    const more = () => { while(sent < HUGE_BYTES && !s.destroyed){ sent += chunk.length; if(!s.write(chunk)) return s.once('drain', more); } if(!s.destroyed) s.end(); };
+    more();
+  };
   const srv = http.createServer((q, s) => {
     const p = new URL(q.url, 'http://x').pathname;
     let body;
@@ -83,6 +89,7 @@ function withKeys(source, keys){
     else if(p === '/rel/site-manifest.json.sig') body = pub?.sig;
     else if(p.startsWith('/site/')) body = pub?.files[p.slice(6)];
     if(body == null){ s.statusCode = 404; return s.end(); }
+    if(body === HUGE) return sendHuge(s);
     s.end(body);
   });
   await new Promise(r => srv.listen(SPORT, r));
@@ -271,6 +278,12 @@ function withKeys(source, keys){
   await step('one tampered or missing file: nothing is taken', async () => {
     await refusedKeeping({ ...C, files: { ...C.files, 'shared/media.js': C.files['shared/media.js'] + 'alert(1)' } }, /differ from the signed ones/, 'tampered file');
     await refusedKeeping({ ...C, files: { ...C.files, 'shared/cs2-maps.js': null } }, /cs2-maps\.js: HTTP 404/, 'missing file');
+  });
+
+  await step('a response far too large is cut off while reading', async () => {
+    await refusedKeeping({ ...C, manifest: HUGE }, /site-manifest\.json: too large\), keeping the current ones/, 'manifest');
+    await refusedKeeping({ ...C, sig: HUGE }, /site-manifest\.json\.sig: too large\), keeping the current ones/, 'signature');
+    await refusedKeeping({ ...C, files: { ...C.files, 'shared/core.css': HUGE } }, /core\.css: too large\), keeping the current ones/, 'one file');
   });
 
   await step('a corrupted cache is rejected at start', async () => {

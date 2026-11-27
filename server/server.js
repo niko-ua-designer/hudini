@@ -448,8 +448,10 @@ const ipOf = req => String(req.socket?.remoteAddress || '?').slice(0, 64);
 const RESUME_RE = /^[A-Za-z0-9_-]{22,128}$/;
 const samePanel = (a, b) => !!(a.conn._resume && b.conn._resume) && nodeCrypto.timingSafeEqual(a.conn._resume, b.conn._resume);
 aedes.authenticate = (client, user, pass, cb) => {
-  // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор с другого адреса
-  // без секрета того же пульта. Старое соединение закрывает брокер, и только после того, как новое прошло все проверки ниже
+  // Занятый clientId не отбирают: ни другой тип клиента (пульт стримера, виджет, модератор), ни модератор без секрета
+  // того же пульта, с какого бы адреса он ни пришёл (за одним NAT сидят разные люди). Пульт старой версии секрета не имеет:
+  // его заменяет только соединение с того же адреса. Старое соединение закрывает брокер, и только после того, как новое
+  // прошло все проверки ниже
   const prev = client.id ? aedes.clients[client.id] : null;
   let moved = null;
   if(prev && prev!==client && prev.conn && prev.connected!==false){
@@ -457,7 +459,8 @@ aedes.authenticate = (client, user, pass, cb) => {
     // новое соединение ещё не вошло: пульт стримера узнаём по логину (пароль проверяется ниже)
     const kind = client.conn?._mod ? 'mod' : user==='streamer' ? 'streamer' : 'widget';
     const away = !!client.conn?._mod && prev.conn._ip!==client.conn._ip;
-    if(kindOf(prev)!==kind || (away && !samePanel(prev, client))){
+    const stranger = !!client.conn?._mod && (prev.conn._resume ? !samePanel(prev, client) : away);
+    if(kindOf(prev)!==kind || stranger){
       refuse(client.conn?._mod ? client.conn._ip : 'local', 'clientId already in use');
       return cb(Object.assign(new Error('id'), { returnCode:2 }), false);
     }
@@ -1539,20 +1542,24 @@ else try{
   if(!matchesManifest(m, got)) throw new Error('a file does not match the signed list');
   useSite(m, got);
 }catch(e){ if(e.code!=='ENOENT') log('⚠ Saved widget files not used (' + e.message + '), using the built-in ones'); }
+// Пределы ответов сайта, проверяются по ходу чтения; для файла виджета тот же предел, что при подписи
+const MANIFEST_MAX = 16*1024, SIG_MAX = 1024, SITE_FILE_MAX = 8e6;
 let siteSaid = '';
 const siteSay = msg => { if(msg!==siteSaid) log(siteSaid = msg); };   // одну и ту же причину пишем один раз, а не каждые 10 минут
 async function fetchSite(){
   if(process.env.OVERLAY_SITE==='off' || !SITE_KEY) return;   // off (тесты) или нет ключа: сайт не спрашиваем
   try{
-    const get = async url => {
-      const r = await fetch(url, { signal:AbortSignal.timeout(6000) });
-      if(!r.ok) throw new Error(new URL(url).pathname.split('/').pop()+': HTTP '+r.status);
-      return Buffer.from(await r.arrayBuffer());
+    const get = async (url, max) => {
+      const r = await fetch(url, { signal:AbortSignal.timeout(6000) }), name = new URL(url).pathname.split('/').pop();
+      if(!r.ok) throw new Error(name+': HTTP '+r.status);
+      const parts = []; let n = 0;
+      for await(const c of r.body || []){ if((n += c.length) > max) throw new Error(name+': too large'); parts.push(c); }   // выход из цикла обрывает загрузку
+      return Buffer.concat(parts);
     };
-    const text = (await get(SITE_MANIFEST)).toString('utf8'), sig = (await get(SITE_MANIFEST+'.sig')).toString('utf8');
+    const text = (await get(SITE_MANIFEST, MANIFEST_MAX)).toString('utf8'), sig = (await get(SITE_MANIFEST+'.sig', SIG_MAX)).toString('utf8');
     const m = openManifest(text, sig);
     const got = {};
-    for(const f of Object.keys(EMBED)) got[f] = await get(SITE_FILES+f+'?t='+Date.now());
+    for(const f of Object.keys(EMBED)) got[f] = await get(SITE_FILES+f+'?t='+Date.now(), SITE_FILE_MAX);
     if(!matchesManifest(m, got)) return siteSay('⚠ Widget files on the site differ from the signed ones (newer files not signed yet?), keeping the current ones');
     const changed = Object.keys(EMBED).some(f => files[f] !== got[f].toString('utf8'));
     const saved = Object.fromEntries(Object.keys(EMBED).map(f => [f, got[f].toString('base64')]));

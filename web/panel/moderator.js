@@ -139,7 +139,7 @@ function mqttClient(url, suffix, opts={}){
   return mqtt.connect(url, { clientId:clientId+suffix, clean:true, keepalive:30, reconnectPeriod:2000,
     connectTimeout:8000, resubscribe:false, queueQoSZero:false, ...opts });
 }
-let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: она списков не принимает (reportKeep)
+let keepSent=null, keepOld=false;   // какой список файлов уже у программы; keepOld: до следующего подключения она списков не принимает (reportKeep)
 const mainTopics = () => [topics(room).state, topics(room).base+'/hb', topics(room).base+'/cs2', topics(room).base+'/cs2fight', topics(room).base+'/host', topics(room).base+'/ink', topics(room).base+'/perms', topics(room).base+'/cs2series', topics(room).base+'/cur', topics(room).base+'/rtc', topics(room).base+'/media'];
 let hostCtl=null;   // кнопки стримера в доке OBS: { hidden, paused }
 // Адрес для файлов: тот же сервер, только http(s) и с паролем в заголовке
@@ -900,17 +900,23 @@ function panelId(){
 // Программа стримера хранит список файлов этого пульта, чтобы очистка у другого модератора их не удалила.
 // Отправляем после подключения и после изменений; проверка раз в 2 с заодно объединяет частые правки.
 let keepBusy=false;
+// Только что загруженный файл ещё не на холсте (идут другие загрузки, элемент не вставлен): в списке для программы он держится,
+// пока не появится среди используемых, но не дольше FRESH_MS, иначе чужая очистка успеет его удалить.
+const freshFiles=new Map(), FRESH_MS=10*60e3;   // id → до какого времени держать
 async function reportKeep(){
   const h=homeHttp(), c=client; if(!h || keepBusy || keepOld) return;
-  const keep=[...usedAssets()].sort(), sig=room+'|'+keep.join();
+  const used=usedAssets(), now=Date.now();
+  for(const [id, until] of freshFiles) if(used.has(id) || now>until) freshFiles.delete(id); else used.add(id);
+  const keep=[...used].sort(), sig=room+'|'+keep.join();
   if(sig===keepSent) return;
   keepBusy=true;
   try{
     const r=await fetch(h.base+'/files/keep', { method:'POST', headers:{ authorization:h.auth, 'content-type':'application/json' }, body:JSON.stringify({ id:panelId(), keep }) });
     if(c===client){
       if(r.ok) keepSent=sig;
-      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором. До следующего подключения не спрашиваем
-      else if([400, 401, 404].includes(r.status)) keepOld=true;
+      // 400 и 404: программа старой версии; 401: пароль уже другой, повторы сочлись бы перебором; 423: пауза модераторов.
+      // До следующего подключения не спрашиваем
+      else if([400, 401, 404, 423].includes(r.status)) keepOld=true;
     }
   }catch(e){ console.warn('keep', e); }
   keepBusy=false;
@@ -930,6 +936,7 @@ async function uploadBlob(blob, name){
   if(!MIME_RE.test(blob.type||'')) throw err(`${name}: такой формат не загрузить. Подойдут PNG, JPG, GIF, WebP, видео, звук и шрифты`);
   if(storage && blob.size > storage.maxFileBytes) throw err(`${name}: ${fmtBytes(blob.size)}, а стример разрешил файлы до ${fmtBytes(storage.maxFileBytes)}. Для больших видео лучше ссылка или YouTube.`);
   const id=rid(14), keys=KEYS;
+  freshFiles.set(id, Date.now()+FRESH_MS);
   const box=await packAsset(keys, blob, id, name);
   const n=Math.max(1, Math.ceil(box.length/PART_BYTES));
   for(let i=0;i<n;i++){
@@ -944,6 +951,7 @@ async function uploadBlob(blob, name){
     if(!r.ok) throw fileErr(r,j);
     showUpload(`Загрузка ${name}: ${Math.round((i+1)/n*100)}%`, (i+1)/n);
   }
+  freshFiles.set(id, Date.now()+FRESH_MS);   // долгая загрузка: срок считается от её конца
   Assets.add(id, blob, name);
   return 'asset:'+id;
 }

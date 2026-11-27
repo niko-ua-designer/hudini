@@ -49,6 +49,22 @@ const IMG = [...fs.readFileSync(path.join(__dirname, 'fixtures/img.png'))];
     check(/не подключались после обновления/.test(q), 'it warns about moderators who have not connected since the update');
   });
 
+  await step('a file that is uploaded but not on the canvas yet survives another moderator\'s cleaning', async () => {
+    const fresh = await upload(b, 'fresh.png');
+    const listOfB = async () => lists()?.panels[await b.evaluate(() => panelId())]?.ids || [];
+    // the panel's list changes for another reason before the new file is placed, so it is sent again
+    await b.evaluate(id => { library.push({ name: 'other', room, el: sanitizeEl({ id: 'o', type: 'image', src: 'asset:' + id, x: 50, y: 50, w: 20 }) }); saveLib(); }, inLib);
+    check(await until(async () => (await listOfB()).includes(inLib), 8000), 'the new list reached the Host');
+    eq((await req('POST', '/files/clean', { keep: [] })).status, 200, 'another panel cleans');
+    check((await have()).includes(fresh), 'the new file is still there');
+    await b.evaluate(id => { library.push({ name: 'fresh', room, el: sanitizeEl({ id: 'f', type: 'image', src: 'asset:' + id, x: 50, y: 50, w: 20 }) }); saveLib(); }, fresh);
+    await sleep(3000);
+    await b.evaluate(() => { library.splice(0); saveLib(); });
+    check(await until(async () => !(await listOfB()).length, 8000), 'once it was placed and removed, the panel no longer lists it');
+    await req('POST', '/files/clean', { keep: [] });
+    check(!(await have()).includes(fresh), 'and cleaning removes it');
+  });
+
   await step('the lists survive a Host restart, also for a moderator who is no longer online', async () => {
     await a.context().close();
     await host.stop();
@@ -107,6 +123,25 @@ const IMG = [...fs.readFileSync(path.join(__dirname, 'fixtures/img.png'))];
     await c.evaluate(() => { library.push({ name: 'z', room, el: sanitizeEl({ id: 'z', type: 'text', text: 'z', x: 1, y: 1 }) }); saveLib(); });
     await sleep(5000);
     eq(asked, 1, 'asked once');
+    await c.context().close();
+  });
+
+  await step('a 423 answer to the list (pause) is not retried until the next connection', async () => {
+    const c = await T.newPage('panel-paused');
+    let asked = 0;
+    await c.context().route(/\/files\/keep$/, r => { if(r.request().method() === 'POST') asked++; return r.fulfill({ status: 423, body: '{"ok":false}', contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type' } }); });
+    await c.goto(await b.evaluate(() => inviteLink(curRoom())));
+    await c.waitForFunction(() => typeof curRoom === 'function' && curRoom());
+    await T.attach(c, host);
+    check(await until(async () => (await c.getAttribute('#status', 'class')).includes('ok'), 15000), 'online');
+    await until(() => asked > 0, 8000);
+    await c.evaluate(() => { library.push({ name: 'p', room, el: sanitizeEl({ id: 'p', type: 'text', text: 'p', x: 1, y: 1 }) }); saveLib(); });
+    await sleep(5000);
+    eq(asked, 1, 'asked once');
+    await host.api('/api/control', { action: 'pause' });
+    check(await until(async () => !(await c.evaluate(() => !!client?.connected)), 10000), 'the pause drops the panel');
+    await host.api('/api/control', { action: 'resume' });
+    check(await until(() => asked > 1, 40000), 'asks again after reconnecting');
     await c.context().close();
   });
 
