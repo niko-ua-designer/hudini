@@ -350,7 +350,8 @@ function withKeys(source, keys){
     eq(hits, 0, 'the site is not asked');
     eq(host.log.split('Widget files from the site').length - 1, 1, 'one line, once');
     eq(savedSeq(main), SEQ + 100, 'accepted seq kept');
-    await start(main);
+    await start(main);   // the saved files are served first, the new ones once they are fetched and checked
+    check(await until(async () => (await marks()).every(m => m === 'C'), 8000), 'a build with the key fetches them');
     await serves('C', 'a build with the key takes them');
     check(!OFF_LINE.test(host.log), 'and does not say they are off');
   });
