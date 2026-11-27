@@ -171,6 +171,13 @@ function kickMods(why){
   for(const c of Object.values(aedes.clients)) if(c.conn?._mod){ try{ c.close(); n++; }catch{} }
   if(n) logc('👤 Disconnected moderators:', n, '—', why);
 }
+// Пауза: сначала пульты получают весть о ней (тема host), потом их соединения закрываются. Присланное за это время отбрасывается
+const PAUSE_NOTICE_MS = 300;
+async function pauseMods(){
+  await publishCtl();
+  await new Promise(r => setTimeout(r, PAUSE_NOTICE_MS));
+  if(ctl.paused) kickMods('moderators paused');
+}
 // Шифруем ключом комнаты (как в core.js, без подписи)
 async function sealAES(obj){
   const iv = nodeCrypto.randomBytes(12);
@@ -415,7 +422,8 @@ const PUB_MOD = new Set(['state', 'fx', 'ink', 'cs2cmd', 'cur', 'rtc']), PUB_LOC
 aedes.authorizePublish = (client, packet, cb) => {
   const kind = inRoom(packet.topic) ? packet.topic.slice(`${PREFIX}/${ROOM.room}/`.length) : '';
   if(!(client?.conn?._mod || client?.conn?._streamer ? PUB_MOD : PUB_LOCAL).has(kind)) return cb(new Error('чужая тема'));
-  if(ctl.paused && client?.conn?._mod) return cb(new Error('пауза'));
+  // на паузе сообщение тихо отбрасывается: обрыв за отправку не дал бы вести о паузе дойти до пульта
+  if(ctl.paused && client?.conn?._mod){ packet.topic = `${PREFIX}/_drop`; packet.retain = false; return cb(null); }
   if(kind==='rtc'){
     const r = rtcGate(client, packet);
     if(r===false) return cb(new Error('rtc: неверный заголовок'));
@@ -428,6 +436,8 @@ aedes.authorizeSubscribe = (client, sub, cb) => cb(null, inRoom(sub.topic) ? sub
 let obsUp = false, obsDropTimer = null;
 const OBS_DROP_MS = 5000;
 const PING_MS = 5000, PING_MISS = 3;   // модератор молчит 15 с — соединения больше нет
+// вход, начатый до паузы и законченный после отключения всех: закрываем, повторный вход получит отказ «пауза»
+aedes.on('clientReady', c => { if(ctl.paused && c.conn?._mod) c.close(); });
 aedes.on('client', c => {
   const s = c.conn;
   if(!s?._mod && !s?._streamer){
@@ -2078,7 +2088,7 @@ const local = http.createServer(async (req, res) => {
         }
         else if(action==='hide' || action==='show'){ ctl.hidden = action==='hide'; log(ctl.hidden ? '🙈 Streamer hid the overlay' : '👁 Streamer showed the overlay'); }
         else if(action==='stopsounds'){ ctl.stop++; log('⏹ Streamer stopped the sounds'); }
-        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; if(ctl.paused) kickMods('moderators paused'); log(ctl.paused ? '⏸ Moderators paused' : '▶ Moderators can change the screen again'); await announce(); }
+        else if(action==='pause' || action==='resume'){ ctl.paused = action==='pause'; log(ctl.paused ? '⏸ Moderators paused' : '▶ Moderators can change the screen again'); await announce(); if(ctl.paused) pauseMods().catch(e => log('⚠ Pause:', e?.message || e)); }
         else if(action==='taboff' || action==='tabon'){ ctl.tabOff = action==='taboff'; log(ctl.tabOff ? '🎯 CS2 auto-tab turned off on stream' : '🎯 CS2 auto-tab turned back on'); }   // быстрый выключатель авто-таба (док)
         else throw new HttpErr(400, 'неизвестное действие');
         await publishCtl();

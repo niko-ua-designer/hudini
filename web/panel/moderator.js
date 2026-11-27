@@ -123,6 +123,9 @@ setInterval(renderObs, 3000);
 // - в тестах: openHome({ url, pass }) прямо на адрес сервера.
 // Экран, файлы и CS2 идут только через программу. Без неё пульт работает: всё уйдёт стримеру при подключении.
 let homeInfo=null, homeClient=null, hostNote='';
+// pausedRoom: комната, где стример поставил модераторов на паузу; пульт пробует вернуться, пока не пустят
+let pausedRoom=null, retryT=null;
+const PAUSE_NOTE='⏸ Стример поставил управление на паузу', RETRY_MS=20000;
 const TAURI=window.__TAURI__;
 let session=null, relayInfo=null, relayPort=0;   // сохранённая сессия приложения и последнее состояние ретранслятора
 function mqttClient(url, suffix, opts={}){
@@ -150,6 +153,8 @@ function statusModel(){
     return { cls, bars, text:R?.net ? netName(R.net)+(rtt!=null ? ` · ${rtt} ms` : '') : 'онлайн · Hudini Host',
       title:'Подключено к программе стримера'+(R?.addr ? ': '+R.addr : ''), strip:null };
   }
+  // пауза стримера важнее «нет связи» и «переподключение»
+  if(pausedRoom===room) return { cls:'warn', bars:0, text:PAUSE_NOTE, title:'Экран стримера меняется только через программу Hudini Host.', strip:{ head:PAUSE_NOTE, why:'' } };
   if(R?.state==='badcert') return { cls:'bad', bars:0, text:'отпечаток не совпал: код устарел', title:'', strip:{ head:'отпечаток не совпал: код устарел',
     why:'Сертификат сервера стримера не совпал с отпечатком из твоего кода. Попроси стримера прислать новый код и вставь его на экране сессий.' } };
   if(R?.state==='offline'){
@@ -161,7 +166,7 @@ function statusModel(){
   }
   if(!homeClient && hostNote){
     const bad=/пароль|Не удалось/.test(hostNote);
-    return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad || /пауз/.test(hostNote) ? { head:hostNote, why:'' } : null };
+    return { cls:bad ? 'bad' : 'warn', bars:0, text:hostNote, title:'Экран стримера меняется только через программу Hudini Host.', strip:bad ? { head:hostNote, why:'' } : null };
   }
   if(R?.state==='connecting' || relayPort && !homeClient) return { cls:'warn', bars:1, text:'подключаюсь к адресам из кода…', title:'Пробую адреса из кода стримера: '+(session?.addrs?.length||1), strip:null };
   if(homeClient) return { cls:'warn', bars:1, text:'подключаюсь к Hudini Host…', title:'', strip:null };
@@ -270,17 +275,27 @@ function openHome(info){
   homeClient=c; wire(c); hostStatus();
   c.on('connect', ()=>{
     if(homeClient!==c) return;
+    pausedRoom=null;
     const first=client!==c; useMain(c);
     if(first) toast('🏠 Подключено к Hudini Host', 2500);
   });
   c.on('error', e=>{ if(homeClient===c && /auth|password|Not authorized/i.test(String(e.message))){
-    // код 5 («Not authorized») программа отвечает на паузе, неверный пароль — код 4
-    if(/Not authorized/i.test(String(e.message))){ hostCtl={ ...(hostCtl||{}), paused:true }; hostNote='⏸ Стример поставил управление на паузу'; }
-    else if(info.user==='streamer') hostNote='Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз';
-    else if(!hostCtl?.paused) hostNote='Неверный пароль: попроси у стримера новый код';
-    dropHome(); setTimeout(()=>{ if(!homeClient) reopenHome(); }, 20000);   // пауза стримера или новый пароль: пробуем снова
+    // код 5 («Not authorized») программа отвечает только на паузе, неверный пароль — код 4
+    if(/Not authorized/i.test(String(e.message))) return pausedByStreamer();
+    pausedRoom=null;
+    hostNote=info.user==='streamer' ? 'Вход устарел: нажми «Открыть пульт» в Hudini Host ещё раз' : 'Неверный пароль: попроси у стримера новый код';
+    dropHome(); retryHome();   // стример мог выдать новый пароль: пробуем снова
   } });
+  // попытка вернуться закончилась без ответа программы: это уже не пауза, показываем состояние связи
+  c.on('close', ()=>{ if(homeClient===c && client!==c && pausedRoom===room){ pausedRoom=null; hostStatus(); } });
 }
+// Весть о паузе от программы или отказ при входе: показываем паузу и возвращаемся, когда её снимут. Пульта стримера пауза не касается
+function pausedByStreamer(){
+  if(!homeClient || homeInfo?.user==='streamer') return;
+  pausedRoom=room; hostNote='';
+  dropHome(); retryHome();
+}
+function retryHome(){ clearTimeout(retryT); retryT=setTimeout(()=>{ if(!homeClient) reopenHome(); }, RETRY_MS); }
 // Повторная попытка после паузы или отказа
 function reopenHome(){
   if(homeInfo) return;
@@ -332,7 +347,7 @@ async function onMessage(topic, payload, packet){
   if(topic===T.base+'/rtc'){ window.hudiniBroadcast?.onPacket(payload); return; }
   if(topic===T.base+'/media'){ window.hudiniBroadcast?.onMedia(payload); return; }   // ответ Host на запрос показать камеру/экран   // камера, экран, микрофон: запечатанная сигнализация (broadcast.js)
   if(topic===T.base+'/perms'){ window.hudiniPanelPerms?.(await unsealJSON(keys, payload, false)); return; }   // права модераторов от программы стримера (streamer.js)
-  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); } return; }
+  if(topic===T.base+'/host'){ const c=await unsealJSON(keys, payload, false); if(c){ const was=hostCtl?.hidden; hostCtl=c; renderObs(); window.hudiniMarks?.(); if(c.hidden && !was && !packet.retain) toast('🙈 Стример спрятал оверлей в OBS', 4000); if(c.paused && !packet.retain && keys===KEYS) pausedByStreamer(); } return; }
   if(topic===T.base+'/cs2series'){ const v=await unsealJSON(keys, payload, false); if(v){ CS2_SERIES=cleanSeriesView(v); repaintCs2(); renderSeries(); } return; }
   if(topic===T.base+'/cs2fight'){ const f=await unsealJSON(keys, payload, false); if(f && !packet.retain) showFight(f); return; }
   if(topic===T.base+'/cs2'){ const d=await unsealJSON(keys, payload, false); if(d){ CS2=d; CS2.at=packet.retain ? Number(d.t)||0 : Date.now(); CS2._skew=packet.retain?0:Date.now()-Number(d.t||Date.now()); if(!packet.retain) processCs2Events(d); else lastEvSeq=Math.max(lastEvSeq||0, ...((d.evs||[]).map(e=>e.s||0))); repaintCs2(); } return; }
