@@ -35,7 +35,7 @@ const { step, check, eq, until, sleep } = T;
     check(await stage('a:A:70 b:B2:20 c:C:30'), 'the other panel\'s text reached everyone');
     await mod.keyboard.press('Control+z');
     check(await stage('a:A:10 b:B2:20 c:C:30'), 'a is back, b keeps the other panel\'s text');
-    eq(await toastText(mod), '', 'no conflict toast');
+    check(!(await toastText(mod)).includes('Часть правок пропущена'), 'no conflict toast');   // other toasts (free storage space) may be on screen
   });
 
   await step('redo uses the same step', async () => {

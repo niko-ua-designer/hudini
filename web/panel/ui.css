@@ -336,7 +336,7 @@ body.free .winbar button:active{transform:scale(.94)}
   header button,#toSessions{padding:6px 9px;font-size:13px}
   .hvol input{width:64px}
   #conn{flex-basis:auto}   /* two header lines are expected here, so the status stays readable */
-  #tabs{padding:6px 4px;gap:2px}
+  #tabs{padding:6px 2px;gap:2px}
   #tabs button{font-size:22px;padding:8px 1px}
   #tabs button span{font-size:10.5px}
   #panes,body.compact #panes{padding:8px 8px 30px}
