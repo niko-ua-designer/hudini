@@ -60,6 +60,7 @@ const CFG_FILE = path.join(BASE, 'overlay-host.json');
 const rnd = n => nodeCrypto.randomBytes(n).toString('base64url');
 let cfg = {};
 try{ cfg = JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); }catch{}
+const hadCfg = Object.keys(cfg).length > 0;   // настройки уже были: это не первый запуск на этом компьютере
 const hadCloudflare = !!cfg.link && !cfg.direct;   // настройки от версии с туннелем Cloudflare
 cfg = { port:7777, link:'', modPass:rnd(18), gsiToken:rnd(18), extAddr:'', modsOn:true, name:'Hudini', ...cfg };
 delete cfg.fixedUrl;
@@ -69,6 +70,11 @@ for(const f of ['cloudflared.exe', 'cloudflared']) try{ fs.rmSync(path.join(BASE
 // Лимиты для файлов модераторов: при первом запуске программа предлагает их поменять (страница управления)
 const LIMIT_DEFAULTS = { fileMB:100, totalMB:2048, files:300 };
 cfg.limits = { ...LIMIT_DEFAULTS, ...(cfg.limits||{}) };
+// Окно программы: звуки (null — ещё не спрашивали), пройден ли тур, для какой версии уже показано «что нового».
+// У настроек от старой версии seenVer нет: ей покажут и «что нового», и тур. Первая установка «что нового» не видит.
+{ const u = cfg.ui && typeof cfg.ui==='object' ? cfg.ui : null;
+  cfg.ui = { ...u, sounds:typeof u?.sounds==='boolean' ? u.sounds : null, tourDone:u?.tourDone===true, seenVer:u ? String(u.seenVer || '') : hadCfg ? '' : VERSION }; }
+const uiState = () => ({ sounds:cfg.ui.sounds, tourDone:cfg.ui.tourDone, whatsNew:cfg.ui.seenVer===VERSION ? null : { ver:VERSION, beta:VERSION.includes('-') } });
 // в настройках пароль модераторов, токен CS2 и ключи комнаты: файл читает только владелец
 const saveCfg = () => { fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2), { mode:0o600 }); try{ fs.chmodSync(CFG_FILE, 0o600); }catch{} };
 saveCfg();
@@ -2092,6 +2098,14 @@ const local = http.createServer(async (req, res) => {
       if(req.method==='POST' && p==='/api/update/check'){ await checkUpdate(false); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
       if(req.method==='POST' && p==='/api/update/apply'){ if(!upd.staged) return send(res, 400, JSON.stringify({ ok:false, error:'обновление ещё не скачано' }), 'application/json'); send(res, 200, JSON.stringify({ ok:true }), 'application/json'); setTimeout(applyUpdate, 300); return; }
       if(req.method==='POST' && p==='/api/update/auto'){ const { auto } = JSON.parse(await readBody(req, 1024)); upd.auto=cfg.autoUpdate=!!auto; saveCfg(); return send(res, 200, JSON.stringify({ ok:true, upd }), 'application/json'); }
+      if(req.method==='POST' && p==='/api/ui'){   // окно программы: звуки, тур, «что нового» прочитано
+        const b = JSON.parse(await readBody(req, 1024));
+        if(typeof b.sounds==='boolean') cfg.ui.sounds = b.sounds;
+        if(typeof b.tourDone==='boolean') cfg.ui.tourDone = b.tourDone;
+        if(b.seenWhatsNew===true) cfg.ui.seenVer = VERSION;
+        saveCfg();
+        return send(res, 200, JSON.stringify({ ok:true, ui:uiState() }), 'application/json');
+      }
       if(req.method==='POST' && p==='/api/limits'){ setLimits(JSON.parse(await readBody(req, 4096))); return send(res, 200, JSON.stringify({ ok:true, limits:cfg.limits }), 'application/json'); }
       if(req.method==='POST' && p==='/api/extaddr'){   // свой внешний адрес для проброса порта: host:port
         const { addr } = JSON.parse(await readBody(req, 4096)), v = String(addr||'').trim();
@@ -2163,7 +2177,7 @@ const local = http.createServer(async (req, res) => {
         await createRoom(name); log('🆕 Room recreated');
         return send(res, 200, JSON.stringify({ ok:true, obsLink:obsLink(), code:modCode() }), 'application/json');
       }
-      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, room:ROOM?.room||null, obsLink:obsLink(),
+      if(p==='/api/status') return send(res, 200, JSON.stringify({ version:VERSION, upd:{ state:upd.state, latest:upd.latest, err:upd.err, auto:upd.auto, ready:!!upd.staged, compiled, checkedAt:upd.checkedAt, prog:upd.prog }, app:APP, standalone:compiled && !APP, ui:uiState(), room:ROOM?.room||null, obsLink:obsLink(),
         storage:storage(ROOM?.room), limits:cfg.limits, mport:MPORT, code:modCode(), ctl, perms:cfg.perms, fp:TLS.fp, addrs:addresses(), extAddr:cfg.extAddr, modsOn:cfg.modsOn, name:cfg.name, cfNotice:!!cfg.cfNotice, roomNotice:!!cfg.roomNotice, ownRoom:!!cfg.room?.s,
         media:mediaInfo(), modList:[...modList.values()].map(({ ip, net, since, rtt, me }) => ({ ip, net, since, rtt, me })), role:ROLE_MOD ? 'mod' : 'streamer', panel:APP || !!panelUrl(),
         ...status, obsOnline: Date.now()-status.obsSeen < 9000, cs2Online: Date.now()-status.cs2Seen < 15000, fight:fightNow(), logs:logs.slice(-40), connLogs:connLogs.slice(-40) }), 'application/json');

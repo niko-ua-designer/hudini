@@ -10,6 +10,7 @@ const { step, check, eq, until, sleep } = T;
   const PORT = T.PORTS.host + 50;
   const host = T.startHost({ OVERLAY_PORT: String(PORT), OVERLAY_SITE: 'off', OVERLAY_PANEL_ORIGIN: web.url });
   await host.ready();
+  await host.api('/api/ui', { tourDone: true });   // the tour of the Host window would cover its buttons
   const code = (await host.code()).data;
   const st = await host.api('/api/status');
   const secrets = [];   // every key and session password seen in this test: none may reach a log
