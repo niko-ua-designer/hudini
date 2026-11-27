@@ -150,9 +150,32 @@ body.bright section[data-pane]:not([hidden]){animation:paneIn .3s cubic-bezier(.
 body.nomotion *,body.nomotion *::before,body.nomotion *::after{animation:none!important;transition:none!important}
 
 
-/* long labels (German, Ukrainian) wrap instead of sticking out of the panel */
-aside button:not(#tabs button),#pTimed{white-space:normal;min-width:0;overflow-wrap:anywhere;line-height:1.25}
+/* long labels (German, Ukrainian) wrap instead of sticking out of the panel, but never inside a word:
+   a row of buttons that does not fit moves the last ones to the next line */
+aside button:not(#tabs button),#pTimed{white-space:normal;overflow-wrap:break-word;line-height:1.25}
+aside .row:has(>button){flex-wrap:wrap}
+aside .row>button.grow{flex:1 1 auto;min-width:auto}
 aside .grid2,aside .grid3{min-width:0}
+/* a list beside its label moves to its own line when the chosen value would be cut */
+aside .row:has(>.hint+select.grow){flex-wrap:wrap}
+aside .row>.hint+select.grow{flex:1 1 9.5em}
+aside .row:has(>select.grow+input),aside .row:has(>.tgl.grow),aside .row:has(>#kDonor){flex-wrap:wrap}
+aside .row>select.grow:has(+input){flex:1 1 9.5em}
+aside .row>.tgl.grow{flex:1 1 11em}
+#kDonor,#kAmount{flex:1 1 7.5em}
+/* rows with several fields wrap before a field is squeezed to nothing */
+#rKeyRow,#rouViewers .row{flex-wrap:wrap}
+#rKeyRow>input[type=range]{flex:1 1 6em}
+aside .row>select#kfPreset{flex:1 1 9.5em}
+#rouViewers .row>input[type=number]{flex:none}
+/* two buttons side by side while both labels fit, otherwise one under the other */
+aside .grid2:not(.tiles){display:flex;flex-wrap:wrap}
+aside .grid2:not(.tiles)>button{flex:1 1 40%}
+aside .grid2:not(.tiles)>.u-grid-column-span-2,aside .grid2>#uiExport,aside .grid2>#uiImport{flex-basis:100%}
+/* buttons that hold names typed by people may break anywhere */
+aside button.mxn:not(#tabs button){min-width:0;overflow-wrap:anywhere}
+#webTabs button{min-width:0}
+#panes .rseg button{flex:1 1 auto;padding:7px 4px}
 
 /* переключатель вкл/выкл */
 .tgl{display:flex;align-items:center;gap:.6em;cursor:pointer;user-select:none}
@@ -228,11 +251,15 @@ aside details>summary:hover{color:var(--text)}
 :where(#right .layer){padding:6px 8px}
 :where(#right .layer button){padding:6px 9px;font-size:15px}
 #right #bigEye{padding:12px;font-size:15px}
-#kItems .kit{gap:4px}
+/* an item takes two lines: picture and name, then rarity, chance and the remove button */
+#kItems .kit{display:grid;grid-template-columns:auto minmax(0,1fr) 60px auto;grid-template-areas:"pic name name name" "rar rar pct del";gap:4px;margin:8px 0}
 #kItems .kit button{padding:6px 7px;min-width:0}
 #kItems .kit input,#kItems .kit select{padding:6px}
-#kItems .kit select{width:78px!important}
-#kItems .kit input[data-f=p]{width:52px!important}
+#kItems .kit .kpic{grid-area:pic}
+#kItems .kit input[data-f=n]{grid-area:name}
+#kItems .kit select{grid-area:rar;width:100%!important}
+#kItems .kit input[data-f=p]{grid-area:pct;width:100%!important}
+#kItems .kit button[data-act=del]{grid-area:del}
 #right .row.wrap{flex-wrap:wrap}
 #toolbar{gap:8px;padding:8px 12px;min-height:52px}
 #toolbar .tgrp{border-radius:9px}
@@ -257,11 +284,13 @@ aside details>summary:hover{color:var(--text)}
 #bcTiles button.on{border-color:var(--acc);background:#7c5cff33;color:#fff}
 #bcTiles button:disabled{opacity:.45;cursor:not-allowed}
 #bcList{display:flex;flex-direction:column;gap:6px;margin:8px 0}
-.bcrow{display:flex;align-items:center;gap:6px;font-size:12px;background:#1d212a;border-radius:8px;padding:5px 8px}
-.bcrow .bcn{white-space:nowrap}
-.bcrow .bcdev{flex:1;min-width:0;font-size:12px}
-.bcrow .bcp{flex:1;text-align:right;margin:0;white-space:nowrap}
-.bcrow .bcstop{padding:2px 8px}
+/* name and stop button, then the device across the row, then path and delay */
+.bcrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name stop" "dev dev" "info info";column-gap:6px;align-items:center;font-size:12px;background:#1d212a;border-radius:8px;padding:5px 8px}
+.bcrow .bcn{grid-area:name}
+.bcrow .bcdev{grid-area:dev;min-width:0;font-size:12px;margin-top:4px}
+.bcrow .bcp{grid-area:info;margin:3px 0 0}
+.bcrow .bcp:empty{display:none}
+.bcrow .bcstop{grid-area:stop;padding:2px 8px}
 #streamBg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:.8;background:#000}
 #streamBg[hidden]{display:none}
 /* слой потока в пульте: заглушка, пока сигнала нет, и строка с путём и задержкой */
