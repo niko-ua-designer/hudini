@@ -633,16 +633,16 @@ function syncFold(list){
 function replayEl(b, a, cur){
   // штрихи рисунка объединяет Draw.merge: здесь они не сравниваются и остаются как в cur
   const draw=cur.type==='draw', canon=e=>elCanon(draw ? { ...e, strokes:[], del:[] } : e);
+  // голоса и счёт: то, что пришло из чата (chatPend), объединяет mergeChat
+  const keys=undoVolatile(cur), chat=!!chatPend.get(cur.id)?.size, untouched=keys.every(k=>canonJSON(cur[k])===canonJSON(b[k]));
   if(canon(a)!==canon(b)){
     if(canon(cur)!==canon(b)) return cur;   // этот элемент поменяли и там: остаётся их вариант, он новее
-    const v=keepVolatile(a, b, cur);
+    const v=keepVolatile(a, chat && !untouched && a.vround===b.vround ? a : b, cur);   // новый раунд опроса несёт свои голоса
     if(draw){ v.strokes=cur.strokes; v.del=cur.del; }
     return v;
   }
-  // изменились только голоса или счёт. Пришедшее из чата объединяет mergeChat (chatPend); изменённое кнопкой берём,
-  // если там этого не трогали
-  const keys=undoVolatile(cur);
-  if(chatPend.get(cur.id)?.size || !keys.every(k=>canonJSON(cur[k])===canonJSON(b[k]))) return cur;
+  // изменились только голоса или счёт (кнопкой): своё берём, если там этого не трогали
+  if(chat || !untouched) return cur;
   const v=cloneJ(cur);
   for(const k of keys){ if(k in a) v[k]=cloneJ(a[k]); else delete v[k]; }
   return v;
