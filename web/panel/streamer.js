@@ -116,6 +116,7 @@
       // окно стримера: списка сессий модератора здесь нет
       document.body.classList.add('streamer-panel');
       document.title = 'Hudini · ' + tr('пульт стримера');
+      document.getElementById('moreBtn').title = tr('Рамка, пароль, очистка');   // no link to send: the Host is on this computer
       return { room };
     },
     // reopenHome(): своя комната — прямо к Hudini Host на этом ПК с логином стримера

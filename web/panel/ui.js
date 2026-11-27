@@ -266,7 +266,7 @@
         ['🎓 Показать обучение ещё раз', () => tour(0)],
         ['📖 Справка по программе', () => openHelp()],
         ['⌨ Клавиши', () => { showTab('room'); const h = [...document.querySelectorAll('section[data-pane="room"] h2')].find(x => /Клавиши/.test(x.textContent)); if(h){ setFold(h, false); h.scrollIntoView({ behavior:'smooth', block:'start' }); } }],
-        ['🎩 Как подключить стримера', () => showHostTip()],
+        ...(ownPanel() ? [] : [['🎩 Как подключить стримера', () => showHostTip()]]),
         ['🐞 Предложить идею или сообщить о проблеме', reportUrl()],
       ];
       for(const [label, act] of items){
@@ -308,13 +308,17 @@
   addEventListener('keydown', e => { if(e.key === 'Escape' && $('helpDrawer') && !$('tour')) $('helpDrawer').remove(); });
 
   // ---------- guided tour ----------
+  // `own` replaces texts in the streamer's panel window, `mod` steps are for moderators only
   const STEPS = [
-    { sel:null, title:'👋 Привет! Это Hudini', text:'Отсюда ты показываешь на экране стримера текст, картинки, таймеры и эффекты. Покажу главное за минуту.' },
+    { sel:null, title:'👋 Привет! Это Hudini', text:'Отсюда ты показываешь на экране стримера текст, картинки, таймеры и эффекты. Покажу главное за минуту.',
+      own:{ text:'Отсюда ты показываешь на своём стриме текст, картинки, таймеры и эффекты. Покажу главное за минуту.' } },
     { sel:'#left', tab:'add', title:'Добавляй здесь', text:'Текст, картинки, GIF, видео, таймеры и счётчики. Картинку можно просто перетащить на холст или вставить через Ctrl+V.', sample:true },
-    { sel:'#stage', title:'Это экран стримера', text:'Всё, что здесь, видно на стриме. Тащи элемент мышкой, меняй размер за уголок, крути за кружок. Ctrl+Z отменяет.' },
+    { sel:'#stage', title:'Это экран стримера', text:'Всё, что здесь, видно на стриме. Тащи элемент мышкой, меняй размер за уголок, крути за кружок. Ctrl+Z отменяет.',
+      own:{ title:'Это экран твоего стрима' } },
     { sel:'#right', title:'Слои и настройки', text:'Кликни по элементу, и здесь появятся цвет, шрифт и анимации. Глазик 👁 прячет элемент со стрима, не удаляя его.' },
-    { sel:'#moreBtn', title:'Связь со стримером', text:'В меню «Ещё» нажми «Копировать» и отправь ссылку стримеру. Он вставляет её в программу Hudini Host на своём ПК, и пульт находит его сам.' },
-    { sel:'#status', title:'Всё ли на связи', text:'Полоски и миллисекунды: связь с программой стримера и её задержка. Рядом видно, работает ли виджет в OBS. Если что-то не так, нажми на плашку.' },
+    { sel:'#moreBtn', mod:true, title:'Связь со стримером', text:'В меню «Ещё» нажми «Копировать» и отправь ссылку стримеру. Он вставляет её в программу Hudini Host на своём ПК, и пульт находит его сам.' },
+    { sel:'#status', title:'Всё ли на связи', text:'Полоски и миллисекунды: связь с программой стримера и её задержка. Рядом видно, работает ли виджет в OBS. Если что-то не так, нажми на плашку.',
+      own:{ text:'Здесь видно связь пульта с Hudini Host на этом компьютере и работает ли виджет в OBS. Если что-то не так, нажми на плашку.' } },
     { sel:'.lvl', title:'Метки β и α', text:'β: работает, но ещё обкатывается. α: эксперимент. Нажми на метку, чтобы узнать больше или сообщить о проблеме.' },
     { sel:'#helpBtn', title:'Гайд всегда здесь', text:'Кнопка ❓ покажет обучение ещё раз и откроет справку прямо в пульте.' },
     { sel:null, title:'🔊 Звуки программы', text:'Короткие тихие сигналы: связь со стримером, ответ на запрос показа и новая версия. На стриме их не слышно. Включить? Поменять можно потом: Комната → Вид пульта.', sound:true },
@@ -322,10 +326,12 @@
   ];
   // The question about sounds is asked while it has no answer; the streamer's panel window has no sounds of its own
   let steps = STEPS, skipped = false;
-  const soundsOpen = () => !!window.HudiniSounds && window.HudiniSounds.answer() === null && !document.body.classList.contains('streamer-panel');
+  const ownPanel = () => document.body.classList.contains('streamer-panel');   // known after login, so asked when needed
+  const soundsOpen = () => !!window.HudiniSounds && window.HudiniSounds.answer() === null && !ownPanel();
+  const tourSteps = () => STEPS.filter(s => (!s.sound || soundsOpen()) && !(s.mod && ownPanel())).map(s => ownPanel() && s.own ? { ...s, ...s.own } : s);
   function tour(i){
     $('tour')?.remove(); $('helpMenu')?.remove();
-    if(i === 0){ steps = STEPS.filter(s => !s.sound || soundsOpen()); skipped = false; }
+    if(i === 0){ steps = tourSteps(); skipped = false; }
     const s = steps[i]; if(!s){ endTour(); return; }
     if(s.tab) showTab(s.tab);
     const t = document.createElement('div'); t.id = 'tour';
