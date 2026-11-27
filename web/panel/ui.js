@@ -7,6 +7,7 @@
   const HELP_URL = '../help.html';
   const reportUrl = () => 'https://niko-ua-designer.github.io/hudini/report.html?lang=' + (window.HudiniI18n?.lang || 'en');
   const TABS = ['add', 'scenes', 'chat', 'auto', 'raffle', 'cs2', 'sound', 'room'];
+  const TOUR_VER = 2;   // ui.tour keeps the version of the tour already seen: a newer tour runs once more after an update
   const DEF = { v:1, lw:300, rw:310, bw:360, swap:false, compact:false, fs:14, motion:'auto', free:false, win:{}, tabs:TABS.slice(), fold:{}, tour:0, hideL:false, hideR:false };
   // Ready layouts: one click, then everything can still be tuned by hand
   const PRESETS = {
@@ -202,6 +203,8 @@
       <div class="row"><label class="hint">Анимации</label><select id="uiMotion"><option value="auto">Как в системе</option><option value="bright">Яркие</option><option value="soft">Мягкие</option><option value="min">Почти без</option></select></div>
       <label class="chk"><input type="checkbox" id="uiSwap"> Поменять колонки местами</label>
       <label class="chk"><input type="checkbox" id="uiCompact"> Компактный режим (меньше отступов)</label>
+      <label class="chk mod-only"><input type="checkbox" id="uiSounds"> Звуки программы</label>
+      <button id="uiTour">🎓 Показать обучение ещё раз</button>
       <div class="grid2">
         <button id="uiExport" title="Файл с видом пульта: можно перенести в другой браузер">⬇ Сохранить вид</button>
         <button id="uiImport">⬆ Загрузить вид</button>
@@ -211,7 +214,7 @@
     const keys = [...document.querySelectorAll('section[data-pane="room"] h2')].find(h => /Клавиши/.test(h.textContent));
     (keys ? keys.parentNode.insertBefore(box, keys) : document.querySelector('section[data-pane="room"]').appendChild(box));
     box.replaceWith(...box.childNodes);   // the heading becomes a normal section heading that folds like the others
-    const sync = () => { $('uiFs').value = String(ui.fs); $('uiMotion').value = ui.motion; $('uiSwap').checked = ui.swap; $('uiCompact').checked = ui.compact;
+    const sync = () => { $('uiFs').value = String(ui.fs); $('uiMotion').value = ui.motion; $('uiSwap').checked = ui.swap; $('uiCompact').checked = ui.compact; $('uiSounds').checked = window.HudiniSounds?.answer() === true;
       document.querySelectorAll('#uiPresets button').forEach(b => b.classList.toggle('on', presetNow() === b.dataset.preset)); };
     syncSettings = sync; sync();
     document.querySelectorAll('#uiPresets button').forEach(b => b.onclick = () => usePreset(b.dataset.preset));
@@ -219,6 +222,8 @@
     $('uiMotion').onchange = e => { ui.motion = e.target.value; apply(); save(); };
     $('uiSwap').onchange = e => { ui.swap = e.target.checked; apply(); save(); };
     $('uiCompact').onchange = e => { ui.compact = e.target.checked; apply(); save(); };
+    $('uiSounds').onchange = e => window.HudiniSounds?.setOn(e.target.checked);
+    $('uiTour').onclick = () => tour(0);
     $('uiReset').onclick = () => { const keep = { tour:ui.tour }; ui = { ...DEF, tabs:TABS.slice(), fold:{}, win:{}, ...keep }; apply(); save(); sync(); toast('↺ Вернул стандартный вид'); };
     $('uiExport').onclick = () => {
       const blob = new Blob([JSON.stringify({ hudiniUi:1, lang:window.HudiniI18n?.lang, ui }, null, 2)], { type:'application/json' });
@@ -307,21 +312,33 @@
     { sel:'#status', title:'Всё ли на связи', text:'Полоски и миллисекунды: связь с программой стримера и её задержка. Рядом видно, работает ли виджет в OBS. Если что-то не так, нажми на плашку.' },
     { sel:'.lvl', title:'Метки β и α', text:'β: работает, но ещё обкатывается. α: эксперимент. Нажми на метку, чтобы узнать больше или сообщить о проблеме.' },
     { sel:'#helpBtn', title:'Гайд всегда здесь', text:'Кнопка ❓ покажет обучение ещё раз и откроет справку прямо в пульте.' },
+    { sel:null, title:'🔊 Звуки программы', text:'Короткие тихие сигналы: связь со стримером, ответ на запрос показа и новая версия. На стриме их не слышно. Включить? Поменять можно потом: Комната → Вид пульта.', sound:true },
     { sel:null, title:'🎛 Настроим под тебя', text:'Выбери, как пульт будет выглядеть. Всё это можно поменять потом: Комната → Вид пульта.', setup:true },
   ];
+  // The question about sounds is asked while it has no answer; the streamer's panel window has no sounds of its own
+  let steps = STEPS, skipped = false;
+  const soundsOpen = () => !!window.HudiniSounds && window.HudiniSounds.answer() === null && !document.body.classList.contains('streamer-panel');
   function tour(i){
     $('tour')?.remove(); $('helpMenu')?.remove();
-    const s = STEPS[i]; if(!s){ endTour(); return; }
+    if(i === 0){ steps = STEPS.filter(s => !s.sound || soundsOpen()); skipped = false; }
+    const s = steps[i]; if(!s){ endTour(); return; }
     if(s.tab) showTab(s.tab);
     const t = document.createElement('div'); t.id = 'tour';
     t.innerHTML = '<div id="tourHole"></div><div id="tourBox"><h3></h3><p></p><div class="extra"></div><div class="foot"><div class="dots"></div><button id="tourSkip">Пропустить</button><button id="tourBack">Назад</button><button id="tourNext" class="primary"></button></div></div>';
     document.body.appendChild(t);
     t.querySelector('h3').textContent = s.title; t.querySelector('p').textContent = s.text;
-    const dots = t.querySelector('.dots'); STEPS.forEach((_, k) => { const d = document.createElement('i'); if(k === i) d.className = 'on'; dots.appendChild(d); });
+    const dots = t.querySelector('.dots'); steps.forEach((_, k) => { const d = document.createElement('i'); if(k === i) d.className = 'on'; dots.appendChild(d); });
     $('tourBack').hidden = i === 0;
-    $('tourNext').textContent = i === 0 ? 'Поехали' : i === STEPS.length - 1 ? 'Готово' : 'Дальше';
-    $('tourSkip').hidden = i === STEPS.length - 1;
-    $('tourNext').onclick = () => tour(i + 1); $('tourBack').onclick = () => tour(i - 1); $('tourSkip').onclick = endTour;
+    $('tourNext').textContent = i === 0 ? 'Поехали' : i === steps.length - 1 ? 'Готово' : 'Дальше';
+    $('tourSkip').hidden = i === steps.length - 1 || !!s.sound; $('tourNext').hidden = !!s.sound;
+    $('tourNext').onclick = () => tour(i + 1); $('tourBack').onclick = () => { skipped = false; tour(i - 1); };
+    // skipping still asks about sounds when that was never answered
+    $('tourSkip').onclick = () => { const k = steps.findIndex(x => x.sound); if(k >= 0 && soundsOpen()){ skipped = true; tour(k); } else endTour(); };
+    if(s.sound) for(const [id, on, label] of [['tourMute', false, '🔇 Без звуков'], ['tourSoundOn', true, '🔊 Включить звуки']]){
+      const b = document.createElement('button'); b.id = id; b.textContent = label; if(on) b.className = 'go';
+      b.onclick = () => { window.HudiniSounds.setOn(on); syncSettings(); if(skipped) endTour(); else tour(i + 1); };
+      t.querySelector('.extra').appendChild(b);
+    }
     if(s.setup){
       const ex = t.querySelector('.extra');
       const group = (label, items, get, set) => {
@@ -362,7 +379,8 @@
     if(!$('tour')) return;
     if(e.key === 'Escape'){ e.stopPropagation(); endTour(); }
   }, true);
-  function endTour(){ $('tour')?.remove(); ui.tour = 1; save(); dispatchEvent(new Event('hudini:tourend')) }
+  function endTour(){ $('tour')?.remove(); ui.tour = TOUR_VER; save(); dispatchEvent(new Event('hudini:tourend')) }
+  const tourDue = () => ui.tour < TOUR_VER && !new URLSearchParams(location.search).has('notour');
 
   // ---------- empty stage hint and contextual motion ----------
   function emptyHint(){
@@ -417,10 +435,10 @@
     // after the language picker and the password lock
     const langChosen = (() => { try{ return !!localStorage.getItem('hudini.lang'); }catch{ return true; } })();
     if(!window.hudiniReady || !langChosen || $('lock')?.offsetParent){ setTimeout(whenReady, 400); return; }
-    if(!ui.tour && !new URLSearchParams(location.search).has('notour')) setTimeout(() => tour(0), 500);
+    if(tourDue()) setTimeout(() => tour(0), 500);
   }
   whenReady();
   // the "instructions for the streamer" link in the connection dialog opens the right help section
   document.querySelector('#hostTipNoHost a.hint')?.addEventListener('click', e => { e.preventDefault(); $('hostTip').hidden = true; openHelp('streamer'); });
-  window.HudiniUI = { tour, tourPending:() => !!$('tour') || (!ui.tour && !new URLSearchParams(location.search).has('notour')), openHelp, reset:() => $('uiReset').click(), settings:() => ({ ...ui }) };
+  window.HudiniUI = { tour, tourPending:() => !!$('tour') || tourDue(), openHelp, reset:() => $('uiReset').click(), settings:() => ({ ...ui }) };
 })();

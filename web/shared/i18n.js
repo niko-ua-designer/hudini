@@ -3,6 +3,8 @@
 // Used by panel/moderator.html and Hudini Host (server/ui.html). The widget on stream is not translated.
 const HUDINI_DICT = {
   en: {
+    "🔊 Звуки программы": "🔊 App sounds",
+    "Короткие тихие сигналы: связь со стримером, ответ на запрос показа и новая версия. На стриме их не слышно. Включить? Поменять можно потом: Комната → Вид пульта.": "Short quiet signals: the connection to the streamer, an answer to a request to show something and a new version. They are not heard on stream. Turn them on? You can change this later: Room → Panel look.",
     "Последняя проверка:": "Last checked:",
     "Ещё не проверялось": "Not checked yet",
     "Пробую адреса из кода стримера:": "Trying the addresses from the streamer's code:",
@@ -1959,6 +1961,8 @@ const HUDINI_DICT = {
     "Включить короткие звуки? Это всегда можно поменять в разделе «Запуск и обновления».": "Turn on short sounds? You can change this at any time in “Startup & updates”.",
   },
   uk: {
+    "🔊 Звуки программы": "🔊 Звуки програми",
+    "Короткие тихие сигналы: связь со стримером, ответ на запрос показа и новая версия. На стриме их не слышно. Включить? Поменять можно потом: Комната → Вид пульта.": "Короткі тихі сигнали: зв'язок зі стримером, відповідь на запит показу та нова версія. На стримі їх не чути. Увімкнути? Змінити можна потім: Кімната → Вигляд пульта.",
     "Последняя проверка:": "Остання перевірка:",
     "Ещё не проверялось": "Ще не перевірялося",
     "Пробую адреса из кода стримера:": "Пробую адреси з коду стрімера:",
@@ -3915,6 +3919,8 @@ const HUDINI_DICT = {
     "Включить короткие звуки? Это всегда можно поменять в разделе «Запуск и обновления».": "Увімкнути короткі звуки? Це завжди можна змінити в розділі «Запуск і оновлення».",
   },
   de: {
+    "🔊 Звуки программы": "🔊 Programm-Sounds",
+    "Короткие тихие сигналы: связь со стримером, ответ на запрос показа и новая версия. На стриме их не слышно. Включить? Поменять можно потом: Комната → Вид пульта.": "Kurze, leise Signale: die Verbindung zum Streamer, die Antwort auf eine Anfrage zum Zeigen und eine neue Version. Im Stream sind sie nicht zu hören. Einschalten? Später änderbar: Raum → Aussehen des Pults.",
     "Последняя проверка:": "Zuletzt geprüft:",
     "Ещё не проверялось": "Noch nicht geprüft",
     "Пробую адреса из кода стримера:": "Probiere die Adressen aus dem Code des Streamers:",
