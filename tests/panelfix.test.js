@@ -53,7 +53,7 @@ const { step, check, eq, until } = T;
       const body = document.querySelector('.el[data-type="stream"].nosig .body');
       return { names, caption: body ? getComputedStyle(body, '::after').content : '' };
     });
-    check(/^Камера · Модератор \d+$/.test(r.names[0]), 'another moderator: ' + r.names[0]);
+    check(/^Камера · мод \d+$/.test(r.names[0]), 'another moderator: ' + r.names[0]);
     eq(r.names[1], 'Экран · стример', 'the streamer');
     check(/Камера · нет сигнала/.test(r.caption), 'caption: ' + r.caption);
     await p.context().close();

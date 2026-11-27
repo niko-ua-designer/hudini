@@ -16,7 +16,8 @@ window.Cursors = (function(){
 
   const hue = id => { let h = 0; for(let i=0;i<id.length;i++) h = (h*31 + id.charCodeAt(i)) >>> 0; return h; };
   const colorOf = id => `hsl(${hue(id)%360} 85% 62%)`;
-  const labelOf = p => p.n || `${tr('Модератор')} ${1 + hue(p.id)%99}`;
+  const numOf = id => 1 + hue(id)%99;
+  const labelOf = p => p.n || `${tr('Модератор')} ${numOf(p.id)}`;
   const clean = s => String(s).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, NAME_MAX);
 
   // ---------- свой курсор ----------
@@ -112,8 +113,8 @@ window.Cursors = (function(){
   $('curOn').checked = C.on;
   if(C.on) C.keep = setInterval(keepAlive, KEEP_MS/2);
 
-  // имя участника для списка слоёв: ник курсора, иначе тот же «Модератор N», что и у курсора
-  const nameOf = id => labelOf({ id, n:nicks.get(id) });
+  // имя участника для списка слоёв: ник курсора, иначе короткое «мод N» с тем же номером, что у курсора
+  const nameOf = id => nicks.get(id) || `${tr('мод')} ${numOf(id)}`;
 
   return { msg, reset, peers, nameOf, get on(){ return C.on; } };
 })();
