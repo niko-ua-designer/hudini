@@ -187,7 +187,7 @@ aside button.mxn:not(#tabs button){min-width:0;overflow-wrap:anywhere}
 .tgl input:focus-visible+.tgl-k{outline:2px solid #fff;outline-offset:2px}
 
 /* ---------- phase 6: header, rail of tabs, tiles ---------- */
-header{padding:10px 16px;gap:10px;position:relative}
+header{--hx:16px;--hy:10px;padding:var(--hy) var(--hx);gap:10px;position:relative}
 header h1{font-size:17px}
 header button,#toSessions{padding:9px 14px;border-radius:10px;font-size:14px}
 .conn{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 8px}
@@ -207,7 +207,15 @@ header button,#toSessions{padding:9px 14px;border-radius:10px;font-size:14px}
 #moreMenu hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
 #moreMenu .mrow{display:flex;gap:6px;align-items:center}
 #moreMenu .mrow input{flex:1;min-width:0}
-#connStrip{margin:10px -16px -10px;padding:9px 16px}
+/* the strip takes the whole width under the header: it grows by the header's side padding that its margins cancel */
+#connStrip{flex:1 1 100%;margin:var(--hy) calc(-1 * var(--hx)) calc(-1 * var(--hy));padding:9px 16px}
+body.compact header{--hx:10px;--hy:5px}
+/* the connection pill gives way first: a long status is cut with an ellipsis instead of pushing buttons to a second line */
+#conn{flex:1000 1 250px;max-width:max-content;min-width:0}
+#conn .pill{white-space:nowrap}
+#status{display:block;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#status .bars{margin-right:6px;vertical-align:-2px}
+#obsStatus{flex:none}
 
 /* rail of tabs on the left */
 #left{display:grid;grid-template-columns:var(--rail,100px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);padding:0;overflow:hidden}
@@ -268,9 +276,11 @@ aside details>summary:hover{color:var(--text)}
 
 @media (max-width:1560px){
   .hvol #hdrVolV{display:none}.hvol input{width:84px}
-  header{gap:8px;padding:8px 12px}
+  header{--hx:12px;--hy:8px;gap:8px}
   header button,#toSessions{padding:8px 10px}
   .conn .pill{font-size:13px;padding:5px 6px}
+  /* with the update button there is no room for the volume slider: the speaker button stays */
+  header:has(#updBanner:not([hidden])) .hvol input{display:none}
 }
 
 /* header buttons that hide the side panels */
@@ -315,3 +325,36 @@ body.free .winbar button:active{transform:scale(.94)}
 .tchips button,#uiPresets button{min-height:30px}
 @media (pointer:coarse){.tchips button,#uiPresets button,#helpMenu :is(button,a){min-height:40px;display:flex;align-items:center}}
 @media (prefers-reduced-motion:reduce){#emptyHint .arrow,#vaultWarn,#fightBar{animation:none!important}}
+
+/* ---------- narrow windows (the app's smallest is 900x600): the side columns shrink, the canvas keeps the room ---------- */
+@media (max-width:1280px){
+  body{--cL:calc(clamp(212px,23vw,var(--lw,300px)) + var(--rail,100px));--cR:clamp(220px,24.5vw,var(--rw,310px))}
+}
+@media (max-width:1100px){
+  body{--rail:76px}
+  header{--hx:10px;--hy:6px;gap:6px}
+  header button,#toSessions{padding:6px 9px;font-size:13px}
+  .hvol input{width:64px}
+  #conn{flex-basis:auto}   /* two header lines are expected here, so the status stays readable */
+  #tabs{padding:6px 4px;gap:2px}
+  #tabs button{font-size:22px;padding:8px 1px}
+  #tabs button span{font-size:10.5px}
+  #panes,body.compact #panes{padding:8px 8px 30px}
+  #right{padding-left:7px;padding-right:7px}
+  /* narrow layer rows: tighter buttons leave room for the name */
+  #right .layer{gap:2px;padding:5px 4px}
+  #right .layer button{padding:4px 3px;min-width:0}
+  #right .layer .ico{width:16px}
+  #panes button{padding:7px 8px}
+  .tiles button{font-size:12px}
+  #serNa,#serNb{padding-left:4px;padding-right:2px;font-size:12px}
+  /* one row of tools that scrolls sideways; the padding keeps the badges inside the scrolled box */
+  #toolbar{flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:8px;min-height:0}
+  #toolbar>*{flex:none}
+  #toolbar>.spacer{flex:1 0 0}
+  #toolbar #selInfo{min-width:0;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #toolbar label.chk{white-space:nowrap}
+}
+@media (max-width:1100px) and (max-height:700px){
+  #tabs button{font-size:20px;padding:6px 1px;gap:2px}
+}
