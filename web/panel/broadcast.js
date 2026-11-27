@@ -91,7 +91,7 @@
   }
   function paintCams(){
     const sel = $('bcBgCam'), list = cams?.list || [], pick = M.pickCamera(list, savedCam());
-    const opt = (v, text) => { const o = document.createElement('option'); o.value = v; o.textContent = text; return o; };
+    const opt = (v, text) => { const o = document.createElement('option'); o.value = v; o.setAttribute('data-i18n-skip', ''); o.textContent = text; return o; };
     sel.replaceChildren(...(pick ? [] : [opt('', (!list.length && savedCam()?.label) || tr('Выбери камеру'))]), ...list.map(d => opt(d.id, d.label)));
     sel.value = pick?.id || '';
   }
@@ -123,12 +123,12 @@
     if(!str || !cam) return;
     if(!cams){ cams = { list:[], hidden:true, error:null }; loadCams(false); return; }   // без запроса доступа: только по клику
     const go = $('bcBgCamGo'), label = tr(live ? '■ Остановить фон' : '▶ Показать модераторам');
-    if(go.textContent !== label) go.textContent = label;
+    if(go.dataset.label !== label){ go.dataset.label = label; go.textContent = label; }   // по dataset: значки заменяют эмодзи в тексте кнопки
     go.classList.toggle('on', !!live);
     go.disabled = !live && (camBusy || !M.supported('cam'));
     const none = !cams.hidden && !cams.list.some(d => M.isObsCam(d.label));
     const text = !M.supported('cam') ? tr('В этой системе это не поддерживается')
-      : live ? tr('Фон включён. На стрим эта картинка не идёт.') + ' · ' + infoText(hub.backdropInfo(), true)
+      : live ? tr('Фон включён: на стрим эта картинка не идёт') + ' · ' + infoText(hub.backdropInfo(), true)
       : cams.error && !cams.list.length ? tr(errText(cams.error))
       : none ? tr('OBS Virtual Camera не найдена: нажми в OBS «Запустить виртуальную камеру» или выбери другую камеру.')
       : tr('Сначала нажми в OBS «Запустить виртуальную камеру».');

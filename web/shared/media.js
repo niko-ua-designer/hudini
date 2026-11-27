@@ -20,7 +20,9 @@
 // Sound belongs to a microphone only: the audio tracks of a camera and a screen are never played, a microphone has no picture.
 // Panel backdrop: the streamer's screen, or a video device of the streamer's computer (OBS Virtual Camera). The device goes out as a
 // second source of kind 'screen' marked bgOnly: it answers nothing but a moderator's backdrop `want`, sends no `have` and never reaches
-// the widget (OBS would show its own picture inside itself). A receiver sees an ordinary backdrop offer.
+// the widget (OBS would show its own picture inside itself). While it runs, the streamer sends a `want` that asks for nothing
+// (no owner, no bg) every HAVE_MS: the Host passes a `want` on without opening a session, and a panel that has not touched media
+// yet starts asking for the backdrop. A receiver sees an ordinary backdrop offer.
 (function(root){
   'use strict';
   const KINDS = ['cam', 'screen', 'mic'];
@@ -208,7 +210,10 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     hub.shareBackdrop = stream => {
       hub.stopBackdrop();
       const src = addSource('screen', stream, { bg:true, bgOnly:true });
-      change();
+      // "a backdrop is on": a `want` that nobody can answer
+      const notice = () => send({ t:'want', kind:'screen', sid:src.sid, owner:'', bg:false });
+      src.hb = every(notice, HAVE_MS);
+      notice(); change();
       return src;
     };
     hub.backdrop = () => [...sources.values()].find(s => s.bgOnly) || null;
@@ -244,10 +249,12 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       closePeer(src, m.from);
       if(src.peers.size >= MAX_PEERS) return;
       const pc = new RTCPeerConnection({ iceServers:[], bundlePolicy:'max-bundle' });
-      const peer = { pc, addr:m.a, bg:!!m.bg, state:'new', rtt:null, dead:null, stats:null, at:now() };
+      const peer = { pc, addr:m.a, bg:!!m.bg, state:'new', rtt:null, dead:null, stats:null, at:now(), early:[] };
       src.peers.set(m.from, peer);
       for(const t of src.stream.getTracks()) pc.addTrack(t, src.stream);
-      pc.onicecandidate = e => { if(e.candidate && candOk(e.candidate.candidate)) send({ t:'ice', to:m.from, sid:src.sid, kind:src.kind, cand:e.candidate.toJSON() }, m.a); };
+      // candidates go out after the offer: the Host passes them only to a receiver it already knows from an offer
+      const sendIce = cand => send({ t:'ice', to:m.from, sid:src.sid, kind:src.kind, cand }, m.a);
+      pc.onicecandidate = e => { if(e.candidate && candOk(e.candidate.candidate)){ if(peer.early) peer.early.push(e.candidate.toJSON()); else sendIce(e.candidate.toJSON()); } };
       pc.onconnectionstatechange = () => {
         peer.state = pc.connectionState;
         if(peer.state === 'connected'){
@@ -269,10 +276,14 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
             if(q.fps) p.encodings[0].maxFramerate = q.fps;
             const h = s.track.getSettings?.().height; if(peer.bg && h > q.h) p.encodings[0].scaleResolutionDownBy = h / q.h;
           }
+          // the backdrop keeps its size and gives up frame rate: a camera would start at a quarter of it and grow for many seconds
+          if(src.bgOnly) p.degradationPreference = 'maintain-resolution';
           await s.setParameters(p).catch(() => {});
         }
         if(src.peers.get(m.from) !== peer) return;   // stopped or replaced while the offer was being made: nothing goes out after the `bye`
         await send({ t:'offer', to:m.from, sid:src.sid, kind:src.kind, sdp:pc.localDescription.sdp, bg:peer.bg, mime:src.mime }, m.a);
+        for(const c of peer.early.splice(0)){ if(src.peers.get(m.from) !== peer) return; await sendIce(c); }
+        peer.early = null;
       }catch(e){ console.warn('[media] offer', e.message); if(src.peers.get(m.from) === peer) closePeer(src, m.from); }
     }
     // A receiver asks (discovery: any sid, names the owner) or asks for the Host road (our real sid, p2)
@@ -553,7 +564,11 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
         else if(m.t === 'bye') closePeer(src, m.from);
         return;
       }
-      if(m.t === 'want'){ onWant(m); return; }   // a discovery `want` carries a sid of the receiver's own making
+      if(m.t === 'want'){
+        // the streamer's "a backdrop is on": ask for it now, not at the next round
+        if(signed && m.a === 'streamer' && !m.owner && !m.bg){ if(![...recvs.values()].some(e => e.purpose === 'bg')) sendWants(); return; }
+        onWant(m); return;   // a discovery `want` carries a sid of the receiver's own making
+      }
       if(m.t === 'have'){
         if(!signed || m.a !== 'streamer') return;
         bgSids.set(m.sid, m.bg); if(bgSids.size > 100) bgSids.delete(bgSids.keys().next().value);
