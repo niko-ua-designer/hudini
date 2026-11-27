@@ -47,8 +47,9 @@ const online = async p => (await p.getAttribute('#status', 'class')).includes('o
     await host.api('/api/control', { action: 'pause' });
     check(await until(async () => PAUSE.test(await status(panel)), 3000), 'shows the pause: ' + await status(panel));
     await sleep(23000);   // long enough for an attempt to get back in
-    const all = await seen(panel);
-    eq(all.filter(x => !PAUSE.test(x)), [], 'no other state during the pause');
+    const all = await seen(panel), from = all.findIndex(x => PAUSE.test(x));   // a delay reading may land before the pause does
+    check(from >= 0, 'the pause was recorded');
+    eq(all.slice(from).filter(x => !PAUSE.test(x)), [], 'no other state during the pause');
     check(await panel.isVisible('#connStrip') && PAUSE.test(await panel.textContent('#csHead')), 'the strip says why');
     await host.api('/api/control', { action: 'resume' });
     check(await until(() => online(panel), 25000), 'comes back by itself: ' + await status(panel));
