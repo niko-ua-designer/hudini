@@ -19,7 +19,7 @@
 <script src="../shared/i18n.js?v=12"></script>
 <script src="../shared/icons.js?v=2"></script>
 <script src="../shared/core.js?v=24"></script>
-<script src="../shared/media.js?v=3"></script>
+<script src="../shared/media.js?v=4"></script>
 <script src="../shared/case3d.js?v=2"></script>
 <script src="../shared/cs2-maps.js?v=5"></script>
 <script src="../shared/presets/animations.js?v=1"></script>
@@ -99,8 +99,16 @@
       <button id="bcMic" class="wide u-grid-column-span-2" title="Микрофон на стрим">🎙 Микрофон</button>
     </div>
     <div id="bcList"></div>
+    <div id="bcBack" hidden>
+      <div class="row"><span class="hint">Фон для модераторов</span><select id="bcBgSrc" class="grow" title="Что модераторы видят под холстом"><option value="screen">Мой экран</option><option value="cam">Камера OBS</option></select></div>
+      <div id="bcBgCamBox" hidden>
+        <div class="row"><select id="bcBgCam" class="grow" title="Камера для фона" data-i18n-skip></select></div>
+        <div class="row"><button id="bcBgCamGo" class="grow">▶ Показать модераторам</button></div>
+        <div class="hint" id="bcBgCamState" data-i18n-skip></div>
+      </div>
+    </div>
     <label class="chk" id="bcBgShareRow" hidden><input type="checkbox" id="bcBgShare"> Показывать мой экран модераторам как фон</label>
-    <label class="chk"><input type="checkbox" id="bcBgView"> Показывать экран стримера фоном под холстом</label>
+    <label class="chk" id="bcBgViewRow"><input type="checkbox" id="bcBgView"> Показывать фон от стримера под холстом</label>
     <div class="hint" id="bcHint"></div>
 
     <h2>Эффекты на весь экран</h2>
@@ -846,6 +854,6 @@
 <div id="toast"></div>
 <div id="fatal"></div>
 
-<script src="boot.js?v=4"></script>
+<script src="boot.js?v=5"></script>
 </body>
 </html>

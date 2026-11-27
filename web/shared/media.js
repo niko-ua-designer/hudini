@@ -18,6 +18,9 @@
 // The ticket is made by the Host for one MQTT connection and one sid, and sent to that connection alone on the `rtc` topic (t:'tkt', from the Host)
 // when it owns the stream or is addressed by an offer/have. Without it /media does not let anyone in.
 // Sound belongs to a microphone only: the audio tracks of a camera and a screen are never played, a microphone has no picture.
+// Panel backdrop: the streamer's screen, or a video device of the streamer's computer (OBS Virtual Camera). The device goes out as a
+// second source of kind 'screen' marked bgOnly: it answers nothing but a moderator's backdrop `want`, sends no `have` and never reaches
+// the widget (OBS would show its own picture inside itself). A receiver sees an ordinary backdrop offer.
 (function(root){
   'use strict';
   const KINDS = ['cam', 'screen', 'mic'];
@@ -28,11 +31,13 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
   // What a recording of a kind may carry: a camera and a screen show a picture only, a microphone has sound only. Anything else is not played.
   const KIND_MIMES = { cam:['video/webm;codecs=vp8'], screen:['video/webm;codecs=vp8'], mic:['audio/webm;codecs=opus'] };
   const ICE_MS = 5000, HAVE_MS = 4000, WANT_MS = 3000, P2_KEEP_MS = 12000, MAX_PEERS = 8, MAX_SDP = 60000, MAX_CHUNK = 900 * 1024, SEG_MS = 3000, QUEUE_BYTES = 600 * 1024;
-  // Quality presets: camera 720p30, screen 1080p30, the panel background 720p15 on a smaller bitrate
+  // Quality presets: camera 720p30, screen 1080p30, the panel background 720p15 on a smaller bitrate,
+  // the backdrop from a video device 720p30 (a live picture to place layers by; every moderator costs the streamer one more encoder)
   const QUALITY = {
     cam:{ w:1280, h:720, fps:30, bps:2500000 },
     screen:{ w:1920, h:1080, fps:30, bps:4000000 },
     bg:{ w:1280, h:720, fps:15, bps:800000 },
+    obs:{ w:1280, h:720, fps:30, bps:1500000 },
     mic:{ bps:64000 },
   };
   const REC_BPS = { cam:2000000, screen:3500000, mic:64000 };   // the recorder for path 2: together with sound under 4 Mbit/s
@@ -112,6 +117,32 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     const want = kind === 'mic' ? 'audioinput' : 'videoinput';
     return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === want).map((d, i) => ({ id:d.deviceId, label:d.label || (kind === 'mic' ? 'Mic ' : 'Cam ') + (i + 1) }));
   }
+  // ---------- video devices for the backdrop ----------
+  // "OBS Virtual Camera" (Windows, macOS, Linux), "OBS-Camera" and "OBS-Camera2" (older plugins), "OBS Camera"
+  const OBS_CAM_RE = /(^|[^a-z])obs[\s_-]*(virtual[\s_-]*)?cam(era)?(?![a-z])/i;
+  const isObsCam = label => isStr(label) && OBS_CAM_RE.test(label);
+  // The video devices with their names. Before the camera permission the browser gives neither names nor ids;
+  // with ask:true (only on a click of the user) the camera is opened for a moment to get them, and closed again.
+  // → { list:[{ id, label }], hidden:true when the names are still not known, error:Error of the refused request }
+  async function cameras(opts = {}){
+    const md = navigator.mediaDevices;
+    if(!md?.enumerateDevices) return { list:[], hidden:false, error:null };
+    const read = async () => (await md.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    let all = await read(), error = null;
+    if(opts.ask && all.some(d => !d.label) && md.getUserMedia){
+      let probe = null;
+      try{ probe = await md.getUserMedia({ video:true, audio:false }); }catch(e){ error = e; }
+      try{ all = await read(); }finally{ probe?.getTracks().forEach(t => t.stop()); }
+    }
+    const list = all.filter(d => d.deviceId).map((d, i) => ({ id:d.deviceId, label:d.label || 'Cam ' + (i + 1) }));
+    return { list, hidden:all.some(d => !d.label), error };
+  }
+  // The device to preselect: the saved choice (by id, then by name: ids may change between launches), else OBS Virtual Camera.
+  // No other camera is ever picked by itself: it could show the streamer's face.
+  function pickCamera(list, saved){
+    return (saved?.id && list.find(d => d.id === saved.id)) || (saved?.label && list.find(d => d.label === saved.label)) || list.find(d => isObsCam(d.label)) || null;
+  }
+
   async function capture(kind, opts = {}){
     if(!supported(kind)) throw Object.assign(new Error('unsupported'), { name:'NotSupportedError' });
     const dev = opts.deviceId ? { deviceId:{ exact:opts.deviceId } } : {};
@@ -120,7 +151,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       return navigator.mediaDevices.getDisplayMedia({ video:{ width:{ ideal:q.w }, height:{ ideal:q.h }, frameRate:{ ideal:q.fps } }, audio:false });
     }
     if(kind === 'mic') return navigator.mediaDevices.getUserMedia({ audio:{ ...dev, echoCancellation:true, noiseSuppression:true, autoGainControl:true }, video:false });
-    const q = QUALITY.cam;
+    const q = opts.quality || QUALITY.cam;
     return navigator.mediaDevices.getUserMedia({ video:{ ...dev, width:{ ideal:q.w }, height:{ ideal:q.h }, frameRate:{ ideal:q.fps } }, audio:false });
   }
   // The type of the recording follows the tracks: a camera or screen has no sound, a microphone has no picture
@@ -158,21 +189,34 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     }
 
     // ---------- sender ----------
+    function addSource(kind, stream, more){
+      const src = { sid:newSid(), kind, stream, bg:false, bgOnly:false, peers:new Map(), wanters:new Map(), mime:pickMime(kind, stream), rec:null, ws:null, p2Until:0, p2peers:new Map(), hb:null, pending:false, q:[], ...more };
+      sources.set(src.sid, src);
+      for(const t of stream.getTracks()) t.addEventListener('ended', () => hub.stop(src.sid));
+      return src;
+    }
     async function share(kind, stream, opts = {}){
       if(!KINDS.includes(kind)) throw new Error('bad kind');
       hub.stopKind(kind);
-      const src = { sid:newSid(), kind, stream, bg:!!opts.bg, peers:new Map(), wanters:new Map(), mime:pickMime(kind, stream), rec:null, ws:null, p2Until:0, p2peers:new Map(), hb:null, pending:false, q:[] };
-      sources.set(src.sid, src);
-      for(const t of stream.getTracks()) t.addEventListener('ended', () => hub.stop(src.sid));
+      const src = addSource(kind, stream, { bg:!!opts.bg });
       src.hb = every(() => announce(src), HAVE_MS);
       announce(src); change();
       return src;
     }
     hub.share = share;
+    // A backdrop-only picture (the streamer's panel): no layer, no `have`; moderators find it with their backdrop `want`
+    hub.shareBackdrop = stream => {
+      hub.stopBackdrop();
+      const src = addSource('screen', stream, { bg:true, bgOnly:true });
+      change();
+      return src;
+    };
+    hub.backdrop = () => [...sources.values()].find(s => s.bgOnly) || null;
+    hub.stopBackdrop = () => { const s = hub.backdrop(); if(s) hub.stop(s.sid); };
     // `have` goes to the widget: it registers the stream with the Host (a moderator's request reaches the streamer's dock at once)
     // and tells the widget to ask for the picture
     const announce = src => send({ t:'have', kind:src.kind, sid:src.sid, bg:src.bg, mime:src.mime }, 'widget');
-    hub.setBg = (sid, on) => { const s = sources.get(sid); if(s && s.bg !== !!on){ s.bg = !!on; if(!s.bg) for(const k of [...s.peers.keys()]) if(s.peers.get(k).bg) closePeer(s, k); announce(s); change(); } };
+    hub.setBg = (sid, on) => { const s = sources.get(sid); if(s && !s.bgOnly && s.bg !== !!on){ s.bg = !!on; if(!s.bg) for(const k of [...s.peers.keys()]) if(s.peers.get(k).bg) closePeer(s, k); announce(s); change(); } };
     hub.stop = sid => {
       const s = sources.get(sid); if(!s) return;
       sources.delete(sid); clearInterval(s.hb);
@@ -182,12 +226,14 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       send({ t:'bye', kind:s.kind, sid:s.sid });
       change();
     };
-    hub.stopKind = kind => { for(const s of [...sources.values()]) if(s.kind === kind) hub.stop(s.sid); };
+    // "by kind" means the sources of the layers; the backdrop-only one lives beside them
+    const ofKind = kind => [...sources.values()].filter(s => s.kind === kind && !s.bgOnly);
+    hub.stopKind = kind => { for(const s of ofKind(kind)) hub.stop(s.sid); };
     hub.stopAll = () => { for(const s of [...sources.values()]) hub.stop(s.sid); };
-    hub.local = kind => [...sources.values()].find(s => s.kind === kind) || null;
+    hub.local = kind => ofKind(kind)[0] || null;
     // The Host asked the streamer, answered: send the offers again (the first ones were held back)
-    hub.reoffer = kind => { for(const s of sources.values()) if(s.kind === kind){ s.pending = false; announce(s); for(const [from, w] of s.wanters) offerTo(s, { from, a:w.a, bg:w.bg }); } change(); };
-    hub.setPending = (kind, on) => { for(const s of sources.values()) if(s.kind === kind) s.pending = !!on; change(); };
+    hub.reoffer = kind => { for(const s of ofKind(kind)){ s.pending = false; announce(s); for(const [from, w] of s.wanters) offerTo(s, { from, a:w.a, bg:w.bg }); } change(); };
+    hub.setPending = (kind, on) => { for(const s of ofKind(kind)) s.pending = !!on; change(); };
 
     function closePeer(src, key){
       const p = src.peers.get(key); if(!p) return; src.peers.delete(key);
@@ -214,7 +260,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       try{
         await pc.setLocalDescription(await pc.createOffer());
         // the bandwidth by kind; the background copy of the screen gets less
-        const q = peer.bg ? QUALITY.bg : QUALITY[src.kind];
+        const q = src.bgOnly ? QUALITY.obs : peer.bg ? QUALITY.bg : QUALITY[src.kind];
         for(const s of pc.getSenders()){
           if(!s.track) continue;
           const p = s.getParameters(); if(!p.encodings?.length) p.encodings = [{}];
@@ -231,10 +277,12 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     }
     // A receiver asks (discovery: any sid, names the owner) or asks for the Host road (our real sid, p2)
     function onWant(m){
+      // the backdrop-only source answers a moderator's backdrop request and nothing else (never the widget, never a layer)
+      const modBackdrop = m.bg && m.a.startsWith('m:');
       let src;
       if(m.p2) src = sources.get(m.sid);
-      else src = [...sources.values()].find(s => s.kind === m.kind && (m.owner === me || (m.bg && s.bg && !m.owner)));
-      if(!src || src.kind !== m.kind || (m.bg && !src.bg)) return;
+      else src = [...sources.values()].find(s => s.kind === m.kind && (s.bgOnly ? modBackdrop && !m.owner : m.owner === me || (m.bg && s.bg && !m.owner)));
+      if(!src || src.kind !== m.kind || (m.bg && !src.bg) || (src.bgOnly && !modBackdrop)) return;
       if(m.p2){
         const t = now(), seen = src.p2peers.get(m.from);
         src.p2peers.set(m.from, t); src.p2Until = t + P2_KEEP_MS;
@@ -245,7 +293,8 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       src.wanters.set(m.from, { a:m.a, bg:!!m.bg, at:now() });
       for(const [k, w] of src.wanters) if(now() - w.at > 15000) src.wanters.delete(k);
       const p = src.peers.get(m.from);
-      if(p && (p.state === 'connected' || now() - p.at < 8000)) return;   // already on its way
+      // already on its way; but a request for the layer replaces a link that was made as a backdrop copy
+      if(p && !(p.bg && !m.bg) && (p.state === 'connected' || now() - p.at < 8000)) return;
       offerTo(src, { from:m.from, a:m.a, bg:m.bg });
     }
     // ---- path 2, sender: MediaRecorder → sealed pieces → WS /media ----
@@ -275,7 +324,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     // The Host drops pieces for a lagging receiver and resumes at the next header; the receiver restarts its picture there.
     function startRecorder(src){
       let first = true, rec;
-      try{ rec = new MediaRecorder(src.stream, { mimeType:src.mime, videoBitsPerSecond:REC_BPS[src.kind], audioBitsPerSecond:src.kind === 'mic' ? REC_BPS.mic : 96000 }); }catch{ return; }
+      try{ rec = new MediaRecorder(src.stream, { mimeType:src.mime, videoBitsPerSecond:src.bgOnly ? QUALITY.obs.bps : REC_BPS[src.kind], audioBitsPerSecond:src.kind === 'mic' ? REC_BPS.mic : 96000 }); }catch{ return; }
       src.rec = rec;
       rec.ondataavailable = e => {
         if(!e.data?.size || e.data.size > MAX_CHUNK || src.rec !== rec) return;
@@ -312,6 +361,17 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     const keyOf = (d, owner) => d.purpose === 'bg' ? 'bg||' + d.kind : 'main|' + (owner ?? d.owner) + '|' + d.kind;
     const bgSids = new Map();    // sid → true when the owner offers this screen as a backdrop (from its `have`)
     const rsids = new Map();     // desire key → the sid we put into our `want`s
+    let bgHave = { sid:'', at:0 };   // the last announcement of a streamer's screen offered as a backdrop
+    let layerSince = 0;
+    // Is a separate backdrop to be asked for? Always when no layer shows the streamer's screen. With such a layer only when that
+    // screen is not the backdrop itself (one connection per source serves both): a separate backdrop is already held, or the layer
+    // has been there long enough for its owner to announce a backdrop and nobody did.
+    hub.askBackdrop = hasLayer => {
+      if(!hasLayer){ layerSince = 0; return true; }
+      const t = now(); layerSince ||= t;
+      if(t - bgHave.at < HAVE_MS * 2 + 1000) return false;
+      return [...recvs.values()].some(e => e.purpose === 'bg') || t - layerSince > HAVE_MS + 1500;
+    };
     function closeRecv(e){
       recvs.delete(e.key);
       clearTimeout(e.tkWait); clearTimeout(e.timer); clearInterval(e.stats); clearInterval(e.keep);
@@ -477,6 +537,7 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
         tickets.set(m.sid, m.tk); if(tickets.size > 100) tickets.delete(tickets.keys().next().value);
         return;
       }
+      if(m.t === 'bye' && bgHave.sid === m.sid && (m.a === 'streamer' || hf === 'host')) bgHave = { sid:'', at:0 };
       if(m.t === 'bye' && m.from === 'host' && w.head.from === 'host'){   // the Host cut the stream off (permission taken back, the streamer pressed stop)
         if(sources.has(m.sid)) hub.stop(m.sid);
         for(const x of [...recvs.values()]) if(x.sid === m.sid) closeRecv(x);
@@ -493,7 +554,19 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
         return;
       }
       if(m.t === 'want'){ onWant(m); return; }   // a discovery `want` carries a sid of the receiver's own making
-      if(m.t === 'have'){ if(signed && m.a === 'streamer'){ bgSids.set(m.sid, m.bg); if(bgSids.size > 100) bgSids.delete(bgSids.keys().next().value); sendWants(); change(); } return; }
+      if(m.t === 'have'){
+        if(!signed || m.a !== 'streamer') return;
+        bgSids.set(m.sid, m.bg); if(bgSids.size > 100) bgSids.delete(bgSids.keys().next().value);
+        if(m.kind === 'screen'){
+          if(m.bg) bgHave = { sid:m.sid, at:now() };
+          else {
+            if(bgHave.sid === m.sid) bgHave = { sid:'', at:0 };
+            // its owner took this screen back as a backdrop: drop the copy at once, the next `want` finds another
+            for(const x of [...recvs.values()]) if(x.purpose === 'bg' && x.sid === m.sid) closeRecv(x);
+          }
+        }
+        sendWants(); change(); return;
+      }
       if(m.t === 'offer') return onOffer(m, signed);
       const e = [...recvs.values()].find(x => x.sid === m.sid && x.kind === m.kind);
       if(!e || e.owner !== m.from || e.addr !== m.a || !signed) return;
@@ -509,15 +582,17 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
       if(e.path === 'host' && e.url) return { url:e.url, entry:e };
       return e.stream ? { stream:e.stream, entry:e } : null;
     };
+    function sourceInfo(s){
+      if(!s) return null;
+      if(s.pending) return { path:'pending', ms:null, peers:0 };
+      const peers = [...s.peers.values()]; const ok = peers.filter(p => p.state === 'connected');
+      const p2 = s.rec && now() < s.p2Until;
+      return { path:ok.length ? (p2 ? 'both' : 'direct') : p2 ? 'host' : 'wait', ms:ok.length ? Math.max(...ok.map(p => p.rtt ?? 0)) : null, peers:peers.length + (p2 ? 1 : 0) };
+    }
+    hub.backdropInfo = () => sourceInfo(hub.backdrop());
     // how the connection looks: 'direct' | 'host' | 'both' | 'wait' | 'pending' | 'none'
     hub.info = (owner, kind) => {
-      if(owner === me){
-        const s = hub.local(kind); if(!s) return null;
-        if(s.pending) return { path:'pending', ms:null, peers:0 };
-        const peers = [...s.peers.values()]; const ok = peers.filter(p => p.state === 'connected');
-        const p2 = s.rec && now() < s.p2Until;
-        return { path:ok.length ? (p2 ? 'both' : 'direct') : p2 ? 'host' : 'wait', ms:ok.length ? Math.max(...ok.map(p => p.rtt ?? 0)) : null, peers:peers.length + (p2 ? 1 : 0) };
-      }
+      if(owner === me) return sourceInfo(hub.local(kind));
       const e = recvs.get('main|' + owner + '|' + kind); return e ? { path:e.path, ms:e.ms } : null;
     };
     // The background copy of somebody's screen (panel only) → { stream } | { url } | null
@@ -556,6 +631,6 @@ const TK_RE = /^[A-Za-z0-9_-]{16,64}$/;
     return hub;
   }
 
-  root.HudiniMedia = { KINDS, QUALITY, supported, devices, capture, createHub, wrapRtc, unwrapRtc, cleanRtc, cleanSdp, parseCand, ipOk, candOk, stripCands, pickMime,
+  root.HudiniMedia = { KINDS, QUALITY, supported, devices, cameras, isObsCam, pickCamera, capture, createHub, wrapRtc, unwrapRtc, cleanRtc, cleanSdp, parseCand, ipOk, candOk, stripCands, pickMime,
     setAllowIp(f){ allowIp = typeof f === 'function' ? f : ipOk; }, newSid };
 })(typeof window !== 'undefined' ? window : globalThis);
