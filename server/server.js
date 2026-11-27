@@ -1405,30 +1405,84 @@ async function installGsi(){
   return file;
 }
 
-// ---------- файлы виджета: свежие с сайта, запасные встроены в программу ----------
-const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
-// Ключ = путь файла на сайте и на этом сервере; в кэше имя без «/»
-const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS, 'shared/media.js':MEDIA_JS, 'shared/cs2-maps.js':CS2_MAPS_JS };
-const cacheName = f => f.replace(/\//g, '_');
-const files = { ...EMBED };
-for(const f of Object.keys(files)) try{ files[f] = fs.readFileSync(path.join(CACHE, cacheName(f)), 'utf8'); }catch{}
-async function refreshSite(){
-  if(process.env.OVERLAY_SITE==='off') return;   // тесты: только встроенные файлы
+// ---------- подписи: обновления программы и файлы виджета с сайта ----------
+// Подпись Ed25519 строки «<назначение>\n<номер>\n» + текст; назначение не даёт выдать одну подпись за другую:
+// • hudini-update — релиз несёт SHA256SUMS.txt.sig: «hudini-update\n<версия>\n» + SHA256SUMS.txt;
+// • hudini-site — список файлов виджета site-manifest.json.sig: «hudini-site\n<seq>\n» + site-manifest.json.
+// Закрытый ключ есть только в секретах GitHub (HUDINI_SIGNING_KEY), здесь — публичный. Без верной подписи обновление не ставится,
+// поэтому подменённый релиз (даже с верными суммами) или старая версия под новым тегом не пройдут.
+const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';
+function sigOk(domain, ver, body, sigB64){
+  if(!UPDATE_KEY) return false;
   try{
-    const got = {};
-    for(const f of Object.keys(EMBED)){
-      const r = await fetch(SITE+f+'?t='+Date.now(), { signal:AbortSignal.timeout(6000) });
-      if(!r.ok) throw new Error(f+': HTTP '+r.status);
-      got[f] = await r.text();
-    }
-    if(!got['widget/widget.html'].includes('core.js')) throw new Error('странный widget.html');
-    for(const [f,txt] of Object.entries(got)){ files[f]=txt; fs.writeFileSync(path.join(CACHE, cacheName(f)), txt); }
-  }catch(e){ log('⚠ Could not update widget files from the site (', e.message, '), using saved ones'); }
+    const key = nodeCrypto.createPublicKey({ key:Buffer.from(UPDATE_KEY, 'base64'), format:'der', type:'spki' });
+    return nodeCrypto.verify(null, Buffer.from(`${domain}\n${ver}\n${body}`), key, Buffer.from(String(sigB64).trim(), 'base64'));
+  }catch{ return false; }
 }
+
+// ---------- файлы виджета: свежие с сайта (только подписанные), запасные встроены в программу ----------
+const CACHE = path.join(BASE, 'cache'); fs.mkdirSync(CACHE, { recursive:true });
+// Ключ = путь файла на сайте и на этом сервере
+const EMBED = { 'widget/widget.html':WIDGET_HTML, 'shared/core.js':CORE_JS, 'shared/core.css':CORE_CSS, 'shared/case3d.js':CASE3D_JS, 'shared/media.js':MEDIA_JS, 'shared/cs2-maps.js':CS2_MAPS_JS };
+const files = { ...EMBED };
+// Сайт получает файлы сразу после пуша в main, а OBS стримера — только подписанные: site-manifest.json
+// (seq, widgetVer, SHA-256 каждого файла из EMBED) и .sig лежат в релизе «site-manifest» (.github/workflows/site-sign.yml).
+// Берём все файлы или ни одного; seq не идёт назад (cfg.siteSeq); виджет старше встроенного не берём.
+// OVERLAY_SITE и OVERLAY_SITE_MANIFEST меняют только адреса (тесты), проверка подписи та же.
+const EMBED_VER = Number(/const WIDGET_VER\s*=\s*(\d+)/.exec(WIDGET_HTML)?.[1]);
+const SITE_FILES = (process.env.OVERLAY_SITE || SITE).replace(/\/*$/, '/');
+const SITE_MANIFEST = process.env.OVERLAY_SITE_MANIFEST || 'https://github.com/niko-ua-designer/hudini/releases/download/site-manifest/site-manifest.json';
+const SITE_CACHE = path.join(CACHE, 'site-signed.json');   // список, подпись и сами файлы одним куском
+// Список из проверенной подписи или ошибка с причиной
+function openManifest(text, sig){
+  let m; try{ m = JSON.parse(text); }catch{}
+  if(!Number.isSafeInteger(m?.seq) || m.seq<=0 || !sigOk('hudini-site', m.seq, text, sig)) throw new Error('bad signature');
+  if(m.seq < (cfg.siteSeq||0)) throw new Error('signed list is older than the one already accepted');
+  if(!(m.widgetVer >= EMBED_VER)) throw new Error(`signed widget ${m.widgetVer} is older than the built-in ${EMBED_VER}`);
+  return m;
+}
+const matchesManifest = (m, got) => Object.keys(EMBED).every(f => nodeCrypto.createHash('sha256').update(got[f]).digest('hex') === m.files?.[f]);
+function useSite(m, got){
+  for(const f of Object.keys(EMBED)) files[f] = got[f].toString('utf8');
+  if(m.seq !== cfg.siteSeq){ cfg.siteSeq = m.seq; saveCfg(); }
+}
+// Кэш проверяем заново: он мог испортиться или устареть после обновления программы. Неподписанные файлы кэша 1.1 не читаем.
+try{
+  const c = JSON.parse(fs.readFileSync(SITE_CACHE, 'utf8'));
+  const m = openManifest(c.manifest, c.sig);
+  const got = Object.fromEntries(Object.keys(EMBED).map(f => [f, Buffer.from(String(c.files?.[f] ?? ''), 'base64')]));
+  if(!matchesManifest(m, got)) throw new Error('a file does not match the signed list');
+  useSite(m, got);
+}catch(e){ if(e.code!=='ENOENT') log('⚠ Saved widget files not used (' + e.message + '), using the built-in ones'); }
+let siteSaid = '';
+const siteSay = msg => { if(msg!==siteSaid) log(siteSaid = msg); };   // одну и ту же причину пишем один раз, а не каждые 10 минут
+async function fetchSite(){
+  if(process.env.OVERLAY_SITE==='off') return;   // тесты: без обращений к сайту
+  try{
+    const get = async url => {
+      const r = await fetch(url, { signal:AbortSignal.timeout(6000) });
+      if(!r.ok) throw new Error(new URL(url).pathname.split('/').pop()+': HTTP '+r.status);
+      return Buffer.from(await r.arrayBuffer());
+    };
+    const text = (await get(SITE_MANIFEST)).toString('utf8'), sig = (await get(SITE_MANIFEST+'.sig')).toString('utf8');
+    const m = openManifest(text, sig);
+    const got = {};
+    for(const f of Object.keys(EMBED)) got[f] = await get(SITE_FILES+f+'?t='+Date.now());
+    if(!matchesManifest(m, got)) return siteSay('⚠ Widget files on the site differ from the signed ones (newer files not signed yet?), keeping the current ones');
+    const changed = Object.keys(EMBED).some(f => files[f] !== got[f].toString('utf8'));
+    const saved = Object.fromEntries(Object.keys(EMBED).map(f => [f, got[f].toString('base64')]));
+    fs.writeFileSync(SITE_CACHE+'.tmp', JSON.stringify({ manifest:text, sig, files:saved }));
+    fs.renameSync(SITE_CACHE+'.tmp', SITE_CACHE);
+    useSite(m, got); siteSaid = '';
+    if(changed) log('✓ Widget files updated from the site (signature verified)');
+  }catch(e){ siteSay('⚠ Could not update widget files from the site (' + e.message + '), keeping the current ones'); }
+}
+let siteBusy = null;   // одна загрузка за раз: поздний ответ не перепишет более новый
+const refreshSite = () => siteBusy ||= fetchSite().finally(()=>{ siteBusy=null; });
 refreshSite(); setInterval(refreshSite, 10*60*1000);
 // виджет перезагружается за обновлением: сначала сами берём свежие файлы с сайта
-let refreshing=null, lastRefresh=0;
-function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshing ||= refreshSite().finally(()=>{ refreshing=null; lastRefresh=Date.now(); }); }
+let lastRefresh=0;
+function refreshNow(){ if(Date.now()-lastRefresh<20000) return Promise.resolve(); return refreshSite().finally(()=>{ lastRefresh=Date.now(); }); }
 // Подложки радара вшиты в программу; недостающие берём с сайта и держим в кэше. Своя картинка в data/radar важнее.
 const RADAR_CACHE = path.join(CACHE, 'radar');
 const RADAR_MEM = new Map();
@@ -1478,17 +1532,6 @@ const parseVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v|
 const cmpVer = (a,b) => { const x=parseVer(a), y=parseVer(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]>y[i] ? 1 : -1; return 0; };
 // Версия в имени файла: 1.0.0-rc.4 → 1.0rc4, 1.0.0 → 1.0, 1.0.2 → 1.0.2
 const prettyVer = v => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(v||''); return m ? `${m[1]}.${m[2]}${m[3]!=='0' ? '.'+m[3] : ''}${m[4]!=null ? 'rc'+m[4] : ''}` : v; };
-// Подпись обновлений: релиз несёт SHA256SUMS.txt.sig — подпись Ed25519 строки «hudini-update\n<версия>\n» + SHA256SUMS.txt.
-// Закрытый ключ есть только в секретах GitHub (HUDINI_SIGNING_KEY), здесь — публичный. Без верной подписи обновление не ставится,
-// поэтому подменённый релиз (даже с верными суммами) или старая версия под новым тегом не пройдут.
-const UPDATE_KEY = 'MCowBQYDK2VwAyEAHTTYc2pvx5Xi5GAD3wXNZVpN+hHLVNpVpludrApZcG0=';
-function updateSigOk(ver, sums, sigB64){
-  if(!UPDATE_KEY) return false;
-  try{
-    const key = nodeCrypto.createPublicKey({ key:Buffer.from(UPDATE_KEY, 'base64'), format:'der', type:'spki' });
-    return nodeCrypto.verify(null, Buffer.from(`hudini-update\n${ver}\n${sums}`), key, Buffer.from(String(sigB64).trim(), 'base64'));
-  }catch{ return false; }
-}
 // Предварительные версии (rc) получают только те, у кого уже стоит rc. Старые беты v0.x (Overlay Host) ниже 1.0 и не выбираются.
 function pickRelease(list){
   const beta = VERSION.includes('-');
@@ -1602,7 +1645,7 @@ async function doCheck(applyIfIdle){
       upd.state='downloading'; log('⬇ Downloading update', ver, '…');
       const sums=await (await fetch(sumA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
       const sig=await (await fetch(sigA.browser_download_url, { signal:AbortSignal.timeout(30000) })).text();
-      if(!updateSigOk(ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
+      if(!sigOk('hudini-update', ver, sums, sig)) throw new Error('подпись релиза не совпала, обновление отменено');
       const line=sums.split('\n').find(l=>l.trim().replace(/^\S+\s+\*?/,'')===zipA.name);
       const want=(line||'').trim().split(/\s+/)[0];
       const resp=await fetch(zipA.browser_download_url, { signal:AbortSignal.timeout(10*60*1000) });

@@ -1,5 +1,28 @@
 # Releasing Hudini
 
+## Signing the site (1.2 and later)
+
+GitHub Pages publishes `web/` right after a push to `main`, but Hudini Host 1.2+ loads the new widget files into OBS only
+after they are signed. Host 1.1 and older take them unsigned, as before.
+
+1. Once, before the first signature: Settings → Environments → `release` → Deployment branches and tags. The environment
+   allows only tags `v*` now; add the branch `main`, or the signing job is rejected. Keep the required reviewer.
+2. After a push to `main` that changes the site, "Pages" deploys it and "Sign the site" starts and waits. Check the commit
+   and approve the `release` environment: this is the "sign the site" button. Approve soon after the deploy: until then
+   a Host without saved files serves the built-in ones, and the others keep the previous signed ones.
+3. The job puts `site-manifest.json` and `site-manifest.json.sig` into the pre-release `site-manifest` (created on the first
+   run; never delete it or mark it latest). Hosts pick it up within 10 minutes. A widget that already reloaded itself for
+   a new version before the signature gets the new files after the OBS source is refreshed.
+4. Manual run: Actions → "Sign the site" → Run workflow on `main` (for example if an upload failed).
+
+Rules:
+- To roll the site back, revert with a new commit and sign it. Hosts refuse a signature of an older commit.
+- Raise `WIDGET_VER` with every widget change: a Host ignores a signed widget older than its built-in one, but with an
+  equal number the signed site files win over the built-in ones. So after a release that changes widget files, sign the
+  site from a commit that has them.
+- The signing key is the same as for app updates. A new file in the `EMBED` table of `server/server.js` is added to the
+  manifest automatically; never remove one while released Hosts still expect it.
+
 ## 1.1.2 (patch, branch `v1`)
 
 Same steps as 1.1.1; version `1.1.2`, `## 1.1.2` in `CHANGELOG.md`. Before every release open the Host window and the panel on en, uk and de and check that no Russian is left (`tests/i18ncov.test.js` covers the HTML and the Host scripts, not the panel scripts).
