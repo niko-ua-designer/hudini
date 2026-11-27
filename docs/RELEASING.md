@@ -11,8 +11,9 @@ after they are signed. Host 1.1 and older take them unsigned, as before.
    and approve the `release` environment: this is the "sign the site" button. Approve soon after the deploy: until then
    a Host without saved files serves the built-in ones, and the others keep the previous signed ones.
 3. The job puts `site-manifest.json` and `site-manifest.json.sig` into the pre-release `site-manifest` (created on the first
-   run; never delete it or mark it latest). Hosts pick it up within 10 minutes. A widget that already reloaded itself for
-   a new version before the signature gets the new files after the OBS source is refreshed.
+   run; never delete it or mark it latest). Hosts pick it up within 10 minutes. A widget that reloaded itself for a new
+   version before the signature asks the Host again every 10 minutes and reloads once the new widget is there (widgets
+   from 1.1 and older need the OBS source refreshed).
 4. Manual run: Actions → "Sign the site" → Run workflow on `main` (for example if an upload failed).
 
 The workflow has two jobs. "build" runs the repository's scripts without the key. "sign" holds the key and runs only the
