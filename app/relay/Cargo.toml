@@ -1,6 +1,6 @@
 [package]
 name = "hudini-relay"
-version = "1.2.0"
+version = "1.2.0-rc.1"
 description = "Hudini: local relay from the moderator panel to a streamer's Hudini server over TLS pinned by certificate fingerprint"
 authors = ["niko-ua-designer"]
 license = "MIT"

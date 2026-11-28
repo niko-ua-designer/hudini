@@ -3,7 +3,7 @@
 The release workflow copies the section for the tag version (the heading must be exactly `## <version>`) into the release notes.
 Hudini Host shows this file too ("What's new"): keep the format described in `docs/RELEASING.md`.
 
-## 1.2.0
+## 1.2.0-rc.1
 
 <!-- date: 2026-11-28 -->
 
@@ -23,7 +23,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 
 - The app never restarts by itself: a new version is installed only when you press the button. If a stream is running, a separate window asks to confirm.
 - Stable and Beta channels, the list of changes inside the app, and a rollback from a beta to the latest stable version with a copy of the settings. Moderators have the same in their app.
-- Updating from 1.1: the old version may still update itself while idle; from 1.2 on this no longer happens.
+- This is a public beta. 1.1 does not update to it by itself: download it and unpack it into a separate folder.
 
 #### Fixes and security
 
@@ -51,7 +51,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 
 - Программа никогда не перезапускается сама: новая версия ставится только по кнопке. Если идёт стрим, отдельное окно просит подтверждение.
 - Каналы «Стабильная» и «Бета», список изменений прямо в программе и откат с беты на последнюю стабильную версию с копией настроек. У модераторов в их программе то же самое.
-- Обновление с 1.1: старая версия ещё может обновиться сама в простое; начиная с 1.2 такого нет.
+- Это открытая бета. 1.1 сама на неё не обновится: скачай её и распакуй в отдельную папку.
 
 #### Исправления и безопасность
 
@@ -79,7 +79,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 
 - Програма ніколи не перезапускається сама: нова версія ставиться лише по кнопці. Якщо йде стрим, окреме вікно просить підтвердження.
 - Канали «Стабільна» і «Бета», список змін прямо в програмі та відкат із бети на останню стабільну версію з копією налаштувань. У модераторів у їхній програмі те саме.
-- Оновлення з 1.1: стара версія ще може оновитися сама в простої; починаючи з 1.2 такого немає.
+- Це відкрита бета. 1.1 сама на неї не оновиться: завантаж її й розпакуй в окрему теку.
 
 #### Виправлення та безпека
 
@@ -107,7 +107,7 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 
 - Die App startet nie von selbst neu: Eine neue Version wird nur per Knopfdruck installiert. Läuft ein Stream, fragt ein eigenes Fenster nach einer Bestätigung.
 - Kanäle „Stabil“ und „Beta“, die Liste der Änderungen in der App und eine Rückkehr von einer Beta zur letzten stabilen Version mit einer Kopie der Einstellungen. Moderatoren haben in ihrer App dasselbe.
-- Update von 1.1: Die alte Version kann sich im Leerlauf noch selbst aktualisieren; ab 1.2 passiert das nicht mehr.
+- Das ist eine öffentliche Beta. 1.1 aktualisiert sich nicht von selbst darauf: lade sie herunter und entpacke sie in einen eigenen Ordner.
 
 #### Korrekturen und Sicherheit
 
@@ -118,6 +118,44 @@ Hudini Host shows this file too ("What's new"): keep the format described in `do
 - Gleichzeitige Änderungen mehrerer Moderatoren überschreiben sich nicht mehr.
 - Kamera- und Bildschirmverbindungen sind zuverlässiger.
 - Aktualisiere nach dem Update einmal die Browser-Quelle in OBS.
+
+### Testing
+
+**EN**
+- Install into a separate folder. To keep your settings, close Hudini and copy the "data" folder from 1.1 (keep the original).
+- After the first start, refresh the browser source in OBS.
+- OBS camera as a backdrop: delay, picture, several moderators, what happens when the virtual camera stops.
+- App sounds and system notifications, also with the window minimized to the tray.
+- Updates: switching channels, "Update and restart", the confirmation window while a stream is live.
+- Moderators on 1.1 together with a streamer on the beta.
+- macOS and Linux: report anything that looks or works differently.
+
+**RU**
+- Ставь в отдельную папку. Чтобы сохранить настройки, закрой Hudini и скопируй папку «data» из 1.1 (оригинал оставь).
+- После первого запуска обнови браузерный источник в OBS.
+- Камера OBS фоном: задержка, картинка, несколько модераторов, что происходит при остановке виртуальной камеры.
+- Звуки программы и системные уведомления, в том числе при окне, свёрнутом в трей.
+- Обновления: смена канала, «Обновить и перезапустить», окно подтверждения во время стрима.
+- Модераторы на 1.1 вместе со стримером на бете.
+- macOS и Linux: сообщай обо всём, что выглядит или работает иначе.
+
+**UK**
+- Став в окрему теку. Щоб зберегти налаштування, закрий Hudini і скопіюй теку «data» з 1.1 (оригінал залиш).
+- Після першого запуску онови браузерне джерело в OBS.
+- Камера OBS тлом: затримка, картинка, кілька модераторів, що відбувається після зупинки віртуальної камери.
+- Звуки програми та системні сповіщення, зокрема з вікном, згорнутим у трей.
+- Оновлення: зміна каналу, «Оновити й перезапустити», вікно підтвердження під час стриму.
+- Модератори на 1.1 разом зі стрімером на беті.
+- macOS і Linux: повідомляй про все, що виглядає чи працює інакше.
+
+**DE**
+- Installiere in einen eigenen Ordner. Um die Einstellungen zu behalten, schließe Hudini und kopiere den Ordner „data“ aus 1.1 (das Original behalten).
+- Aktualisiere nach dem ersten Start die Browser-Quelle in OBS.
+- OBS-Kamera als Hintergrund: Verzögerung, Bild, mehrere Moderatoren, was beim Stoppen der virtuellen Kamera passiert.
+- Programm-Sounds und Systembenachrichtigungen, auch bei in den Tray minimiertem Fenster.
+- Updates: Kanalwechsel, „Aktualisieren und neu starten“, das Bestätigungsfenster während eines Streams.
+- Moderatoren mit 1.1 zusammen mit einem Streamer auf der Beta.
+- macOS und Linux: melde alles, was anders aussieht oder funktioniert.
 
 ## 1.1.3
 

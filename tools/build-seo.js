@@ -23,7 +23,9 @@ const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': B
 const need = (c, m) => { if(!c) throw new Error('build-seo: ' + m); };
 
 function page(lang){
-  const t = JSON.parse(JSON.stringify(T[lang] || null).replaceAll('{ver}', VERSION)), g = G[lang] || G.en, pre = lang === 'en' ? '' : '../';
+  // the search title is short: it names the release without the -rc suffix
+  const src = T[lang] && { ...T[lang], seoTitle: T[lang].seoTitle?.replaceAll('{ver}', VERSION.split('-')[0]) };
+  const t = JSON.parse(JSON.stringify(src || null).replaceAll('{ver}', VERSION)), g = G[lang] || G.en, pre = lang === 'en' ? '' : '../';
   need(t && t.seoTitle && t.seoDesc, 'seoTitle/seoDesc missing for ' + lang);
   let h = tpl;
 

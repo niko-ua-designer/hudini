@@ -6,6 +6,9 @@ const T = require('./lib');
 const { step, check, eq, until, sleep } = T;
 const TOKEN = 'app-line-token';
 const EVIL = '<img src=x onerror="window.__pwned=1">';
+// an rc build starts on the beta channel, a finished version on the stable one
+const VERSION = /^const VERSION = '([^']+)'/m.exec(fs.readFileSync(path.join(T.ROOT, 'server', 'server.js'), 'utf8'))[1];
+const CHANNEL = VERSION.includes('-') ? 'beta' : 'stable';
 
 // the app around the page: its program answers app_ui with the event hudini-info
 function fakeProgram(opts){
@@ -39,7 +42,7 @@ function fakeProgram(opts){
     const infos = () => h.log().split('\n').filter(l => l.startsWith(TOKEN + ' INFO ')).map(l => JSON.parse(l.slice(TOKEN.length + 6)));
     async function ask(req){ const n = infos().length; h.proc.stdin.write('UI ' + JSON.stringify(req) + '\n'); await until(() => infos().length > n, 5000); return infos()[n]; }
     const a = await ask({ op: 'info', lang: 'en', log: true });
-    check(a && a.upd.channel === 'stable' && a.upd.auto === true && /^\d+\.\d+\.\d+/.test(a.current) && a.entries.length > 0 && a.ui.sounds === null, 'state and changes', a && { ...a, entries: a.entries?.length });
+    check(a && a.upd.channel === CHANNEL && a.upd.auto === true && /^\d+\.\d+\.\d+/.test(a.current) && a.entries.length > 0 && a.ui.sounds === null, 'state and changes', a && { ...a, entries: a.entries?.length });
     const b = await ask({ op: 'channel', value: 'beta' });
     eq([b.upd.channel, b.error, b.entries], ['beta', undefined, undefined], 'the channel is switched; changes only when asked');
     eq((await ask({ op: 'auto', value: false })).upd.auto, false, 'automatic download off');
@@ -56,8 +59,8 @@ function fakeProgram(opts){
 
   await step('the Host of the streamer role does not answer them', async () => {
     const h = T.startHost({ OVERLAY_SITE: 'off', OVERLAY_APP: '1', OVERLAY_APP_TOKEN: TOKEN }); await h.ready();
-    h.proc.stdin.write('UI {"op":"channel","value":"beta"}\n'); await sleep(700);
-    check(!h.log().includes(TOKEN + ' INFO ') && (await h.api('/api/status')).upd.channel === 'stable', 'ignored');
+    h.proc.stdin.write(`UI {"op":"channel","value":"${CHANNEL === 'beta' ? 'stable' : 'beta'}"}\n`); await sleep(700);
+    check(!h.log().includes(TOKEN + ' INFO ') && (await h.api('/api/status')).upd.channel === CHANNEL, 'ignored');
     h.proc.stdin.end(); await h.stop();
   });
 
